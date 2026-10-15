@@ -1,0 +1,12 @@
+=== MANDATORY MANUAL COMMANDS (requires sudo terminal) ===
+# Copy service file to system directory
+sudo cp /home/gabo/study-platform/systemd/study-platform.service /etc/systemd/system/study-platform.service
+
+# Reload daemon, enable, start
+sudo systemctl daemon-reload
+sudo systemctl enable study-platform
+sudo systemctl start study-platform
+
+# Verify
+sudo systemctl status study-platform --no-pager
+curl -fsS http://127.0.0.1:8091/health

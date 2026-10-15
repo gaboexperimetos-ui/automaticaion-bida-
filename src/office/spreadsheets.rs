@@ -1,0 +1,630 @@
+//! Spreadsheet editor — an HTML table with `contenteditable` cells.
+//!
+//! Sheets are stored as `data/office/sheets/{slug}.csv`. The grid is serialized
+//! client-side into a hidden `csv_data` field and POSTed to the import endpoint
+//! (which also accepts pasted CSV). Export parses the CSV, evaluates `SUM`/`AVG`
+//! formulas server-side, and returns the computed values as CSV.
+
+use axum::{
+    extract::{Path, State},
+    response::{IntoResponse, Response},
+    Form,
+};
+use serde::Deserialize;
+use std::sync::Arc;
+
+use crate::office::sheets_dir;
+use crate::office::templates;
+use crate::office::templates::{hx_redirect, layout, slugify};
+use crate::AppState;
+
+/// Input bounds (400 on violation).
+const MAX_TITLE_LEN: usize = 200;
+const MAX_CSV_LEN: usize = 1_000_000;
+
+/// Generic public message for 500-class failures (never leaks internals).
+const INTERNAL_ERROR_HTML: &str =
+    "<p class=\"text-red-400\">No se pudo completar la operación.</p>";
+
+/// Create form.
+#[derive(Deserialize)]
+pub struct SheetForm {
+    pub title: String,
+}
+
+/// Import / save-grid form. Accepts pasted CSV via `csv_data`.
+#[derive(Deserialize)]
+pub struct ImportForm {
+    pub csv_data: String,
+}
+
+/// List all spreadsheets.
+pub async fn list(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let dir = sheets_dir(&state);
+    let files = templates::list_files(&dir, "csv");
+
+    let rows = if files.is_empty() {
+        r#"<p class="text-gray-500">No hay hojas aún.</p>"#.to_string()
+    } else {
+        files
+            .iter()
+            .map(|f| {
+                format!(
+                    r#"<tr class="border-t border-gray-800">
+                        <td class="py-2"><a href="/office/sheets/{slug}" class="text-accent hover:text-cyan-300">{display}</a></td>
+                        <td class="py-2 text-sm text-gray-500">{size}</td>
+                        <td class="py-2 text-sm text-gray-500">{modified}</td>
+                        <td class="py-2 space-x-2">
+                            <a href="/office/sheets/{slug}/export" class="text-xs text-gray-400 hover:text-white">exportar</a>
+                            <form hx-post="/office/sheets/{slug}/delete" class="inline">
+                                <button type="submit" onclick="return confirm('¿Borrar?')"
+                                    class="text-xs text-red-400 hover:text-red-300">borrar</button>
+                            </form>
+                        </td>
+                    </tr>"#,
+                    slug = templates::html_escape(&f.name),
+                    display = templates::html_escape(&f.display),
+                    size = templates::human_size(f.size),
+                    modified = &f.modified,
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+
+    let body = format!(
+        r#"<div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-accent">Hojas de cálculo</h2>
+            <a href="/office/sheets/new" class="px-4 py-2 bg-accent text-black font-bold rounded hover:bg-cyan-300">+ Nueva</a>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+                <thead class="border-b border-gray-800"><tr>
+                    <th class="py-2 text-gray-400">Nombre</th>
+                    <th class="py-2 text-gray-400">Tamaño</th>
+                    <th class="py-2 text-gray-400">Modificado</th>
+                    <th class="py-2 text-gray-400">Acciones</th>
+                </tr></thead>
+                <tbody>{rows}</tbody>
+            </table>
+        </div>"#,
+        rows = rows,
+    );
+
+    layout("Hojas de cálculo", &body)
+}
+
+/// New-sheet form.
+pub async fn new_sheet() -> impl IntoResponse {
+    let body = r#"<h2 class="text-xl font-bold text-accent mb-4">Nueva hoja</h2>
+<form hx-post="/office/sheets" hx-swap="outerHTML" class="space-y-4">
+    <div>
+        <label class="block text-sm text-gray-400 mb-1">Título</label>
+        <input type="text" name="title" required
+            class="w-full px-4 py-2 bg-card border border-gray-700 rounded text-white focus:border-accent focus:outline-none">
+    </div>
+    <button type="submit" class="px-6 py-2 bg-accent text-black font-bold rounded hover:bg-cyan-300">Crear</button>
+</form>"#;
+    layout("Nueva hoja", &body)
+}
+
+/// Create a spreadsheet (empty grid).
+pub async fn create(
+    State(state): State<Arc<AppState>>,
+    Form(form): Form<SheetForm>,
+) -> impl IntoResponse {
+    let slug = slugify(&form.title);
+    if slug == "untitled" && form.title.trim().is_empty() {
+        return (
+            axum::http::StatusCode::BAD_REQUEST,
+            layout(
+                "Error",
+                "<p class=\"text-red-400\">El título es obligatorio.</p>",
+            ),
+        )
+            .into_response();
+    }
+    if form.title.len() > MAX_TITLE_LEN {
+        return (
+            axum::http::StatusCode::BAD_REQUEST,
+            layout(
+                "Error",
+                "<p class=\"text-red-400\">El título es demasiado largo.</p>",
+            ),
+        )
+            .into_response();
+    }
+    let file_path = sheets_dir(&state).join(format!("{}.csv", slug));
+    if file_path.exists() {
+        return (
+            axum::http::StatusCode::CONFLICT,
+            layout(
+                "Conflicto",
+                "<p class=\"text-red-400\">Ya existe una hoja con ese título.</p>",
+            ),
+        )
+            .into_response();
+    }
+    // Seed an empty 5x5 grid so the editor has something to render.
+    let seed = ",,,,\n,,,,\n,,,,\n,,,,\n,,,,".to_string();
+    if let Err(e) = templates::write_text(&file_path, &seed) {
+        tracing::error!(
+            slug_len = slug.len(),
+            "office sheets create: seed write failed: {}",
+            e
+        );
+        return (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            layout("Error", INTERNAL_ERROR_HTML),
+        )
+            .into_response();
+    }
+    hx_redirect(&format!("/office/sheets/{}", slug))
+}
+
+/// Edit a spreadsheet (contenteditable grid).
+pub async fn edit(
+    State(state): State<Arc<AppState>>,
+    Path(slug): Path<String>,
+) -> impl IntoResponse {
+    if !crate::office::is_safe_slug(&slug) {
+        return (
+            axum::http::StatusCode::BAD_REQUEST,
+            layout("Error", "<p class=\"text-red-400\">Nombre no válido.</p>"),
+        )
+            .into_response();
+    }
+    let file_path = sheets_dir(&state).join(format!("{}.csv", slug));
+    if !file_path.exists() {
+        return (
+            axum::http::StatusCode::NOT_FOUND,
+            layout(
+                "No encontrado",
+                "<p class=\"text-gray-500\">Hoja no encontrada.</p>",
+            ),
+        )
+            .into_response();
+    }
+    let raw = templates::read_text(&file_path);
+    let rows = parse_csv(&raw);
+    let computed = compute_grid(&rows);
+    let grid_html = render_grid(&slug, &rows, &computed);
+    let body = format!(
+        r#"<div class="flex justify-between items-center mb-3">
+            <h2 class="text-xl font-bold text-accent">Hoja: <span class="text-white">{title}</span></h2>
+            <div class="space-x-2">
+                <a href="/office/sheets/{slug}/export" class="px-3 py-1 bg-accent text-black font-bold rounded text-sm hover:bg-cyan-300">Exportar CSV</a>
+                <form hx-post="/office/sheets/{slug}/delete" class="inline">
+                    <button type="submit" onclick="return confirm('¿Borrar hoja?')"
+                        class="px-3 py-1 bg-red-700 border border-red-800 rounded text-sm hover:bg-red-600">Borrar</button>
+                </form>
+            </div>
+        </div>
+        <div>
+            <h3 class="text-sm font-bold text-accent mb-1">Importar CSV (pega o escribe contenido)</h3>
+            <p class="text-xs text-gray-500 mb-2">Fórmulas soportadas: =SUM(rango), =AVG(rango). Las fórmulas no soportadas muestran #ERROR en la rejilla y en la exportación.</p>
+            <form hx-post="/office/sheets/{slug}/import" class="mb-4">
+                <textarea name="csv_data" rows="6"
+                    class="w-full px-3 py-2 bg-card border border-gray-700 rounded text-white font-mono text-sm focus:border-accent focus:outline-none"></textarea>
+                <button type="submit" class="mt-2 px-4 py-1 bg-accent text-black font-bold rounded text-sm hover:bg-cyan-300">Importar</button>
+            </form>
+            {grid}
+        </div>"#,
+        title = templates::html_escape(&slug.replace('-', " ")),
+        slug = templates::html_escape(&slug),
+        grid = grid_html,
+    );
+    layout(&format!("Hoja: {}", slug), &body).into_response()
+}
+
+/// Import CSV (or save the grid). Accepts `csv_data` (the grid is serialized
+/// client-side into this hidden field before submit).
+pub async fn import(
+    State(state): State<Arc<AppState>>,
+    Path(slug): Path<String>,
+    Form(form): Form<ImportForm>,
+) -> impl IntoResponse {
+    if !crate::office::is_safe_slug(&slug) {
+        return (
+            axum::http::StatusCode::BAD_REQUEST,
+            layout("Error", "<p class=\"text-red-400\">Nombre no válido.</p>"),
+        )
+            .into_response();
+    }
+    let file_path = sheets_dir(&state).join(format!("{}.csv", slug));
+    if !file_path.exists() {
+        return (
+            axum::http::StatusCode::NOT_FOUND,
+            layout(
+                "No encontrado",
+                "<p class=\"text-gray-500\">Hoja no encontrada.</p>",
+            ),
+        )
+            .into_response();
+    }
+    // Validate the pasted CSV parses (best-effort); store the raw text so user
+    // can re-edit pasted content that the strict parser might reject.
+    let _ = parse_csv(&form.csv_data);
+    if form.csv_data.len() > MAX_CSV_LEN {
+        return (
+            axum::http::StatusCode::BAD_REQUEST,
+            layout(
+                "Error",
+                "<p class=\"text-red-400\">El contenido es demasiado grande.</p>",
+            ),
+        )
+            .into_response();
+    }
+    if let Err(e) = templates::write_text(&file_path, &form.csv_data) {
+        tracing::error!(
+            slug_len = slug.len(),
+            "office sheets import: write failed: {}",
+            e
+        );
+        return (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            layout("Error", INTERNAL_ERROR_HTML),
+        )
+            .into_response();
+    }
+    hx_redirect(&format!("/office/sheets/{}", slug))
+}
+
+/// Export the spreadsheet as CSV with `SUM`/`AVG` formulas evaluated.
+pub async fn export(
+    State(state): State<Arc<AppState>>,
+    Path(slug): Path<String>,
+) -> impl IntoResponse {
+    if !crate::office::is_safe_slug(&slug) {
+        return (axum::http::StatusCode::BAD_REQUEST, "invalid name").into_response();
+    }
+    let file_path = sheets_dir(&state).join(format!("{}.csv", slug));
+    if !file_path.exists() {
+        return (axum::http::StatusCode::NOT_FOUND, "sheet not found").into_response();
+    }
+    let raw = templates::read_text(&file_path);
+    let rows = parse_csv(&raw);
+    let computed = compute_grid(&rows);
+    let bytes = write_csv(&computed);
+    templates::file_download(
+        &format!("{}.csv", slug),
+        templates::mime_for_ext("csv"),
+        bytes,
+    )
+}
+
+/// Delete a spreadsheet.
+pub async fn delete(
+    State(state): State<Arc<AppState>>,
+    Path(slug): Path<String>,
+) -> impl IntoResponse {
+    if !crate::office::is_safe_slug(&slug) {
+        return (
+            axum::http::StatusCode::BAD_REQUEST,
+            layout("Error", "<p class=\"text-red-400\">Nombre no válido.</p>"),
+        )
+            .into_response();
+    }
+    let file_path = sheets_dir(&state).join(format!("{}.csv", slug));
+    let _ = std::fs::remove_file(&file_path);
+    hx_redirect("/office/sheets")
+}
+
+// ---------------------------------------------------------------------------
+// Grid rendering
+// ---------------------------------------------------------------------------
+
+fn render_grid(slug: &str, rows: &[Vec<String>], computed: &[Vec<String>]) -> String {
+    let cols = rows.iter().map(|r| r.len()).max().unwrap_or(0).max(5);
+    let display_rows = if rows.is_empty() { 5 } else { rows.len() };
+
+    let mut editable =
+        String::from(r#"<table id="grid" class="border-collapse w-full text-sm mb-2">"#);
+    for r in 0..display_rows {
+        editable.push_str("<tr>");
+        for c in 0..cols {
+            let val = rows
+                .get(r)
+                .and_then(|row| row.get(c))
+                .map(|s| templates::html_escape(s))
+                .unwrap_or_default();
+            editable.push_str(&format!(
+                "<td contenteditable=\"true\" data-r=\"{r}\" data-c=\"{c}\" class=\"border border-gray-800 px-1 py-0.5 w-24 min-w-0\">{val}</td>",
+            ));
+        }
+        editable.push_str("</tr>");
+    }
+    editable.push_str("</table>");
+
+    let mut values = String::from(r#"<table class="border-collapse w-full text-sm mt-2"><tbody>"#);
+    for r in 0..display_rows {
+        values.push_str("<tr>");
+        for c in 0..cols {
+            let val = computed
+                .get(r)
+                .and_then(|row| row.get(c))
+                .map(|s| templates::html_escape(s))
+                .unwrap_or_default();
+            values.push_str(&format!(
+                "<td class=\"border border-gray-800 px-1 py-0.5 bg-card text-gray-300\">{val}</td>",
+            ));
+        }
+        values.push_str("</tr>");
+    }
+    values.push_str("</tbody></table>");
+
+    let header = (0..cols).map(row_to_header).collect::<Vec<_>>().join(" ");
+
+    format!(
+        r#"<form hx-post="/office/sheets/{slug}/import" hx-on::before-request="serializeGrid()" class="mb-2">
+            <input type="hidden" name="csv_data" id="csv_data" value="">
+            <button type="submit" class="px-4 py-1 bg-accent text-black font-bold rounded text-sm hover:bg-cyan-300">Guardar cuadrícula</button>
+        </form>
+        <div class="mb-2">
+            <span class="text-xs text-gray-400">Valores calculados (soportado: =SUM(rango), =AVG(rango); no soportadas: #ERROR):</span>
+            {values}
+            <span class="ml-3 text-xs text-gray-500">Columnas: {header}</span>
+        </div>
+        <script>
+            {grid_js}
+        </script>"#,
+        slug = slug,
+        values = values,
+        header = header,
+        grid_js = templates::GRID_SERIALIZE_JS,
+    )
+}
+
+fn row_to_header(col: usize) -> String {
+    let mut n = col + 1;
+    let mut s = String::new();
+    while n > 0 {
+        let rem = (n - 1) % 26;
+        s.insert(0, char::from(b'A' + rem as u8));
+        n = (n - 1) / 26;
+    }
+    s
+}
+
+// ---------------------------------------------------------------------------
+// CSV + formula engine
+// ---------------------------------------------------------------------------
+
+fn parse_csv(text: &str) -> Vec<Vec<String>> {
+    if text.trim().is_empty() {
+        return Vec::new();
+    }
+    let mut rows = Vec::new();
+    let mut rdr = csv::ReaderBuilder::new()
+        .has_headers(false)
+        .flexible(true)
+        .from_reader(text.as_bytes());
+    let mut parsed_any = false;
+    for rec in rdr.records() {
+        match rec {
+            Ok(r) => {
+                rows.push(r.iter().map(|f| f.to_string()).collect::<Vec<_>>());
+                parsed_any = true;
+            }
+            Err(_) => {}
+        }
+    }
+    if !parsed_any {
+        for line in text.lines() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            rows.push(line.split(',').map(|s| s.trim().to_string()).collect());
+        }
+    }
+    rows
+}
+
+fn write_csv(rows: &[Vec<String>]) -> Vec<u8> {
+    let mut wtr = csv::WriterBuilder::new()
+        .has_headers(false)
+        .from_writer(Vec::new());
+    for row in rows {
+        let rec: Vec<&str> = row.iter().map(|s| s.as_str()).collect();
+        if wtr.write_record(&rec).is_err() {
+            break;
+        }
+    }
+    wtr.into_inner().unwrap_or_default()
+}
+
+/// Column letters (`A`..) → zero-based index.
+fn col_letter_to_idx(col: &str) -> Option<usize> {
+    let upper = col.trim().to_uppercase();
+    if upper.is_empty() || !upper.chars().all(|c| c.is_ascii_alphabetic()) {
+        return None;
+    }
+    let mut idx: usize = 0;
+    for c in upper.chars() {
+        idx = idx * 26 + ((c as u8 - b'A') as usize + 1);
+    }
+    Some(idx - 1)
+}
+
+/// `A1` → `(col, row)` zero-based.
+fn parse_cell_ref(s: &str) -> Option<(usize, usize)> {
+    let s = s.trim();
+    let mut split = 0;
+    while split < s.len() && s.as_bytes()[split].is_ascii_alphabetic() {
+        split += 1;
+    }
+    if split == 0 || split == s.len() {
+        return None;
+    }
+    let col = col_letter_to_idx(&s[..split])?;
+    let row: usize = s[split..].parse().ok()?;
+    if row == 0 {
+        return None;
+    }
+    Some((col, row - 1))
+}
+
+/// `A1:B2` → `(c1, r1, c2, r2)`.
+fn parse_range(s: &str) -> Option<(usize, usize, usize, usize)> {
+    let s = s.trim();
+    let (start, end) = match s.find(':') {
+        Some(pos) => (&s[..pos], &s[pos + 1..]),
+        None => (s, s),
+    };
+    let (c1, r1) = parse_cell_ref(start)?;
+    let (c2, r2) = parse_cell_ref(end)?;
+    Some((c1.min(c2), r1.min(r2), c1.max(c2), r2.max(r2)))
+}
+
+fn parse_func(body: &str) -> Option<(String, String)> {
+    let paren = body.find('(')?;
+    let close = body.rfind(')')?;
+    if close < paren {
+        return None;
+    }
+    let name = body[..paren].trim().to_lowercase();
+    let inner = body[paren + 1..close].trim().to_string();
+    if name != "sum" && name != "avg" && name != "average" {
+        return None;
+    }
+    Some((name, inner))
+}
+
+fn parse_number(s: &str) -> Option<f64> {
+    let s = s.trim();
+    if s.is_empty() || s.starts_with('=') {
+        return None;
+    }
+    s.parse::<f64>().ok()
+}
+
+/// Evaluate a single `=SUM(...)` / `=AVG(...)` formula against the raw grid.
+fn eval_formula(formula: &str, grid: &[Vec<String>]) -> Option<f64> {
+    let f = formula.trim();
+    if !f.starts_with('=') {
+        return None;
+    }
+    let body = f[1..].trim();
+    let (func, range) = parse_func(body)?;
+    let (c1, r1, c2, r2) = parse_range(&range)?;
+    let mut vals: Vec<f64> = Vec::new();
+    for r in r1..=r2 {
+        if r >= grid.len() {
+            continue;
+        }
+        for c in c1..=c2 {
+            if c >= grid[r].len() {
+                continue;
+            }
+            if let Some(v) = parse_number(&grid[r][c]) {
+                vals.push(v);
+            }
+        }
+    }
+    match func.as_str() {
+        "sum" => Some(vals.iter().sum()),
+        "avg" | "average" => {
+            if vals.is_empty() {
+                Some(0.0)
+            } else {
+                Some(vals.iter().sum::<f64>() / vals.len() as f64)
+            }
+        }
+        _ => None,
+    }
+}
+
+fn fmt_num(v: f64) -> String {
+    if v.fract() == 0.0 && v.abs() < 1e15 {
+        format!("{}", v as i64)
+    } else {
+        format!("{}", v)
+    }
+}
+
+/// Replace every `=...` cell with its computed numeric value. The raw grid is
+/// read-only so formula cells referencing other formula cells do not recurse.
+/// Cells with unsupported formulas become a `#ERROR` marker (surfaced both in
+/// the rendered grid and in CSV export) instead of keeping raw `=...` text.
+fn compute_grid(grid: &[Vec<String>]) -> Vec<Vec<String>> {
+    let mut out = grid.to_vec();
+    for row in out.iter_mut() {
+        for cell in row.iter_mut() {
+            if cell.trim_start().starts_with('=') {
+                let raw = cell.trim().to_string();
+                if let Some(v) = eval_formula(cell, grid) {
+                    *cell = fmt_num(v);
+                } else {
+                    *cell = format!(
+                        "#ERROR: unsupported formula '{}' (supported: =SUM(range), =AVG(range))",
+                        raw
+                    );
+                }
+            }
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn col_letter_roundtrip() {
+        assert_eq!(col_letter_to_idx("A"), Some(0));
+        assert_eq!(col_letter_to_idx("Z"), Some(25));
+        assert_eq!(col_letter_to_idx("AA"), Some(26));
+    }
+
+    #[test]
+    fn parse_cell_ref_basic() {
+        assert_eq!(parse_cell_ref("A1"), Some((0, 0)));
+        assert_eq!(parse_cell_ref("B2"), Some((1, 1)));
+        assert_eq!(parse_cell_ref("A10"), Some((0, 9)));
+    }
+
+    #[test]
+    fn parse_range_basic() {
+        assert_eq!(parse_range("A1:A3"), Some((0, 0, 0, 2)));
+        assert_eq!(parse_range("A1:B2"), Some((0, 0, 1, 1)));
+    }
+
+    #[test]
+    fn sum_formula_evaluates() {
+        let grid = vec![
+            vec!["1".to_string(), "=SUM(A1:A3)".to_string()],
+            vec!["2".to_string(), "".to_string()],
+            vec!["3".to_string(), "".to_string()],
+        ];
+        let computed = compute_grid(&grid);
+        assert_eq!(computed[0][1], "6");
+    }
+
+    #[test]
+    fn avg_formula_evaluates() {
+        let grid = vec![
+            vec!["2".to_string(), "".to_string()],
+            vec!["4".to_string(), "=AVG(A1:A2)".to_string()],
+        ];
+        let computed = compute_grid(&grid);
+        assert_eq!(computed[1][1], "3");
+    }
+
+    #[test]
+    fn parse_csv_grid() {
+        let rows = parse_csv("1,2,3\n4,5,6");
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0], vec!["1", "2", "3"]);
+        assert_eq!(rows[1], vec!["4", "5", "6"]);
+    }
+
+    #[test]
+    fn write_csv_roundtrip() {
+        let rows = parse_csv("1,2\n3,4");
+        let bytes = write_csv(&rows);
+        let s = String::from_utf8_lossy(&bytes).to_string();
+        assert!(s.contains("1,2"));
+        assert!(s.contains("3,4"));
+    }
+}

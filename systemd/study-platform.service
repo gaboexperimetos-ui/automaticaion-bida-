@@ -1,0 +1,23 @@
+[Unit]
+Description=Study Platform - Academic Productivity
+After=network.target
+
+[Service]
+Type=simple
+User=gabo
+Group=gabo
+WorkingDirectory=/home/gabo/study-platform
+EnvironmentFile=/home/gabo/study-platform/.env
+# Localhost-only bind. Port MUST match the verified-free port from
+# docs/DEPLOY_RUNBOOK_M10.md step 2 and the PORT value in .env.
+# 8090 was occupied at runbook draft time, so 8091 is the default alternative.
+ExecStart=/home/gabo/study-platform/study-platform --addr 127.0.0.1:8091
+Restart=always
+RestartSec=10
+MemoryMax=1G
+CPUQuota=200%
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

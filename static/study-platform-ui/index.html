@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0d13">
+  <meta name="description" content="Study Platform — centro de control académico personal.">
+  <title>Study Platform · Personal Learning OS</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar" aria-label="Barra lateral">
+    <a class="brand" href="#dashboard" aria-label="Study Platform, inicio">
+      <span class="brand-mark"><span></span><span></span><span></span><span></span></span>
+      <span class="brand-name">STUDY<span> PLATFORM</span><small>PERSONAL LEARNING OS</small></span>
+    </a>
+    <button class="workspace-switcher" id="workspaceMenu" type="button" aria-label="Cambiar espacio de trabajo">
+      <span class="workspace-avatar">S</span>
+      <span class="workspace-copy"><b>Mi espacio personal</b><small>Un espacio · Solo tú</small></span>
+      <span class="chevron" aria-hidden="true">⌄</span>
+    </button>
+    <nav class="nav" aria-label="Navegación principal">
+      <div class="nav-label">TU ESPACIO</div>
+      <button class="nav-item active" data-page="dashboard" type="button"><span class="nav-icon">⌂</span><span>Resumen</span><kbd>G H</kbd></button>
+      <button class="nav-item" data-page="agenda" type="button"><span class="nav-icon">▦</span><span>Agenda</span><span class="nav-count" id="agendaCount">3</span></button>
+      <button class="nav-item" data-page="tasks" type="button"><span class="nav-icon">✓</span><span>Tareas</span><span class="nav-count" id="taskCount">3</span></button>
+      <button class="nav-item" data-page="subjects" type="button"><span class="nav-icon">▤</span><span>Asignaturas</span></button>
+      <button class="nav-item" data-page="exams" type="button"><span class="nav-icon">◷</span><span>Exámenes</span></button>
+      <button class="nav-item" data-page="brain" type="button"><span class="nav-icon">◇</span><span>Segundo cerebro</span></button>
+      <button class="nav-item" data-page="library" type="button"><span class="nav-icon">▧</span><span>Biblioteca</span></button>
+      <div class="nav-section-heading nav-spaced"><span class="nav-label">INTELIGENCIA</span></div>
+      <button class="nav-item" data-page="assistant" type="button"><span class="nav-icon ai-icon">✳</span><span>Chat académico</span><span class="live-dot"></span></button>
+      <div class="nav-section-heading nav-spaced"><span class="nav-label">HERRAMIENTAS</span></div>
+      <button class="nav-item" data-page="office" type="button"><span class="nav-icon">▣</span><span>Suite de oficina</span></button>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="focus-bar">
+        <div class="eyebrow"><span class="eyebrow-line"></span> SESIÓN DE ENFOQUE</div>
+        <div class="focus-total"><strong id="miniFocusTime">25:00</strong><span class="status-tag demo-tag">POMODORO</span></div>
+        <div class="focus-stat"><span>Un paso a la vez.</span><button class="icon-button tiny" id="miniFocusStart" type="button" aria-label="Iniciar temporizador">▶</button></div>
+      </div>
+      <button class="nav-item" data-page="settings" type="button"><span class="nav-icon">⚙</span><span>Configuración</span></button>
+      <div class="profile-row"><span class="profile-avatar">S</span><span class="profile-copy"><b id="profileName">Mi espacio</b><small>Plan personal</small></span><button class="icon-button" id="profileMenu" type="button" aria-label="Opciones de perfil">···</button></div>
+    </div>
+  </aside>
+
+  <main class="main-area">
+    <header class="topbar">
+      <div class="mobile-brand"><button class="icon-button" id="mobileNav" type="button" aria-label="Abrir menú">☰</button><span class="brand-mark compact"><span></span><span></span><span></span><span></span></span></div>
+      <div class="breadcrumbs"><span>Mi espacio</span><span class="crumb-slash">/</span><b id="crumbCurrent">Inicio</b></div>
+      <div class="topbar-actions">
+        <label class="global-search"><span aria-hidden="true">⌕</span><input id="globalSearch" type="search" placeholder="Buscar notas y tareas…" autocomplete="off" aria-label="Buscar"><kbd>Ctrl K</kbd></label>
+        <button class="icon-button notification-btn" id="notificationsBtn" type="button" aria-label="Notificaciones">♧</button>
+        <button class="top-avatar" id="topProfile" type="button" aria-label="Abrir configuración">S</button>
+      </div>
+    </header>
+
+    <div class="page-wrap">
+      <div class="demo-banner" role="status"><span class="demo-icon">i</span><span><b>Prototipo local.</b> Los datos se guardan en este navegador; el chat todavía usa respuestas demostrativas.</span><button class="banner-close" id="closeBanner" type="button" aria-label="Cerrar aviso">×</button></div>
+
+      <!-- DASHBOARD -->
+      <section class="page active" id="page-dashboard">
+        <div class="page-heading dashboard-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> <span id="prettyDate">TU CENTRO DE CONTROL</span></div><h1>Vamos a hacer que <span class="gradient-text">cuente el día.</span></h1><p class="muted">Tus clases, prioridades y conocimientos en un solo lugar.</p></div>
+          <div class="heading-actions add-wrap"><button class="button button-primary" id="addMain" type="button" aria-haspopup="true" aria-expanded="false">＋ Crear <span class="button-caret">⌄</span></button>
+            <div class="dropdown-menu" id="addDropdown" role="menu">
+              <button type="button" data-add="task" role="menuitem"><span class="menu-symbol green">✓</span><span><b>Nueva tarea</b><small>Añade algo que debes completar</small></span></button>
+              <button type="button" data-add="event" role="menuitem"><span class="menu-symbol cyan">▦</span><span><b>Clase o evento</b><small>Reserva un espacio en tu agenda</small></span></button>
+              <button type="button" data-add="exam" role="menuitem"><span class="menu-symbol orange">◷</span><span><b>Examen</b><small>Programa una evaluación</small></span></button>
+              <button type="button" data-add="subject" role="menuitem"><span class="menu-symbol violet">▤</span><span><b>Asignatura</b><small>Organiza una materia nueva</small></span></button>
+              <button type="button" data-add="note" role="menuitem"><span class="menu-symbol pink">◇</span><span><b>Nota de conocimiento</b><small>Guarda una idea o apunte</small></span></button>
+            </div>
+          </div>
+        </div>
+        <div class="stats-grid">
+          <article class="stat-card stat-green"><div class="stat-top"><span class="stat-label">TAREAS PENDIENTES</span><span class="stat-icon">✓</span></div><strong class="stat-value" id="statTasks">03</strong><div class="stat-foot"><span>Avanza una a una</span><span class="green">↗</span></div></article>
+          <article class="stat-card stat-orange"><div class="stat-top"><span class="stat-label">PRÓXIMOS EXÁMENES</span><span class="stat-icon">◷</span></div><strong class="stat-value" id="statExams">02</strong><div class="stat-foot"><span>Prepara tu semana</span><span class="orange">↗</span></div></article>
+          <article class="stat-card stat-violet"><div class="stat-top"><span class="stat-label">NOTAS GUARDADAS</span><span class="stat-icon">◇</span></div><strong class="stat-value" id="statNotes">04</strong><div class="stat-foot"><span>Tu segundo cerebro</span><span class="violet">↗</span></div></article>
+          <article class="stat-card stat-cyan"><div class="stat-top"><span class="stat-label">HORAS DE ENFOQUE</span><span class="stat-icon">◴</span></div><strong class="stat-value"><span id="focusHours">2</span><small>h</small></strong><div class="stat-foot"><span>Objetivo diario</span><span class="cyan">↗</span></div></article>
+        </div>
+        <div class="dashboard-grid">
+          <section class="panel page-panel"><div class="panel-heading"><div><div class="section-kicker">HOY</div><h2>Tu agenda</h2></div><button class="text-button" data-page="agenda" type="button">Ver agenda ↗</button></div><div class="timeline" id="todayTimeline"></div><button class="panel-add" data-add="event" type="button"><span>＋</span> Añadir clase o evento</button></section>
+          <section class="panel page-panel tasks-panel"><div class="panel-heading"><div><div class="section-kicker">SIGUIENTE ACCIÓN</div><h2>Tareas pendientes</h2></div><button class="text-button" data-page="tasks" type="button">Ver todas ↗</button></div><div class="task-list" id="todayTasks"></div><button class="panel-add" data-add="task" type="button"><span>＋</span> Añadir una tarea</button></section>
+          <section class="panel page-panel subjects-panel"><div class="panel-heading"><div><div class="section-kicker">TU PROGRESO</div><h2>Asignaturas</h2></div><button class="text-button" data-page="subjects" type="button">Ver materias ↗</button></div><div class="subject-list" id="subjectPreview"></div><button class="panel-add" data-add="subject" type="button"><span>＋</span> Añadir asignatura</button></section>
+          <section class="assistant-promo"><div class="assistant-orb"><span>✳</span><i class="orb-ring ring-two"></i></div><div class="eyebrow violet-kicker"><span class="eyebrow-line"></span> TU ASISTENTE ACADÉMICO</div><div class="assistant-copy"><h2>Estudia con intención,<br>no a ciegas.</h2><p>Resume apuntes, practica preguntas y organiza tu preparación por asignatura.</p><button class="button purple-button" id="openAssistant" type="button">Abrir chat académico ↗</button></div></section>
+        </div>
+        <footer class="page-footer"><span>STUDY PLATFORM</span><span>Tu conocimiento, en orden.</span><span>DEMO LOCAL</span></footer>
+      </section>
+
+      <!-- AGENDA -->
+      <section class="page" id="page-agenda">
+        <div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> PLANIFICACIÓN</div><h1>Tu <span class="gradient-text">agenda.</span></h1><p class="muted">Clases, bloques de estudio y actividades importantes.</p></div><div class="heading-actions"><button class="button button-secondary" id="exportCalendar" type="button">Exportar calendario</button><button class="button button-primary" data-add="event" type="button">＋ Nuevo evento</button></div></div>
+        <section class="panel page-panel"><div class="panel-heading"><div><div class="section-kicker">PRÓXIMOS DÍAS</div><h2>Lista de eventos</h2></div><span class="status-tag demo-tag">DATOS LOCALES</span></div><div class="agenda-list" id="agendaList"></div></section>
+        <footer class="page-footer"><span>AGENDA PERSONAL</span><span>Exportable a iCalendar</span><span>DEMO LOCAL</span></footer>
+      </section>
+
+      <!-- TASKS -->
+      <section class="page" id="page-tasks">
+        <div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> ACCIONES</div><h1>Tus <span class="gradient-text">tareas.</span></h1><p class="muted">Convierte lo que tienes pendiente en pequeños pasos.</p></div><button class="button button-primary" data-add="task" type="button">＋ Nueva tarea</button></div>
+        <section class="panel page-panel"><div class="panel-heading"><div><div class="section-kicker">LISTA PERSONAL</div><h2 id="taskSummary">Tareas pendientes</h2></div><div class="filter-tabs" id="taskFilters"><button class="selected" data-filter="all" type="button">Todas</button><button data-filter="pending" type="button">Pendientes</button><button data-filter="done" type="button">Completadas</button></div></div><div class="task-page-list" id="taskPageList"></div></section>
+      </section>
+
+      <!-- SUBJECTS -->
+      <section class="page" id="page-subjects">
+        <div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> MATERIAS</div><h1>Tus <span class="gradient-text">asignaturas.</span></h1><p class="muted">Mantén juntos objetivos, apuntes y preparación de cada materia.</p></div><button class="button button-primary" data-add="subject" type="button">＋ Nueva asignatura</button></div>
+        <div class="subject-cards" id="subjectCards"></div>
+      </section>
+
+      <!-- EXAMS -->
+      <section class="page" id="page-exams">
+        <div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> PREPARACIÓN</div><h1>Próximos <span class="gradient-text">exámenes.</span></h1><p class="muted">Registra las evaluaciones y prepara un plan realista.</p></div><button class="button button-primary" data-add="exam" type="button">＋ Añadir examen</button></div>
+        <div class="exam-grid" id="examList"></div>
+      </section>
+
+      <!-- SECOND BRAIN -->
+      <section class="page" id="page-brain">
+        <div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> KNOWLEDGE BASE</div><h1>Segundo <span class="gradient-text">cerebro.</span></h1><p class="muted">Apuntes, ideas y conexiones. Formato Markdown compatible con Obsidian.</p></div><button class="button button-primary" data-add="note" type="button">＋ Nueva nota</button></div>
+        <section class="panel page-panel"><div class="brain-toolbar"><div><div class="section-kicker">CONOCIMIENTO PERSONAL</div><h2>Tus notas</h2></div><label class="inner-search"><span>⌕</span><input id="noteSearch" type="search" placeholder="Buscar por título, contenido o etiqueta…" aria-label="Buscar notas"></label></div><div class="note-grid" id="noteGrid"></div><div class="notice-box"><span>◇</span><p>Esta demo guarda las notas en este navegador. La conexión con la base de datos del servidor y la bóveda real de Obsidian todavía debe integrarse.</p></div></section>
+      </section>
+
+      <!-- LIBRARY -->
+      <section class="page" id="page-library">
+        <div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> ARCHIVOS</div><h1>Tu <span class="gradient-text">biblioteca.</span></h1><p class="muted">Acceso rápido a tus materiales y documentos.</p></div><button class="button button-primary" data-page="office" type="button">Abrir suite ↗</button></div>
+        <section class="panel page-panel"><div class="panel-heading"><div><div class="section-kicker">ARCHIVOS RECIENTES</div><h2>Biblioteca personal</h2></div><button class="button button-secondary button-sm" data-page="office" type="button">Crear archivo en oficina</button></div><p class="muted">Los archivos de demostración se administran desde la Suite de oficina. La biblioteca real del servidor se conectará en una siguiente fase.</p><button class="panel-add" data-page="office" type="button"><span>＋</span> Ir a mis documentos</button></section>
+      </section>
+
+      <!-- CHAT -->
+      <section class="page" id="page-assistant">
+        <div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> STUDY AI</div><h1>Tu compañero de <span class="gradient-text">estudio.</span></h1><p class="muted">Un contexto separado por asignatura y uno general.</p></div><div class="heading-actions"><button class="button button-secondary" id="chatOptions" type="button">⚙ Opciones</button><button class="button button-secondary" id="clearChat" type="button">＋ Nuevo chat</button></div></div>
+        <div class="chat-layout">
+          <aside class="panel page-panel chat-context"><div class="panel-heading"><div><div class="section-kicker">CONTEXTO</div><h2>¿Qué estudiamos?</h2></div></div>
+            <label class="field"><span class="field-label">Conversación / asignatura</span><select class="form-control" id="chatSubject"><option>Contexto general</option></select></label>
+            <div class="context-card"><span class="context-symbol">◇</span><div><b>Contexto de notas</b><p>Usa notas de la materia seleccionada como referencia local de demostración.</p></div></div>
+            <button class="button button-secondary" id="attachContext" type="button">＋ Preparar contexto</button>
+            <div class="context-status"><span class="context-pulse"></span><span><b>Modo de demostración</b><small>No se envía información a ningún modelo.</small></span></div>
+            <div class="prompt-shortcuts"><div class="section-kicker">ATAJOS</div><button type="button" data-prompt="Explícame este tema paso a paso.">◈ Explicar un tema</button><button type="button" data-prompt="Ayúdame a preparar un resumen de mis apuntes.">▤ Crear resumen</button><button type="button" data-prompt="Hazme un cuestionario de práctica con respuestas explicadas.">✓ Practicar preguntas</button><button type="button" data-prompt="Ayúdame a crear un plan de estudio para mi próximo examen.">◷ Plan de examen</button></div>
+          </aside>
+          <section class="panel chat-panel"><div class="chat-topline"><div class="chat-avatar">✳</div><div><b>Study AI</b><small><span class="small-bullet"></span> Interfaz local · IA no conectada en esta demo</small></div><span class="status-tag pending-tag">DEMO</span></div>
+            <div class="chat-messages" id="chatMessages"><div class="chat-date-divider"><span>HOY</span></div><div class="message assistant-message"><div class="message-avatar ai-avatar">✳</div><div class="message-body"><div class="message-meta"><b>Study AI</b><span>Ahora</span></div><div class="message-bubble">¡Hola! Puedo ayudarte a estructurar tus apuntes, preparar resúmenes y planificar el estudio. Esta interfaz todavía no consulta OpenRouter; las respuestas de aquí son demostrativas.</div></div></div><div class="suggestion-chips"><button type="button" data-prompt="Ayúdame a organizar mi semana de estudio.">Organizar mi semana</button><button type="button" data-prompt="Crea una hoja de estudio a partir de mis notas.">Crear hoja de estudio</button><button type="button" data-prompt="Explícame un concepto difícil con ejemplos.">Entender un concepto</button></div></div>
+            <form class="chat-composer" id="chatForm"><textarea id="chatInput" rows="2" maxlength="4000" placeholder="Escribe tu pregunta…" aria-label="Mensaje para el asistente"></textarea><div class="composer-bottom"><div class="composer-tools"><span class="composer-hint">Enter para enviar · Shift + Enter para nueva línea</span></div><div class="composer-disclaimer">Respuesta demostrativa, sin llamada externa</div><button class="send-button" type="submit" aria-label="Enviar mensaje">↑</button></div></form>
+          </section>
+        </div>
+      </section>
+
+      <!-- OFFICE -->
+      <section class="page" id="page-office">
+        <div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> WORKSPACE</div><h1>Suite de <span class="gradient-text">oficina.</span></h1><p class="muted">Documentos, hojas y presentaciones en un solo espacio.</p></div><div class="add-wrap"><button class="button button-primary" id="officeCreate" type="button" aria-haspopup="true" aria-expanded="false">＋ Nuevo archivo <span class="button-caret">⌄</span></button><div class="dropdown-menu" id="officeDropdown" role="menu"><button type="button" data-office="document" role="menuitem"><span class="menu-symbol cyan">▤</span><span><b>Documento</b><small>Notas y textos en Markdown</small></span></button><button type="button" data-office="sheet" role="menuitem"><span class="menu-symbol green">▦</span><span><b>Hoja de cálculo</b><small>Tabla local editable</small></span></button><button type="button" data-office="presentation" role="menuitem"><span class="menu-symbol violet">▣</span><span><b>Presentación</b><small>Diapositivas sencillas</small></span></button></div></div></div>
+        <div class="office-types"><button class="office-type" data-office="document" type="button"><span class="office-type-icon doc-icon">▤</span><b>Documento</b><small>Escribe y guarda apuntes</small><span class="text-button">Crear documento ↗</span></button><button class="office-type" data-office="sheet" type="button"><span class="office-type-icon sheet-icon">▦</span><b>Hoja de cálculo</b><small>Organiza tablas y CSV</small><span class="text-button">Crear hoja ↗</span></button><button class="office-type" data-office="presentation" type="button"><span class="office-type-icon slide-icon">▣</span><b>Presentación</b><small>Prepara diapositivas</small><span class="text-button">Crear presentación ↗</span></button></div>
+        <section class="panel page-panel" style="margin-top:16px"><div class="panel-heading"><div><div class="section-kicker">TUS ARCHIVOS</div><h2>Recientes</h2></div><span class="status-tag demo-tag">GUARDADO LOCAL</span></div><div class="office-files" id="officeFiles"></div><div class="notice-box"><span>i</span><p>En esta demostración los documentos se almacenan en el navegador. La integración con el almacenamiento persistente del backend debe activarse al conectar la API.</p></div></section>
+      </section>
+
+      <!-- SETTINGS -->
+      <section class="page" id="page-settings">
+        <div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> PREFERENCIAS</div><h1>Tu <span class="gradient-text">configuración.</span></h1><p class="muted">Personaliza el espacio y administra los datos de esta demo.</p></div><button class="button button-primary" id="saveSettingsTop" type="button">Guardar cambios</button></div>
+        <div class="settings-layout">
+          <nav class="panel page-panel settings-tabs" aria-label="Secciones de configuración"><button class="selected" data-setting-tab="general" type="button">◉ General</button><button data-setting-tab="appearance" type="button">◐ Apariencia</button><button data-setting-tab="assistant" type="button">✳ Asistente IA</button><button data-setting-tab="privacy" type="button">◇ Privacidad y datos</button></nav>
+          <div class="settings-content">
+            <section class="panel page-panel settings-section" data-setting-section="general"><div class="panel-heading"><div><div class="section-kicker">PERFIL PERSONAL</div><h2>General</h2></div></div><div class="form-grid"><label class="field"><span>Nombre para mostrar</span><input class="form-control" id="settingName" maxlength="80" value="Estudiante"></label><label class="field"><span>Idioma</span><select class="form-control" id="settingLanguage"><option value="es">Español</option><option value="en">English</option></select></label><label class="field"><span>Inicio de semana</span><select class="form-control" id="settingWeekStart"><option value="monday">Lunes</option><option value="sunday">Domingo</option></select></label><label class="field"><span>Objetivo de enfoque (horas)</span><select class="form-control" id="settingFocus"><option value="1">1 hora</option><option value="2">2 horas</option><option value="3">3 horas</option><option value="4">4 horas</option><option value="5">5 horas</option><option value="6">6 horas</option></select></label></div></section>
+            <section class="panel page-panel settings-section" data-setting-section="appearance"><div class="panel-heading"><div><div class="section-kicker">INTERFAZ</div><h2>Apariencia</h2></div></div><div class="setting-row"><div><b>Tema oscuro</b><p>Interfaz oscura cómoda para trabajar.</p></div><label class="switch"><input id="settingDark" type="checkbox" checked><span></span></label></div><div class="setting-row"><div><b>Detalles cyberpunk</b><p>Acentos neón discretos en los componentes.</p></div><label class="switch"><input id="settingCyber" type="checkbox" checked><span></span></label></div><div class="setting-row"><div><b>Animaciones</b><p>Desactívalas para reducir movimiento.</p></div><label class="switch"><input id="settingMotion" type="checkbox" checked><span></span></label></div></section>
+            <section class="panel page-panel settings-section" data-setting-section="assistant"><div class="panel-heading"><div><div class="section-kicker">MODELO Y CONTEXTO</div><h2>Asistente IA</h2></div><span class="status-tag pending-tag">API NO CONECTADA</span></div><div class="form-grid"><label class="field"><span>Proveedor previsto</span><select class="form-control" id="settingProvider"><option value="openrouter">OpenRouter</option><option value="custom">Otro proveedor compatible</option></select></label><label class="field"><span>Modelo (etiqueta local)</span><input class="form-control" id="settingModel" value="Por configurar en el servidor" maxlength="120"></label></div><div class="setting-row"><div><b>Usar contexto de asignatura</b><p>En la demo solo detecta notas locales; no envía nada a un modelo.</p></div><label class="switch"><input id="settingContext" type="checkbox" checked><span></span></label></div><div class="notice-box"><span>!</span><p>No escribas claves API aquí. Las claves reales deben configurarse en el servidor, nunca en el navegador.</p></div></section>
+            <section class="panel page-panel settings-section" data-setting-section="privacy"><div class="panel-heading"><div><div class="section-kicker">CONTROL LOCAL</div><h2>Privacidad y datos</h2></div></div><div class="setting-row"><div><b>Guardar en este navegador</b><p>Persiste tareas, notas y preferencias en localStorage. No sincroniza con el servidor.</p></div><label class="switch"><input id="settingLocalSave" type="checkbox" checked><span></span></label></div><div class="settings-footer"><button class="button button-secondary" id="exportData" type="button">Exportar mis datos</button><button class="button button-danger" id="resetData" type="button">Restablecer demo</button></div><p id="settingsSavedText" class="muted" aria-live="polite">Cambios sin guardar.</p></section>
+            <div class="settings-footer"><span class="muted" id="settingsSavedFooter">Las preferencias se guardan localmente.</span><button class="button button-primary" id="saveSettingsBottom" type="button">Guardar cambios</button></div>
+          </div>
+        </div>
+      </section>
+    </div>
+    <footer class="page-footer"><span>✳ STUDY PLATFORM</span><span>Tu conocimiento, en orden.</span><span><i class="footer-dot"></i> <span id="footerStatus">DEMO LOCAL</span></span></footer>
+  </main>
+</div>
+
+<div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
+<div class="modal-backdrop" id="modalBackdrop" hidden><section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal-header"><div><div class="eyebrow" id="modalEyebrow">CREAR</div><h2 id="modalTitle">Nuevo elemento</h2></div><button class="icon-button" id="closeModal" type="button" aria-label="Cerrar diálogo">×</button></div><form id="addForm"><div class="modal-fields" id="modalFields"></div><div class="modal-actions"><button class="button button-secondary" id="cancelModal" type="button">Cancelar</button><button class="button button-primary" id="submitModal" type="submit">Guardar <span>→</span></button></div></form></section></div>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,537 @@
+<div class="flex flex-col w-full">
+<div class="px-gutter-desktop py-space-lg flex flex-col gap-space-lg">
+<!-- Header Section with Telemetry Overview -->
+<div class="flex flex-wrap items-end justify-between gap-space-md">
+<div class="space-y-space-xs">
+<div class="flex items-center gap-space-xs">
+<span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 text-primary-container text-body-sm font-code-inline font-bold">01</span>
+<span class="font-label-sm text-label-sm uppercase tracking-widest text-outline">Protocolo Model Context Protocol (MCP)</span>
+<span class="text-outline-variant font-code-inline text-body-sm">/</span>
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-primary-fixed-dim">Gateway LLM Distribuido</span>
+</div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Centro MCP &amp; Orquestador OpenRouter</h1>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-2xl">
+          Configuración criptográfica segura para el enrutador de modelos cognitivos. Vincula endpoints locales, supervisa latencias biométricas y valida la inferencia en tiempo de ejecución.
+        </p>
+</div>
+<!-- Quick Metrics Ribbon -->
+<div class="flex items-center gap-space-xs bg-surface-container-low p-1.5 rounded-lg">
+<div class="flex items-center gap-2 px-space-sm py-1 rounded bg-surface-container">
+<span class="w-2 h-2 rounded-full bg-secondary shadow-[0_0_8px_rgba(158,215,83,0.8)]"></span>
+<span class="font-label-sm text-label-sm text-on-surface">Orquestador: Activo</span>
+</div>
+<div class="flex items-center gap-2 px-space-sm py-1 rounded bg-surface-container">
+<span class="material-symbols-outlined text-primary-container text-[16px]">speed</span>
+<span class="font-code-inline text-code-inline text-primary-container" id="header-latency">138ms</span>
+</div>
+<div class="flex items-center gap-2 px-space-sm py-1 rounded bg-surface-container">
+<span class="material-symbols-outlined text-outline text-[16px]">account_balance_wallet</span>
+<span class="font-code-inline text-code-inline text-on-surface-variant">$14.82 USD</span>
+</div>
+</div>
+</div>
+<!-- Main Tri-Split / Workspace Grid -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-gutter-desktop items-start">
+<!-- Center Main Configuration Pane (xl:col-span-8) -->
+<div class="xl:col-span-8 flex flex-col gap-space-lg">
+<!-- OpenRouter Primary Credentials Block -->
+<div class="relative bg-surface-container-low p-space-xl rounded-xl overflow-hidden shadow-lg">
+<!-- Subtle Glow Bar on top -->
+<div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary-container via-secondary to-primary-container opacity-60"></div>
+<div class="flex items-start justify-between mb-space-lg">
+<div class="flex items-center gap-space-sm">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary-container shadow-inner">
+<span class="material-symbols-outlined text-[24px]">hub</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<h2 class="font-headline-md text-headline-md text-on-surface">Credenciales OpenRouter</h2>
+<span class="px-2 py-0.5 rounded-full text-[10px] font-code-inline uppercase tracking-wider bg-primary-container/15 text-primary-container">v1/chat/completions</span>
+</div>
+<p class="font-body-sm text-body-sm text-outline">Enrutamiento multiproveedor con clave unificada y reintento conmutativo.</p>
+</div>
+</div>
+<!-- Health Badge -->
+<div class="flex items-center gap-1.5 px-space-sm py-1 rounded-full bg-secondary/10 text-secondary text-label-sm font-label-sm" id="live-connection-tag">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span>
+<span>Enrutamiento Verificado</span>
+</div>
+</div>
+<!-- Secret Key Form -->
+<div class="flex flex-col gap-space-md">
+<div>
+<div class="flex justify-between items-center mb-1.5">
+<label class="font-label-md text-label-md text-on-surface-variant flex items-center gap-1.5" for="openrouter-key">
+<span>API Key Secreta</span>
+<span class="material-symbols-outlined text-[15px] text-outline cursor-help" title="Tu clave comienza habitualmente con sk-or-v1-...">info</span>
+</label>
+<span class="font-code-inline text-[11px] text-primary-fixed-dim">TLS 1.3 | Cifrado AES-GCM local</span>
+</div>
+<div class="relative flex items-center">
+<span class="absolute left-3.5 text-outline material-symbols-outlined text-[18px]">key</span>
+<input class="w-full h-11 bg-surface-container-high rounded-lg pl-11 pr-28 text-on-surface font-code-inline text-code-inline placeholder:text-outline focus:outline-none focus:bg-surface-container transition-all" id="openrouter-key" placeholder="sk-or-v1-••••••••••••••••••••••••" type="password" value="sk-or-v1-98a72b4f58c091e84d621aa90bf437012"/>
+<button class="absolute right-3 px-2 py-1 rounded text-outline hover:text-on-surface hover:bg-surface-container-highest transition-colors flex items-center gap-1 font-label-sm text-label-sm" id="toggle-key-visibility" type="button">
+<span class="material-symbols-outlined text-[16px]" id="eye-icon">visibility</span>
+<span id="eye-text">Mostrar</span>
+</button>
+</div>
+</div>
+<!-- Model Selector & Parameters Sub-Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-space-md pt-space-xs">
+<!-- Model Selection Dropdown -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-on-surface-variant flex items-center justify-between" for="default-model">
+<span>Modelo de Inferencia Primario</span>
+<span class="font-code-inline text-[10px] text-secondary">Optimizador Activo</span>
+</label>
+<div class="relative">
+<select class="w-full h-10 bg-surface-container-high rounded-lg px-space-sm text-on-surface font-body-md text-body-md appearance-none focus:outline-none focus:bg-surface-container cursor-pointer transition-all" id="default-model">
+<option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet (Recomendado para Síntesis)</option>
+<option value="openai/gpt-4o">GPT-4o Omnimodal (Alta velocidad)</option>
+<option value="deepseek/deepseek-r1">DeepSeek R1 (Razonamiento Lógico Profundo)</option>
+<option value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B Instruct (Bajo costo)</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-2.5 text-outline pointer-events-none text-[20px]">expand_more</span>
+</div>
+</div>
+<!-- Local Fallback Switch -->
+<div class="flex flex-col gap-1.5 justify-between">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md text-on-surface-variant">Conmutación Local (Fallback)</span>
+<span class="font-code-inline text-[10px] text-outline">Ollama / Native MCP</span>
+</div>
+<div class="flex items-center justify-between h-10 px-space-sm bg-surface-container-high rounded-lg">
+<span class="font-body-sm text-body-sm text-outline">Derivar a Ollama si HTTP &gt;= 500</span>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" id="fallback-toggle" type="checkbox"/>
+<div class="w-9 h-5 bg-surface-container rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-on-primary-container after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-container"></div>
+</label>
+</div>
+</div>
+</div>
+<!-- Inference Sliders & Safety Limits -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-space-md pt-space-xs">
+<!-- Temperature Slider -->
+<div class="p-space-sm bg-surface-container rounded-lg flex flex-col gap-space-xs">
+<div class="flex justify-between items-center">
+<span class="font-label-md text-label-md text-on-surface">Temperatura Cognitiva</span>
+<span class="font-code-inline text-code-inline text-primary-container" id="temp-value">0.30 (Analítico)</span>
+</div>
+<input class="w-full accent-primary-container cursor-pointer h-1.5 bg-surface-container-highest rounded-lg appearance-none" id="temperature-slider" max="100" min="0" type="range" value="30"/>
+<div class="flex justify-between text-[10px] font-body-sm text-outline">
+<span>0.0 Precisión matemática</span>
+<span>1.0 Pensamiento divergente</span>
+</div>
+</div>
+<!-- Monthly Hard Spend Limit -->
+<div class="p-space-sm bg-surface-container rounded-lg flex flex-col gap-space-xs">
+<div class="flex justify-between items-center">
+<span class="font-label-md text-label-md text-on-surface">Tope Presupuestario Mensual</span>
+<span class="font-code-inline text-code-inline text-secondary" id="budget-value">$35.00 USD</span>
+</div>
+<input class="w-full accent-secondary cursor-pointer h-1.5 bg-surface-container-highest rounded-lg appearance-none" id="budget-slider" max="150" min="5" type="range" value="35"/>
+<div class="flex justify-between text-[10px] font-body-sm text-outline">
+<span>$5 Límite base</span>
+<span>$150 Carga intensiva</span>
+</div>
+</div>
+</div>
+<!-- Privacy Guarantee Callout -->
+<div class="flex items-start gap-space-sm p-space-sm rounded-lg bg-surface-container/70">
+<span class="material-symbols-outlined text-secondary text-[20px] mt-0.5">verified_user</span>
+<div class="space-y-0.5">
+<p class="font-label-md text-label-md text-on-surface font-semibold">Garantía Criptográfica de Soberanía de Datos</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+                  Tus credenciales y claves privadas se resguardan de forma aislada en el Secure Storage local de tu navegador y en la bóveda de la instancia. Jamás se retransmiten ni se consolidan en servidores analíticos externos.
+                </p>
+</div>
+</div>
+<!-- Primary Action Bar -->
+<div class="flex flex-wrap items-center justify-between gap-space-sm pt-space-xs">
+<div class="flex items-center gap-space-xs text-outline font-code-inline text-[11px]">
+<span class="material-symbols-outlined text-[15px] text-primary-fixed-dim">lock</span>
+<span>Almacenado localmente en Vault IndexDB</span>
+</div>
+<div class="flex items-center gap-space-xs">
+<button class="px-space-md py-2 rounded-lg bg-primary-container/10 text-primary-container hover:bg-primary-container/20 font-label-md text-label-md transition-all flex items-center gap-1.5" id="btn-test-ping" type="button">
+<span class="material-symbols-outlined text-[16px]">wifi_tethering</span>
+<span>Probar Conexión</span>
+</button>
+<button class="px-space-lg py-2 rounded-lg bg-secondary text-on-secondary font-label-md text-label-md font-semibold hover:bg-secondary-fixed transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(158,215,83,0.25)]" id="btn-save-key" type="button">
+<span class="material-symbols-outlined text-[18px]">check_circle</span>
+<span>Guardar Parámetros</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Linked MCP Servers Grid -->
+<div class="flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-secondary text-[20px]">share</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Servidores MCP Vinculados en el Entorno</h3>
+</div>
+<span class="font-label-sm text-label-sm text-outline">3 Servicios Registrados</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-space-md">
+<!-- Card 1: Mikareno MCP -->
+<div class="bg-surface-container-low p-space-md rounded-xl flex flex-col justify-between gap-space-sm hover:bg-surface-container transition-colors group">
+<div>
+<div class="flex items-center justify-between mb-space-xs">
+<div class="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[18px]">cloud_sync</span>
+</div>
+<span class="px-2 py-0.5 rounded text-[10px] font-code-inline bg-secondary-container/20 text-secondary">Lectura</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">Mikareno MCP</h4>
+<p class="font-body-sm text-body-sm text-outline mt-1 line-clamp-2">Sincronización de calificaciones, asistencia académica y circulares institucionales.</p>
+</div>
+<div class="pt-space-xs flex items-center justify-between text-body-sm font-code-inline text-on-surface-variant">
+<span class="flex items-center gap-1 text-[11px] text-secondary">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span> Activo
+                </span>
+<span class="text-[11px] text-outline">Sync cada 15m</span>
+</div>
+</div>
+<!-- Card 2: GenOffice MCP -->
+<div class="bg-surface-container-low p-space-md rounded-xl flex flex-col justify-between gap-space-sm hover:bg-surface-container transition-colors group">
+<div>
+<div class="flex items-center justify-between mb-space-xs">
+<div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-outline">
+<span class="material-symbols-outlined text-[18px]">description</span>
+</div>
+<span class="px-2 py-0.5 rounded text-[10px] font-code-inline bg-surface-container-high text-outline">Local</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">GenOffice MCP</h4>
+<p class="font-body-sm text-body-sm text-outline mt-1 line-clamp-2">Puente de automatización para Documentos, Hojas de Cálculo y exportación LaTeX.</p>
+</div>
+<div class="pt-space-xs flex items-center justify-between text-body-sm font-code-inline text-on-surface-variant">
+<span class="flex items-center gap-1 text-[11px] text-outline">
+<span class="w-1.5 h-1.5 rounded-full bg-outline"></span> En reposo
+                </span>
+<button class="text-[11px] text-primary-container hover:underline">Iniciar daemon</button>
+</div>
+</div>
+<!-- Card 3: Study Platform Native MCP -->
+<div class="bg-surface-container-low p-space-md rounded-xl flex flex-col justify-between gap-space-sm hover:bg-surface-container transition-colors group">
+<div>
+<div class="flex items-center justify-between mb-space-xs">
+<div class="w-8 h-8 rounded-lg bg-primary-container/10 flex items-center justify-center text-primary-container">
+<span class="material-symbols-outlined text-[18px]">memory</span>
+</div>
+<span class="px-2 py-0.5 rounded text-[10px] font-code-inline bg-primary-container/15 text-primary-container">Socket</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface">Study Native MCP</h4>
+<p class="font-body-sm text-body-sm text-outline mt-1 line-clamp-2">Indexador semántico vectorial y grafo de notas en segundo cerebro local.</p>
+</div>
+<div class="pt-space-xs flex items-center justify-between text-body-sm font-code-inline text-on-surface-variant">
+<span class="flex items-center gap-1 text-[11px] text-primary-fixed-dim">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span> Puerto 8765
+                </span>
+<span class="text-[11px] text-outline">12 Tools act.</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Visual Telemetry & Latency History (SVG Sparkline) -->
+<div class="bg-surface-container-low p-space-lg rounded-xl flex flex-col gap-space-sm">
+<div class="flex flex-wrap items-center justify-between gap-space-xs">
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Rendimiento Histórico de Inferencia</h3>
+<p class="font-body-sm text-body-sm text-outline">Latencia en milisegundos observada en las últimas 24 solicitudes de token.</p>
+</div>
+<div class="flex items-center gap-space-sm font-code-inline text-[11px]">
+<span class="text-primary-container">P50: 124ms</span>
+<span class="text-secondary">P95: 188ms</span>
+<span class="text-outline">Tasa de éxito: 99.8%</span>
+</div>
+</div>
+<!-- SVG Sparkline Diagram -->
+<div class="w-full h-24 bg-surface-container rounded-lg p-2 flex items-end">
+<svg class="w-full h-full overflow-visible" preserveaspectratio="none" viewbox="0 0 600 80">
+<defs>
+<lineargradient id="gradient-latency" x1="0%" x2="0%" y1="0%" y2="100%">
+<stop offset="0%" stop-color="#5eead4" stop-opacity="0.35"></stop>
+<stop offset="100%" stop-color="#5eead4" stop-opacity="0.0"></stop>
+</lineargradient>
+</defs>
+<!-- Filled area underneath -->
+<polygon fill="url(#gradient-latency)" points="0,80 0,55 25,50 50,62 75,45 100,48 125,35 150,42 175,30 200,38 225,25 250,32 275,28 300,40 325,22 350,26 375,18 400,35 425,20 450,24 475,16 500,28 525,22 550,19 575,25 600,20 600,80"></polygon>
+<!-- Vector stroke -->
+<polyline fill="none" points="0,55 25,50 50,62 75,45 100,48 125,35 150,42 175,30 200,38 225,25 250,32 275,28 300,40 325,22 350,26 375,18 400,35 425,20 450,24 475,16 500,28 525,22 550,19 575,25 600,20" stroke="#5eead4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></polyline>
+<!-- Real-time pulse dot -->
+<circle class="animate-ping" cx="600" cy="20" fill="#9ed753" r="4"></circle>
+<circle cx="600" cy="20" fill="#9ed753" r="3"></circle>
+</svg>
+</div>
+</div>
+</div>
+<!-- Right Lateral Drawer: Embedded Copilot / Playground Test Area (xl:col-span-4) -->
+<div class="xl:col-span-4 flex flex-col gap-space-md">
+<div class="bg-surface-container-low rounded-xl flex flex-col h-[740px] shadow-xl overflow-hidden sticky top-20">
+<!-- Chat Header -->
+<div class="p-space-md bg-surface-container flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<div class="w-8 h-8 rounded-lg bg-primary-container/15 flex items-center justify-center text-primary-container">
+<span class="material-symbols-outlined text-[18px]">terminal</span>
+</div>
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Copiloto MCP</h3>
+<div class="flex items-center gap-1.5 font-code-inline text-[10px] text-outline">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+<span class="truncate max-w-[150px]" id="active-chat-model">Claude 3.5 Sonnet</span>
+</div>
+</div>
+</div>
+<button class="p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container-high transition-colors" id="btn-clear-chat" title="Limpiar registro de depuración" type="button">
+<span class="material-symbols-outlined text-[18px]">restart_alt</span>
+</button>
+</div>
+<!-- Quick Test Triggers Pills -->
+<div class="px-space-md py-space-xs bg-surface-container-lowest/80 flex items-center gap-1.5 overflow-x-auto whitespace-nowrap">
+<button class="quick-test-btn px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant hover:text-primary-container hover:bg-surface-container-high font-label-sm text-[11px] transition-colors" data-prompt="Ping check. Valida latencia de socket y retorna round-trip time.">
+              ⚡ Latencia
+            </button>
+<button class="quick-test-btn px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant hover:text-primary-container hover:bg-surface-container-high font-label-sm text-[11px] transition-colors" data-prompt="Calcula el consumo de tokens y ratio de compresión para un párrafo técnico estándar.">
+              📊 Tokens
+            </button>
+<button class="quick-test-btn px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant hover:text-primary-container hover:bg-surface-container-high font-label-sm text-[11px] transition-colors" data-prompt="Resume el último apunte del Segundo Cerebro sobre 'Sistemas Distribuidos y Tolerancia a Fallos'.">
+              🧠 Última Nota
+            </button>
+</div>
+<!-- Message Transcript Feed -->
+<div class="flex-1 overflow-y-auto p-space-md space-y-space-md" id="chat-messages">
+<!-- System Notice -->
+<div class="p- space-sm rounded-lg bg-surface-container/60 p-2 text-center">
+<span class="font-code-inline text-[11px] text-outline">Canal de prueba listo. Conexión establecida vía OpenRouter Gateway.</span>
+</div>
+<!-- Assistant Welcome Message -->
+<div class="flex flex-col gap-1 items-start">
+<div class="flex items-center gap-1.5 text-primary-container font-label-sm text-[11px]">
+<span class="material-symbols-outlined text-[14px]">auto_awesome</span>
+<span>Asistente de Pruebas</span>
+<span class="font-code-inline text-outline text-[10px]">10:42:01</span>
+</div>
+<div class="bg-surface-container p-3 rounded-lg text-on-surface font-body-sm text-body-sm max-w-[90%] leading-relaxed shadow-sm">
+                Conexión OpenRouter vinculada exitosamente. Puedes emitir consultas de verificación o validar la ejecución de herramientas del protocolo MCP en tiempo real.
+              </div>
+</div>
+<!-- Human Test Simulation -->
+<div class="flex flex-col gap-1 items-end">
+<div class="flex items-center gap-1.5 text-on-surface-variant font-label-sm text-[11px]">
+<span>Estudiante Pro</span>
+<span class="font-code-inline text-outline text-[10px]">10:42:15</span>
+</div>
+<div class="bg-secondary-container/20 text-on-surface p-3 rounded-lg font-body-sm text-body-sm max-w-[90%] leading-relaxed">
+                Verifica las herramientas de lectura de Mikareno MCP. ¿Está accesible el endpoint de asignaturas?
+              </div>
+</div>
+<!-- Assistant Response with Tool Call Badge -->
+<div class="flex flex-col gap-1 items-start">
+<div class="flex items-center gap-1.5 text-primary-container font-label-sm text-[11px]">
+<span class="material-symbols-outlined text-[14px]">auto_awesome</span>
+<span>Claude 3.5 Sonnet</span>
+<span class="font-code-inline text-outline text-[10px]">10:42:16</span>
+</div>
+<!-- MCP Tool Call Inline Block -->
+<div class="px-2 py-1 rounded bg-surface-container-high text-primary-fixed-dim font-code-inline text-[11px] flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[13px]">code</span>
+<span>tool_call: mikareno.list_subjects() -&gt; 200 OK</span>
+</div>
+<div class="bg-surface-container p-3 rounded-lg text-on-surface font-body-sm text-body-sm max-w-[90%] leading-relaxed shadow-sm">
+                Mikareno MCP responde con latencia de 18ms. Se han sincronizado 6 asignaturas activas y 2 exámenes pendientes para este periodo lectivo.
+              </div>
+</div>
+</div>
+<!-- Chat Input Area -->
+<div class="p-space-sm bg-surface-container flex flex-col gap-2">
+<div class="relative flex items-end">
+<textarea class="w-full bg-surface-container-high rounded-lg p-2.5 pr-10 text-on-surface font-body-sm text-body-sm placeholder:text-outline focus:outline-none focus:bg-surface-container-highest resize-none transition-all" id="chat-input" placeholder="Escribe un mensaje de prueba para OpenRouter..." rows="2"></textarea>
+<button class="absolute right-2 bottom-2 p-1.5 rounded-md bg-primary-container text-on-primary-container hover:bg-primary-fixed font-bold transition-all shadow-sm" id="btn-send-message" type="button">
+<span class="material-symbols-outlined text-[18px]">send</span>
+</button>
+</div>
+<div class="flex justify-between items-center px-1 text-[10px] font-body-sm text-outline">
+<span>Shift+Enter para salto de línea</span>
+<span class="font-code-inline text-primary-fixed-dim">Tokens de prueba: 0/4096</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+  (function initMcpPlayground() {
+    // 1. Secret Key Visibility Toggle
+    const keyInput = document.getElementById('openrouter-key');
+    const toggleBtn = document.getElementById('toggle-key-visibility');
+    const eyeIcon = document.getElementById('eye-icon');
+    const eyeText = document.getElementById('eye-text');
+
+    if (toggleBtn && keyInput) {
+      toggleBtn.addEventListener('click', () => {
+        const isPassword = keyInput.type === 'password';
+        keyInput.type = isPassword ? 'text' : 'password';
+        eyeIcon.textContent = isPassword ? 'visibility_off' : 'visibility';
+        eyeText.textContent = isPassword ? 'Ocultar' : 'Mostrar';
+      });
+    }
+
+    // 2. Sliders Label Dynamic Updates
+    const tempSlider = document.getElementById('temperature-slider');
+    const tempValue = document.getElementById('temp-value');
+    if (tempSlider && tempValue) {
+      tempSlider.addEventListener('input', (e) => {
+        const val = (e.target.value / 100).toFixed(2);
+        let label = 'Analítico';
+        if (val > 0.6) label = 'Creativo';
+        else if (val > 0.4) label = 'Balanceado';
+        tempValue.textContent = `${val} (${label})`;
+      });
+    }
+
+    const budgetSlider = document.getElementById('budget-slider');
+    const budgetValue = document.getElementById('budget-value');
+    if (budgetSlider && budgetValue) {
+      budgetSlider.addEventListener('input', (e) => {
+        budgetValue.textContent = `$${e.target.value}.00 USD`;
+      });
+    }
+
+    // 3. Model Selector synced with lateral Copilot Drawer
+    const modelSelect = document.getElementById('default-model');
+    const activeChatModel = document.getElementById('active-chat-model');
+    if (modelSelect && activeChatModel) {
+      modelSelect.addEventListener('change', (e) => {
+        const selectedText = e.target.options[e.target.selectedIndex].text;
+        const shortName = selectedText.split(' ')[0] + ' ' + selectedText.split(' ')[1];
+        activeChatModel.textContent = shortName;
+      });
+    }
+
+    // 4. Test Ping Simulation Button
+    const pingBtn = document.getElementById('btn-test-ping');
+    const liveTag = document.getElementById('live-connection-tag');
+    const headerLatency = document.getElementById('header-latency');
+    if (pingBtn && liveTag) {
+      pingBtn.addEventListener('click', () => {
+        pingBtn.disabled = true;
+        pingBtn.innerHTML = `<span class="material-symbols-outlined text-[16px] animate-spin">refresh</span><span>Comprobando...</span>`;
+        
+        setTimeout(() => {
+          const simulatedLatency = Math.floor(Math.random() * (165 - 120 + 1)) + 120;
+          headerLatency.textContent = `${simulatedLatency}ms`;
+          liveTag.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-secondary animate-ping"></span><span>Conectado (${simulatedLatency}ms)</span>`;
+          pingBtn.disabled = false;
+          pingBtn.innerHTML = `<span class="material-symbols-outlined text-[16px]">check</span><span>Respuesta ${simulatedLatency}ms</span>`;
+          
+          setTimeout(() => {
+            pingBtn.innerHTML = `<span class="material-symbols-outlined text-[16px]">wifi_tethering</span><span>Probar Conexión</span>`;
+          }, 2500);
+        }, 600);
+      });
+    }
+
+    // 5. Chat Interaction and Quick Test Prompts
+    const chatInput = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('btn-send-message');
+    const chatFeed = document.getElementById('chat-messages');
+    const clearBtn = document.getElementById('btn-clear-chat');
+
+    function appendMessage(sender, text, isAi = false, toolCode = null) {
+      const now = new Date();
+      const timeStr = now.toTimeString().split(' ')[0];
+      const wrap = document.createElement('div');
+      wrap.className = `flex flex-col gap-1 ${isAi ? 'items-start' : 'items-end'}`;
+
+      let toolHtml = '';
+      if (toolCode) {
+        toolHtml = `
+          <div class="px-2 py-1 rounded bg-surface-container-high text-primary-fixed-dim font-code-inline text-[11px] flex items-center gap-1.5">
+            <span class="material-symbols-outlined text-[13px]">code</span>
+            <span>${toolCode}</span>
+          </div>
+        `;
+      }
+
+      wrap.innerHTML = `
+        <div class="flex items-center gap-1.5 ${isAi ? 'text-primary-container' : 'text-on-surface-variant'} font-label-sm text-[11px]">
+          ${isAi ? '<span class="material-symbols-outlined text-[14px]">auto_awesome</span>' : ''}
+          <span>${sender}</span>
+          <span class="font-code-inline text-outline text-[10px]">${timeStr}</span>
+        </div>
+        ${toolHtml}
+        <div class="${isAi ? 'bg-surface-container shadow-sm' : 'bg-secondary-container/20'} text-on-surface p-3 rounded-lg font-body-sm text-body-sm max-w-[90%] leading-relaxed">
+          ${text}
+        </div>
+      `;
+
+      chatFeed.appendChild(wrap);
+      chatFeed.scrollTop = chatFeed.scrollHeight;
+    }
+
+    function handleSend() {
+      const val = chatInput.value.trim();
+      if (!val) return;
+      appendMessage('Tú', val, false);
+      chatInput.value = '';
+
+      // Simulated streaming reply from OpenRouter
+      setTimeout(() => {
+        appendMessage(
+          'OpenRouter Gateway', 
+          'Inferencia recibida con éxito [status: 200]. El modelo procesó tu consulta utilizando el contexto del MCP local.', 
+          true,
+          'mcp.inference.dispatch() -> ok'
+        );
+      }, 700);
+    }
+
+    if (sendBtn && chatInput) {
+      sendBtn.addEventListener('click', handleSend);
+      chatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          handleSend();
+        }
+      });
+    }
+
+    // Quick Test Buttons Click
+    const quickButtons = document.querySelectorAll('.quick-test-btn');
+    quickButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const prompt = btn.getAttribute('data-prompt');
+        if (prompt) {
+          chatInput.value = prompt;
+          handleSend();
+        }
+      });
+    });
+
+    if (clearBtn && chatFeed) {
+      clearBtn.addEventListener('click', () => {
+        chatFeed.innerHTML = `
+          <div class="p-space-sm rounded-lg bg-surface-container/60 p-2 text-center">
+            <span class="font-code-inline text-[11px] text-outline">Registro reiniciado. Sesión limpia.</span>
+          </div>
+        `;
+      });
+    }
+
+    // Save Feedback
+    const saveBtn = document.getElementById('btn-save-key');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', () => {
+        const origText = saveBtn.innerHTML;
+        saveBtn.innerHTML = `<span class="material-symbols-outlined text-[18px]">verified</span><span>¡Guardado con éxito!</span>`;
+        setTimeout(() => {
+          saveBtn.innerHTML = origText;
+        }, 2000);
+      });
+    }
+
+  })();
+</script>

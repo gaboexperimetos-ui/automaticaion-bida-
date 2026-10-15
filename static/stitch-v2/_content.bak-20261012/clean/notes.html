@@ -1,0 +1,333 @@
+<div class="flex flex-col w-full text-on-surface">
+<!-- Top Command Context Bar -->
+<div class="flex flex-wrap items-center justify-between px-space-md py-space-xs bg-surface-container-low/70 backdrop-blur-md">
+<div class="flex items-center gap-space-sm">
+<div class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-container-high text-primary-fixed-dim font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[15px]">neurology</span>
+<span>Segundo Cerebro</span>
+</div>
+<span class="text-outline text-body-sm">/</span>
+<span class="font-code-inline text-code-inline text-on-surface-variant">vault: ~/academics/core-graph</span>
+<span class="px-2 py-0.5 rounded-full bg-secondary-container/20 text-secondary font-label-sm text-[10px]">Sync Bidireccional Activo</span>
+</div>
+<div class="flex items-center gap-space-sm">
+<div class="flex items-center gap-1 text-on-surface-variant font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[16px] text-secondary">sync</span>
+<span>Obsidian compatible</span>
+</div>
+<button class="flex items-center gap-1.5 px-space-sm py-1 rounded bg-surface-container hover:bg-surface-container-high transition-colors font-label-sm text-label-sm text-on-surface" id="quick-palette-trigger">
+<span class="material-symbols-outlined text-[16px] text-primary-container">terminal</span>
+<span>Comandos</span>
+<span class="font-code-inline text-[10px] px-1 bg-surface-container-lowest text-outline rounded">⌘P</span>
+</button>
+</div>
+</div>
+<!-- Tri-Panel Workspace Layout -->
+<div class="grid grid-cols-12 w-full min-h-[calc(100vh-7rem)]">
+<!-- 1. PANEL IZQUIERDO: BÓVEDA / EXPLORADOR (260px equiv desktop col-span-12 lg:col-span-3 xl:col-span-2) -->
+<aside class="col-span-12 lg:col-span-3 xl:col-span-3 flex flex-col bg-surface-container-low p-space-sm select-none">
+<!-- Vault Header Card -->
+<div class="p-space-sm rounded-lg bg-surface-container mb-space-sm">
+<div class="flex items-center justify-between mb-space-xs">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary-container text-[20px]">folder_special</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface truncate">Mi Bóveda Personal</h2>
+</div>
+<span class="px-1.5 py-0.5 rounded text-[10px] font-code-inline bg-surface-container-highest text-primary-fixed">1,482 notas</span>
+</div>
+<p class="font-body-sm text-body-sm text-outline truncate mb-space-sm">Local / Obsidian Compatible (.md format)</p>
+<!-- Action Buttons -->
+<div class="grid grid-cols-2 gap-space-xs">
+<button class="flex items-center justify-center gap-1 px-space-xs py-1.5 rounded bg-primary-container/10 hover:bg-primary-container/20 text-primary-container font-label-sm text-label-sm transition-colors" id="btn-new-note">
+<span class="material-symbols-outlined text-[16px]">note_add</span>
+<span>+ Nota</span>
+</button>
+<button class="flex items-center justify-center gap-1 px-space-xs py-1.5 rounded bg-surface-container-high hover:bg-surface-variant text-on-surface font-label-sm text-label-sm transition-colors" id="btn-new-folder">
+<span class="material-symbols-outlined text-[16px]">create_new_folder</span>
+<span>+ Carpeta</span>
+</button>
+</div>
+</div>
+<!-- Navigation Tabs -->
+<div class="grid grid-cols-4 gap-1 p-1 rounded-lg bg-surface-container mb-space-sm text-center">
+<button class="py-1 rounded bg-surface-container-high text-primary font-label-sm text-label-sm shadow-sm" title="Explorador de Archivos">
+<span class="material-symbols-outlined text-[18px]">folder</span>
+</button>
+<button class="py-1 rounded text-outline hover:text-on-surface font-label-sm text-label-sm transition-colors" title="Búsqueda en Contenido">
+<span class="material-symbols-outlined text-[18px]">search</span>
+</button>
+<button class="py-1 rounded text-outline hover:text-on-surface font-label-sm text-label-sm transition-colors" title="Etiquetas (#)">
+<span class="material-symbols-outlined text-[18px]">tag</span>
+</button>
+<button class="py-1 rounded text-outline hover:text-on-surface font-label-sm text-label-sm transition-colors" title="Marcadores">
+<span class="material-symbols-outlined text-[18px]">bookmark</span>
+</button>
+</div>
+<!-- Search Vault Inline Filter -->
+<div class="relative mb-space-sm">
+<span class="material-symbols-outlined absolute left-2 top-2 text-[16px] text-outline">filter_list</span>
+<input class="w-full pl-7 pr-space-sm py-1 bg-surface-container rounded font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary-container" placeholder="Filtrar árbol..." type="text"/>
+</div>
+<!-- Hierarchical Tree Navigation -->
+<div class="flex-1 overflow-y-auto space-y-1 pr-1 font-body-sm text-body-sm">
+<!-- Folder 01: Materias Activas -->
+<div class="space-y-0.5">
+<div class="group flex items-center justify-between px-space-xs py-1 rounded hover:bg-surface-container cursor-pointer text-on-surface">
+<div class="flex items-center gap-1.5 truncate">
+<span class="material-symbols-outlined text-[16px] text-primary-fixed-dim">folder_open</span>
+<span class="font-label-md text-label-md truncate font-semibold">01 - Materias Activas</span>
+</div>
+<span class="text-[10px] text-outline font-code-inline group-hover:text-primary">12</span>
+</div>
+<!-- Subfolder Systems -->
+<div class="pl-4 space-y-0.5">
+<div class="flex items-center justify-between px-space-xs py-1 rounded bg-surface-container text-primary font-medium cursor-pointer">
+<div class="flex items-center gap-1.5 truncate">
+<span class="material-symbols-outlined text-[16px] text-primary">arrow_drop_down</span>
+<span class="truncate">Sistemas Operativos</span>
+</div>
+</div>
+<!-- Notes in folder -->
+<div class="pl-5 space-y-0.5">
+<a class="flex items-center gap-1.5 px-space-xs py-1 rounded bg-primary-container/15 text-primary-fixed font-medium" href="#">
+<span class="material-symbols-outlined text-[14px]">description</span>
+<span class="truncate">Arquitectura de Hilos...</span>
+</a>
+<a class="flex items-center gap-1.5 px-space-xs py-1 rounded text-outline hover:text-on-surface hover:bg-surface-container transition-colors" href="#">
+<span class="material-symbols-outlined text-[14px]">description</span>
+<span class="truncate">Concurrencia y Mutex.md</span>
+</a>
+<a class="flex items-center gap-1.5 px-space-xs py-1 rounded text-outline hover:text-on-surface hover:bg-surface-container transition-colors" href="#">
+<span class="material-symbols-outlined text-[14px]">description</span>
+<span class="truncate">Planificación CPU Scheduler.md</span>
+</a>
+</div>
+<div class="flex items-center gap-1.5 px-space-xs py-1 rounded text-on-surface-variant hover:bg-surface-container cursor-pointer">
+<span class="material-symbols-outlined text-[16px] text-outline">arrow_right</span>
+<span class="truncate">Algoritmos & Complejidad</span>
+</div>
+<div class="flex items-center gap-1.5 px-space-xs py-1 rounded text-on-surface-variant hover:bg-surface-container cursor-pointer">
+<span class="material-symbols-outlined text-[16px] text-outline">arrow_right</span>
+<span class="truncate">Redes y Protocolos IP</span>
+</div>
+</div>
+</div>
+<!-- Folder 02: Conceptos y Fórmulas -->
+<div class="space-y-0.5">
+<div class="flex items-center justify-between px-space-xs py-1 rounded hover:bg-surface-container cursor-pointer text-on-surface-variant">
+<div class="flex items-center gap-1.5 truncate">
+<span class="material-symbols-outlined text-[16px] text-secondary">folder</span>
+<span class="font-label-md text-label-md truncate">02 - Conceptos y Fórmulas</span>
+</div>
+<span class="text-[10px] text-outline font-code-inline">34</span>
+</div>
+</div>
+<!-- Folder 03: Resúmenes IA -->
+<div class="space-y-0.5">
+<div class="flex items-center justify-between px-space-xs py-1 rounded hover:bg-surface-container cursor-pointer text-on-surface-variant">
+<div class="flex items-center gap-1.5 truncate">
+<span class="material-symbols-outlined text-[16px] text-primary-container">auto_awesome</span>
+<span class="font-label-md text-label-md truncate">03 - Resúmenes IA</span>
+</div>
+<span class="text-[10px] text-outline font-code-inline">18</span>
+</div>
+</div>
+<!-- Folder 04: Literatura y Libros -->
+<div class="space-y-0.5">
+<div class="flex items-center justify-between px-space-xs py-1 rounded hover:bg-surface-container cursor-pointer text-on-surface-variant">
+<div class="flex items-center gap-1.5 truncate">
+<span class="material-symbols-outlined text-[16px] text-outline">menu_book</span>
+<span class="font-label-md text-label-md truncate">04 - Literatura y Libros</span>
+</div>
+<span class="text-[10px] text-outline font-code-inline">9</span>
+</div>
+</div>
+</div>
+<!-- Import Vault Obsidian Safe Trigger Button -->
+<div class="pt-space-sm mt-auto">
+<button class="w-full flex items-center justify-center gap-2 p-space-sm rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface transition-all text-left" id="btn-import-vault">
+<span class="material-symbols-outlined text-secondary text-[20px]">folder_zip</span>
+<div class="flex flex-col flex-1 min-w-0">
+<span class="font-label-sm text-label-sm text-on-surface font-semibold truncate">Importar Bóveda Obsidian</span>
+<span class="font-body-sm text-[10px] text-outline truncate">Sincronización segura por lotes</span>
+</div>
+<span class="material-symbols-outlined text-[16px] text-outline">file_upload</span>
+</button>
+</div>
+</aside>
+<!-- 2. PANEL CENTRAL: EDITOR MARKDOWN DUAL (col-span-12 lg:col-span-6 xl:col-span-6) -->
+<main class="col-span-12 lg:col-span-6 xl:col-span-6 flex flex-col bg-surface min-h-[700px]">
+<!-- Editor Top Toolbar -->
+<div class="px-space-md py-space-sm bg-surface-container-low flex flex-col gap-space-xs">
+<!-- Title & Status Row -->
+<div class="flex items-center justify-between gap-space-sm">
+<div class="flex items-center gap-2 flex-1 min-w-0">
+<span class="material-symbols-outlined text-primary-container text-[20px]">edit_note</span>
+<input class="w-full bg-transparent font-headline-md text-headline-md text-on-surface font-bold focus:outline-none focus:bg-surface-container px-1 py-0.5 rounded truncate" type="text" value="Arquitectura de Hilos y Sincronización en Linux.md"/>
+</div>
+<div class="flex items-center gap-2 shrink-0">
+<span class="flex items-center gap-1 font-body-sm text-body-sm text-secondary">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span>
+              Auto-guardado hace 2m
+            </span>
+<button class="p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container transition-colors" title="Fijar nota">
+<span class="material-symbols-outlined text-[18px]">push_pin</span>
+</button>
+</div>
+</div>
+<!-- Meta row: Course & Tags -->
+<div class="flex flex-wrap items-center justify-between gap-space-xs font-label-sm text-label-sm text-outline">
+<div class="flex items-center gap-space-xs flex-wrap">
+<span class="px-2 py-0.5 rounded bg-surface-container-high text-on-surface">Asignatura: <strong class="text-primary-fixed">Sistemas Operativos</strong></span>
+<span class="px-2 py-0.5 rounded bg-surface-container text-secondary">#concurrencia</span>
+<span class="px-2 py-0.5 rounded bg-surface-container text-secondary">#linux</span>
+<span class="px-2 py-0.5 rounded bg-surface-container text-secondary">#mutex</span>
+<button class="px-1.5 py-0.5 rounded bg-surface-container text-outline hover:text-on-surface text-[11px]">+ tag</button>
+</div>
+<!-- View Mode Toggles -->
+<div class="flex items-center rounded bg-surface-container p-0.5">
+<button class="px-2 py-1 rounded text-outline hover:text-on-surface font-label-sm text-label-sm" id="mode-edit">Editar</button>
+<button class="px-2 py-1 rounded bg-surface-container-high text-primary-container font-label-sm text-label-sm font-semibold shadow-sm" id="mode-split">Dividido</button>
+<button class="px-2 py-1 rounded text-outline hover:text-on-surface font-label-sm text-label-sm" id="mode-preview">Vista Previa</button>
+</div>
+</div>
+<!-- Formatting Action Bar -->
+<div class="flex flex-wrap items-center gap-1 pt-space-xs text-on-surface-variant font-label-sm">
+<button class="p-1 rounded hover:bg-surface-container hover:text-on-surface font-bold text-xs" title="Título H1">H1</button>
+<button class="p-1 rounded hover:bg-surface-container hover:text-on-surface font-bold text-xs" title="Título H2">H2</button>
+<button class="p-1 rounded hover:bg-surface-container hover:text-on-surface" title="Negrita"><span class="material-symbols-outlined text-[18px]">format_bold</span></button>
+<button class="p-1 rounded hover:bg-surface-container hover:text-on-surface" title="Cursiva"><span class="material-symbols-outlined text-[18px]">format_italic</span></button>
+<button class="p-1 rounded hover:bg-surface-container hover:text-on-surface" title="Código Inline"><span class="material-symbols-outlined text-[18px]">code</span></button>
+<button class="flex items-center gap-0.5 px-2 py-1 rounded bg-surface-container text-primary-container hover:bg-surface-container-high font-code-inline text-code-inline" title="Enlace Interno Bidireccional">
+<span>[[ ]]</span>
+<span class="text-[10px]">WikiLink</span>
+</button>
+<button class="p-1 rounded hover:bg-surface-container hover:text-on-surface" title="Lista de verificación"><span class="material-symbols-outlined text-[18px]">checklist</span></button>
+<button class="p-1 rounded hover:bg-surface-container hover:text-on-surface" title="Tabla"><span class="material-symbols-outlined text-[18px]">table_chart</span></button>
+<button class="p-1 rounded hover:bg-surface-container hover:text-on-surface" title="Bloque Matemático"><span class="material-symbols-outlined text-[18px]">functions</span></button>
+<div class="ml-auto flex items-center gap-2 text-outline font-body-sm text-[11px]">
+<span>1,142 palabras</span>
+<span>·</span>
+<span>6 enlaces activos</span>
+</div>
+</div>
+</div>
+<!-- Split Dual Workspace (Markdown Code vs Live Rendered Preview) -->
+<div class="flex-1 grid grid-cols-1 md:grid-cols-2 overflow-y-auto">
+<!-- Left Pane: Raw Markdown Editor -->
+<div class="p-space-md bg-surface font-code-inline text-code-inline leading-relaxed text-on-surface-variant focus:outline-none overflow-y-auto space-y-4">
+<div class="text-outline">---<br/>subject: Sistemas Operativos<br/>unit: 03 - Concurrencia<br/>status: reviewing<br/>---</div>
+<p class="text-primary font-bold text-headline-sm"># Arquitectura de Hilos y Sincronización en Linux</p>
+<p class="text-on-surface">Los hilos en el kernel Linux no se diferencian estrictamente de los procesos normales a nivel de estructura; son tratados como [[Procesos Ligeros]] utilizando la llamada al sistema <span class="bg-surface-container px-1 py-0.5 rounded text-primary-fixed">clone()</span> con banderas específicas (<span class="text-secondary">CLONE_VM</span>, <span class="text-secondary">CLONE_FS</span>).</p>
+<div class="p-space-sm bg-surface-container-low rounded">
+<span class="text-outline">c</span><br/>
+<span class="text-primary-container">#include</span> <pthread.h><br/>
+<span class="text-secondary">pthread_mutex_t</span> lock = PTHREAD_MUTEX_INITIALIZER;<br/><br/>
+<span class="text-outline">// Sección crítica protegida</span><br/>
+<span class="text-primary">pthread_mutex_lock</span>(&lock);<br/>
+            shared_counter++; <span class="text-outline">// [[Concurrencia y Mutex]]</span><br/>
+<span class="text-primary">pthread_mutex_unlock</span>(&lock);<br/>
+<span class="text-outline"></span>
+</div>
+<p class="text-on-surface">Para garantizar que no ocurra inanición o un [[Deadlock]] entre múltiples llamadas concurrentes, es mandatorio asegurar una jerarquía en el orden de adquisición.</p>
+<p class="text-outline">> [!NOTE] Principio de Dijkstra<br/>> La contención se reduce cuando las regiones críticas son mínimas y no invocan operaciones I/O bloqueantes.</p>
+<p class="text-on-surface">Véase también la comparativa frente a [[Semáforos]] y variables de condición en [[Pthreads]].</p>
+</div>
+<!-- Right Pane: Live Rich Typographic Rendering -->
+<div class="p-space-md bg-surface-container-lowest/60 overflow-y-auto font-body-lg text-body-lg leading-relaxed space-y-space-md">
+<div class="flex items-center justify-between pb-space-xs">
+<span class="font-label-sm text-label-sm text-outline tracking-wider uppercase">VISTA PREVIA RENDERIZADA</span>
+<span class="px-2 py-0.5 rounded text-[11px] font-code-inline bg-secondary/10 text-secondary">Markdown live engine</span>
+</div>
+<h1 class="font-headline-lg text-headline-lg font-bold text-on-surface tracking-tight">Arquitectura de Hilos y Sincronización en Linux</h1>
+<p class="text-on-surface">
+            Los hilos en el kernel Linux no se diferencian estrictamente de los procesos tradicionales a nivel de estructura interna. Ambos son manejados como 
+            <a class="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-primary-container/15 text-primary hover:bg-primary-container/30 font-semibold transition-colors" href="#">
+<span class="material-symbols-outlined text-[13px]">link</span>[[Procesos Ligeros]]
+            </a> 
+            mediante la llamada de sistema 
+            <code class="px-1.5 py-0.5 rounded bg-surface-container font-code-inline text-code-inline text-secondary">clone()</code> 
+            compartiendo el mismo espacio de direcciones virtual.
+          </p>
+<!-- Technical Callout Box -->
+<div class="p-space-md rounded-lg bg-surface-container-high/70 space-y-1">
+<div class="flex items-center gap-2 text-primary font-label-md text-label-md font-semibold">
+<span class="material-symbols-outlined text-[18px]">verified</span>
+<span>Principio de Dijkstra & Exclusión Mutua</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant">
+              La contención se minimiza cuando las secciones críticas son atómicas, cortas y no realizan llamadas de entrada/salida bloqueantes bajo bloqueo activo.
+            </p>
+</div>
+<!-- Code Card Rendered -->
+<div class="rounded-lg bg-surface-container overflow-hidden">
+<div class="flex items-center justify-between px-space-sm py-1.5 bg-surface-container-high text-on-surface-variant font-code-inline text-[11px]">
+<span>sync_kernel.c</span>
+<button class="flex items-center gap-1 hover:text-on-surface">
+<span class="material-symbols-outlined text-[13px]">content_copy</span> Copiar
+              </button>
+</div>
+<div class="p-space-sm font-code-inline text-code-inline text-on-surface space-y-1">
+<div><span class="text-primary-container">#include</span> <pthread.h></div>
+<div><span class="text-secondary">pthread_mutex_t</span> lock = PTHREAD_MUTEX_INITIALIZER;</div>
+<div class="text-outline">// Bloqueo sincronizado seguro</div>
+<div><span class="text-primary-fixed-dim">pthread_mutex_lock</span>(&lock);</div>
+<div class="pl-4">shared_counter++; <span class="text-outline">// Incremento atómico</span></div>
+<div><span class="text-primary-fixed-dim">pthread_mutex_unlock</span>(&lock);</div>
+</div>
+</div>
+<p class="text-on-surface">
+            Si múltiples hilos retienen recursos en desorden, puede generarse un 
+            <a class="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-primary-container/15 text-primary hover:bg-primary-container/30 font-semibold transition-colors" href="#">
+<span class="material-symbols-outlined text-[13px]">link</span>[[Deadlock]]
+            </a>. 
+            Para mitigar esto, se estudian variantes basadas en 
+            <a class="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-primary-container/15 text-primary hover:bg-primary-container/30 font-semibold transition-colors" href="#">
+<span class="material-symbols-outlined text-[13px]">link</span>[[Semáforos]]
+            </a> 
+            y la API moderna de 
+            <a class="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-primary-container/15 text-primary hover:bg-primary-container/30 font-semibold transition-colors" href="#">
+<span class="material-symbols-outlined text-[13px]">link</span>[[Pthreads]]
+            </a>.
+          </p>
+</div>
+</div>
+<!-- Footer: Backlinks & Linked References Section -->
+<div class="p-space-md bg-surface-container-low">
+<div class="flex items-center justify-between mb-space-xs">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[18px]">account_tree</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-semibold">Menciones Vinculadas (Backlinks)</h3>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-high text-primary font-code-inline text-[11px]">2 notas enlazan aquí</span>
+</div>
+<span class="font-label-sm text-label-sm text-outline">Actualizado en tiempo real</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-space-sm pt-space-xs">
+<!-- Backlink 1 -->
+<div class="p-space-sm rounded-lg bg-surface-container hover:bg-surface-container-high cursor-pointer transition-colors group">
+<div class="flex items-center justify-between mb-1">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary-fixed-dim text-[16px]">file_open</span>
+<span class="font-label-md text-label-md text-on-surface font-semibold group-hover:text-primary transition-colors">[[Preparación Examen Parcial]]</span>
+</div>
+<span class="font-body-sm text-[11px] text-outline">hace 3 hrs</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">
+              "...revisar obligatoriamente la <span class="text-primary font-medium">[[Arquitectura de Hilos y Sincronización en Linux]]</span> antes de abordar los ejercicios de memoria compartida..."
+            </p>
+</div>
+<!-- Backlink 2 -->
+<div class="p-space-sm rounded-lg bg-surface-container hover:bg-surface-container-high cursor-pointer transition-colors group">
+<div class="flex items-center justify-between mb-1">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-secondary text-[16px]">science</span>
+<span class="font-label-md text-label-md text-on-surface font-semibold group-hover:text-secondary transition-colors">[[Laboratorio 2 - Pthreads]]</span>
+</div>
+<span class="font-body-sm text-[11px] text-outline">Ayer</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">
+              "...el código implementado utiliza el esquema planteado en la nota conceptual <span class="text-secondary font-medium">[[Arquitectura de Hilos y Sincronización en Linux]]</span>..."
+            </p>
+</div>
+</div>
+</div>

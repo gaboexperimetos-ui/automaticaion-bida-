@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard — Study Platform</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        accent: '#6366f1',
+                        accentHover: '#5558e6',
+                    },
+                    fontFamily: {
+                        outfit: ['Outfit', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Outfit', sans-serif; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 flex min-h-screen overflow-hidden">
+
+<!-- Sidebar -->
+<aside class="w-64 bg-gray-900/50 border-r border-gray-800 h-screen fixed left-0 top-0 z-50 flex flex-col"
+       :class="{ '-translate-x-full': !sidebarOpen }" x-data="{ sidebarOpen: window.innerWidth >= 1024 }">
+    <!-- Sidebar Header -->
+    <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-800">
+        <svg class="w-9 h-9 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span class="text-lg font-bold text-white tracking-tight">Study Platform</span>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="flex-1 overflow-y-auto p-4 space-y-1">
+        <div class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3 px-3">Principal</div>
+
+        <a href="/dashboard" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-gray-800/50 text-white font-medium">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            Dashboard
+        </a>
+
+        <!-- Academic Dropdown -->
+        <div x-data="{ open: false }">
+            <button @click="open = !open" class="flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800/50 transition-colors">
+                <span class="flex items-center gap-3">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                    Académico
+                </span>
+                <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+            <div class="ml-8 mt-1 space-y-1" x-show="open" x-collapse>
+                <a href="#" class="block px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-gray-800/30">📅 Horario</a>
+                <a href="#" class="block px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-gray-800/30">🎯 Calificaciones</a>
+                <a href="#" class="block px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-gray-800/30">📊 Promedios</a>
+                <a href="#" class="block px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-gray-800/30">✅ Asistencia</a>
+                <a href="#" class="block px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-gray-800/30">📝 Tareas</a>
+                <a href="#" class="block px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-gray-800/30">🏆 Reconocimientos</a>
+            </div>
+        </div>
+
+        <!-- Notes Dropdown -->
+        <div x-data="{ open: false }">
+            <button @click="open = !open" class="flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800/50 transition-colors">
+                <span class="flex items-center gap-3">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    Notas
+                </span>
+                <span class="ml-auto bg-indigo-500 text-white text-xs px-2 py-0.5 rounded-full">Nuevo</span>
+                <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-90': open }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+            <div class="ml-8 mt-1 space-y-1" x-show="open" x-collapse>
+                <a href="/app/notes" class="block px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-gray-800/30">📚 Todas las notas</a>
+                <a href="#" class="block px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-gray-800/30">⭐ Favoritas</a>
+                <a href="#" class="block px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-gray-800/30">🔍 Buscar</a>
+            </div>
+        </div>
+
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800/50 transition-colors">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Eventos
+        </a>
+
+        <div class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3 mt-6 px-3">Herramientas</div>
+
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800/50 transition-colors">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+            Asistente IA
+            <span class="ml-auto bg-indigo-500 text-white text-xs px-2 py-0.5 rounded-full">{{MODEL}}</span>
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800/50 transition-colors">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+            Suite Oficina
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800/50 transition-colors">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Configuración
+        </a>
+    </nav>
+
+    <!-- Logout -->
+    <div class="p-4 border-t border-gray-800">
+        <form hx-post="/logout" hx-swap="outerHTML">
+            <button type="submit" class="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-gray-800/50 transition-colors">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                Cerrar sesión
+            </button>
+        </form>
+    </div>
+</aside>
+
+<!-- Main Content -->
+<div class="flex-1 ml-0 md:ml-64 flex flex-col min-h-screen" id="main-content">
+    <!-- Top Header -->
+    <header class="sticky top-0 z-40 bg-gray-900/50 border-b border-gray-800 backdrop-blur-sm">
+        <div class="flex items-center justify-between px-4 md:px-6 py-4">
+            <div class="flex items-center gap-4">
+                <button class="md:hidden text-gray-400 hover:text-white" @click="sidebarOpen = !sidebarOpen">
+                    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                </button>
+                <div class="hidden md:flex items-center gap-2 bg-gray-800/50 border border-gray-700 rounded-lg px-4 py-2">
+                    <svg class="w-4 h-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    <input type="text" placeholder="Buscar..." class="bg-transparent border-none outline-none text-sm text-gray-300 placeholder-gray-500 w-56">
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <button class="relative p-2 text-gray-400 hover:text-white rounded-lg hover:bg-gray-800/50">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                    <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
+                </button>
+                <div class="flex items-center gap-2 cursor-pointer group">
+                    <div class="w-9 h-9 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center text-sm font-bold text-white">G</div>
+                    <div class="hidden md:block">
+                        <div class="text-sm font-medium">Gabo</div>
+                        <div class="text-xs text-gray-500">Estudiante</div>
+                    </div>
+                    <svg class="w-4 h-4 text-gray-500 hidden md:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Page Content -->
+    <main class="flex-1 p-4 md:p-6 overflow-y-auto">
+        <!-- Welcome -->
+        <div class="mb-6">
+            <h1 class="text-2xl font-bold text-white mb-1">Bienvenido, Gabo 👋</h1>
+            <p class="text-gray-400">Resumen de tu actividad académica</p>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div class="bg-gray-900/50 border border-gray-800 rounded-xl p-5">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-10 h-10 bg-indigo-500/10 rounded-lg flex items-center justify-center text-lg">📚</div>
+                </div>
+                <div class="text-2xl font-bold text-white">12</div>
+                <div class="text-sm text-gray-400">Clases hoy</div>
+            </div>
+            <div class="bg-gray-900/50 border border-gray-800 rounded-xl p-5">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center text-lg">📝</div>
+                </div>
+                <div class="text-2xl font-bold text-white">3</div>
+                <div class="text-sm text-gray-400">Tareas pendientes</div>
+            </div>
+            <div class="bg-gray-900/50 border border-gray-800 rounded-xl p-5">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-10 h-10 bg-green-500/10 rounded-lg flex items-center justify-center text-lg">📊</div>
+                </div>
+                <div class="text-2xl font-bold text-white">3.8</div>
+                <div class="text-sm text-gray-400">Promedio general</div>
+            </div>
+            <div class="bg-gray-900/50 border border-gray-800 rounded-xl p-5">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center text-lg">✅</div>
+                </div>
+                <div class="text-2xl font-bold text-white">95%</div>
+                <div class="text-sm text-gray-400">Asistencia este mes</div>
+            </div>
+        </div>
+
+        <!-- Panels Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <!-- Academic Data Panel -->
+            <div class="bg-gray-900/50 border border-gray-800 rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
+                    <h3 class="font-semibold text-white">🎓 Datos académicos</h3>
+                    <button class="w-8 h-8 rounded-lg bg-gray-800/50 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700/50 transition-colors">⋮</button>
+                </div>
+                <div class="p-5">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-sm font-medium">Mikarenocode MCP</span>
+                        <span class="flex items-center gap-1.5 text-sm text-green-400">
+                            <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                            Conectado
+                        </span>
+                    </div>
+                    <p class="text-sm text-gray-400 mb-3">Horario, calificaciones, asistencia y tareas sincronizadas.</p>
+                    <a href="#" class="text-sm text-indigo-400 hover:text-indigo-300 font-medium inline-flex items-center gap-1">Ver detalles →</a>
+                </div>
+            </div>
+
+            <!-- Second Brain Panel -->
+            <div class="bg-gray-900/50 border border-gray-800 rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
+                    <h3 class="font-semibold text-white">🧠 Segundo cerebro</h3>
+                    <button class="w-8 h-8 rounded-lg bg-gray-800/50 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700/50 transition-colors">+</button>
+                </div>
+                <div class="p-5">
+                    <p class="text-sm text-gray-400 mb-3">Crea y organiza tus apuntes. Busca por título o contenido.</p>
+                    <a href="/app/notes" class="text-sm text-indigo-400 hover:text-indigo-300 font-medium inline-flex items-center gap-1">Ir a mis notas →</a>
+                </div>
+            </div>
+
+            <!-- AI Assistant Panel -->
+            <div class="bg-gray-900/50 border border-gray-800 rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
+                    <h3 class="font-semibold text-white">🤖 Asistente IA</h3>
+                    <button class="w-8 h-8 rounded-lg bg-gray-800/50 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700/50 transition-colors">⋮</button>
+                </div>
+                <div class="p-5">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-sm font-medium">Modelo activo</span>
+                        <span class="text-sm text-gray-500">{{MODEL}}</span>
+                    </div>
+                    <p class="text-sm text-gray-400 mb-3">Chat, resúmenes, quizzes y hojas de estudio.</p>
+                    <span class="flex items-center gap-1.5 text-sm text-yellow-500">
+                        <span class="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></span>
+                        OpenRouter no configurado
+                    </span>
+                </div>
+            </div>
+
+            <!-- Office Suite Panel -->
+            <div class="bg-gray-900/50 border border-gray-800 rounded-xl overflow-hidden">
+                <div class="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
+                    <h3 class="font-semibold text-white">📄 Suite de oficina</h3>
+                    <button class="w-8 h-8 rounded-lg bg-gray-800/50 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700/50 transition-colors">⋮</button>
+                </div>
+                <div class="p-5">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-sm font-medium">GenOffice MCP</span>
+                        <span class="flex items-center gap-1.5 text-sm {{GO_TEXT === 'Conectado' ? 'text-green-400' : 'text-gray-500'}}">
+                            <span class="w-2 h-2 {{GO_TEXT === 'Conectado' ? 'bg-green-500' : 'bg-gray-500'}} rounded-full"></span>
+                            {{GO_TEXT}}
+                        </span>
+                    </div>
+                    <p class="text-sm text-gray-400 mb-3">Genera documentos Word, Excel y PowerPoint.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="mt-8 pt-6 border-t border-gray-800 text-center text-xs text-gray-600">
+            Study Platform v{{VERSION}} · Rust + Axum + SQLite · Hecho con ❤️ para estudiantes
+        </footer>
+    </main>
+</div>
+
+<script>
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.user-trigger')) {
+            var dd = document.getElementById('user-dropdown');
+            if (dd) dd.style.display = 'none';
+        }
+    });
+    window.isMobile = window.innerWidth < 1024;
+</script>
+</body>
+</html>
