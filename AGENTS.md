@@ -10,7 +10,8 @@ Identifiers y comentarios en inglés; mensajes de usuario en español.
 - `cargo test` — suite completa
 - `cargo test --test <archivo>` — UN solo archivo de tests (sin `<>`, p.ej. `--test auth_sessions`)
 - `cargo run` — dev local (lee `.env`)
-- Producción (musl estático): `cargo build --release --target x86_64-unknown-linux-musl RUSTFLAGS='-C link-arg=-s'`
+- Producción: `cargo build --release` (glibc — es lo que corre realmente en la Dell; verificado 2026-10-14 por BuildID idéntico al binario desplegado).
+- NOTA: la instrucción musl del handoff era obsoleta: no existe `x86_64-linux-musl-gcc` en esta máquina y el binario en producción nunca fue musl. No reintentar musl sin Docker.
 - Orden: cargo check → cargo test → build.
 
 ## Git / sincronización entre máquinas
@@ -20,11 +21,12 @@ Identifiers y comentarios en inglés; mensajes de usuario en español.
 - `~/proyectos/styp/` está vacío y es obsoleto (plan de reescritura descartado a favor de este repo).
 
 ## Deploy (Dell gabo-Inspiron-5720, alias ssh `homelab`)
-1. Build musl (arriba) en asus-tuf.
+1. Build: `cargo build --release` en asus-tuf.
 2. Backup remoto: `ssh homelab 'cp /home/gabo/study-platform/study-platform /home/gabo/study-platform/study-platform.bak-$(date +%Y%m%d)'`
-3. `scp target/x86_64-unknown-linux-musl/release/study-platform homelab:/home/gabo/study-platform/study-platform`
-4. `ssh homelab 'systemctl --user restart study-platform'`
-5. Verificar: `curl http://100.92.172.48:8091/health`
+3. `scp target/release/study-platform homelab:/home/gabo/study-platform/study-platform.new` — **NUNCA al path final**: el binario está en ejecución y `scp` falla (ETXTBSY).
+4. `ssh homelab 'cd /home/gabo/study-platform && mv study-platform.new study-platform && chmod +x study-platform'` (rename atómico; el proceso viejo sigue con su inode).
+5. Reinicio: `ssh homelab 'echo <password sudo> | sudo -S systemctl restart study-platform'` — la unidad es de **SISTEMA** (`/etc/systemd/system`), NO de usuario: `systemctl --user` da "unit not found".
+6. Verificar: `curl http://100.92.172.48:8091/health` → esperado `database/mikareno_mcp/genoffice_mcp: true`.
 
 ## Infra (verificada 2026-10-14)
 - App en la Dell: `0.0.0.0:8091` (servicio systemd `study-platform.service`), tailnet `http://100.92.172.48:8091`.
@@ -64,7 +66,7 @@ Identifiers y comentarios en inglés; mensajes de usuario en español.
    IA (OpenRouter): fase posterior, hoy apagada.
 
 ## Debugging
-- `journalctl --user -u study-platform -n 50` — logs de la app
+- `sudo journalctl -u study-platform -n 50` — logs de la app (unidad de sistema, NO `--user`)
 - `journalctl --user -u mikareno-mcp` — logs del MCP
 - `ss -tlnp | grep -E '8080|8091|8453'` — puertos
 - No asumir: verificar con `curl` o test directo.
