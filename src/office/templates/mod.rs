@@ -6,12 +6,166 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::SystemTime;
+use std::sync::LazyLock;
+use std::time::{Duration, Instant, SystemTime};
 
 use axum::body::Body;
 use axum::http::StatusCode;
 use axum::response::Response;
 use pulldown_cmark::{html, Options, Parser};
+
+/// HTTP client compartido para sondeos MCP (read-only `initialize`).
+/// Comparte el patrón de `api.rs` y `stitch_mcp.rs`: timeout corto (2.5 s)
+/// para que una instancia caída no corte la respuesta.
+static PROBE_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
+    reqwest::Client::builder()
+        .timeout(Duration::from_millis(2500))
+        .build()
+        .expect("reqwest client for office MCP probes")
+});
+
+/// TTL del caché de sondeo MCP: 30 s (coincide con `/health`).
+const MCP_PROBE_TTL: Duration = Duration::from_secs(30);
+
+/// Caché del último sondeo a GenOffice: `(instante, latency_ms_u_none)`.
+/// `None` significa "sin respuesta" (MCP caído o no configurado).
+static GENOFFICE_PROBE_CACHE: std::sync::Mutex<Option<(Instant, Option<u128>)>> =
+    std::sync::Mutex::new(None);
+
+/// Probea un servidor MCP vía HTTP POST de `initialize` (JSON-RPC 2.0).
+///
+/// **Read-only**: no llama a `tools/call`, solo verifica que el servidor
+/// responda con 2xx. Devuelve `Some(latencia_ms)` si responde, `None` si la
+/// URL está vacía o el servidor no responde.
+pub async fn probe_mcp(url: &str) -> Option<u128> {
+    if url.is_empty() {
+        return None;
+    }
+    let body = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-03-26",
+            "capabilities": {},
+            "clientInfo": {
+                "name": "study-platform-office",
+                "version": env!("CARGO_PKG_VERSION"),
+            },
+        },
+    });
+    let t0 = Instant::now();
+    let ok = PROBE_CLIENT
+        .post(url)
+        .header("content-type", "application/json")
+        .header("accept", "application/json, text/event-stream")
+        .json(&body)
+        .send()
+        .await
+        .map(|r| r.status().is_success())
+        .unwrap_or(false);
+    ok.then_some(t0.elapsed().as_millis())
+}
+
+/// Sondeo con caché (TTL 30 s) del MCP de GenOffice.
+/// Devuelve `Some(latencia_ms)` si está activo, `None` si está caído.
+/// Nunca lanza: ante error devuelve `None` (degradación honesta).
+pub async fn genoffice_probe_cached(url: &str) -> Option<u128> {
+    // Patrón idéntico a api.rs: el guard es temporal y se cae antes del .await,
+    // manteniendo el future Send para cumplir el trait Handler de Axum.
+    if let Some((at, ms)) = *GENOFFICE_PROBE_CACHE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+    {
+        if at.elapsed() < MCP_PROBE_TTL {
+            return ms;
+        }
+    }
+
+    let ms = probe_mcp(url).await;
+    *GENOFFICE_PROBE_CACHE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner()) = Some((Instant::now(), ms));
+    ms
+}
+
+/// Comprueba si la tabla `office_files` existe en la base SQLite.
+///
+/// La suite ofimática puede operar en modo **filesystem-puro** (por defecto,
+/// sin tabla) o modo **indexado en BD** (si una migración creó la tabla).
+/// No inventa datos: si la tabla no existe, el caller usa el filesystem.
+pub async fn office_files_table_exists(pool: &sqlx::SqlitePool) -> bool {
+    sqlx::query_scalar::<_, String>(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='office_files'",
+    )
+    .fetch_optional(pool)
+    .await
+    .is_ok_and(|opt| opt.is_some())
+}
+
+/// Lista documentos ofimáticos desde la tabla `office_files` (si existe).
+///
+/// Esquema esperado (si la tabla existe):
+/// ```sql
+/// CREATE TABLE office_files (
+///     slug        TEXT NOT NULL,
+///     kind        TEXT NOT NULL,  -- 'docs', 'sheets', 'presentations'
+///     filename    TEXT NOT NULL,
+///     size        INTEGER NOT NULL DEFAULT 0,
+///     modified_at TEXT
+/// );
+/// ```
+/// Devuelve un `Vec<FileInfo>` vacío si la tabla no existe o hay error
+/// (el caller hará fallback al filesystem).
+pub async fn list_files_from_db(pool: &sqlx::SqlitePool, kind: &str) -> Vec<FileInfo> {
+    #[derive(sqlx::FromRow)]
+    struct OfficeRow {
+        slug: String,
+        size: i64,
+        modified_at: Option<String>,
+    }
+
+    let rows: Vec<OfficeRow> = sqlx::query_as::<_, OfficeRow>(
+        "SELECT slug, size, modified_at FROM office_files WHERE kind = ? ORDER BY modified_at DESC NULLS LAST",
+    )
+    .bind(kind)
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
+
+    rows.into_iter()
+        .map(|r| FileInfo {
+            name: r.slug.clone(),
+            display: r.slug.replace('-', " "),
+            size: r.size as u64,
+            modified: r.modified_at.unwrap_or_default(),
+        })
+        .collect()
+}
+
+/// Banner de estado honesto del MCP de GenOffice.
+///
+/// - URL vacía → "sin configurar"
+/// - Responde → "activo (latencia: Nms)"
+/// - No responde → **"Sin conexión al MCP de GenOffice"** (degradación honesta)
+pub fn genoffice_status_banner(url: &str, probe_ms: Option<u128>) -> String {
+    if url.is_empty() {
+        r#"<div class="mb-3 text-xs text-gray-500">GenOffice MCP: sin configurar</div>"#.to_string()
+    } else if let Some(ms) = probe_ms {
+        format!(
+            r#"<div class="mb-3 flex items-center gap-1.5 text-xs text-secondary">
+                <span class="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span>
+                GenOffice MCP: activo (latencia: {}ms)
+            </div>"#,
+            ms
+        )
+    } else {
+        r#"<div class="mb-3 flex items-center gap-1.5 text-xs text-red-400">
+            <span class="w-1.5 h-1.5 rounded-full bg-error animate-pulse"></span>
+            Sin conexión al MCP de GenOffice
+        </div>"#.to_string()
+    }
+}
 
 /// Convert Markdown → HTML (CommonMark + tables + footnotes).
 pub fn md_to_html(input: &str) -> String {

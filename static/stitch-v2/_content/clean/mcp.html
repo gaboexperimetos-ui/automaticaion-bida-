@@ -11,22 +11,21 @@
 </div>
 <h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Centro MCP &amp; Orquestador OpenRouter</h1>
 <p class="font-body-md text-body-md text-on-surface-variant max-w-2xl">
-          Configuración criptográfica segura para el enrutador de modelos cognitivos. Vincula endpoints locales, supervisa latencias biométricas y valida la inferencia en tiempo de ejecución.
+          Estado real de los servidores MCP vinculados (Mikareno, GenOffice y el MCP nativo) y del enrutador OpenRouter. Los datos provienen de la configuración y la base local del servidor.
         </p>
 </div>
 <!-- Quick Metrics Ribbon -->
 <div class="flex items-center gap-space-xs bg-surface-container-low p-1.5 rounded-lg">
 <div class="flex items-center gap-2 px-space-sm py-1 rounded bg-surface-container">
-<span class="w-2 h-2 rounded-full bg-secondary shadow-[0_0_8px_rgba(158,215,83,0.8)]"></span>
-<span class="font-label-sm text-label-sm text-on-surface">Orquestador: Activo</span>
+<!--SLOT:MCP_ORCHESTRATOR-->
 </div>
-<div class="flex items-center gap-2 px-space-sm py-1 rounded bg-surface-container">
+<div class="flex items-center gap-2 px-space-sm py-1 rounded bg-surface-container" title="Latencia del último chequeo MCP (Mikareno)">
 <span class="material-symbols-outlined text-primary-container text-[16px]">speed</span>
-<span class="font-code-inline text-code-inline text-primary-container" id="header-latency">138ms</span>
+<span class="font-code-inline text-code-inline text-primary-container" id="header-latency"><!--SLOT:MCP_LATENCY--></span>
 </div>
-<div class="flex items-center gap-2 px-space-sm py-1 rounded bg-surface-container">
+<div class="flex items-center gap-2 px-space-sm py-1 rounded bg-surface-container" title="Gasto de IA del mes en curso registrado en la base local">
 <span class="material-symbols-outlined text-outline text-[16px]">account_balance_wallet</span>
-<span class="font-code-inline text-code-inline text-on-surface-variant">$14.82 USD</span>
+<span class="font-code-inline text-code-inline text-on-surface-variant"><!--SLOT:MCP_SPEND--></span>
 </div>
 </div>
 </div>
@@ -52,10 +51,7 @@
 </div>
 </div>
 <!-- Health Badge -->
-<div class="flex items-center gap-1.5 px-space-sm py-1 rounded-full bg-secondary/10 text-secondary text-label-sm font-label-sm" id="live-connection-tag">
-<span class="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span>
-<span>Enrutamiento Verificado</span>
-</div>
+<!--SLOT:MCP_STATUS_AI-->
 </div>
 <!-- Secret Key Form -->
 <div class="flex flex-col gap-space-md">
@@ -65,11 +61,11 @@
 <span>API Key Secreta</span>
 <span class="material-symbols-outlined text-[15px] text-outline cursor-help" title="Tu clave comienza habitualmente con sk-or-v1-...">info</span>
 </label>
-<span class="font-code-inline text-[11px] text-primary-fixed-dim">TLS 1.3 | Cifrado AES-GCM local</span>
+<span class="font-code-inline text-[11px] text-primary-fixed-dim"><!--SLOT:MCP_KEY_STATE--></span>
 </div>
 <div class="relative flex items-center">
 <span class="absolute left-3.5 text-outline material-symbols-outlined text-[18px]">key</span>
-<input class="w-full h-11 bg-surface-container-high rounded-lg pl-11 pr-28 text-on-surface font-code-inline text-code-inline placeholder:text-outline focus:outline-none focus:bg-surface-container transition-all" id="openrouter-key" placeholder="sk-or-v1-••••••••••••••••••••••••" type="password" value="sk-or-v1-98a72b4f58c091e84d621aa90bf437012"/>
+<input class="w-full h-11 bg-surface-container-high rounded-lg pl-11 pr-28 text-on-surface font-code-inline text-code-inline placeholder:text-outline focus:outline-none focus:bg-surface-container transition-all" aria-label="Clave de OpenRouter (OPENROUTER_API_KEY)" id="openrouter-key" placeholder="sk-or-v1-••••••••••••••••••••••••" type="password" autocomplete="off" aria-describedby="openrouter-key-note" title="Se define en el servidor (.env), no en el navegador"/>
 <button class="absolute right-3 px-2 py-1 rounded text-outline hover:text-on-surface hover:bg-surface-container-highest transition-colors flex items-center gap-1 font-label-sm text-label-sm" id="toggle-key-visibility" type="button">
 <span class="material-symbols-outlined text-[16px]" id="eye-icon">visibility</span>
 <span id="eye-text">Mostrar</span>
@@ -82,14 +78,11 @@
 <div class="flex flex-col gap-1.5">
 <label class="font-label-md text-label-md text-on-surface-variant flex items-center justify-between" for="default-model">
 <span>Modelo de Inferencia Primario</span>
-<span class="font-code-inline text-[10px] text-secondary">Optimizador Activo</span>
+<span class="font-code-inline text-[10px] text-secondary" id="model-hint">Definido en .env</span>
 </label>
 <div class="relative">
-<select class="w-full h-10 bg-surface-container-high rounded-lg px-space-sm text-on-surface font-body-md text-body-md appearance-none focus:outline-none focus:bg-surface-container cursor-pointer transition-all" id="default-model">
-<option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet (Recomendado para Síntesis)</option>
-<option value="openai/gpt-4o">GPT-4o Omnimodal (Alta velocidad)</option>
-<option value="deepseek/deepseek-r1">DeepSeek R1 (Razonamiento Lógico Profundo)</option>
-<option value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B Instruct (Bajo costo)</option>
+<select class="w-full h-10 bg-surface-container-high rounded-lg px-space-sm text-on-surface font-body-md text-body-md appearance-none focus:outline-none focus:bg-surface-container cursor-pointer transition-all" aria-describedby="model-hint" id="default-model">
+<!--SLOT:MCP_MODEL_OPTIONS-->
 </select>
 <span class="material-symbols-outlined absolute right-3 top-2.5 text-outline pointer-events-none text-[20px]">expand_more</span>
 </div>
@@ -102,8 +95,8 @@
 </div>
 <div class="flex items-center justify-between h-10 px-space-sm bg-surface-container-high rounded-lg">
 <span class="font-body-sm text-body-sm text-outline">Derivar a Ollama si HTTP &gt;= 500</span>
-<label class="relative inline-flex items-center cursor-pointer">
-<input checked="" class="sr-only peer" id="fallback-toggle" type="checkbox"/>
+<label for="fallback-toggle" class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" id="fallback-toggle" type="checkbox" aria-label="Derivar a Ollama si la API responde con HTTP 500 o superior"/>
 <div class="w-9 h-5 bg-surface-container rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-on-primary-container after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-container"></div>
 </label>
 </div>
@@ -114,24 +107,25 @@
 <!-- Temperature Slider -->
 <div class="p-space-sm bg-surface-container rounded-lg flex flex-col gap-space-xs">
 <div class="flex justify-between items-center">
-<span class="font-label-md text-label-md text-on-surface">Temperatura Cognitiva</span>
+<label for="temperature-slider" class="font-label-md text-label-md text-on-surface">Temperatura Cognitiva</label>
 <span class="font-code-inline text-code-inline text-primary-container" id="temp-value">0.30 (Analítico)</span>
 </div>
-<input class="w-full accent-primary-container cursor-pointer h-1.5 bg-surface-container-highest rounded-lg appearance-none" id="temperature-slider" max="100" min="0" type="range" value="30"/>
+<input class="w-full accent-primary-container cursor-pointer h-1.5 bg-surface-container-highest rounded-lg appearance-none" id="temperature-slider" max="100" min="0" type="range" value="30" aria-describedby="temp-note" title="La temperatura la fija el cliente de OpenRouter (0.70): no se puede cambiar desde aquí."/>
 <div class="flex justify-between text-[10px] font-body-sm text-outline">
 <span>0.0 Precisión matemática</span>
 <span>1.0 Pensamiento divergente</span>
 </div>
+<p id="temp-note" class="text-[10px] font-body-sm text-outline">La fija el cliente de OpenRouter (0.70): no se puede cambiar desde el navegador.</p>
 </div>
 <!-- Monthly Hard Spend Limit -->
 <div class="p-space-sm bg-surface-container rounded-lg flex flex-col gap-space-xs">
 <div class="flex justify-between items-center">
-<span class="font-label-md text-label-md text-on-surface">Tope Presupuestario Mensual</span>
-<span class="font-code-inline text-code-inline text-secondary" id="budget-value">$35.00 USD</span>
+<label for="budget-slider" class="font-label-md text-label-md text-on-surface">Tope Presupuestario Mensual</label>
+<span class="font-code-inline text-code-inline text-secondary" id="budget-value"><!--SLOT:MCP_BUDGET--></span>
 </div>
-<input class="w-full accent-secondary cursor-pointer h-1.5 bg-surface-container-highest rounded-lg appearance-none" id="budget-slider" max="150" min="5" type="range" value="35"/>
+<input class="w-full accent-secondary cursor-pointer h-1.5 bg-surface-container-highest rounded-lg appearance-none" id="budget-slider" max="150" min="1" type="range" value="<!--SLOT:MCP_BUDGET_INT-->"/>
 <div class="flex justify-between text-[10px] font-body-sm text-outline">
-<span>$5 Límite base</span>
+<span>$1 Límite base</span>
 <span>$150 Carga intensiva</span>
 </div>
 </div>
@@ -141,8 +135,8 @@
 <span class="material-symbols-outlined text-secondary text-[20px] mt-0.5">verified_user</span>
 <div class="space-y-0.5">
 <p class="font-label-md text-label-md text-on-surface font-semibold">Garantía Criptográfica de Soberanía de Datos</p>
-<p class="font-body-sm text-body-sm text-on-surface-variant">
-                  Tus credenciales y claves privadas se resguardan de forma aislada en el Secure Storage local de tu navegador y en la bóveda de la instancia. Jamás se retransmiten ni se consolidan en servidores analíticos externos.
+<p id="openrouter-key-note" class="font-body-sm text-body-sm text-on-surface-variant">
+                  La clave de API se guarda únicamente en el servidor (variables de entorno .env) y nunca se envía al navegador. Las solicitudes de IA salen solo hacia OpenRouter cuando hay clave configurada.
                 </p>
 </div>
 </div>
@@ -150,10 +144,10 @@
 <div class="flex flex-wrap items-center justify-between gap-space-sm pt-space-xs">
 <div class="flex items-center gap-space-xs text-outline font-code-inline text-[11px]">
 <span class="material-symbols-outlined text-[15px] text-primary-fixed-dim">lock</span>
-<span>Almacenado localmente en Vault IndexDB</span>
+<span>Gestionado por variables de entorno (.env) en el servidor</span>
 </div>
 <div class="flex items-center gap-space-xs">
-<button class="px-space-md py-2 rounded-lg bg-primary-container/10 text-primary-container hover:bg-primary-container/20 font-label-md text-label-md transition-all flex items-center gap-1.5" id="btn-test-ping" type="button">
+<button class="px-space-md py-2 rounded-lg bg-primary-container/10 text-primary-container hover:bg-primary-container/20 font-label-md text-label-md transition-all flex items-center gap-1.5" id="btn-test-ping" type="button" title="Consulta el estado del servidor y muestra la latencia; se deshabilita mientras comprueba.">
 <span class="material-symbols-outlined text-[16px]">wifi_tethering</span>
 <span>Probar Conexión</span>
 </button>
@@ -172,7 +166,7 @@
 <span class="material-symbols-outlined text-secondary text-[20px]">share</span>
 <h3 class="font-headline-sm text-headline-sm text-on-surface">Servidores MCP Vinculados en el Entorno</h3>
 </div>
-<span class="font-label-sm text-label-sm text-outline">3 Servicios Registrados</span>
+<span class="font-label-sm text-label-sm text-outline"><!--SLOT:MCP_SERVERS_LINE--></span>
 </div>
 <div class="grid grid-cols-1 md:grid-cols-3 gap-space-md">
 <!-- Card 1: Mikareno MCP -->
@@ -182,16 +176,14 @@
 <div class="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center text-secondary">
 <span class="material-symbols-outlined text-[18px]">cloud_sync</span>
 </div>
-<span class="px-2 py-0.5 rounded text-[10px] font-code-inline bg-secondary-container/20 text-secondary">Lectura</span>
+<span class="px-2 py-0.5 rounded text-[10px] font-code-inline bg-secondary-container/20 text-secondary"><!--SLOT:MCP_TOOLS--></span>
 </div>
 <h4 class="font-headline-sm text-headline-sm text-on-surface">Mikareno MCP</h4>
 <p class="font-body-sm text-body-sm text-outline mt-1 line-clamp-2">Sincronización de calificaciones, asistencia académica y circulares institucionales.</p>
 </div>
 <div class="pt-space-xs flex items-center justify-between text-body-sm font-code-inline text-on-surface-variant">
-<span class="flex items-center gap-1 text-[11px] text-secondary">
-<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span> Activo
-                </span>
-<span class="text-[11px] text-outline">Sync cada 15m</span>
+<!--SLOT:MCP_STATUS_MIKARENO-->
+<span class="text-[11px] text-outline truncate max-w-[150px]" title="Endpoint del MCP de Mikareno"><!--SLOT:MCP_URL_MIKARENO--></span>
 </div>
 </div>
 <!-- Card 2: GenOffice MCP -->
@@ -207,10 +199,8 @@
 <p class="font-body-sm text-body-sm text-outline mt-1 line-clamp-2">Puente de automatización para Documentos, Hojas de Cálculo y exportación LaTeX.</p>
 </div>
 <div class="pt-space-xs flex items-center justify-between text-body-sm font-code-inline text-on-surface-variant">
-<span class="flex items-center gap-1 text-[11px] text-outline">
-<span class="w-1.5 h-1.5 rounded-full bg-outline"></span> En reposo
-                </span>
-<button class="text-[11px] text-primary-container hover:underline">Iniciar daemon</button>
+<!--SLOT:MCP_STATUS_GENOFFICE-->
+<span class="text-[11px] text-outline truncate max-w-[150px]" title="Endpoint del MCP de GenOffice"><!--SLOT:MCP_URL_GENOFFICE--></span>
 </div>
 </div>
 <!-- Card 3: Study Platform Native MCP -->
@@ -223,48 +213,19 @@
 <span class="px-2 py-0.5 rounded text-[10px] font-code-inline bg-primary-container/15 text-primary-container">Socket</span>
 </div>
 <h4 class="font-headline-sm text-headline-sm text-on-surface">Study Native MCP</h4>
-<p class="font-body-sm text-body-sm text-outline mt-1 line-clamp-2">Indexador semántico vectorial y grafo de notas en segundo cerebro local.</p>
+<p class="font-body-sm text-body-sm text-outline mt-1 line-clamp-2">Búsqueda, lectura y creación de notas y contexto académico, servidos por esta misma instancia en /mcp.</p>
 </div>
 <div class="pt-space-xs flex items-center justify-between text-body-sm font-code-inline text-on-surface-variant">
-<span class="flex items-center gap-1 text-[11px] text-primary-fixed-dim">
-<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span> Puerto 8765
-                </span>
-<span class="text-[11px] text-outline">12 Tools act.</span>
+<!--SLOT:MCP_NATIVE_LOCATION-->
+<span class="text-[11px] text-outline"><!--SLOT:MCP_NATIVE_TOOLS--></span>
 </div>
 </div>
 </div>
 </div>
-<!-- Visual Telemetry & Latency History (SVG Sparkline) -->
+<!-- Rendimiento de IA: uso real (tabla usage_metrics) o estado vacio -->
 <div class="bg-surface-container-low p-space-lg rounded-xl flex flex-col gap-space-sm">
-<div class="flex flex-wrap items-center justify-between gap-space-xs">
-<div>
 <h3 class="font-headline-sm text-headline-sm text-on-surface">Rendimiento Histórico de Inferencia</h3>
-<p class="font-body-sm text-body-sm text-outline">Latencia en milisegundos observada en las últimas 24 solicitudes de token.</p>
-</div>
-<div class="flex items-center gap-space-sm font-code-inline text-[11px]">
-<span class="text-primary-container">P50: 124ms</span>
-<span class="text-secondary">P95: 188ms</span>
-<span class="text-outline">Tasa de éxito: 99.8%</span>
-</div>
-</div>
-<!-- SVG Sparkline Diagram -->
-<div class="w-full h-24 bg-surface-container rounded-lg p-2 flex items-end">
-<svg class="w-full h-full overflow-visible" preserveaspectratio="none" viewbox="0 0 600 80">
-<defs>
-<lineargradient id="gradient-latency" x1="0%" x2="0%" y1="0%" y2="100%">
-<stop offset="0%" stop-color="#5eead4" stop-opacity="0.35"></stop>
-<stop offset="100%" stop-color="#5eead4" stop-opacity="0.0"></stop>
-</lineargradient>
-</defs>
-<!-- Filled area underneath -->
-<polygon fill="url(#gradient-latency)" points="0,80 0,55 25,50 50,62 75,45 100,48 125,35 150,42 175,30 200,38 225,25 250,32 275,28 300,40 325,22 350,26 375,18 400,35 425,20 450,24 475,16 500,28 525,22 550,19 575,25 600,20 600,80"></polygon>
-<!-- Vector stroke -->
-<polyline fill="none" points="0,55 25,50 50,62 75,45 100,48 125,35 150,42 175,30 200,38 225,25 250,32 275,28 300,40 325,22 350,26 375,18 400,35 425,20 450,24 475,16 500,28 525,22 550,19 575,25 600,20" stroke="#5eead4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></polyline>
-<!-- Real-time pulse dot -->
-<circle class="animate-ping" cx="600" cy="20" fill="#9ed753" r="4"></circle>
-<circle cx="600" cy="20" fill="#9ed753" r="3"></circle>
-</svg>
-</div>
+<!--SLOT:MCP_TELEMETRY-->
 </div>
 </div>
 <!-- Right Lateral Drawer: Embedded Copilot / Playground Test Area (xl:col-span-4) -->
@@ -280,11 +241,11 @@
 <h3 class="font-headline-sm text-headline-sm text-on-surface">Copiloto MCP</h3>
 <div class="flex items-center gap-1.5 font-code-inline text-[10px] text-outline">
 <span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
-<span class="truncate max-w-[150px]" id="active-chat-model">Claude 3.5 Sonnet</span>
+<span class="truncate max-w-[150px]" id="active-chat-model"><!--SLOT:MCP_MODEL--></span>
 </div>
 </div>
 </div>
-<button class="p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container-high transition-colors" id="btn-clear-chat" title="Limpiar registro de depuración" type="button">
+<button class="p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container-high transition-colors" id="btn-clear-chat" title="Limpiar registro de depuración" aria-label="Limpiar registro de depuración" type="button">
 <span class="material-symbols-outlined text-[18px]">restart_alt</span>
 </button>
 </div>
@@ -302,59 +263,19 @@
 </div>
 <!-- Message Transcript Feed -->
 <div class="flex-1 overflow-y-auto p-space-md space-y-space-md" id="chat-messages">
-<!-- System Notice -->
-<div class="p- space-sm rounded-lg bg-surface-container/60 p-2 text-center">
-<span class="font-code-inline text-[11px] text-outline">Canal de prueba listo. Conexión establecida vía OpenRouter Gateway.</span>
-</div>
-<!-- Assistant Welcome Message -->
-<div class="flex flex-col gap-1 items-start">
-<div class="flex items-center gap-1.5 text-primary-container font-label-sm text-[11px]">
-<span class="material-symbols-outlined text-[14px]">auto_awesome</span>
-<span>Asistente de Pruebas</span>
-<span class="font-code-inline text-outline text-[10px]">10:42:01</span>
-</div>
-<div class="bg-surface-container p-3 rounded-lg text-on-surface font-body-sm text-body-sm max-w-[90%] leading-relaxed shadow-sm">
-                Conexión OpenRouter vinculada exitosamente. Puedes emitir consultas de verificación o validar la ejecución de herramientas del protocolo MCP en tiempo real.
-              </div>
-</div>
-<!-- Human Test Simulation -->
-<div class="flex flex-col gap-1 items-end">
-<div class="flex items-center gap-1.5 text-on-surface-variant font-label-sm text-[11px]">
-<span>Estudiante Pro</span>
-<span class="font-code-inline text-outline text-[10px]">10:42:15</span>
-</div>
-<div class="bg-secondary-container/20 text-on-surface p-3 rounded-lg font-body-sm text-body-sm max-w-[90%] leading-relaxed">
-                Verifica las herramientas de lectura de Mikareno MCP. ¿Está accesible el endpoint de asignaturas?
-              </div>
-</div>
-<!-- Assistant Response with Tool Call Badge -->
-<div class="flex flex-col gap-1 items-start">
-<div class="flex items-center gap-1.5 text-primary-container font-label-sm text-[11px]">
-<span class="material-symbols-outlined text-[14px]">auto_awesome</span>
-<span>Claude 3.5 Sonnet</span>
-<span class="font-code-inline text-outline text-[10px]">10:42:16</span>
-</div>
-<!-- MCP Tool Call Inline Block -->
-<div class="px-2 py-1 rounded bg-surface-container-high text-primary-fixed-dim font-code-inline text-[11px] flex items-center gap-1.5">
-<span class="material-symbols-outlined text-[13px]">code</span>
-<span>tool_call: mikareno.list_subjects() -&gt; 200 OK</span>
-</div>
-<div class="bg-surface-container p-3 rounded-lg text-on-surface font-body-sm text-body-sm max-w-[90%] leading-relaxed shadow-sm">
-                Mikareno MCP responde con latencia de 18ms. Se han sincronizado 6 asignaturas activas y 2 exámenes pendientes para este periodo lectivo.
-              </div>
-</div>
+<!--SLOT:MCP_TRANSCRIPT-->
 </div>
 <!-- Chat Input Area -->
 <div class="p-space-sm bg-surface-container flex flex-col gap-2">
 <div class="relative flex items-end">
-<textarea class="w-full bg-surface-container-high rounded-lg p-2.5 pr-10 text-on-surface font-body-sm text-body-sm placeholder:text-outline focus:outline-none focus:bg-surface-container-highest resize-none transition-all" id="chat-input" placeholder="Escribe un mensaje de prueba para OpenRouter..." rows="2"></textarea>
-<button class="absolute right-2 bottom-2 p-1.5 rounded-md bg-primary-container text-on-primary-container hover:bg-primary-fixed font-bold transition-all shadow-sm" id="btn-send-message" type="button">
+<textarea class="w-full bg-surface-container-high rounded-lg p-2.5 pr-10 text-on-surface font-body-sm text-body-sm placeholder:text-outline focus:outline-none focus:bg-surface-container-highest resize-none transition-all" id="chat-input" aria-label="Mensaje de prueba para OpenRouter" placeholder="Escribe un mensaje de prueba para OpenRouter..." rows="2"></textarea>
+<button class="absolute right-2 bottom-2 p-1.5 rounded-md bg-primary-container text-on-primary-container hover:bg-primary-fixed font-bold transition-all shadow-sm" id="btn-send-message" type="button" aria-label="Enviar mensaje de prueba" title="Enviar mensaje de prueba">
 <span class="material-symbols-outlined text-[18px]">send</span>
 </button>
 </div>
 <div class="flex justify-between items-center px-1 text-[10px] font-body-sm text-outline">
 <span>Shift+Enter para salto de línea</span>
-<span class="font-code-inline text-primary-fixed-dim">Tokens de prueba: 0/4096</span>
+<span class="font-code-inline text-primary-fixed-dim">Tokens de prueba: 0</span>
 </div>
 </div>
 </div>
@@ -400,41 +321,39 @@
       });
     }
 
-    // 3. Model Selector synced with lateral Copilot Drawer
-    const modelSelect = document.getElementById('default-model');
-    const activeChatModel = document.getElementById('active-chat-model');
-    if (modelSelect && activeChatModel) {
-      modelSelect.addEventListener('change', (e) => {
-        const selectedText = e.target.options[e.target.selectedIndex].text;
-        const shortName = selectedText.split(' ')[0] + ' ' + selectedText.split(' ')[1];
-        activeChatModel.textContent = shortName;
-      });
-    }
-
-    // 4. Test Ping Simulation Button
+    // 3. Test Ping: consulta real al endpoint /health del servidor
     const pingBtn = document.getElementById('btn-test-ping');
     const liveTag = document.getElementById('live-connection-tag');
     const headerLatency = document.getElementById('header-latency');
-    if (pingBtn && liveTag) {
-      pingBtn.addEventListener('click', () => {
+    if (pingBtn && liveTag && headerLatency) {
+      pingBtn.addEventListener('click', async () => {
         pingBtn.disabled = true;
         pingBtn.innerHTML = `<span class="material-symbols-outlined text-[16px] animate-spin">refresh</span><span>Comprobando...</span>`;
-        
+        try {
+          const t0 = performance.now();
+          const resp = await fetch('/health', { cache: 'no-store' });
+          const data = await resp.json();
+          const ms = Math.round(performance.now() - t0);
+          headerLatency.textContent = `${ms}ms`;
+          const c = data.components || {};
+          if (c.openrouter) {
+            liveTag.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-secondary animate-ping"></span><span>API activa (${ms}ms)</span>`;
+          } else {
+            liveTag.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-outline"></span><span>Modo demo (sin API key)</span>`;
+          }
+          pingBtn.innerHTML = `<span class="material-symbols-outlined text-[16px]">check</span><span>Respuesta ${ms}ms</span>`;
+        } catch (err) {
+          liveTag.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-error"></span><span>Sin conexión con el servidor</span>`;
+          pingBtn.innerHTML = `<span class="material-symbols-outlined text-[16px]">error</span><span>Sin conexión</span>`;
+        }
+        pingBtn.disabled = false;
         setTimeout(() => {
-          const simulatedLatency = Math.floor(Math.random() * (165 - 120 + 1)) + 120;
-          headerLatency.textContent = `${simulatedLatency}ms`;
-          liveTag.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-secondary animate-ping"></span><span>Conectado (${simulatedLatency}ms)</span>`;
-          pingBtn.disabled = false;
-          pingBtn.innerHTML = `<span class="material-symbols-outlined text-[16px]">check</span><span>Respuesta ${simulatedLatency}ms</span>`;
-          
-          setTimeout(() => {
-            pingBtn.innerHTML = `<span class="material-symbols-outlined text-[16px]">wifi_tethering</span><span>Probar Conexión</span>`;
-          }, 2500);
-        }, 600);
+          pingBtn.innerHTML = `<span class="material-symbols-outlined text-[16px]">wifi_tethering</span><span>Probar Conexión</span>`;
+        }, 2500);
       });
     }
 
-    // 5. Chat Interaction and Quick Test Prompts
+    // 4. Chat Interaction and Quick Test Prompts
     const chatInput = document.getElementById('chat-input');
     const sendBtn = document.getElementById('btn-send-message');
     const chatFeed = document.getElementById('chat-messages');
@@ -478,15 +397,15 @@
       appendMessage('Tú', val, false);
       chatInput.value = '';
 
-      // Simulated streaming reply from OpenRouter
+      // Respuesta simulada: este playground no ejecuta inferencia real
       setTimeout(() => {
         appendMessage(
-          'OpenRouter Gateway', 
-          'Inferencia recibida con éxito [status: 200]. El modelo procesó tu consulta utilizando el contexto del MCP local.', 
+          'Simulación local',
+          'Mensaje recibido. Este panel de pruebas no ejecuta inferencia real ni consulta los MCP; usa el asistente (/dashboard/ai) para conversar con el modelo configurado.',
           true,
-          'mcp.inference.dispatch() -> ok'
+          'simulado: sin llamada a OpenRouter'
         );
-      }, 700);
+      }, 400);
     }
 
     if (sendBtn && chatInput) {
@@ -526,7 +445,7 @@
     if (saveBtn) {
       saveBtn.addEventListener('click', () => {
         const origText = saveBtn.innerHTML;
-        saveBtn.innerHTML = `<span class="material-symbols-outlined text-[18px]">verified</span><span>¡Guardado con éxito!</span>`;
+        saveBtn.innerHTML = `<span class="material-symbols-outlined text-[18px]">info</span><span>Config fija en .env</span>`;
         setTimeout(() => {
           saveBtn.innerHTML = origText;
         }, 2000);

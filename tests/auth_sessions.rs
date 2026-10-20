@@ -42,6 +42,8 @@ const WRONG_PASSWORD: &str = "fictitious-wrong-password-011";
 
 fn test_config(db_path: PathBuf, notes_dir: PathBuf) -> Config {
     Config {
+        db_max_connections: 4,
+        mcp_timeout_ms: 5_000,
         host: "127.0.0.1".to_string(),
         port: 18092,
         session_secret: "auth_sessions_test_secret_32_chars!!".to_string(),
@@ -54,7 +56,9 @@ fn test_config(db_path: PathBuf, notes_dir: PathBuf) -> Config {
         mikareno_mcp_url: "http://127.0.0.1:8080/mcp".to_string(),
         genoffice_mcp_url: "http://127.0.0.1:8453/mcp".to_string(),
         custom_mcp_api_key: None,
+        registration_token: None,
         rust_log: "test".to_string(),
+        auth_disabled: false,
     }
 }
 
@@ -106,7 +110,10 @@ async fn setup() -> (Arc<AppState>, tempfile::TempDir) {
     .await
     .expect("Failed to seed admin user");
 
-    let state = Arc::new(AppState { config, db: pool });
+    let state = Arc::new(AppState { config, db: pool,
+        mikareno: None,
+        start_time: std::time::Instant::now(),
+    });
     (state, work_dir)
 }
 

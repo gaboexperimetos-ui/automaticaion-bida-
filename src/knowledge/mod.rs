@@ -31,6 +31,7 @@
 //! operation.
 
 pub mod frontmatter;
+pub mod markdown;
 pub mod notes;
 mod obsidian;
 pub mod search;

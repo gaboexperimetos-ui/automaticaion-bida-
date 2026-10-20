@@ -21,6 +21,8 @@ fn test_config(
     mikareno_url: &str,
 ) -> Config {
     Config {
+        db_max_connections: 4,
+        mcp_timeout_ms: 5_000,
         host: "127.0.0.1".to_string(),
         port: 18090,
         session_secret: "test_secret_key_at_least_32_chars_long!!".to_string(),
@@ -33,7 +35,9 @@ fn test_config(
         mikareno_mcp_url: mikareno_url.to_string(),
         genoffice_mcp_url: "http://127.0.0.1:8453/mcp".to_string(),
         custom_mcp_api_key: api_key,
+        registration_token: None,
         rust_log: "test".to_string(),
+        auth_disabled: false,
     }
 }
 
@@ -123,7 +127,10 @@ async fn setup_test_state_with_mikareno(
     .execute(&pool)
     .await;
 
-    Arc::new(AppState { config, db: pool })
+    Arc::new(AppState { config, db: pool,
+        mikareno: None,
+        start_time: std::time::Instant::now(),
+    })
 }
 
 /// Send a raw JSON-RPC request to the MCP endpoint and return (status, parsed body).
@@ -215,7 +222,7 @@ async fn test_tools_list() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(result["jsonrpc"], "2.0");
     let tools = result["result"]["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 6);
+    assert_eq!(tools.len(), 9);
     let names: Vec<_> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
     assert!(names.contains(&"search_notes"));
     assert!(names.contains(&"get_note"));

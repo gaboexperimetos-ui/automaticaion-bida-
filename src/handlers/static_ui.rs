@@ -38,10 +38,29 @@ pub async fn serve_js(State(_state): State<Arc<AppState>>) -> Response<Body> {
     make_response(content, "application/javascript; charset=utf-8")
 }
 
+/// Serves the Stitch v2 interactivity layer (`static/app/shell.js`) at
+/// `/shell.js`. La inyecta `stitch_v2_page` al final del `<body>`; el propio
+/// shell crea sus componentes (toasts, menús, editor de notas, asistente).
+pub async fn serve_shell_js(State(_state): State<Arc<AppState>>) -> Response<Body> {
+    let content = include_bytes!("../../static/app/shell.js");
+    make_response_with_cache(content, "application/javascript; charset=utf-8")
+}
+
 fn make_response(content: &[u8], content_type: &'static str) -> Response<Body> {
     let mut resp = Response::new(Body::from(content.to_vec()));
     *resp.status_mut() = StatusCode::OK;
     resp.headers_mut()
         .insert(header::CONTENT_TYPE, HeaderValue::from_static(content_type));
+    resp
+}
+
+/// Igual que [`make_response`] pero con caché de sesión (no agresiva): el
+/// archivo cambia con cada build, así que basta con revalidar.
+fn make_response_with_cache(content: &[u8], content_type: &'static str) -> Response<Body> {
+    let mut resp = make_response(content, content_type);
+    resp.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("no-cache"),
+    );
     resp
 }

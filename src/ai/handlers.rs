@@ -18,6 +18,20 @@
 
 //!
 
+//! Hard monthly budget: before any provider call the handlers compare the
+
+//! month's persisted spend (`usage_metrics`) against
+
+//! `config.openrouter_max_cost_usd`; when the cap is reached they answer
+
+//! HTTP 429 with `{ "error": "Presupuesto de IA agotado para este mes",
+
+//! "budget_usd": X, "spent_usd": Y }` and never reach OpenRouter. Demo mode
+
+//! (no API key) is not blocked by this gate — mock calls cost 0.0.
+
+//!
+
 //! Input validation: `message` ≤ 8000 chars, `content` ≤ 20000 chars,
 
 //! `subject` ≤ 200 chars, `num_questions` clamped to 1..=10. Violations
@@ -31,7 +45,7 @@
 use axum::{
     extract::{Path, State},
     http::StatusCode,
-    response::{Html, IntoResponse},
+    response::{Html, IntoResponse, Response},
     Json,
 };
 
@@ -173,11 +187,11 @@ fn validate_content(content: &str) -> Result<(), (StatusCode, Json<serde_json::V
     Ok(())
 }
 
-/// Map an internal AI error to a safe plain-text response (chat endpoint).
-
+/// Map an internal AI error to a safe response (chat endpoint).
+///
 /// Logs the failure with input lengths only — never user content.
-
-fn chat_error(endpoint: &'static str, input_len: usize, e: AiError) -> (StatusCode, String) {
+/// Budget exhaustion answers with the shared JSON budget body.
+fn chat_error(endpoint: &'static str, input_len: usize, e: AiError) -> Response {
     tracing::warn!(
 
         endpoint = endpoint,
@@ -190,11 +204,17 @@ fn chat_error(endpoint: &'static str, input_len: usize, e: AiError) -> (StatusCo
 
     );
 
-    (e.status_code(), e.client_message())
+    match e {
+        AiError::BudgetExceeded { spent, budget } => (
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(budget_exhausted_body(spent, budget)),
+        )
+            .into_response(),
+        other => (other.status_code(), other.client_message()).into_response(),
+    }
 }
 
 /// Map an internal AI error to a safe JSON response. Logs with lengths only.
-
 fn json_error(
     endpoint: &'static str,
 
@@ -214,10 +234,91 @@ fn json_error(
 
     );
 
-    (
-        e.status_code(),
-        Json(serde_json::json!({ "error": e.client_message() })),
-    )
+    match e {
+        AiError::BudgetExceeded { spent, budget } => (
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(budget_exhausted_body(spent, budget)),
+        ),
+        other => (
+            other.status_code(),
+            Json(serde_json::json!({ "error": other.client_message() })),
+        ),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Hard monthly budget gate
+// ---------------------------------------------------------------------------
+
+/// JSON body returned when the month's AI spend already reached the cap.
+///
+/// Identical for every endpoint so clients can parse it uniformly.
+fn budget_exhausted_body(spent_usd: f64, budget_usd: f64) -> serde_json::Value {
+    serde_json::json!({
+        "error": "Presupuesto de IA agotado para este mes",
+        "budget_usd": budget_usd,
+        "spent_usd": spent_usd,
+    })
+}
+
+/// Reject the request BEFORE any provider call when the month's persisted
+/// spend already reached `config.openrouter_max_cost_usd`.
+///
+/// Demo mode (no `OPENROUTER_API_KEY`) is never blocked here: mock calls
+/// cost 0.0, so there is no provider spend to protect. The provider-side
+/// gate in `ai::openrouter` still applies to both modes (fail-closed).
+///
+/// A DB failure does not fabricate a budget decision: the request proceeds
+/// and that same gate (same table) decides.
+async fn enforce_budget(
+    state: &Arc<AppState>,
+
+    endpoint: &'static str,
+) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+    if state.config.openrouter_api_key.is_none() {
+        return Ok(());
+    }
+
+    let budget_usd = state.config.openrouter_max_cost_usd;
+
+    let spent_usd =
+        match crate::ai::openrouter::persistent_summary(&state.db, &state.config).await {
+            Ok(summary) => summary.total_cost,
+            Err(e) => {
+                tracing::warn!(
+
+                    endpoint = endpoint,
+
+                    detail = %e.log_detail(),
+
+                    "ai budget check failed; deferring to the provider-side gate"
+
+                );
+
+                return Ok(());
+            }
+        };
+
+    if spent_usd >= budget_usd {
+        tracing::warn!(
+
+            endpoint = endpoint,
+
+            budget_usd = budget_usd,
+
+            spent_usd = spent_usd,
+
+            "ai request blocked: monthly budget exhausted"
+
+        );
+
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(budget_exhausted_body(spent_usd, budget_usd)),
+        ));
+    }
+
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -234,25 +335,30 @@ fn json_error(
 
 /// AI response as `text/plain`. In mock mode the response begins with
 
-/// `[Modo simulado]`.
+/// `[Modo simulado]`. Budget exhaustion answers HTTP 429 with JSON.
 
 pub async fn chat_handler(
     State(state): State<Arc<AppState>>,
 
     Json(payload): Json<ChatRequest>,
-) -> (StatusCode, String) {
+) -> Response {
     let input_len = char_len(&payload.message);
 
     let subject = match validate_chat(&payload.message, &payload.subject) {
         Ok(s) => s,
 
-        Err(e) => return e,
+        Err((status, message)) => return (status, message).into_response(),
     };
+
+    // Hard budget gate — before any provider call.
+    if let Err(budget) = enforce_budget(&state, "chat").await {
+        return budget.into_response();
+    }
 
     let assistant = AiAssistant::new(state);
 
     match assistant.chat(&payload.message, &subject).await {
-        Ok(response) => (StatusCode::OK, response),
+        Ok(response) => (StatusCode::OK, response).into_response(),
 
         Err(e) => chat_error("chat", input_len, e),
     }
@@ -276,6 +382,11 @@ pub async fn summarize_handler(
     }
 
     let input_len = char_len(&payload.content);
+
+    // Hard budget gate — before any provider call.
+    if let Err(budget) = enforce_budget(&state, "summary").await {
+        return budget;
+    }
 
     let max_tokens = state.config.openrouter_max_tokens;
 
@@ -314,6 +425,11 @@ pub async fn quiz_handler(
 
     let num_questions = payload.num_questions.clamp(1, 10);
 
+    // Hard budget gate — before any provider call.
+    if let Err(budget) = enforce_budget(&state, "quiz").await {
+        return budget;
+    }
+
     let assistant = AiAssistant::new(state);
 
     match assistant
@@ -350,6 +466,11 @@ pub async fn study_sheet_handler(
     }
 
     let input_len = char_len(&payload.content);
+
+    // Hard budget gate — before any provider call.
+    if let Err(budget) = enforce_budget(&state, "study-sheet").await {
+        return budget;
+    }
 
     let assistant = AiAssistant::new(state);
 
@@ -580,7 +701,7 @@ pub async fn ai_page(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let html = crate::academic::templates::page_ext(
         "Asistente Académico — Study Platform",
         "Asistente",
-        "/dashboard/ai/assistant",
+        "/dashboard/ai",
         &body_html,
     );
 
@@ -838,6 +959,15 @@ const AI_PAGE_TEMPLATE: &str = r##"
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
+    // Error bodies are plain text, except the budget 429 which is JSON.
+    function errorText(raw) {
+        try {
+            var parsed = JSON.parse(raw);
+            if (parsed && parsed.error) return parsed.error;
+        } catch (e) { /* not JSON: show the raw text */ }
+        return raw;
+    }
+
     // ---------- API calls ----------
     async function loadConversations() {
         try {
@@ -915,7 +1045,7 @@ const AI_PAGE_TEMPLATE: &str = r##"
                 renderMessage('assistant', text);
                 loadConversations();
             } else {
-                showError('Error: ' + escapeHtml(text));
+                showError('Error: ' + escapeHtml(errorText(text)));
             }
         } catch (err) {
             removeStatus(loadingId);
@@ -966,7 +1096,7 @@ const AI_PAGE_TEMPLATE: &str = r##"
                 renderMessage('assistant', text);
                 loadConversations();
             } else {
-                showError('Error: ' + escapeHtml(text));
+                showError('Error: ' + escapeHtml(errorText(text)));
             }
         } catch (err) {
             removeStatus(statusId);

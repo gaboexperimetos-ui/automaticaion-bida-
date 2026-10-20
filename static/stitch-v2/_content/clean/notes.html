@@ -7,8 +7,8 @@
 <span>Segundo Cerebro</span>
 </div>
 <span class="text-outline text-body-sm">/</span>
-<span class="font-code-inline text-code-inline text-on-surface-variant">vault: ~/academics/core-graph</span>
-<span class="px-2 py-0.5 rounded-full bg-secondary-container/20 text-secondary font-label-sm text-[10px]">Sync Bidireccional Activo</span>
+<span class="font-code-inline text-code-inline text-on-surface-variant"><!--SLOT:VAULT_PATH--></span>
+<span class="px-2 py-0.5 rounded-full bg-secondary-container/20 text-secondary font-label-sm text-[10px]">Almacenamiento Local</span>
 </div>
 <div class="flex items-center gap-space-sm">
 <div class="flex items-center gap-1 text-on-surface-variant font-label-sm text-label-sm">
@@ -33,7 +33,7 @@
 <span class="material-symbols-outlined text-primary-container text-[20px]">folder_special</span>
 <h2 class="font-headline-sm text-headline-sm text-on-surface truncate">Mi Bóveda Personal</h2>
 </div>
-<span class="px-1.5 py-0.5 rounded text-[10px] font-code-inline bg-surface-container-highest text-primary-fixed">1,482 notas</span>
+<span class="px-1.5 py-0.5 rounded text-[10px] font-code-inline bg-surface-container-highest text-primary-fixed"><!--SLOT:NOTES_COUNT--></span>
 </div>
 <p class="font-body-sm text-body-sm text-outline truncate mb-space-sm">Local / Obsidian Compatible (.md format)</p>
 <!-- Action Buttons -->
@@ -70,79 +70,10 @@
 </div>
 <!-- Hierarchical Tree Navigation -->
 <div class="flex-1 overflow-y-auto space-y-1 pr-1 font-body-sm text-body-sm">
-<!-- Folder 01: Materias Activas -->
-<div class="space-y-0.5">
-<div class="group flex items-center justify-between px-space-xs py-1 rounded hover:bg-surface-container cursor-pointer text-on-surface">
-<div class="flex items-center gap-1.5 truncate">
-<span class="material-symbols-outlined text-[16px] text-primary-fixed-dim">folder_open</span>
-<span class="font-label-md text-label-md truncate font-semibold">01 - Materias Activas</span>
+<!--SLOT:NOTES_LIST-->
 </div>
-<span class="text-[10px] text-outline font-code-inline group-hover:text-primary">12</span>
-</div>
-<!-- Subfolder Systems -->
-<div class="pl-4 space-y-0.5">
-<div class="flex items-center justify-between px-space-xs py-1 rounded bg-surface-container text-primary font-medium cursor-pointer">
-<div class="flex items-center gap-1.5 truncate">
-<span class="material-symbols-outlined text-[16px] text-primary">arrow_drop_down</span>
-<span class="truncate">Sistemas Operativos</span>
-</div>
-</div>
-<!-- Notes in folder -->
-<div class="pl-5 space-y-0.5">
-<a class="flex items-center gap-1.5 px-space-xs py-1 rounded bg-primary-container/15 text-primary-fixed font-medium" href="#">
-<span class="material-symbols-outlined text-[14px]">description</span>
-<span class="truncate">Arquitectura de Hilos...</span>
-</a>
-<a class="flex items-center gap-1.5 px-space-xs py-1 rounded text-outline hover:text-on-surface hover:bg-surface-container transition-colors" href="#">
-<span class="material-symbols-outlined text-[14px]">description</span>
-<span class="truncate">Concurrencia y Mutex.md</span>
-</a>
-<a class="flex items-center gap-1.5 px-space-xs py-1 rounded text-outline hover:text-on-surface hover:bg-surface-container transition-colors" href="#">
-<span class="material-symbols-outlined text-[14px]">description</span>
-<span class="truncate">Planificación CPU Scheduler.md</span>
-</a>
-</div>
-<div class="flex items-center gap-1.5 px-space-xs py-1 rounded text-on-surface-variant hover:bg-surface-container cursor-pointer">
-<span class="material-symbols-outlined text-[16px] text-outline">arrow_right</span>
-<span class="truncate">Algoritmos & Complejidad</span>
-</div>
-<div class="flex items-center gap-1.5 px-space-xs py-1 rounded text-on-surface-variant hover:bg-surface-container cursor-pointer">
-<span class="material-symbols-outlined text-[16px] text-outline">arrow_right</span>
-<span class="truncate">Redes y Protocolos IP</span>
-</div>
-</div>
-</div>
-<!-- Folder 02: Conceptos y Fórmulas -->
-<div class="space-y-0.5">
-<div class="flex items-center justify-between px-space-xs py-1 rounded hover:bg-surface-container cursor-pointer text-on-surface-variant">
-<div class="flex items-center gap-1.5 truncate">
-<span class="material-symbols-outlined text-[16px] text-secondary">folder</span>
-<span class="font-label-md text-label-md truncate">02 - Conceptos y Fórmulas</span>
-</div>
-<span class="text-[10px] text-outline font-code-inline">34</span>
-</div>
-</div>
-<!-- Folder 03: Resúmenes IA -->
-<div class="space-y-0.5">
-<div class="flex items-center justify-between px-space-xs py-1 rounded hover:bg-surface-container cursor-pointer text-on-surface-variant">
-<div class="flex items-center gap-1.5 truncate">
-<span class="material-symbols-outlined text-[16px] text-primary-container">auto_awesome</span>
-<span class="font-label-md text-label-md truncate">03 - Resúmenes IA</span>
-</div>
-<span class="text-[10px] text-outline font-code-inline">18</span>
-</div>
-</div>
-<!-- Folder 04: Literatura y Libros -->
-<div class="space-y-0.5">
-<div class="flex items-center justify-between px-space-xs py-1 rounded hover:bg-surface-container cursor-pointer text-on-surface-variant">
-<div class="flex items-center gap-1.5 truncate">
-<span class="material-symbols-outlined text-[16px] text-outline">menu_book</span>
-<span class="font-label-md text-label-md truncate">04 - Literatura y Libros</span>
-</div>
-<span class="text-[10px] text-outline font-code-inline">9</span>
-</div>
-</div>
-</div>
+<!--SLOT:NOTES_RECENT-->
+<!--SLOT:TAGS-->
 <!-- Import Vault Obsidian Safe Trigger Button -->
 <div class="pt-space-sm mt-auto">
 <button class="w-full flex items-center justify-center gap-2 p-space-sm rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface transition-all text-left" id="btn-import-vault">
@@ -163,25 +94,14 @@
 <div class="flex items-center justify-between gap-space-sm">
 <div class="flex items-center gap-2 flex-1 min-w-0">
 <span class="material-symbols-outlined text-primary-container text-[20px]">edit_note</span>
-<input class="w-full bg-transparent font-headline-md text-headline-md text-on-surface font-bold focus:outline-none focus:bg-surface-container px-1 py-0.5 rounded truncate" type="text" value="Arquitectura de Hilos y Sincronización en Linux.md"/>
+<input class="w-full bg-transparent font-headline-md text-headline-md text-on-surface font-bold focus:outline-none focus:bg-surface-container px-1 py-0.5 rounded truncate" type="text" value="<!--SLOT:NOTE_TITLE-->" readonly placeholder="Sin notas todavía"/>
 </div>
-<div class="flex items-center gap-2 shrink-0">
-<span class="flex items-center gap-1 font-body-sm text-body-sm text-secondary">
-<span class="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span>
-              Auto-guardado hace 2m
-            </span>
-<button class="p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container transition-colors" title="Fijar nota">
-<span class="material-symbols-outlined text-[18px]">push_pin</span>
-</button>
-</div>
+<!--SLOT:NOTE_STATUS-->
 </div>
 <!-- Meta row: Course & Tags -->
 <div class="flex flex-wrap items-center justify-between gap-space-xs font-label-sm text-label-sm text-outline">
 <div class="flex items-center gap-space-xs flex-wrap">
-<span class="px-2 py-0.5 rounded bg-surface-container-high text-on-surface">Asignatura: <strong class="text-primary-fixed">Sistemas Operativos</strong></span>
-<span class="px-2 py-0.5 rounded bg-surface-container text-secondary">#concurrencia</span>
-<span class="px-2 py-0.5 rounded bg-surface-container text-secondary">#linux</span>
-<span class="px-2 py-0.5 rounded bg-surface-container text-secondary">#mutex</span>
+<!--SLOT:NOTE_TAGS-->
 <button class="px-1.5 py-0.5 rounded bg-surface-container text-outline hover:text-on-surface text-[11px]">+ tag</button>
 </div>
 <!-- View Mode Toggles -->
@@ -206,9 +126,7 @@
 <button class="p-1 rounded hover:bg-surface-container hover:text-on-surface" title="Tabla"><span class="material-symbols-outlined text-[18px]">table_chart</span></button>
 <button class="p-1 rounded hover:bg-surface-container hover:text-on-surface" title="Bloque Matemático"><span class="material-symbols-outlined text-[18px]">functions</span></button>
 <div class="ml-auto flex items-center gap-2 text-outline font-body-sm text-[11px]">
-<span>1,142 palabras</span>
-<span>·</span>
-<span>6 enlaces activos</span>
+<!--SLOT:NOTE_STATS-->
 </div>
 </div>
 </div>
@@ -216,80 +134,15 @@
 <div class="flex-1 grid grid-cols-1 md:grid-cols-2 overflow-y-auto">
 <!-- Left Pane: Raw Markdown Editor -->
 <div class="p-space-md bg-surface font-code-inline text-code-inline leading-relaxed text-on-surface-variant focus:outline-none overflow-y-auto space-y-4">
-<div class="text-outline">---<br/>subject: Sistemas Operativos<br/>unit: 03 - Concurrencia<br/>status: reviewing<br/>---</div>
-<p class="text-primary font-bold text-headline-sm"># Arquitectura de Hilos y Sincronización en Linux</p>
-<p class="text-on-surface">Los hilos en el kernel Linux no se diferencian estrictamente de los procesos normales a nivel de estructura; son tratados como [[Procesos Ligeros]] utilizando la llamada al sistema <span class="bg-surface-container px-1 py-0.5 rounded text-primary-fixed">clone()</span> con banderas específicas (<span class="text-secondary">CLONE_VM</span>, <span class="text-secondary">CLONE_FS</span>).</p>
-<div class="p-space-sm bg-surface-container-low rounded">
-<span class="text-outline">c</span><br/>
-<span class="text-primary-container">#include</span> <pthread.h><br/>
-<span class="text-secondary">pthread_mutex_t</span> lock = PTHREAD_MUTEX_INITIALIZER;<br/><br/>
-<span class="text-outline">// Sección crítica protegida</span><br/>
-<span class="text-primary">pthread_mutex_lock</span>(&lock);<br/>
-            shared_counter++; <span class="text-outline">// [[Concurrencia y Mutex]]</span><br/>
-<span class="text-primary">pthread_mutex_unlock</span>(&lock);<br/>
-<span class="text-outline"></span>
-</div>
-<p class="text-on-surface">Para garantizar que no ocurra inanición o un [[Deadlock]] entre múltiples llamadas concurrentes, es mandatorio asegurar una jerarquía en el orden de adquisición.</p>
-<p class="text-outline">> [!NOTE] Principio de Dijkstra<br/>> La contención se reduce cuando las regiones críticas son mínimas y no invocan operaciones I/O bloqueantes.</p>
-<p class="text-on-surface">Véase también la comparativa frente a [[Semáforos]] y variables de condición en [[Pthreads]].</p>
+<!--SLOT:NOTE_RAW-->
 </div>
 <!-- Right Pane: Live Rich Typographic Rendering -->
 <div class="p-space-md bg-surface-container-lowest/60 overflow-y-auto font-body-lg text-body-lg leading-relaxed space-y-space-md">
 <div class="flex items-center justify-between pb-space-xs">
 <span class="font-label-sm text-label-sm text-outline tracking-wider uppercase">VISTA PREVIA RENDERIZADA</span>
-<span class="px-2 py-0.5 rounded text-[11px] font-code-inline bg-secondary/10 text-secondary">Markdown live engine</span>
+<span class="px-2 py-0.5 rounded text-[11px] font-code-inline bg-secondary/10 text-secondary">Vista simplificada</span>
 </div>
-<h1 class="font-headline-lg text-headline-lg font-bold text-on-surface tracking-tight">Arquitectura de Hilos y Sincronización en Linux</h1>
-<p class="text-on-surface">
-            Los hilos en el kernel Linux no se diferencian estrictamente de los procesos tradicionales a nivel de estructura interna. Ambos son manejados como 
-            <a class="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-primary-container/15 text-primary hover:bg-primary-container/30 font-semibold transition-colors" href="#">
-<span class="material-symbols-outlined text-[13px]">link</span>[[Procesos Ligeros]]
-            </a> 
-            mediante la llamada de sistema 
-            <code class="px-1.5 py-0.5 rounded bg-surface-container font-code-inline text-code-inline text-secondary">clone()</code> 
-            compartiendo el mismo espacio de direcciones virtual.
-          </p>
-<!-- Technical Callout Box -->
-<div class="p-space-md rounded-lg bg-surface-container-high/70 space-y-1">
-<div class="flex items-center gap-2 text-primary font-label-md text-label-md font-semibold">
-<span class="material-symbols-outlined text-[18px]">verified</span>
-<span>Principio de Dijkstra & Exclusión Mutua</span>
-</div>
-<p class="font-body-md text-body-md text-on-surface-variant">
-              La contención se minimiza cuando las secciones críticas son atómicas, cortas y no realizan llamadas de entrada/salida bloqueantes bajo bloqueo activo.
-            </p>
-</div>
-<!-- Code Card Rendered -->
-<div class="rounded-lg bg-surface-container overflow-hidden">
-<div class="flex items-center justify-between px-space-sm py-1.5 bg-surface-container-high text-on-surface-variant font-code-inline text-[11px]">
-<span>sync_kernel.c</span>
-<button class="flex items-center gap-1 hover:text-on-surface">
-<span class="material-symbols-outlined text-[13px]">content_copy</span> Copiar
-              </button>
-</div>
-<div class="p-space-sm font-code-inline text-code-inline text-on-surface space-y-1">
-<div><span class="text-primary-container">#include</span> <pthread.h></div>
-<div><span class="text-secondary">pthread_mutex_t</span> lock = PTHREAD_MUTEX_INITIALIZER;</div>
-<div class="text-outline">// Bloqueo sincronizado seguro</div>
-<div><span class="text-primary-fixed-dim">pthread_mutex_lock</span>(&lock);</div>
-<div class="pl-4">shared_counter++; <span class="text-outline">// Incremento atómico</span></div>
-<div><span class="text-primary-fixed-dim">pthread_mutex_unlock</span>(&lock);</div>
-</div>
-</div>
-<p class="text-on-surface">
-            Si múltiples hilos retienen recursos en desorden, puede generarse un 
-            <a class="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-primary-container/15 text-primary hover:bg-primary-container/30 font-semibold transition-colors" href="#">
-<span class="material-symbols-outlined text-[13px]">link</span>[[Deadlock]]
-            </a>. 
-            Para mitigar esto, se estudian variantes basadas en 
-            <a class="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-primary-container/15 text-primary hover:bg-primary-container/30 font-semibold transition-colors" href="#">
-<span class="material-symbols-outlined text-[13px]">link</span>[[Semáforos]]
-            </a> 
-            y la API moderna de 
-            <a class="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-primary-container/15 text-primary hover:bg-primary-container/30 font-semibold transition-colors" href="#">
-<span class="material-symbols-outlined text-[13px]">link</span>[[Pthreads]]
-            </a>.
-          </p>
+<!--SLOT:NOTE_PREVIEW-->
 </div>
 </div>
 <!-- Footer: Backlinks & Linked References Section -->
@@ -298,37 +151,12 @@
 <div class="flex items-center gap-2">
 <span class="material-symbols-outlined text-secondary text-[18px]">account_tree</span>
 <h3 class="font-headline-sm text-headline-sm text-on-surface font-semibold">Menciones Vinculadas (Backlinks)</h3>
-<span class="px-2 py-0.5 rounded-full bg-surface-container-high text-primary font-code-inline text-[11px]">2 notas enlazan aquí</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-high text-primary font-code-inline text-[11px]"><!--SLOT:BACKLINKS_COUNT--></span>
 </div>
-<span class="font-label-sm text-label-sm text-outline">Actualizado en tiempo real</span>
+<span class="font-label-sm text-label-sm text-outline">Escaneado de los .md en cada carga</span>
 </div>
 <div class="grid grid-cols-1 md:grid-cols-2 gap-space-sm pt-space-xs">
-<!-- Backlink 1 -->
-<div class="p-space-sm rounded-lg bg-surface-container hover:bg-surface-container-high cursor-pointer transition-colors group">
-<div class="flex items-center justify-between mb-1">
-<div class="flex items-center gap-1.5">
-<span class="material-symbols-outlined text-primary-fixed-dim text-[16px]">file_open</span>
-<span class="font-label-md text-label-md text-on-surface font-semibold group-hover:text-primary transition-colors">[[Preparación Examen Parcial]]</span>
-</div>
-<span class="font-body-sm text-[11px] text-outline">hace 3 hrs</span>
-</div>
-<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">
-              "...revisar obligatoriamente la <span class="text-primary font-medium">[[Arquitectura de Hilos y Sincronización en Linux]]</span> antes de abordar los ejercicios de memoria compartida..."
-            </p>
-</div>
-<!-- Backlink 2 -->
-<div class="p-space-sm rounded-lg bg-surface-container hover:bg-surface-container-high cursor-pointer transition-colors group">
-<div class="flex items-center justify-between mb-1">
-<div class="flex items-center gap-1.5">
-<span class="material-symbols-outlined text-secondary text-[16px]">science</span>
-<span class="font-label-md text-label-md text-on-surface font-semibold group-hover:text-secondary transition-colors">[[Laboratorio 2 - Pthreads]]</span>
-</div>
-<span class="font-body-sm text-[11px] text-outline">Ayer</span>
-</div>
-<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">
-              "...el código implementado utiliza el esquema planteado en la nota conceptual <span class="text-secondary font-medium">[[Arquitectura de Hilos y Sincronización en Linux]]</span>..."
-            </p>
-</div>
+<!--SLOT:BACKLINKS-->
 </div>
 </div>
 </main>
@@ -347,79 +175,11 @@
 <button class="p-1 rounded bg-surface-container-high hover:text-primary text-outline" title="Centrar"><span class="material-symbols-outlined text-[16px]">center_focus_strong</span></button>
 </div>
 </div>
-<div class="flex items-center justify-between text-body-sm text-outline font-label-sm">
-<span>Profundidad: <strong>2 saltos</strong></span>
-<div class="flex items-center gap-1">
-<span class="w-2 h-2 rounded-full bg-secondary"></span>
-<span class="text-on-surface-variant">6 nodos activos</span>
-</div>
-</div>
+<!--SLOT:GRAPH_META-->
 </div>
 <!-- Interactive Knowledge Graph Visualizer (SVG Canvas) -->
 <div class="relative w-full h-72 rounded-xl bg-surface-container-lowest overflow-hidden shadow-inner flex items-center justify-center">
-<!-- SVG Vector Mesh with glowing links & nodes -->
-<svg class="w-full h-full" viewbox="0 0 320 280">
-<defs>
-<filter height="140%" id="glow-cyan" width="140%" x="-20%" y="-20%">
-<fegaussianblur result="blur" stddeviation="3"></fegaussianblur>
-<fecomposite in="SourceGraphic" in2="blur" operator="over"></fecomposite>
-</filter>
-<filter height="140%" id="glow-lime" width="140%" x="-20%" y="-20%">
-<fegaussianblur result="blur" stddeviation="3"></fegaussianblur>
-<fecomposite in="SourceGraphic" in2="blur" operator="over"></fecomposite>
-</filter>
-</defs>
-<!-- Edges (Interconnect Lines) -->
-<line class="text-primary-container/40" stroke="currentColor" stroke-dasharray="3 2" stroke-width="1.5" x1="160" x2="80" y1="140" y2="70"></line>
-<line class="text-secondary/50" stroke="currentColor" stroke-width="1.5" x1="160" x2="240" y1="140" y2="60"></line>
-<line class="text-primary-container/40" stroke="currentColor" stroke-width="1.5" x1="160" x2="60" y1="140" y2="190"></line>
-<line class="text-secondary/50" stroke="currentColor" stroke-dasharray="4 2" stroke-width="1.5" x1="160" x2="250" y1="140" y2="210"></line>
-<line class="text-primary-container/40" stroke="currentColor" stroke-width="1.5" x1="160" x2="160" y1="140" y2="240"></line>
-<line class="text-outline-variant/30" stroke="currentColor" stroke-width="1" x1="80" x2="240" y1="70" y2="60"></line>
-<line class="text-outline-variant/30" stroke="currentColor" stroke-width="1" x1="240" x2="250" y1="60" y2="210"></line>
-<!-- Connected Peripheral Nodes -->
-<!-- Node 1: Procesos -->
-<g class="cursor-pointer transition-transform hover:scale-110">
-<circle class="fill-surface-container-high stroke-primary-container" cx="80" cy="70" r="10" stroke-width="2"></circle>
-<circle class="fill-primary-container" cx="80" cy="70" filter="url(#glow-cyan)" r="4"></circle>
-<text class="font-label-sm text-[10px] fill-on-surface" text-anchor="middle" x="80" y="52">Procesos</text>
-</g>
-<!-- Node 2: Pthreads -->
-<g class="cursor-pointer transition-transform hover:scale-110">
-<circle class="fill-surface-container-high stroke-secondary" cx="240" cy="60" r="11" stroke-width="2"></circle>
-<circle class="fill-secondary" cx="240" cy="60" filter="url(#glow-lime)" r="5"></circle>
-<text class="font-label-sm text-[10px] fill-on-surface" text-anchor="middle" x="240" y="44">Pthreads</text>
-</g>
-<!-- Node 3: Deadlock -->
-<g class="cursor-pointer transition-transform hover:scale-110">
-<circle class="fill-surface-container-high stroke-error" cx="60" cy="190" r="9" stroke-width="1.5"></circle>
-<circle class="fill-error" cx="60" cy="190" r="3.5"></circle>
-<text class="font-label-sm text-[10px] fill-on-surface" text-anchor="middle" x="60" y="212">Deadlock</text>
-</g>
-<!-- Node 4: Semáforos -->
-<g class="cursor-pointer transition-transform hover:scale-110">
-<circle class="fill-surface-container-high stroke-secondary" cx="250" cy="210" r="10" stroke-width="2"></circle>
-<circle class="fill-secondary" cx="250" cy="210" filter="url(#glow-lime)" r="4"></circle>
-<text class="font-label-sm text-[10px] fill-on-surface" text-anchor="middle" x="250" y="230">Semáforos</text>
-</g>
-<!-- Node 5: Mutex -->
-<g class="cursor-pointer transition-transform hover:scale-110">
-<circle class="fill-surface-container-high stroke-primary-container" cx="160" cy="240" r="8" stroke-width="1.5"></circle>
-<circle class="fill-primary-container" cx="160" cy="240" r="3"></circle>
-<text class="font-label-sm text-[10px] fill-on-surface" text-anchor="middle" x="160" y="260">Mutex</text>
-</g>
-<!-- Central Core Node: Hilos y Sincronización -->
-<g class="cursor-pointer transition-transform hover:scale-105">
-<circle class="fill-primary-container/20 stroke-primary-container" cx="160" cy="140" r="20" stroke-width="2.5"></circle>
-<circle class="fill-primary-container" cx="160" cy="140" filter="url(#glow-cyan)" r="12"></circle>
-<text class="font-code-inline text-[10px] font-bold fill-on-primary" text-anchor="middle" x="160" y="144">ACTIVA</text>
-<text class="font-label-md text-[11px] font-bold fill-primary-fixed" text-anchor="middle" x="160" y="174">Hilos & Sincronización</text>
-</g>
-</svg>
-<!-- Ambient overlay indicator -->
-<div class="absolute bottom-2 left-2 px-2 py-0.5 rounded bg-surface-container/80 backdrop-blur-sm text-[10px] font-code-inline text-outline">
-          Fuerza de enlace: 84%
-        </div>
+<!--SLOT:GRAPH-->
 </div>
 <!-- Outbound Links (Enlaces Salientes) -->
 <div class="p-space-sm rounded-lg bg-surface-container space-y-space-xs">
@@ -428,37 +188,10 @@
 <span class="material-symbols-outlined text-primary text-[18px]">call_made</span>
 <span>Enlaces Salientes</span>
 </div>
-<span class="font-code-inline text-[11px] text-outline">4 refs</span>
+<span class="font-code-inline text-[11px] text-outline"><!--SLOT:OUTLINKS_COUNT--></span>
 </div>
 <div class="space-y-1 font-body-sm text-body-sm">
-<a class="flex items-center justify-between p-1.5 rounded hover:bg-surface-container-high text-on-surface transition-colors" href="#">
-<div class="flex items-center gap-1.5 truncate">
-<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
-<span class="truncate">[[Procesos Ligeros]]</span>
-</div>
-<span class="text-outline text-[11px]">Sistemas</span>
-</a>
-<a class="flex items-center justify-between p-1.5 rounded hover:bg-surface-container-high text-on-surface transition-colors" href="#">
-<div class="flex items-center gap-1.5 truncate">
-<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
-<span class="truncate">[[Deadlock]]</span>
-</div>
-<span class="text-outline text-[11px]">Teoría</span>
-</a>
-<a class="flex items-center justify-between p-1.5 rounded hover:bg-surface-container-high text-on-surface transition-colors" href="#">
-<div class="flex items-center gap-1.5 truncate">
-<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
-<span class="truncate">[[Semáforos]]</span>
-</div>
-<span class="text-outline text-[11px]">IPC</span>
-</a>
-<a class="flex items-center justify-between p-1.5 rounded hover:bg-surface-container-high text-on-surface transition-colors" href="#">
-<div class="flex items-center gap-1.5 truncate">
-<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
-<span class="truncate">[[Pthreads]]</span>
-</div>
-<span class="text-outline text-[11px]">POSIX</span>
-</a>
+<!--SLOT:OUTLINKS-->
 </div>
 </div>
 <!-- Export & AI Hand-off Actions -->
@@ -493,8 +226,7 @@
 </div>
 <!-- Quick Knowledge Node Stats -->
 <div class="p-space-sm rounded-lg bg-surface-container-highest/40 flex items-center justify-between text-outline font-body-sm text-[11px]">
-<span>Hash: <span class="font-code-inline text-on-surface-variant">0x7f..b9</span></span>
-<span>Grafo general: <strong class="text-secondary font-semibold">98.4% cohesion</strong></span>
+<!--SLOT:GRAPH_STATS-->
 </div>
 </aside>
 </div>
@@ -519,7 +251,7 @@
 <div class="p-space-sm rounded-lg bg-surface-container-lowest space-y-2">
 <span class="font-label-sm text-label-sm text-outline">Ruta origen de archivos:</span>
 <div class="flex items-center justify-between px-space-sm py-1.5 rounded bg-surface-container font-code-inline text-code-inline text-primary-fixed truncate">
-<span>/Users/investigador/Documents/ObsidianVault/</span>
+<span>Próximamente: elige la carpeta de tu bóveda</span>
 <button class="px-2 py-0.5 rounded bg-surface-container-high text-on-surface hover:bg-surface-variant text-xs">Examinar</button>
 </div>
 </div>
@@ -542,20 +274,7 @@
 </label>
 </div>
 <!-- Stats Summary -->
-<div class="grid grid-cols-3 gap-space-xs p-space-sm rounded-lg bg-surface-container-low text-center">
-<div>
-<span class="font-headline-sm text-headline-sm text-primary font-bold">142</span>
-<p class="font-body-sm text-[10px] text-outline">Nuevas Notas</p>
-</div>
-<div>
-<span class="font-headline-sm text-headline-sm text-secondary font-bold">8</span>
-<p class="font-body-sm text-[10px] text-outline">Conflictos Detectados</p>
-</div>
-<div>
-<span class="font-headline-sm text-headline-sm text-on-surface font-bold">2.4 MB</span>
-<p class="font-body-sm text-[10px] text-outline">Tamaño Total</p>
-</div>
-</div>
+<p class="font-body-sm text-body-sm text-outline text-center px-2 py-2 rounded-lg bg-surface-container-low">Vista simulada: la importación real de bóvedas se conectará en una fase posterior.</p>
 <!-- Safe Actions Modal -->
 <div class="flex items-center justify-end gap-space-sm pt-space-xs">
 <button class="px-space-md py-2 rounded-lg bg-surface-container-high text-on-surface hover:bg-surface-variant font-label-md text-label-md transition-colors" id="cancel-modal-btn">
@@ -586,7 +305,7 @@
     closeBtn?.addEventListener('click', closeModal);
     cancelBtn?.addEventListener('click', closeModal);
     confirmBtn?.addEventListener('click', () => {
-      alert('Sincronización completada: 142 notas importadas de forma segura.');
+      alert('Simulación: la importación de bóvedas aún no está conectada.');
       closeModal();
     });
 

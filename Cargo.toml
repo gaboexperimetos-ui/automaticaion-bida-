@@ -12,6 +12,7 @@ tokio = { version = "1", features = ["full"] }
 
 # HTTP / body types
 http = "1"
+http-body = "1"
 http-body-util = "0.1"
 
 # Serialization
@@ -57,9 +58,9 @@ mime = "0.3"
 [profile.release]
 # Optimize for small binary (important for resource-constrained remote)
 opt-level = "z"
-lto = true
+lto = "thin"
 codegen-units = 1
-panic = "abort"
+panic = "unwind"
 strip = true
 
 # Musl target: override for portable builds

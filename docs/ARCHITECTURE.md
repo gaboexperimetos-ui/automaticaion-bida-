@@ -51,7 +51,7 @@
 │                                                                          │
 │  ┌─────────────┐                                                        │
 │  │  Rust toolchain│  Build environment (cargo, rustc)                   │
-│  │  (pending)    │                                                        │
+│  │  (instalado)  │                                                        │
 │  └─────────────┘                                                        │
 │                                                                          │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -138,6 +138,13 @@ Tailscale VPN (mesh): 100.115.62.97 ↔ 100.92.172.48
   - MCP: `MemoryMax=1G`, `CPUQuota=200%` (50% de 4 cores), `Nice=10`
   - App: `MemoryMax=1G`, `CPUQuota=200%`, `Nice=10`
 - **Autostart:** `WantedBy=multi-user.target`
+
+### Módulos nuevos en progreso (sprint 2026-10-19)
+En desarrollo — no verificados todavía; sin registro de rutas aún (lo hará el orquestador).
+- `admin.rs` — rutas `/admin/*`: dashboard de administración (métricas, presupuesto OpenRouter, backup/restore).
+- `src/backup/` — backup rotativo (máx. 5) de SQLite con tarea tokio diaria + restore seguro.
+- `src/ai/streaming.rs` — SSE streaming real de OpenRouter (ruta futura `/api/ai/chat/stream`).
+- `src/knowledge/markdown.rs` — parser Markdown/Obsidian con wikilinks para renderizar notas en la UI.
 
 ## Flujos de datos
 

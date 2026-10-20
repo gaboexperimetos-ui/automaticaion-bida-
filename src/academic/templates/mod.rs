@@ -4,11 +4,10 @@
 use crate::integrations::mikareno::{CalendarioEvent, HorarioDia, Nota, Perfil};
 use std::sync::Arc;
 
-use crate::integrations::mikareno::Tarea;
 use crate::AppState;
 
 /// Stitch `tailwind.config` extending Tailwind with the full Synthetic Cognition
-/// color token set, typography scale (Manrope headlines / Hanken Grotesk body),
+/// color token set, typography scale (Manrope headlines / Inter body),
 /// shape tokens, spacing scale and blur preset.
 const STITCH_TAILWIND_CONFIG: &str = r###"tailwind.config = {
     darkMode: "class",
@@ -67,11 +66,11 @@ const STITCH_TAILWIND_CONFIG: &str = r###"tailwind.config = {
                 "headline-sm": ["Manrope", "sans-serif"],
                 "headline-md": ["Manrope", "sans-serif"],
                 "headline-lg": ["Manrope", "sans-serif"],
-                "body-sm": ["Hanken Grotesk", "sans-serif"],
-                "body-md": ["Hanken Grotesk", "sans-serif"],
-                "body-lg": ["Hanken Grotesk", "sans-serif"],
-                "label-sm": ["Hanken Grotesk", "sans-serif"],
-                "label-md": ["Hanken Grotesk", "sans-serif"],
+                "body-sm": ["Inter", "Hanken Grotesk", "sans-serif"],
+                "body-md": ["Inter", "Hanken Grotesk", "sans-serif"],
+                "body-lg": ["Inter", "Hanken Grotesk", "sans-serif"],
+                "label-sm": ["Inter", "Hanken Grotesk", "sans-serif"],
+                "label-md": ["Inter", "Hanken Grotesk", "sans-serif"],
                 "code-inline": ["monospace", "monospace"]
             },
             fontSize: {
@@ -116,7 +115,7 @@ const STITCH_BASE_STYLE: &str = r###"@layer base {
     body {
         background: #101419;
         color: #e0e2ea;
-        font-family: "Hanken Grotesk", sans-serif;
+        font-family: "Inter", "Hanken Grotesk", sans-serif;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
         overscroll-behavior: none;
@@ -156,88 +155,91 @@ const STITCH_SHELL: &str = r###"
     <div class="flex-1 overflow-y-auto py-space-sm">
         <div class="px-space-sm mb-space-sm">
             <span class="font-label-sm text-[10px] uppercase text-outline tracking-wider block pb-space-xs">General</span>
-            <a href="/dashboard" class="flex items-center gap-2 p-space-sm rounded-lg text-on-primary-container bg-primary-container font-label-md font-semibold hover:bg-primary-fixed-dim transition-colors">
+            <a href="/dashboard" class="flex items-center gap-2 p-space-sm rounded-lg text-on-primary-container bg-primary-container font-label-md font-semibold hover:bg-primary-fixed-dim transition-colors" data-path="panel-principal">
                 <span class="material-symbols-outlined text-[18px]">space_dashboard</span> Panel principal
             </a>
-            <a href="/dashboard/calendar" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+            <a href="/dashboard/calendar" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="mi-agenda">
                 <span class="material-symbols-outlined text-[18px]">calendar_today</span> Mi agenda
             </a>
-            <a href="/dashboard/planner" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+            <a href="/dashboard/planner" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="planificacion">
                 <span class="material-symbols-outlined text-[18px]">schedule</span> Planificación
             </a>
         </div>
         <div class="px-space-sm mb-space-sm">
             <span class="font-label-sm text-[10px] uppercase text-outline tracking-wider block pb-space-xs">Estudios</span>
-            <a href="/dashboard/subjects" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+            <a href="/dashboard/subjects" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="asignaturas">
                 <span class="material-symbols-outlined text-[18px]">menu_book</span> Asignaturas
             </a>
-            <a href="/dashboard/tareas" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+            <a href="/dashboard/planner" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="tareas-y-actividades">
                 <span class="material-symbols-outlined text-[18px]">check_box</span> Tareas
             </a>
-            <a href="/dashboard/examenes" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+            <a href="/dashboard/examenes" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="examenes">
                 <span class="material-symbols-outlined text-[18px]">school</span> Exámenes
             </a>
-            <a href="/dashboard/horario" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+            <a href="/dashboard/vida-escolar" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="vida-escolar">
+                <span class="material-symbols-outlined text-[18px]">volunteer_activism</span> Vida escolar
+            </a>
+            <a href="/dashboard/horario" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="horarios">
                 <span class="material-symbols-outlined text-[18px]">calendar_view_week</span> Horarios
             </a>
         </div>
         <div class="px-space-sm mb-space-sm">
             <span class="font-label-sm text-[10px] uppercase text-outline tracking-wider block pb-space-xs">Inteligencia Artificial</span>
-            <a href="/dashboard/ai/assistant" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+            <a href="/dashboard/ai" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="asistente-academico">
                 <span class="material-symbols-outlined text-[18px]">auto_awesome</span> Asistente
             </a>
-            <a href="/dashboard/ai/chats" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+            <a href="/ai" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="conversaciones">
                 <span class="material-symbols-outlined text-[18px]">forum</span> Conversaciones
             </a>
-            <a href="/dashboard/ai/generator" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+            <a href="/dashboard/material" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="generador-de-material">
                 <span class="material-symbols-outlined text-[18px]">draw</span> Generador de material
             </a>
         </div>
         <div class="px-space-sm mb-space-sm">
             <span class="font-label-sm text-[10px] uppercase text-outline tracking-wider block pb-space-xs">Conocimiento</span>
-            <a href="/dashboard/brain" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+            <a href="/dashboard/notes" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="segundo-cerebro">
                 <span class="material-symbols-outlined text-[18px]">neurology</span> Segundo cerebro
             </a>
-            <a href="/dashboard/notes" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+            <a href="/dashboard/notes" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="mis-notas">
                 <span class="material-symbols-outlined text-[18px]">description</span> Mis notas
             </a>
-            <a href="/dashboard/search" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+            <a href="/dashboard/search" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="busqueda-global">
                 <span class="material-symbols-outlined text-[18px]">search</span> Búsqueda global
             </a>
         </div>
         <div class="px-space-sm mb-space-sm">
             <span class="font-label-sm text-[10px] uppercase text-outline tracking-wider block pb-space-xs">Oficina</span>
-            <a href="/office/documents" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+            <a href="/office/docs" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="documentos">
                 <span class="material-symbols-outlined text-[18px]">edit_document</span> Documentos
             </a>
-            <a href="/office/sheets" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+            <a href="/office/sheets" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="hojas-de-calculo">
                 <span class="material-symbols-outlined text-[18px]">table_chart</span> Hojas
             </a>
-            <a href="/office/slides" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+            <a href="/office/presentations" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="presentaciones">
                 <span class="material-symbols-outlined text-[18px]">slideshow</span> Presentaciones
             </a>
-            <a href="/office/library" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+            <a href="/office/library" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="biblioteca-de-archivos">
                 <span class="material-symbols-outlined text-[18px]">folder_copy</span> Biblioteca
             </a>
         </div>
         <div class="px-space-sm mb-space-sm">
             <span class="font-label-sm text-[10px] uppercase text-outline tracking-wider block pb-space-xs">Integraciones</span>
-            <a href="/dashboard/integrations/mcp" class="flex items-center justify-between p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+            <a href="/dashboard/mcp" class="flex items-center justify-between p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="centro-mcp">
                 <div class="flex items-center gap-2">
                     <span class="material-symbols-outlined text-[18px]">memory</span> Centro MCP
                 </div>
                 <span class="px-1.5 py-0.25 rounded-full bg-secondary-container text-[10px] font-code-inline text-on-secondary-container">Conectado</span>
             </a>
-            <a href="/dashboard/integrations/status" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+            <a href="/dashboard/mcp" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="estado-de-conexiones">
                 <span class="material-symbols-outlined text-[18px]">hub</span> Estado de conexiones
             </a>
         </div>
         <div class="px-space-sm mb-space-sm">
             <span class="font-label-sm text-[10px] uppercase text-outline tracking-wider block pb-space-xs">Sistema</span>
-            <a href="/dashboard/system/admin" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+            <a href="/admin" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="administracion">
                 <span class="material-symbols-outlined text-[18px]">query_stats</span> Administración
             </a>
-            <a href="/dashboard/system/settings" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+            <a href="/settings" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="configuracion">
                 <span class="material-symbols-outlined text-[18px]">settings</span> Configuración
             </a>
         </div>
@@ -280,6 +282,8 @@ pub struct SubjectSummary {
     pub name: String,
     pub average: f64,
     pub count: usize,
+    /// Subject code from `courseCode` (used in URLs). Empty when unavailable.
+    pub codigo: String,
 }
 
 /// Shared HTML head section with Tailwind via CDN, HTMX, and the full
@@ -292,10 +296,11 @@ pub fn head(title: &str) -> String {
     <title>{}</title>
     <script src="https://unpkg.com/htmx.org@2.0.3/dist/htmx.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/shell.js" defer></script>
     <script id="tailwind-config">
     {}
     </script>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400..900&family=Hanken+Grotesk:wght@400..900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400..700&family=Manrope:wght@400..900&family=Hanken+Grotesk:wght@400..900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
     <style id="stitch-base">
     {}
@@ -321,7 +326,13 @@ pub fn page(title: &str, content: &str) -> String {
 </body>
 </html>"###,
         head(title),
-        STITCH_SHELL,
+        crate::handlers::stitch_v2::apply_nav_with(
+            STITCH_SHELL,
+            "",
+            crate::handlers::stitch_v2::ACADEMIC_STATE_TOKENS,
+            crate::handlers::stitch_v2::ACADEMIC_ACTIVE_CLASSES,
+            crate::handlers::stitch_v2::ACADEMIC_IDLE_CLASSES,
+        ),
         content
     )
 }
@@ -333,24 +344,23 @@ pub fn page(title: &str, content: &str) -> String {
 /// (top-bar link label) and `active_href` (highlighted nav-rail entry) are
 /// injected at render time so the shell stays consistent across pages.
 pub fn page_ext(title: &str, breadcrumb: &str, active_href: &str, content: &str) -> String {
-    let shell = STITCH_SHELL
-        .replace(
-            "<span class=\"font-body-sm text-body-sm text-on-surface\">Panel principal</span>",
-            &format!(
-                "<span class=\"font-body-sm text-body-sm text-on-surface\">{}</span>",
-                html_escape(breadcrumb)
-            ),
-        )
-        .replace(
-            &format!(
-                "href=\"{}\" class=\"flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors\">",
-                active_href
-            ),
-            &format!(
-                "href=\"{}\" class=\"flex items-center gap-2 p-space-sm rounded-lg text-on-primary-container bg-primary-container font-label-md font-semibold hover:bg-primary-fixed-dim transition-colors\">",
-                active_href
-            ),
-        );
+    // Las rutas del menú salen del mapa canónico (`stitch_v2::NAV_LINKS`) y el
+    // item activo se marca por `data-path`: así el shell no puede quedar
+    // apuntando a rutas inexistentes ni resaltar dos entradas a la vez.
+    let shell = crate::handlers::stitch_v2::apply_nav_with(
+        STITCH_SHELL,
+        active_href,
+        crate::handlers::stitch_v2::ACADEMIC_STATE_TOKENS,
+        crate::handlers::stitch_v2::ACADEMIC_ACTIVE_CLASSES,
+        crate::handlers::stitch_v2::ACADEMIC_IDLE_CLASSES,
+    )
+    .replace(
+        "<span class=\"font-body-sm text-body-sm text-on-surface\">Panel principal</span>",
+        &format!(
+            "<span class=\"font-body-sm text-body-sm text-on-surface\">{}</span>",
+            html_escape(breadcrumb)
+        ),
+    );
 
     format!(
         r###"<!DOCTYPE html>
@@ -379,42 +389,216 @@ pub fn html_escape(s: &str) -> String {
 }
 
 /// MCP connection status banner.
+///
+/// Conectado: chip con punto pulsante (`animate-pulse`).
+/// Desconectado: mismo chip sin pulso (no hay actividad que señalar) más un
+/// hint corto con la acción sugerida y un botón inline `location.reload()`
+/// — recarga de página completa, sin partials HTMX y sin escritura de estado.
 pub fn mcp_status_banner(connected: bool) -> String {
     if connected {
-        r###"<div class="bg-surface-container border border-outline rounded-xl p-3 mb-space-md flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
-            <span class="material-symbols-outlined text-[16px] text-secondary">lan_wifi</span>
-            <span class="font-body-sm text-body-sm text-on-surface">● Conectado al MCP de Mikareno</span>
+        r###"<div class="bg-surface-container border border-outline rounded-xl p-3 mb-space-md flex flex-col gap-2">
+            <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+                <span class="material-symbols-outlined text-[16px] text-secondary">lan_wifi</span>
+                <span class="font-body-sm text-body-sm text-on-surface">● Conectado al MCP de Mikareno</span>
+            </div>
         </div>"###
             .to_string()
     } else {
-        r###"<div class="bg-surface-container border border-outline rounded-xl p-3 mb-space-md flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
-            <span class="material-symbols-outlined text-[16px] text-outline">wifi_off</span>
-            <span class="font-body-sm text-body-sm text-on-surface-variant">● Mikareno no conectado — mostrando datos de ejemplo</span>
-        </div>"###.to_string()
+        r###"<div class="bg-surface-container border border-outline rounded-xl p-3 mb-space-md flex flex-col gap-2">
+            <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-tertiary"></span>
+                <span class="material-symbols-outlined text-[16px] text-outline">wifi_off</span>
+                <span class="font-body-sm text-body-sm text-on-surface-variant">● Mikareno no conectado — sin datos de Mikareno: verifica que el MCP esté corriendo</span>
+            </div>
+            <div class="flex items-center gap-2 pl-6">
+                <span class="text-xs text-on-surface-variant">Reinicia el MCP de Mikareno y vuelve a cargar la página.</span>
+                <button type="button" onclick="location.reload()" class="inline-flex items-center gap-1 rounded-md border border-outline px-2 py-1 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors">
+                    <span class="material-symbols-outlined text-[14px]">refresh</span>
+                    <span class="text-xs">Reintentar</span>
+                </button>
+            </div>
+        </div>"###
+            .to_string()
     }
 }
 
-/// Empty/error state with an HTMX partial reload button.
-pub fn empty_state_html(message: &str, hx_get: &str) -> String {
+/// Empty state with an HTMX partial reload button and a configurable
+/// Material Symbols icon.
+///
+/// `icon` is the ligature name of the symbol (`school`, `calendar_month`,
+/// `event_busy`…). Only `[a-z0-9_]` survives sanitization, so the value can
+/// never inject markup; an empty/invalid icon falls back to `error_outline`.
+pub fn empty_state_html_icon(message: &str, icon: &str, hx_get: &str) -> String {
+    let icon = sanitize_symbol(icon);
     format!(
         r###"<div class="bg-surface-container border border-outline rounded-xl p-6 text-center" id="empty-state">
-        <span class="material-symbols-outlined text-[32px] text-outline mb-2">error_outline</span>
+        <span class="material-symbols-outlined text-[32px] text-outline mb-2">{}</span>
         <p class="font-body-sm text-body-sm text-on-surface-variant mb-space-md">{}</p>
         <button hx-get="{}" hx-target="#empty-state" hx-swap="outerHTML"
             class="inline-flex items-center gap-1.5 px-space-md py-2 rounded-lg bg-primary-container text-on-primary-container font-label-md font-semibold hover:bg-primary-fixed-dim transition-colors">
             <span class="material-symbols-outlined text-[16px]">refresh</span> Reintentar
         </button>
     </div>"###,
+        icon,
         html_escape(message),
         hx_get
+    )
+}
+
+/// Empty/error state with an HTMX partial reload button.
+///
+/// Default icon: `error_outline`. Use [`empty_state_html_icon`] when the
+/// empty state has a semantic symbol (`school`, `calendar_month`,
+/// `event_busy`…).
+pub fn empty_state_html(message: &str, hx_get: &str) -> String {
+    empty_state_html_icon(message, "error_outline", hx_get)
+}
+
+/// Keep only the characters valid in a Material Symbols ligature name
+/// (`[a-z0-9_]`); falls back to `error_outline` when nothing is left.
+fn sanitize_symbol(icon: &str) -> String {
+    let cleaned: String = icon
+        .chars()
+        .filter(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == '_')
+        .collect();
+    if cleaned.is_empty() {
+        "error_outline".to_string()
+    } else {
+        cleaned
+    }
+}
+
+/// Reusable status pill (chip) with an honest colour: green when the state
+/// is good, amber when it still needs attention.
+///
+/// Shares the scale of [`grade_color`] (`green-400` / `yellow-400`) so pills
+/// and grades read as one system. The text is the source of truth — the
+/// colour only reinforces it, never contradicts it.
+pub fn status_chip(ok: bool, text: &str) -> String {
+    let (fg, bg) = if ok {
+        ("text-green-400", "bg-green-400/10")
+    } else {
+        ("text-yellow-400", "bg-yellow-400/10")
+    };
+    format!(
+        r#"<span class="font-label-sm text-[10px] {} {} px-2 py-0.5 rounded-full">{}</span>"#,
+        fg,
+        bg,
+        html_escape(text),
     )
 }
 
 /// Format a float grade for display with one decimal place.
 fn fmt_grade(g: f64) -> String {
     format!("{:.1}", g)
+}
+
+/// Spanish weekday name derived from an ISO `fecha` (`YYYY-MM-DD`).
+/// Falls back to the date itself when it isn't parseable.
+pub fn weekday_es(fecha: &str) -> String {
+    use chrono::{Datelike, NaiveDate};
+    match NaiveDate::parse_from_str(fecha, "%Y-%m-%d") {
+        Ok(d) => match d.weekday() {
+            chrono::Weekday::Mon => "Lunes",
+            chrono::Weekday::Tue => "Martes",
+            chrono::Weekday::Wed => "Miércoles",
+            chrono::Weekday::Thu => "Jueves",
+            chrono::Weekday::Fri => "Viernes",
+            chrono::Weekday::Sat => "Sábado",
+            chrono::Weekday::Sun => "Domingo",
+        }
+        .to_string(),
+        Err(_) => fecha.to_string(),
+    }
+}
+
+/// Abreviatura de tres letras de un `chrono::Weekday`.
+fn weekday_corto_de(w: chrono::Weekday) -> &'static str {
+    match w {
+        chrono::Weekday::Mon => "Lun",
+        chrono::Weekday::Tue => "Mar",
+        chrono::Weekday::Wed => "Mié",
+        chrono::Weekday::Thu => "Jue",
+        chrono::Weekday::Fri => "Vie",
+        chrono::Weekday::Sat => "Sáb",
+        chrono::Weekday::Sun => "Dom",
+    }
+}
+
+/// Fuente de un día de la semana para [`weekday_es_corto`].
+pub trait WeekdayCorto {
+    /// Abreviatura en español (`Lun`, `Mar`, `Mié`…) o el texto original
+    /// cuando la entrada no se reconoce.
+    fn corto(&self) -> String;
+}
+
+impl WeekdayCorto for &str {
+    fn corto(&self) -> String {
+        use chrono::{Datelike, NaiveDate};
+        let s: &str = self;
+        if let Ok(d) = NaiveDate::parse_from_str(s, "%Y-%m-%d") {
+            return weekday_corto_de(d.weekday()).to_string();
+        }
+        let lower = s.to_lowercase();
+        match lower.trim() {
+            "lunes" | "lun" => "Lun".to_string(),
+            "martes" | "mar" => "Mar".to_string(),
+            "miércoles" | "miercoles" | "mié" | "mie" => "Mié".to_string(),
+            "jueves" | "jue" => "Jue".to_string(),
+            "viernes" | "vie" => "Vie".to_string(),
+            "sábado" | "sabado" | "sáb" | "sab" => "Sáb".to_string(),
+            "domingo" | "dom" => "Dom".to_string(),
+            _ => s.to_string(),
+        }
+    }
+}
+
+impl WeekdayCorto for String {
+    fn corto(&self) -> String {
+        self.as_str().corto()
+    }
+}
+
+impl WeekdayCorto for &String {
+    fn corto(&self) -> String {
+        self.as_str().corto()
+    }
+}
+
+impl WeekdayCorto for chrono::Weekday {
+    fn corto(&self) -> String {
+        weekday_corto_de(*self).to_string()
+    }
+}
+
+impl WeekdayCorto for &chrono::Weekday {
+    fn corto(&self) -> String {
+        weekday_corto_de(**self).to_string()
+    }
+}
+
+impl WeekdayCorto for chrono::NaiveDate {
+    fn corto(&self) -> String {
+        use chrono::Datelike;
+        weekday_corto_de(self.weekday()).to_string()
+    }
+}
+
+impl WeekdayCorto for &chrono::NaiveDate {
+    fn corto(&self) -> String {
+        use chrono::Datelike;
+        weekday_corto_de((*self).weekday()).to_string()
+    }
+}
+
+/// Abreviatura del día de la semana en español: `Lun`, `Mar`, `Mié`…
+///
+/// Acepta una fecha ISO (`2026-10-19`), un `chrono::Weekday` o un nombre de
+/// día ya traducido (`"Lunes"`). Si la entrada no se reconoce se devuelve
+/// tal cual, igual que [`weekday_es`].
+pub fn weekday_es_corto<T: WeekdayCorto>(u: T) -> String {
+    u.corto()
 }
 
 /// Grade color class based on value (0–10 scale).
@@ -428,10 +612,32 @@ fn grade_color(g: f64) -> &'static str {
     }
 }
 
+/// Percent-encode a string for safe use in a URL path segment.
+/// Unreserved characters (A–Z, a–z, 0–9, `-`, `_`, `.`, `~`) are kept;
+/// everything else is encoded as `%XX`.
+fn url_encode_path(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for byte in s.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(byte as char);
+            }
+            _ => {
+                out.push_str(&format!("%{:02X}", byte));
+            }
+        }
+    }
+    out
+}
+
 /// Render subjects as a grid of cards with average grades.
 pub fn subject_grid_html(subjects: &[SubjectSummary]) -> String {
     if subjects.is_empty() {
-        return empty_state_html("No hay asignaturas disponibles.", "/dashboard/subjects");
+        return empty_state_html_icon(
+            "No hay asignaturas disponibles.",
+            "school",
+            "/dashboard/subjects",
+        );
     }
 
     let cards: String = subjects
@@ -440,8 +646,16 @@ pub fn subject_grid_html(subjects: &[SubjectSummary]) -> String {
             let avg = fmt_grade(s.average);
             let color = grade_color(s.average);
             let bar_width = ((s.average / 10.0) * 100.0).clamp(0.0, 100.0).round() as i64;
+            // Link to the subject detail page using the course code. If the
+            // code is empty (server omitted courseCode), fall back to the
+            // URL-encoded materia name so the link is never a dead `/subjects/`.
+            let link_code = if s.codigo.is_empty() {
+                url_encode_path(&s.name)
+            } else {
+                url_encode_path(&s.codigo)
+            };
             format!(
-                r###"<a href="/dashboard/subjects" class="block">
+                r###"<a href="/dashboard/subjects/{}" class="block">
                     <div class="bg-surface-container border border-outline rounded-xl p-space-md hover:border-primary-container transition-colors group">
                         <div class="flex items-center justify-between">
                             <h3 class="font-headline-sm text-headline-sm text-on-surface group-hover:text-primary-container">{}</h3>
@@ -456,6 +670,7 @@ pub fn subject_grid_html(subjects: &[SubjectSummary]) -> String {
                         </div>
                     </div>
                 </a>"###,
+                link_code,
                 html_escape(&s.name),
                 s.count,
                 color,
@@ -478,7 +693,11 @@ pub fn subject_grid_html(subjects: &[SubjectSummary]) -> String {
 /// Events whose `fecha` matches `today` are highlighted with a cyan accent.
 pub fn event_timeline_html(events: &[CalendarioEvent], today: Option<&str>) -> String {
     if events.is_empty() {
-        return empty_state_html("No hay eventos programados.", "/dashboard/calendar");
+        return empty_state_html_icon(
+            "No hay eventos programados.",
+            "calendar_month",
+            "/dashboard/calendar",
+        );
     }
 
     let items: String = events
@@ -488,21 +707,22 @@ pub fn event_timeline_html(events: &[CalendarioEvent], today: Option<&str>) -> S
             let (bg, dot, badge) = if is_today {
                 (
                     "bg-primary-container/10 border-primary-container",
-                    "font-code-inline text-code-inline text-primary-container pulse-cyan",
+                    "font-label-sm text-label-sm text-primary-container pulse-cyan",
                     r###"<span class="font-label-sm text-[10px] text-primary-container font-semibold">HOY</span>"###,
                 )
             } else {
                 (
                     "bg-surface-container border-outline",
-                    "font-code-inline text-code-inline text-outline",
+                    "font-label-sm text-label-sm text-on-surface-variant",
                     "",
                 )
             };
+            let day_abbr = weekday_es(&e.fecha);
             format!(
                 r###"<div class="{} border rounded-xl p-space-sm mb-space-xs">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center space-x-3">
-                            <span class="{}">lunes</span>
+                            <span class="{}">{}</span>
                             <div>
                                 <div class="font-label-md text-label-md text-on-surface font-semibold">{}</div>
                                 <div class="font-body-sm text-body-sm text-on-surface-variant">{}</div>
@@ -513,6 +733,7 @@ pub fn event_timeline_html(events: &[CalendarioEvent], today: Option<&str>) -> S
                 </div>"###,
                 bg,
                 dot,
+                day_abbr,
                 html_escape(&e.evento),
                 html_escape(&e.fecha),
                 badge,
@@ -524,6 +745,131 @@ pub fn event_timeline_html(events: &[CalendarioEvent], today: Option<&str>) -> S
     format!(
         r###"<div class="space-y-0" id="event-timeline">{}</div>"###,
         items
+    )
+}
+
+/// Spanish month name (1-indexed).
+fn month_name_es(month: u32) -> &'static str {
+    match month {
+        1 => "Enero",
+        2 => "Febrero",
+        3 => "Marzo",
+        4 => "Abril",
+        5 => "Mayo",
+        6 => "Junio",
+        7 => "Julio",
+        8 => "Agosto",
+        9 => "Septiembre",
+        10 => "Octubre",
+        11 => "Noviembre",
+        12 => "Diciembre",
+        _ => "—",
+    }
+}
+
+/// Google-Calendar-style month grid. `focus` is any day in the target month.
+/// Columns run Monday→Sunday, each cell numbered; events whose ISO `fecha`
+/// matches a cell are listed below the day number. `today` (`YYYY-MM-DD`) is
+/// highlighted. Leading/trailing blanks always pad the grid so weeks run
+/// Monday→Sunday with a minimum of six rows.
+pub fn calendar_grid_html(events: &[CalendarioEvent], focus: chrono::NaiveDate, today: Option<&str>) -> String {
+    use chrono::Datelike;
+
+    let year = focus.year();
+    let month = focus.month();
+
+    // First weekday of the month and how many days it has.
+    let first = chrono::NaiveDate::from_ymd_opt(year, month, 1).unwrap_or(focus);
+    let mut days_in_month = 1u32;
+    while chrono::NaiveDate::from_ymd_opt(year, month, days_in_month + 1).is_some() {
+        days_in_month += 1;
+    }
+    // Monday-based leading blanks: Mon=0 … Sun=6.
+    let start = first.weekday().num_days_from_monday();
+
+    // Prev/next month anchors (first of month); safe unwrap on valid inputs.
+    let prev = if month == 1 {
+        chrono::NaiveDate::from_ymd_opt(year - 1, 12, 1).unwrap_or(focus)
+    } else {
+        chrono::NaiveDate::from_ymd_opt(year, month - 1, 1).unwrap_or(focus)
+    };
+    let next = if month == 12 {
+        chrono::NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap_or(focus)
+    } else {
+        chrono::NaiveDate::from_ymd_opt(year, month + 1, 1).unwrap_or(focus)
+    };
+
+    let label = format!("{} {}", month_name_es(month), year);
+    let prev_href = format!("/dashboard/calendar?partial=grid&month={:04}-{:02}", prev.year(), prev.month());
+    let next_href = format!("/dashboard/calendar?partial=grid&month={:04}-{:02}", next.year(), next.month());
+
+    let weekdays = ["L", "M", "X", "J", "V", "S", "D"];
+
+    let mut cells: Vec<String> = Vec::new();
+    // Leading blanks for days before the 1st.
+    for _ in 0..start {
+        cells.push(r#"<div class="border border-outline/30 rounded-lg"></div>"#.to_string());
+    }
+    // Numbered day cells with their events.
+    for d in 1..=days_in_month {
+        let fecha = format!("{:04}-{:02}-{:02}", year, month, d);
+        let is_today = today.map_or(false, |t| t == fecha);
+
+        let mut day_evs: Vec<&CalendarioEvent> = events.iter().filter(|e| e.fecha == fecha).collect();
+        day_evs.sort_by(|a, b| a.evento.cmp(&b.evento));
+        let ev_html: String = day_evs.iter().take(3).map(|e| {
+            format!(
+                r#"<div class="mt-space-xs bg-primary-container/15 border border-primary-container/20 rounded text-[9px] text-on-surface truncate px-1 py-0.5" title="{}">{}</div>"#,
+                html_escape(&e.evento),
+                html_escape(&e.evento)
+            )
+        }).collect();
+
+        let (cell_cls, num_cls) = if is_today {
+            (
+                "border-2 border-primary-container/60 bg-surface-container/40 rounded-lg p-space-xs",
+                "block font-label-md text-primary-container",
+            )
+        } else {
+            (
+                "border border-outline/40 rounded-lg p-space-xs",
+                "block font-label-sm text-[10px] text-on-surface-variant",
+            )
+        };
+
+        cells.push(format!(
+            r#"<div class="calendar-cell relative h-28 {}"><span class="{} mb-space-xs">{}</span><div class="mt-space-xs space-y-0.5 overflow-hidden">{}</div></div>"#,
+            cell_cls, num_cls, d, ev_html
+        ));
+    }
+    // Trailing blanks: pad to a multiple of 7, minimum six rows.
+    let total = start as u32 + days_in_month;
+    let rows = total.div_ceil(7).max(6);
+    for _ in 0..(rows * 7 - total) {
+        cells.push(r#"<div class="border border-outline/30 rounded-lg"></div>"#.to_string());
+    }
+
+    let header: String = weekdays
+        .iter()
+        .map(|d| format!(
+            r#"<div class="font-label-sm text-[10px] uppercase text-outline text-center py-1.5">{}</div>"#,
+            d
+        ))
+        .collect();
+
+    format!(
+        r###"<div class="flex items-center justify-between mb-space-sm">
+            <button hx-get="{}" hx-target="#calendar-grid" hx-swap="innerHTML"
+                class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors" title="Mes anterior">‹</button>
+            <span class="font-headline-sm text-headline-sm text-primary-container">{}</span>
+            <button hx-get="{}" hx-target="#calendar-grid" hx-swap="innerHTML"
+                class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors" title="Próximo mes">›</button>
+        </div>
+        <div class="grid grid-cols-7 gap-px bg-surface-container-highest rounded-lg overflow-hidden border border-outline">
+            {}
+            {}
+        </div>"###,
+        prev_href, label, next_href, header, cells.join("")
     )
 }
 
@@ -675,113 +1021,57 @@ pub fn card_list(title: &str, items: &[String]) -> String {
     )
 }
 
-/// Simulate data when MCP is disconnected.
+/// Honest empty state for the dashboard when the MCP is disconnected:
+/// zeroed stats and an explanatory message — never fabricated counts.
 pub fn mock_dashboard_data() -> String {
-    r###"<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-space-md mb-space-md">
-        <div class="card rounded-xl p-space-md text-center">
-            <div class="font-code-inline text-[11px] text-primary-fixed-dim uppercase">Libros</div>
-            <div class="font-label-sm text-[10px] text-on-surface-variant">Asignaturas</div>
-            <div class="font-headline-md text-headline-md text-primary-container font-bold">4</div>
-        </div>
-        <div class="card rounded-xl p-space-md text-center">
-            <div class="font-code-inline text-[11px] text-primary-fixed-dim uppercase">Evento</div>
-            <div class="font-label-sm text-[10px] text-on-surface-variant">Eventos esta semana</div>
-            <div class="font-headline-md text-headline-md text-primary-container font-bold">3</div>
-        </div>
-        <div class="card rounded-xl p-space-md text-center">
-            <div class="font-code-inline text-[11px] text-primary-fixed-dim uppercase">Tareas</div>
-            <div class="font-label-sm text-[10px] text-on-surface-variant">Tareas pendientes</div>
-            <div class="font-headline-md text-headline-md text-primary-container font-bold">2</div>
-        </div>
-        <div class="card rounded-xl p-space-md text-center">
-            <div class="font-code-inline text-[11px] text-primary-fixed-dim uppercase">Notas</div>
-            <div class="font-label-sm text-[10px] text-on-surface-variant">Notas</div>
-            <div class="font-headline-md text-headline-md text-primary-container font-bold">7</div>
-        </div>
-    </div>
-    <div class="card rounded-xl p-space-md mb-space-md">
+    format!(
+        r###"{}<div class="card rounded-xl p-space-md mb-space-md">
         <h2 class="font-headline-sm text-headline-sm text-primary-container font-semibold mb-space-sm">Estado del MCP</h2>
-        <p class="font-body-sm text-body-sm text-on-surface-variant">Mikareno no esta conectado. Mostrando datos de ejemplo.</p>
-        <p class="font-body-sm text-body-sm text-on-surface-variant mt-space-xs">Conecta el MCP desde el remoto para ver datos reales.</p>
-    </div>"###
-        .to_string()
+        <p class="font-body-sm text-body-sm text-on-surface-variant">Mikareno no está conectado — sin datos de Mikareno.</p>
+        <p class="font-body-sm text-body-sm text-on-surface-variant mt-space-xs">Verifica que el MCP esté corriendo para ver datos reales.</p>
+    </div>"###,
+        mcp_status_banner(false)
+    )
 }
 
-/// Mock subject summaries for when MCP is disconnected.
+/// Honest empty subject list for when MCP is disconnected — no fabricated
+/// subjects; subject_grid_html renders an empty state instead.
 pub fn mock_subjects() -> Vec<SubjectSummary> {
-    vec![
-        SubjectSummary {
-            name: "Matematicas".to_string(),
-            average: 8.5,
-            count: 2,
-        },
-        SubjectSummary {
-            name: "Lenguaje".to_string(),
-            average: 9.0,
-            count: 1,
-        },
-        SubjectSummary {
-            name: "Ciencias".to_string(),
-            average: 7.5,
-            count: 3,
-        },
-        SubjectSummary {
-            name: "Historia".to_string(),
-            average: 6.0,
-            count: 1,
-        },
-        SubjectSummary {
-            name: "Fisica".to_string(),
-            average: 5.5,
-            count: 2,
-        },
-    ]
+    Vec::new()
 }
 
-/// Mock perfil for when MCP is disconnected.
+/// Honest empty perfil for when MCP is disconnected — fields stay empty;
+/// profile_card_html renders "Sin nombre"/"Curso no disponible" placeholders.
 pub fn mock_perfil() -> Perfil {
-    Perfil {
-        nombre: "Gabriel".to_string(),
-        institucion: "Colegio Alamo".to_string(),
-        curso: "2 Medio A".to_string(),
-    }
+    Perfil::default()
 }
 
-/// Mock calendar events for today — used when MCP is disconnected.
+/// Honest empty event list for when MCP is disconnected — no fabricated
+/// events; event_timeline_html renders an empty state instead.
 pub fn mock_today_events() -> Vec<CalendarioEvent> {
-    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
-    vec![
-        CalendarioEvent {
-            fecha: today.clone(),
-            evento: "Clase de Matematicas - Unidad 4".to_string(),
-            tipo: "SCHOOL_DAY".to_string(),
-        },
-        CalendarioEvent {
-            fecha: today.clone(),
-            evento: "Entrega de proyecto de Ciencias".to_string(),
-            tipo: "EVENTO".to_string(),
-        },
-    ]
+    Vec::new()
 }
 
 /// Build SubjectSummary list from Nota data by grouping per materia.
 pub fn subjects_from_notas(notas: &[Nota]) -> Vec<SubjectSummary> {
     use std::collections::HashMap;
-    let mut grouped: HashMap<String, Vec<f64>> = HashMap::new();
+    let mut grouped: HashMap<String, (Vec<f64>, String)> = HashMap::new();
     for nota in notas {
-        grouped
-            .entry(nota.materia.clone())
-            .or_default()
-            .push(nota.nota);
+        let entry = grouped.entry(nota.materia.clone()).or_default();
+        entry.0.push(nota.nota);
+        if entry.1.is_empty() && !nota.codigo.is_empty() {
+            entry.1 = nota.codigo.clone();
+        }
     }
     let mut subjects: Vec<SubjectSummary> = grouped
         .iter()
-        .map(|(name, grades)| {
+        .map(|(name, (grades, codigo))| {
             let avg = grades.iter().sum::<f64>() / grades.len() as f64;
             SubjectSummary {
                 name: name.clone(),
                 average: (avg * 100.0).round() / 100.0,
                 count: grades.len(),
+                codigo: codigo.clone(),
             }
         })
         .collect();
@@ -804,17 +1094,17 @@ pub struct DashboardData {
     pub mcp_connected: bool,
 }
 
-/// Collect dashboard data from the DB and the Mikareno MCP, falling back
-/// to Stitch-styled mock data when the MCP is disconnected.
+/// Collect dashboard data from the DB and the Mikareno MCP. When the MCP is
+/// unavailable the fields stay empty and the renderers show honest empty
+/// states — never fabricated data.
 pub async fn build_dashboard_data(state: &Arc<AppState>) -> DashboardData {
     let client = crate::academic::mikareno_client(state);
-    let mcp_connected = client.as_ref().map_or(false, |c| c.is_connected());
 
-    // Tasks + count
+    // Tasks + count (empty when the MCP is unavailable)
     let tasks = if let Some(client) = &client {
         client.tareas().await.ok().unwrap_or_default()
     } else {
-        mock_tasks_data()
+        Vec::new()
     };
     let tarea_count = tasks.len();
     let tareas: Vec<String> = tasks
@@ -826,44 +1116,37 @@ pub async fn build_dashboard_data(state: &Arc<AppState>) -> DashboardData {
     let events = if let Some(client) = &client {
         client.calendario().await.ok().unwrap_or_default()
     } else {
-        mock_today_events()
+        Vec::new()
     };
     let event_count = events.len();
 
-    // Profile
+    // Profile (empty fields when the MCP is unavailable)
     let perfil = if let Some(client) = &client {
-        client.perfil().await.ok().unwrap_or_else(Perfil::default)
+        client.perfil().await.ok().unwrap_or_default()
     } else {
-        mock_perfil()
+        Perfil::default()
     };
 
-    // Subjects (from DB + Mikareno) or Stitch mock subjects
-    let subjects = if mcp_connected {
-        let notas = client
-            .as_ref()
-            .unwrap()
-            .notas(1)
-            .await
-            .ok()
-            .unwrap_or_default();
+    // Subjects grouped from the current parcial's grades
+    let subjects = if let Some(client) = &client {
+        let notas = client.notas(1).await.ok().unwrap_or_default();
         subjects_from_notas(&notas)
     } else {
-        mock_subjects()
+        Vec::new()
     };
     let subject_count = subjects.len();
 
-    // Priorities: nearest due tasks when MCP is connected, else mock
-    let prioridades = if mcp_connected && tarea_count > 0 {
-        tareas.iter().take(5).cloned().collect()
-    } else {
-        mock_priorities()
-    };
+    // Priorities: nearest due tasks, empty when there are none
+    let prioridades = tareas.iter().take(5).cloned().collect();
 
     // Real note count from the local DB
     let note_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM notes")
         .fetch_one(&state.db)
         .await
         .unwrap_or(0);
+
+    // Connection status after the calls above (the handshake sets the flag).
+    let mcp_connected = client.as_ref().map_or(false, |c| c.is_connected());
 
     DashboardData {
         subject_count,
@@ -877,39 +1160,6 @@ pub async fn build_dashboard_data(state: &Arc<AppState>) -> DashboardData {
         perfil,
         mcp_connected,
     }
-}
-
-/// Mock tasks when MCP is disconnected (Tarea domain type).
-fn mock_tasks_data() -> Vec<Tarea> {
-    vec![
-        Tarea {
-            titulo: "Resolver ejercicios de cálculo".to_string(),
-            vencimiento: "2024-03-10".to_string(),
-            estado: "Pendiente".to_string(),
-        },
-        Tarea {
-            titulo: "Leer capítulo 5 de física".to_string(),
-            vencimiento: "2024-03-12".to_string(),
-            estado: "Pendiente".to_string(),
-        },
-    ]
-}
-
-/// Mock tasks when MCP is disconnected (string list for the card).
-fn mock_tasks() -> Vec<String> {
-    mock_tasks_data()
-        .into_iter()
-        .map(|t| format!("{} — vence: {}", t.titulo, t.vencimiento))
-        .collect()
-}
-
-/// Mock daily priorities when MCP is disconnected.
-fn mock_priorities() -> Vec<String> {
-    vec![
-        "Estudiar para el examen de física".to_string(),
-        "Actualizar notas de la semana".to_string(),
-        "Responder dudas de la tarea de cálculo".to_string(),
-    ]
 }
 
 /// Render the complete dashboard page as Stitch HTML.
@@ -956,6 +1206,248 @@ pub fn dashboard_html(data: &DashboardData) -> String {
         "/dashboard",
         &content,
     )
+}
+
+// ── Subject detail display types (consumed by `subject_detail.rs`) ──────
+
+/// Parsed output of `get_detalle_materia` for a single subject entry.
+#[derive(Debug, Clone, Default)]
+pub struct MateriaDetalle {
+    pub materia: String,
+    pub codigo: String,
+    pub nota_promedio: Option<f64>,
+    pub maximo: f64,
+    pub bloqueada: bool,
+    /// `true` when the subject is qualitative (observación de texto) rather
+    /// than numeric.
+    pub es_cualitativa: bool,
+    pub observacion: String,
+}
+
+/// A single activity / evaluation entry parsed from `get_actividades_materia`.
+#[derive(Debug, Clone, Default)]
+pub struct ActividadDetalle {
+    pub nombre: String,
+    pub descripcion: String,
+    pub fecha: String,
+    pub nota: Option<f64>,
+    pub calificada: bool,
+    pub submenu: String,
+}
+
+/// A submenu group (e.g. "TAREAS", "EXAMEN TRIMESTRAL") with its activities.
+#[derive(Debug, Clone, Default)]
+pub struct SubmenuDetalle {
+    pub nombre: String,
+    pub total_actividades: usize,
+    pub actividades_calificadas: usize,
+    pub subtotal: Option<f64>,
+    pub actividades: Vec<ActividadDetalle>,
+}
+
+/// Render the subject detail page: summary card + activities-by-submenu table.
+///
+/// * `connected` — MCP status banner (degrades to disconnected empty state).
+/// * `detalle` — parsed from `get_detalle_materia` (may be empty on failure).
+/// * `submenus` — parsed from `get_actividades_materia` (may be empty on
+///   failure).
+/// * `promedio_fallback` / `maximo_fallback` — values resolved from
+///   `student_full` promedios so the header renders even when the detail tool
+///   fails (degrado honesto).
+pub fn subject_detail_html(
+    connected: bool,
+    materia: &str,
+    codigo: &str,
+    promedio_fallback: f64,
+    maximo_fallback: f64,
+    trimestre: u8,
+    bloqueada_fallback: bool,
+    detalle: &[MateriaDetalle],
+    submenus: &[SubmenuDetalle],
+) -> String {
+    let status = mcp_status_banner(connected);
+
+    // Resolve display values: prefer detalle, fall back to promedios values.
+    let (avg, maximo, bloqueada, es_cualitativa, observacion) =
+        detalle.first().map_or_else(
+            || {
+                (
+                    promedio_fallback,
+                    maximo_fallback,
+                    bloqueada_fallback,
+                    false,
+                    String::new(),
+                )
+            },
+            |d| {
+                (
+                    d.nota_promedio.unwrap_or(promedio_fallback),
+                    d.maximo,
+                    d.bloqueada,
+                    d.es_cualitativa,
+                    d.observacion.clone(),
+                )
+            },
+        );
+
+    let avg_fmt = fmt_grade(avg);
+    let color = grade_color(avg);
+    let bar_width = ((avg / 10.0) * 100.0).clamp(0.0, 100.0).round() as i64;
+    let maximo_fmt = fmt_grade(maximo);
+    let bloqueada_txt = if bloqueada { "Sí" } else { "No" };
+
+    let header = format!(
+        r###"<div class="flex items-center justify-between mb-space-sm">
+        <div class="flex items-center gap-space-sm">
+            <a href="/dashboard/subjects" class="font-label-sm text-label-sm text-on-surface-variant hover:text-on-surface">
+                <span class="material-symbols-outlined text-[16px]">arrow_back</span> Asignaturas
+            </a>
+        </div>
+    </div>
+    <h1 class="font-headline-lg text-headline-lg text-on-surface">{}</h1>
+    <p class="font-body-sm text-body-sm text-on-surface-variant">Código: {} · Trimestre: {}</p>"###,
+        html_escape(materia),
+        html_escape(codigo),
+        trimestre,
+    );
+
+    let summary_card = format!(
+        r###"<div class="bg-surface-container border border-outline rounded-xl p-space-md mb-space-md">
+        <div class="flex items-center justify-between">
+            <h2 class="font-headline-md text-headline-md text-primary-container">{}</h2>
+            <span class="font-label-sm text-[10px] text-primary-container bg-primary-container/10 px-space-sm py-0.5 rounded-full">{}</span>
+        </div>
+        <div class="mt-space-sm flex items-baseline justify-between">
+            <span class="font-headline-xl text-headline-lg font-bold {}">{}</span>
+            <span class="font-label-sm text-[11px] text-on-surface-variant">promedio / {}</span>
+        </div>
+        <div class="mt-space-xs h-2 bg-surface-container-highest rounded-full overflow-hidden">
+            <div class="h-full {} transition-all" style="width: {}%"></div>
+        </div>
+        <div class="mt-space-sm grid grid-cols-2 md:grid-cols-4 gap-space-sm font-body-sm">
+            <div><span class="text-on-surface-variant">Código:</span> {}</div>
+            <div><span class="text-on-surface-variant">Máximo:</span> {}</div>
+            <div><span class="text-on-surface-variant">Bloqueada:</span> {}</div>
+            <div><span class="text-on-surface-variant">Tipo:</span> {}</div>
+        </div>
+    </div>"###,
+        html_escape(materia),
+        html_escape(&avg_fmt),
+        color,
+        avg_fmt,
+        maximo_fmt,
+        color,
+        bar_width,
+        html_escape(codigo),
+        maximo_fmt,
+        bloqueada_txt,
+        if es_cualitativa { "Cualitativa" } else { "Cuantitativa" },
+    );
+
+    // Activities grouped by submenu.
+    let activities_html = if submenus.is_empty() {
+        empty_state_html(
+            "No hay actividades registradas para esta asignatura.",
+            "/dashboard/subjects",
+        )
+    } else {
+        let mut parts: Vec<String> = Vec::new();
+        for sm in submenus {
+            let rows: String = sm.actividades.iter().map(|a| {
+                let nota_str = match a.nota {
+                    Some(n) => fmt_grade(n),
+                    None => "—".to_string(),
+                };
+                let nota_cls = match a.nota {
+                    Some(n) if n >= 7.0 => "text-green-400",
+                    Some(n) if n >= 4.0 => "text-yellow-400",
+                    Some(_) => "text-red-400",
+                    None => "text-on-surface-variant",
+                };
+                let estado = status_chip(
+                    a.calificada,
+                    if a.calificada { "Calificada" } else { "Pendiente" },
+                );
+                format!(
+                    r###"<tr class="border-b border-outline/40">
+                        <td class="py-space-xs font-body-sm text-body-sm text-on-surface">{}</td>
+                        <td class="py-space-xs font-body-sm text-body-sm text-on-surface-variant">{}</td>
+                        <td class="py-space-xs font-body-sm text-body-sm text-on-surface-variant">{}</td>
+                        <td class="py-space-xs font-headline-sm text-headline-sm font-bold {}">{}</td>
+                        <td class="py-space-xs">{}</td>
+                    </tr>"###,
+                    html_escape(&a.nombre),
+                    html_escape(&a.fecha),
+                    html_escape(&a.descripcion),
+                    nota_cls,
+                    nota_str,
+                    estado,
+                )
+            }).collect::<Vec<_>>().join("");
+
+            let subtotal_str = sm.subtotal.map_or("—".to_string(), |s| fmt_grade(s));
+
+            let section = format!(
+                r###"<div class="bg-surface-container border border-outline rounded-xl p-space-md mb-space-md">
+                    <div class="flex items-center justify-between mb-space-sm">
+                        <h3 class="font-headline-sm text-headline-sm text-primary-container">{}</h3>
+                        <span class="font-label-sm text-[10px] text-on-surface-variant">{} actividades · {} calificadas · subtotal: {}</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full font-label-sm">
+                            <thead>
+                                <tr class="border-b border-outline/40">
+                                    <th class="text-left py-2 font-label-sm text-label-sm text-on-surface-variant">Actividad</th>
+                                    <th class="text-left py-2 font-label-sm text-label-sm text-on-surface-variant">Fecha</th>
+                                    <th class="text-left py-2 font-label-sm text-label-sm text-on-surface-variant">Descripción</th>
+                                    <th class="text-left py-2 font-label-sm text-label-sm text-on-surface-variant">Nota</th>
+                                    <th class="text-left py-2 font-label-sm text-label-sm text-on-surface-variant">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>{}</tbody>
+                        </table>
+                    </div>
+                </div>"###,
+                html_escape(&sm.nombre),
+                sm.total_actividades,
+                sm.actividades_calificadas,
+                subtotal_str,
+                rows,
+            );
+            parts.push(section);
+        }
+        parts.join("")
+    };
+
+    let content = format!(r###"{}{}{}{}{}"###, status, header, summary_card, observacion_html(&observacion), activities_html);
+
+    page_ext(
+        &format!("{} — Study Platform", materia),
+        "Asignaturas",
+        "/dashboard/subjects",
+        &content,
+    )
+}
+
+/// Render the qualitative observation (if any) as a small card.
+fn observacion_html(obs: &str) -> String {
+    if obs.is_empty() {
+        return String::new();
+    }
+    format!(
+        r###"<div class="bg-surface-container border border-outline rounded-xl p-space-md mb-space-md">
+            <h3 class="font-headline-sm text-headline-sm text-primary-container mb-space-sm">Observación</h3>
+            <p class="font-body-sm text-body-sm text-on-surface-variant">{}</p>
+        </div>"###,
+        html_escape(obs),
+    )
+}
+
+/// URL-encode for use in `href` query parameters (kept here for completeness;
+/// the path-segment encoder `url_encode_path` above is preferred for path use).
+#[allow(dead_code)]
+fn url_encode_query(s: &str) -> String {
+    url_encode_path(s)
 }
 
 #[cfg(test)]
@@ -1020,11 +1512,13 @@ mod tests {
                 name: "Matematicas".to_string(),
                 average: 8.5,
                 count: 2,
+                codigo: "M1".to_string(),
             },
             SubjectSummary {
                 name: "Lenguaje".to_string(),
                 average: 3.0,
                 count: 1,
+                codigo: "L1".to_string(),
             },
         ];
         let html = subject_grid_html(&subjects);
@@ -1041,16 +1535,19 @@ mod tests {
                 name: "Alta".to_string(),
                 average: 9.0,
                 count: 1,
+                codigo: "A1".to_string(),
             },
             SubjectSummary {
                 name: "Media".to_string(),
                 average: 5.0,
                 count: 1,
+                codigo: "M1".to_string(),
             },
             SubjectSummary {
                 name: "Baja".to_string(),
                 average: 2.0,
                 count: 1,
+                codigo: "B1".to_string(),
             },
         ];
         let html = subject_grid_html(&subjects);
@@ -1154,6 +1651,43 @@ mod tests {
     }
 
     #[test]
+    fn test_empty_state_html_keeps_default_icon() {
+        let html = empty_state_html("No data", "/test/path");
+        assert!(html.contains(">error_outline</span>"));
+    }
+
+    #[test]
+    fn test_empty_state_html_icon_uses_given_symbol() {
+        let html = empty_state_html_icon("Sin exámenes", "school", "/dashboard/examenes");
+        assert!(html.contains(">school</span>"));
+        assert!(html.contains("Sin exámenes"));
+        assert!(html.contains("/dashboard/examenes"));
+        assert!(html.contains("Reintentar"));
+        // El icono configurable sustituye al genérico.
+        assert!(!html.contains(">error_outline</span>"));
+    }
+
+    #[test]
+    fn test_empty_state_html_icon_sanitizes_symbol() {
+        let html = empty_state_html_icon("x", "sch<ool>", "/p");
+        assert!(html.contains(">school</span>"));
+        assert!(!html.contains("<ool>"));
+    }
+
+    #[test]
+    fn test_status_chip_colors_are_honest() {
+        let ok = status_chip(true, "Calificada");
+        assert!(ok.contains("Calificada"));
+        assert!(ok.contains("text-green-400"));
+        assert!(!ok.contains("text-yellow-400"));
+
+        let pending = status_chip(false, "Pendiente");
+        assert!(pending.contains("Pendiente"));
+        assert!(pending.contains("text-yellow-400"));
+        assert!(!pending.contains("text-green-400"));
+    }
+
+    #[test]
     fn test_mcp_status_banner_connected() {
         let html = mcp_status_banner(true);
         assert!(html.contains("Conectado al MCP"));
@@ -1166,26 +1700,46 @@ mod tests {
     }
 
     #[test]
+    fn test_mcp_status_banner_disconnected_has_retry() {
+        let html = mcp_status_banner(false);
+        assert!(html.contains("Reintentar"));
+        assert!(html.contains("location.reload()"));
+        // Sin partials HTMX: la recarga es de página completa.
+        assert!(!html.contains("hx-get"));
+    }
+
+    #[test]
+    fn test_mcp_status_banner_connected_pulses() {
+        let html = mcp_status_banner(true);
+        assert!(html.contains("animate-pulse"));
+    }
+
+    #[test]
+    fn test_weekday_es_corto() {
+        assert_eq!(weekday_es_corto("2026-10-19"), "Lun");
+        assert_eq!(weekday_es_corto("2026-10-21"), "Mié");
+        assert_eq!(weekday_es_corto(chrono::Weekday::Sat), "Sáb");
+        assert_eq!(weekday_es_corto("lunes"), "Lun");
+        assert_eq!(weekday_es_corto("no-es-fecha"), "no-es-fecha");
+    }
+
+    #[test]
     fn test_mock_subjects() {
-        let subjects = mock_subjects();
-        assert!(!subjects.is_empty());
-        assert!(subjects.iter().any(|s| s.name == "Matematicas"));
+        // Honest mocks: empty until real data arrives.
+        assert!(mock_subjects().is_empty());
     }
 
     #[test]
     fn test_mock_perfil() {
         let p = mock_perfil();
-        assert!(!p.nombre.is_empty());
-        assert!(!p.institucion.is_empty());
-        assert!(!p.curso.is_empty());
+        assert!(p.nombre.is_empty());
+        assert!(p.institucion.is_empty());
+        assert!(p.curso.is_empty());
     }
 
     #[test]
     fn test_mock_today_events() {
-        let events = mock_today_events();
-        assert!(!events.is_empty());
-        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
-        assert!(events.iter().all(|e| e.fecha == today));
+        assert!(mock_today_events().is_empty());
     }
 
     #[test]
@@ -1195,16 +1749,19 @@ mod tests {
                 materia: "Math".to_string(),
                 nota: 8.0,
                 trimestre: 1,
+                codigo: "M1".to_string(),
             },
             Nota {
                 materia: "Math".to_string(),
                 nota: 10.0,
                 trimestre: 2,
+                codigo: "M1".to_string(),
             },
             Nota {
                 materia: "Science".to_string(),
                 nota: 7.0,
                 trimestre: 1,
+                codigo: "S1".to_string(),
             },
         ];
         let subjects = subjects_from_notas(&notas);
@@ -1213,9 +1770,11 @@ mod tests {
         let math = subjects.iter().find(|s| s.name == "Math").unwrap();
         assert!((math.average - 9.0).abs() < 1e-9);
         assert_eq!(math.count, 2);
+        assert_eq!(math.codigo, "M1");
 
         let science = subjects.iter().find(|s| s.name == "Science").unwrap();
         assert!((science.average - 7.0).abs() < 1e-9);
+        assert_eq!(science.codigo, "S1");
     }
 
     #[test]
@@ -1228,5 +1787,6 @@ mod tests {
     fn test_mock_dashboard_data() {
         let html = mock_dashboard_data();
         assert!(html.contains("card"));
+        assert!(html.contains("no está conectado"));
     }
 }

@@ -16,6 +16,43 @@ pub struct Frontmatter {
     pub other: HashMap<String, String>,
 }
 
+impl Frontmatter {
+    /// Normalized tag list: lowercased, trimmed and de-duplicated, keeping the
+    /// order in which the tags first appear.
+    ///
+    /// Accepts both shapes the YAML subset can produce: the list form
+    /// (`tags: [a, b]` or a YAML block list) and the CSV form
+    /// (`tags: a, b`, which the parser stores as a single scalar). Empty
+    /// entries are dropped.
+    ///
+    /// ```
+    /// use study_platform::knowledge::frontmatter::parse_note;
+    ///
+    /// let parsed = parse_note("---\ntitle: T\ntags: [Ondas, fotones , ONDAS]\n---\n");
+    /// assert_eq!(parsed.frontmatter.tags(), vec!["ondas", "fotones"]);
+    /// ```
+    pub fn tags(&self) -> Vec<String> {
+        let mut out: Vec<String> = Vec::new();
+        for raw in &self.tags {
+            // CSV: un mismo campo puede traer varios tags separados por comas.
+            for piece in raw.split(',') {
+                let tag = piece
+                    .trim()
+                    .trim_matches(|c| c == '"' || c == '\'')
+                    .trim()
+                    .to_lowercase();
+                if tag.is_empty() {
+                    continue;
+                }
+                if !out.contains(&tag) {
+                    out.push(tag);
+                }
+            }
+        }
+        out
+    }
+}
+
 /// The result of splitting a Markdown document into its frontmatter and body.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ParsedNote {
@@ -320,6 +357,297 @@ pub fn build_note(fm: &Frontmatter, body: &str) -> String {
     format!("{}\n{}\n---\n\n{}", FRONTMATTER_DELIM, yaml, body)
 }
 
+/// Build a short, clean summary of a note body, for card-style previews.
+///
+/// It takes the first meaningful paragraph (skipping headings, rules, code
+/// blocks and callout headers), strips the inline Markdown, keeps only the
+/// first sentence and truncates the result to `max_chars` characters
+/// (adding an ellipsis when it does not fit).
+///
+/// ```
+/// use study_platform::knowledge::frontmatter::summarize;
+///
+/// assert_eq!(summarize("# Título\n\nHola **mundo**.", 100), "Hola mundo.");
+/// ```
+pub fn summarize(body: &str, max_chars: usize) -> String {
+    if max_chars == 0 {
+        return String::new();
+    }
+    let paragraph = first_paragraph(body);
+    let cleaned = collapse_whitespace(&strip_inline_markdown(&paragraph));
+    let sentence = first_sentence(&cleaned);
+    truncate_chars(&sentence, max_chars)
+}
+
+/// Extract the first meaningful paragraph of a Markdown body.
+fn first_paragraph(body: &str) -> String {
+    let mut paragraph = String::new();
+    let mut in_fence = false;
+    for line in body.lines() {
+        let trimmed = line.trim();
+        // Bloques de código: se saltan enteros.
+        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+            in_fence = !in_fence;
+            continue;
+        }
+        if in_fence {
+            continue;
+        }
+        if trimmed.is_empty() {
+            if !paragraph.is_empty() {
+                break; // fin del párrafo
+            }
+            continue;
+        }
+        if let Some(text) = strip_line_prefix(trimmed) {
+            if !paragraph.is_empty() {
+                paragraph.push(' ');
+            }
+            paragraph.push_str(&text);
+        }
+    }
+    paragraph
+}
+
+/// Remove the line-level Markdown prefix. Returns `None` for lines without
+/// content of their own (headings, horizontal rules, callout headers).
+fn strip_line_prefix(line: &str) -> Option<String> {
+    // Encabezado o regla horizontal: sin contenido propio.
+    if line.starts_with('#') || line == "---" || line == "***" || line == "___" {
+        return None;
+    }
+
+    let mut s = line.to_string();
+
+    if s.starts_with('>') {
+        let quoted = s.trim_start_matches('>').trim_start().to_string();
+        s = if quoted.starts_with("[!") {
+            // Cabecera de callout: "> [!note] Título" -> "Título".
+            match quoted.find(']') {
+                Some(pos) => quoted[pos + 1..].trim_start().to_string(),
+                None => String::new(),
+            }
+        } else {
+            quoted
+        };
+        if s.is_empty() {
+            return None;
+        }
+    }
+
+    // Viñeta.
+    if s.starts_with("- ") || s.starts_with("* ") || s.starts_with("+ ") {
+        let rest = s[2..].trim_start().to_string();
+        s = rest;
+    }
+    // Casilla de tarea: "- [ ] texto".
+    if s.starts_with("[ ]") || s.starts_with("[x]") || s.starts_with("[X]") {
+        let rest = s[3..].trim_start().to_string();
+        s = rest;
+    }
+    // Lista ordenada: "1. texto" / "1) texto".
+    let digits = s.chars().take_while(|c| c.is_ascii_digit()).count();
+    if digits > 0 {
+        let rest = &s[digits..];
+        if rest.starts_with(". ") || rest.starts_with(") ") {
+            let rest = rest[2..].trim_start().to_string();
+            s = rest;
+        }
+    }
+
+    if s.is_empty() {
+        return None;
+    }
+    Some(s)
+}
+
+/// Remove inline Markdown markers: emphasis, code spans, links, wikilinks and
+/// HTML tags. The visible text is kept.
+fn strip_inline_markdown(text: &str) -> String {
+    let chars: Vec<char> = text.chars().collect();
+    let mut out = String::with_capacity(text.len());
+    let mut i = 0;
+    while i < chars.len() {
+        match chars[i] {
+            '`' => {
+                // Código en línea: se quitan las comillas, se conserva el texto.
+                i += 1;
+                while i < chars.len() && chars[i] != '`' {
+                    out.push(chars[i]);
+                    i += 1;
+                }
+                if i < chars.len() {
+                    i += 1;
+                }
+            }
+            '!' if i + 1 < chars.len() && chars[i + 1] == '[' => {
+                // Imagen: "! [alt](url)" -> "alt".
+                match parse_bracket(&chars, i + 1) {
+                    Some((label, next)) => {
+                        out.push_str(&label);
+                        i = next;
+                    }
+                    None => {
+                        out.push('!');
+                        i += 1;
+                    }
+                }
+            }
+            '[' => match parse_bracket(&chars, i) {
+                Some((label, next)) => {
+                    out.push_str(&label);
+                    i = next;
+                }
+                None => {
+                    out.push('[');
+                    i += 1;
+                }
+            },
+            '*' | '~' => {
+                i += 1; // énfasis o tachado
+            }
+            '_' => {
+                // Solo se quita el énfasis, no el guion bajo de `snake_case`.
+                let prev_word = i > 0 && (chars[i - 1].is_alphanumeric() || chars[i - 1] == '_');
+                let next_word = chars
+                    .get(i + 1)
+                    .map_or(false, |c| c.is_alphanumeric() || *c == '_');
+                if prev_word && next_word {
+                    out.push('_');
+                }
+                i += 1;
+            }
+            '<' => match find_html_tag_end(&chars, i) {
+                Some(next) => i = next,
+                None => {
+                    out.push('<');
+                    i += 1;
+                }
+            },
+            _ => {
+                out.push(chars[i]);
+                i += 1;
+            }
+        }
+    }
+    out
+}
+
+/// Parse a bracketed construct starting at `start` (which must be `[`).
+///
+/// Handles wikilinks (`[[a|b]]`), links (`[text](url)`, `[text][ref]`) and
+/// plain bracketed text. Returns the visible label and the index to continue
+/// parsing from.
+fn parse_bracket(chars: &[char], start: usize) -> Option<(String, usize)> {
+    if start + 1 < chars.len() && chars[start + 1] == '[' {
+        // Wikilink: "[[Física II|la física]]" -> "la física".
+        let mut i = start + 2;
+        while i + 1 < chars.len() && !(chars[i] == ']' && chars[i + 1] == ']') {
+            i += 1;
+        }
+        if i + 1 >= chars.len() {
+            return None;
+        }
+        let inner: String = chars[start + 2..i].iter().collect();
+        let label = match inner.split_once('|') {
+            Some((_, alias)) => alias.trim().to_string(),
+            None => inner.trim().to_string(),
+        };
+        return Some((label, i + 2));
+    }
+
+    // Buscar el cierre respetando anidamiento.
+    let mut depth = 0usize;
+    let mut i = start;
+    while i < chars.len() {
+        match chars[i] {
+            '[' => depth += 1,
+            ']' => {
+                depth -= 1;
+                if depth == 0 {
+                    break;
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    if i >= chars.len() {
+        return None;
+    }
+
+    let label: String = chars[start + 1..i].iter().collect();
+    let mut next = i + 1;
+    // Destino del enlace: "(url)" o "[ref]".
+    if next < chars.len() && chars[next] == '(' {
+        let mut j = next + 1;
+        while j < chars.len() && chars[j] != ')' {
+            j += 1;
+        }
+        if j < chars.len() {
+            next = j + 1;
+        }
+    } else if next < chars.len() && chars[next] == '[' {
+        let mut j = next + 1;
+        while j < chars.len() && chars[j] != ']' {
+            j += 1;
+        }
+        if j < chars.len() {
+            next = j + 1;
+        }
+    }
+    Some((label, next))
+}
+
+/// If `start` points at an HTML tag, return the index just after its `>`.
+fn find_html_tag_end(chars: &[char], start: usize) -> Option<usize> {
+    let next = *chars.get(start + 1)?;
+    if !(next.is_ascii_alphabetic() || next == '/') {
+        return None;
+    }
+    let limit = (start + 200).min(chars.len());
+    for j in start + 1..limit {
+        if chars[j] == '>' {
+            return Some(j + 1);
+        }
+    }
+    None
+}
+
+/// Collapse all whitespace runs into a single space.
+fn collapse_whitespace(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Keep only the first sentence of a text (or the whole text if it has none).
+fn first_sentence(text: &str) -> String {
+    let chars: Vec<char> = text.chars().collect();
+    for (i, &c) in chars.iter().enumerate() {
+        if c == '.' || c == '!' || c == '?' {
+            let ends_here = chars
+                .get(i + 1)
+                .map_or(true, |n| n.is_whitespace());
+            let after_word = i > 0 && (chars[i - 1].is_alphanumeric() || chars[i - 1] == ')');
+            if ends_here && after_word {
+                return chars[..=i].iter().collect();
+            }
+        }
+    }
+    text.to_string()
+}
+
+/// Truncate to `max_chars` characters, adding an ellipsis when it does not fit.
+fn truncate_chars(text: &str, max_chars: usize) -> String {
+    if text.chars().count() <= max_chars {
+        return text.to_string();
+    }
+    if max_chars == 0 {
+        return String::new();
+    }
+    let head: String = text.chars().take(max_chars - 1).collect();
+    format!("{}…", head)
+}
+
 // ---------------------------------------------------------------------------
 // Unit tests
 // ---------------------------------------------------------------------------
@@ -411,5 +739,41 @@ mod tests {
         assert_eq!(quote_yaml_scalar("tag with space"), "tag with space");
         assert_eq!(quote_yaml_scalar("Hello: World"), "\"Hello: World\"");
         assert_eq!(quote_yaml_scalar(""), "\"\"");
+    }
+
+    #[test]
+    fn test_tags_normaliza_lista_y_csv() {
+        // Lista inline: se normaliza a minúsculas, sin repetir y en orden.
+        let md = "---\ntitle: T\ntags: [Ondas, fotones , ONDAS]\n---\n";
+        let parsed = parse_note(md);
+        assert_eq!(parsed.frontmatter.tags(), vec!["ondas", "fotones"]);
+
+        // CSV en un único valor escalar: "a, b" se separa igual.
+        let csv = parse_note("---\ntitle: T\ntags: Algebra, Geometría ,algebra\n---\n");
+        assert_eq!(csv.frontmatter.tags(), vec!["algebra", "geometría"]);
+
+        // Sin tags (ni frontmatter) la lista queda vacía.
+        assert!(parse_note("# Hola").frontmatter.tags().is_empty());
+        assert!(parse_note("---\ntitle: T\n---\n").frontmatter.tags().is_empty());
+    }
+
+    #[test]
+    fn test_summarize_limpia_markdown() {
+        // Salta el encabezado y se queda con la primera frase, sin marcas.
+        let body = "# Título\n\nEste es el **primer** párrafo con *énfasis* y `código`.\n\nOtro párrafo.";
+        assert_eq!(
+            summarize(body, 200),
+            "Este es el primer párrafo con énfasis y código."
+        );
+
+        // Wikilink y enlace markdown: se queda con el texto visible.
+        let links = "Ver [[Física II|la física]] y [el texto](https://x.dev).";
+        assert_eq!(summarize(links, 200), "Ver la física y el texto.");
+
+        // Truncado con elipsis sin pasarse de max_chars.
+        let short = summarize("abcdefghij klm", 8);
+        assert_eq!(short, "abcdefg…");
+        assert_eq!(short.chars().count(), 8);
+        assert_eq!(summarize("texto", 0), "");
     }
 }

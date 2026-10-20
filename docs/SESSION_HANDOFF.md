@@ -1,5 +1,215 @@
 # SESSION_HANDOFF — Study Platform (Misión 9, 2026-10-10)
 
+## Estado de HOY — 2026-10-19 (sprint cerrado, todo verificado)
+
+Cierre del sprint. Todo lo de esta sección está verificado contra el código
+o contra las máquinas reales el **2026-10-19**.
+
+### Qué se entregó hoy, por área
+
+**IA (chat + streaming + persistencia + presupuesto + quiz)**
+- `POST /api/ai/chat` y `POST /api/ai/chat/stream` contra OpenRouter con
+  `minimax/minimax-m3.1-flash:free` (coste $0). `src/ai/streaming.rs`:
+  **SSE real** (frames `delta` / `reasoning` / `done` / `error`, cabecera
+  `x-chat-stream-id`, backpressure 16, idle 30 s, total 300 s).
+- El turno se **persiste en `chat_history` antes del frame final** y el
+  historial se lee por asignatura (`src/ai/handlers.rs`).
+- **Budget gate** (`src/ai/handlers.rs::enforce_budget`): tope duro mensual
+  **antes** de llamar al proveedor (`OPENROUTER_MAX_COST_USD=2.0`); agotado ⇒
+  cuerpo JSON de presupuesto y **no** se llama a OpenRouter.
+- **Parser de quiz robusto** (`src/ai/quiz.rs`): JSON primero y texto como
+  respaldo (`parse_model_response`, `parse_model_response_with_target`).
+
+**Admin y Backup**
+- Panel `/admin` + `/admin/metrics` + `/admin/openrouter/budget` +
+  `/admin/backup/list` (`src/handlers/admin.rs`).
+- `src/backup/mod.rs`: backup rotativo (retention 5) en **un solo
+  directorio** `data/backups/` (el `.gz` legacy de `./backups/` desapareció);
+  tarea `tokio` diaria (primer backup 60 s tras arrancar, luego cada 24 h).
+- `POST /api/admin/backup`, `POST /api/admin/backup/restore` (valida nombre e
+  `integrity_check` y copia los datos **dentro** de una transacción, sin
+  sustituir el fichero vivo) y `GET /api/admin/backup/download/{name}`.
+
+**Notas (segundo cerebro)**
+- Markdown + frontmatter YAML, **TOC** automático, **wikilinks reales** (se
+  resuelven contra las notas de la BD; los rotos quedan como texto plano),
+  backlinks y enlaces salientes.
+- **Tags**, historial de **versiones** con restore, export por nota, **404
+  estilizado** con el shell de la app y **snippets** (resúmenes y excerpts de
+  menciones).
+- FTS5 (`migrations/20240101000006_notes_search_fts.sql`): `GET /api/search`
+  usa FTS5 y cae a `LIKE`.
+
+**Académico**
+- `/dashboard/horario` (**7 días**, cache-first 30 s), `/dashboard/planner`,
+  `/dashboard/calendar` + `/dashboard/calendar/daily`,
+  `/dashboard/subjects` + detalle por código, `/dashboard/profile` (**barras
+  de progreso** por asignatura), `/dashboard/examenes` (**cuenta atrás**),
+  `/dashboard/vida-escolar` (**6 secciones**, cada una con su fuente real y
+  estado vacío honesto) y la biblioteca (`/office/library` + adapter
+  `get_biblioteca`).
+
+**Shell Stitch v2**
+- Fuente única de navegación (`NAV_LINKS`), **un item activo por página**
+  (`aria-current="page"`), **skip-link** ("Saltar al contenido"), rail lateral
+  plegable, foco visible, `prefers-reduced-motion` y responsive **móvil**.
+- **Tarjetas del día** en el panel: saludo, próxima clase y próximas tareas.
+
+**Seguridad**
+- `POST /register` exige `REGISTRATION_TOKEN` (sin él: 403, con aviso en el
+  journal).
+- Sesión con **TTL** de 30 días (`SESSION_TTL_DAYS`) como techo duro desde la
+  creación de la fila, además de `expires_at`.
+- Cookie **`Secure` condicional**: sólo si la petición llegó por HTTPS; en
+  HTTP por tailnet sigue siendo utilizable.
+- Clave de OpenRouter **saneada de los estáticos** que se sirven
+  (`static/stitch-v2/**` sirve `value=""`).
+
+**Documentación**
+- `docs/API.md`, `docs/USER_GUIDE.md`, `docs/DEPLOY.md`,
+  `docs/DEVELOPER_SETUP.md` y `.env.example` (sin secretos).
+
+**Tests**
+- **562 tests en verde, 0 fallos** (289 de lib + suites de integración), **3**
+  `#[ignore]` con su motivo escrito en el propio test. Corrida completa a las
+  **21:32**.
+- `cargo fmt --check` PASS; `cargo clippy --all-targets` 0 errores.
+- Ojo al trabajar en este repo: `src/handlers/stitch_*.rs` y
+  `src/handlers/admin.rs` han estado en edición por otra sesión durante la
+  jornada, así que una compilación a medias puede fallar aunque el código esté
+  bien. **El árbol siguió moviéndose después de la corrida** (`stitch_panel.rs`
+  y `integrations/mikareno/client.rs` tocados a las 22:01): la cifra de 562 es
+  la del estado de las 21:32 — hay que re-ejecutar la suite antes de darla
+  por buena, y el binario desplegado (`9740466f`, 21:19) es **anterior** a
+  esos últimos cambios.
+
+### Despliegue (verificado 2026-10-19)
+
+- **Producción en la homelab Dell** (`gabo-Inspiron-5720`, tailnet
+  `100.92.172.48`), puerto **8091** (el 8090 está ocupado ahí), unidad systemd
+  **de sistema** (`ExecStart=/home/gabo/study-platform/study-platform --addr
+  0.0.0.0:8091`, `Restart=always`, `RestartSec=10`).
+- **Binario desplegado**: `/home/gabo/study-platform/study-platform`,
+  sha256 `9740466f34b2da1e1f53cb63d974e21769be6693f7a544c4a223e642533e52ac`
+  — **idéntico** al release local (`target/release/study-platform`, 10.847.112
+  bytes). Verificado con `sha256sum` en los dos lados.
+- `curl http://100.92.172.48:8091/health` → **200**; `systemctl is-active
+  study-platform` → `active` (arrancado 2026-10-19 21:20).
+- Procedimiento que funciona: `scp` a `.new` + `mv` atómico (**nunca** `scp`
+  al path final: `ETXTBSY`) + `pkill -x study-platform` → systemd lo levanta
+  solo en ~11 s. **Sin sudo** para reiniciar; `sudo` sólo hace falta para
+  tocar la unidad (pide password interactiva: `sudo -n` falla).
+- La **BD real es la de la Dell** (`~/study-platform/data/app.db`, ~1.5 MB).
+  La de asus-tuf (~100 KB) es de desarrollo y está desfasada.
+- **MCP de Mikareno**: vive en **asus-tuf** (`systemd --user`,
+  `mikareno-mcp.service`, `0.0.0.0:8080`, versión 4.0.11, **18 tools**). La
+  app de la Dell lo alcanza por tailnet:
+  `MIKARENO_MCP_URL=http://100.115.62.97:8080/mcp` (probado desde la Dell:
+  `initialize` → 200 en 16 ms).
+- **MCP de GenOffice**: sólo existe en la Dell (`127.0.0.1:8453`).
+- **OpenRouter**: modelo `minimax/minimax-m3.1-flash:free` (coste 0) y
+  **presupuesto mensual $2** (`OPENROUTER_MAX_COST_USD=2.0`) tanto en local
+  como en la Dell.
+
+### Arreglo de producción del MCP de Mikareno (event loop)
+
+`mikareno-mcp/server.py` hacía el trabajo de Playwright **síncrono dentro de
+corrutinas `async`**: mientras duraba el scrape (30-100 s) el servidor entero
+quedaba sin responder (incluso el `initialize` del health check). Arreglo:
+`_Runner.arun` (`loop.run_in_executor` con un `ThreadPoolExecutor` de 1 worker)
++ `_refresh_lock` pasado de `threading.Lock` a `asyncio.Lock`. Copia fechada
+del archivo parcheado: `~/mikareno-mcp/server.py.bak-20261019-arun-fix`.
+
+Cliente Mikareno: `from_config` acepta loopback, RFC 1918 y **CGNAT
+`100.64/10`** (la tailnet); cualquier host público se ignora. Antes la regla
+era "sólo loopback" y la app de producción se quedaba **sin datos académicos**
+(cliente `None`).
+
+### Otros hechos verificados
+
+- **Tools del MCP propio: 9** (`src/mcp_server/tools.rs`, test
+  `test_tools_list_exact_contents`). `app_backup_now` devuelve
+  `{success, name, bytes, path, size_bytes}` y `app_ai_cost`
+  `{total_cost, budget_limit, requests_count, alert}`.
+- Rutas nuevas cableadas y vivas: `POST /api/admin/backup`,
+  `POST /api/admin/backup/restore`, `GET /api/admin/backup/download/{name}`,
+  `POST /api/settings/ai` (501 + bloque `.env`, **no persiste**),
+  `GET /office/report` (503 JSON si GenOffice no está),
+  `POST /api/ai/chat/stream` (SSE `delta`/`reasoning`/`done`/`error`, y el turno
+  se persiste en `chat_history` antes del frame final),
+  `GET/POST /settings/password` (cambio de contraseña con la actual).
+- El **transporte del MCP propio** es JSON-RPC en JSON en `POST /mcp`; el SSE
+  está en `POST /mcp/sse`.
+- **Backup diario vivo en la Dell**: `data/backups/` con 4 ficheros
+  `app-YYYYmmdd-HHMMSS.db` + sidecar `.sha256` (el último a las 21:21, un
+  minuto después del arranque de las 21:20 → la tarea `tokio` funciona).
+- `POST /register` exige `REGISTRATION_TOKEN`; sin esa variable devuelve
+  `403` (queda registrado en el journal de producción).
+
+---
+
+## PENDIENTES REALES (siguen sin hacer — 2026-10-19)
+
+Verificados hoy contra el código y contra las máquinas. Salvo el punto 1
+(que es del MCP, no de la app), son bloqueos y decisiones externas.
+
+1. **El MCP de Mikareno se cuelga en algunas tools** (bloqueo técnico, con
+   reproducción). Hoy `get_mensajes`, `get_actividades_materia`,
+   `get_detalle_materia`, `get_asistencia` y `get_cumpleanos` **no devolvieron
+   nada en 240 s**. Peor: en cuanto una de ellas se queda colgada, el
+   `_refresh_lock` compartido (`server.py:314`) queda retenido y **todas** las
+   tools se cuelgan — `get_perfil` y `get_horario`, que respondían en 0 s,
+   pasaron a colgar también. El servidor HTTP sí sigue vivo (`initialize` →
+   200 en ~30 ms): el cuelgue es por tool, no del proceso. La app no se cuelga
+   porque el cliente impone `CALL_DEADLINE_SECS=25` y
+   `REQUEST_TIMEOUT_SECS=30` (degrada a error). **Falta**: timeout o
+   *circuit breaker* en el scrape del MCP, no retener el lock global, y una
+   forma de recuperar el servicio (`systemctl --user restart
+   mikareno-mcp.service`).
+2. **La clave vieja de OpenRouter sigue en el repo**: en
+   `design/stitch-reference/stitch_study_platform_ui_system/centro_mcp_configuraci_n_openrouter/code.html`.
+   No se sirve (los estáticos de `static/stitch-v2/**` van saneados, `value=""`),
+   pero **está en el árbol y en el historial de git** (`aa193d0`). Hay que
+   **rotarla** y sacarla del árbol. (La clave viva del `.env` es distinta.)
+3. **El `chat_history` de la app de la Dell está vacío** (0 filas). El
+   historial de chat real sólo existe en la BD de asus-tuf (6 turnos, último
+   2026-10-19 22:05) y **no se ha migrado** a la BD de producción.
+4. **`~/mikareno-mcp` no está bajo control de versiones**: el parche
+   `_Runner.arun` vive sólo en disco (copia
+   `server.py.bak-20261019-arun-fix`). Sin git, el arreglo se pierde con el
+   próximo `git pull`/reinstall.
+5. **El trabajo del sprint no está versionado**: ~**109 archivos** modificados
+   o sin seguimiento en `/home/gabo/study-platform` (rama `main`, remoto `dell`
+   en `edd3146`). Nada de lo de hoy está commiteado.
+6. **Decisiones abiertas que son del usuario**: `AUTH_DISABLED` en producción
+   o el bind `0.0.0.0:8091` (hace falta `sudo`, y `sudo -n` falla: pide
+   password interactiva); `OPENROUTER_API_KEY` en la Dell (el `.env` de la
+   Dell **no la tiene**: en producción la IA va en **modo demo**); borrar
+   `~/proyectos/styp/` (vacío); y mover `~/mikareno-mcp` a la Dell. Detalle en
+   `docs/DEVELOPER_SETUP.md` §9.
+7. **Menores**: `POST /api/settings/ai` responde 501 y no persiste (muestra el
+   bloque `.env` a aplicar a mano); el CLI sólo expone `--migrate` y
+   `--create-admin`, y `--create-admin` no cambia la contraseña de un usuario
+   que ya existe.
+
+---
+
+## Misión 13 (2026-10-19) — Sprint OpenRouter + F9 (superado; ver "Estado de HOY" arriba)
+
+Lo que este sprint dejó planificado está **cerrado**: las rutas se cablearon, el
+backup unificado sustituyó al legacy y el streaming SSE quedó vivo. Se conserva
+el registro original del sprint:
+- **F9 Admin & Backup (🔨 en progreso)**: rutas `/admin/*` (nuevo `admin.rs`) +
+  módulo `src/backup` con backup rotativo (5), tarea tokio diaria y restore
+  seguro. Sustituirá al backup procedural sqlite3+cron cuando se complete.
+- **IA streaming (🔨)**: nuevo `src/ai/streaming.rs` — SSE streaming real de
+  OpenRouter; ruta futura `/api/ai/chat/stream`.
+- **Markdown/Obsidian (🔨)**: nuevo `src/knowledge/markdown.rs` — parser
+  Markdown/Obsidian + wikilinks; renderizado en la UI de notas.
+- **Mikareno**: nuevos adapters `get_ano_escolar` y `get_biblioteca`.
+- **`.env`**: ya contiene `OPENROUTER_API_KEY` y
+  `OPENROUTER_MODEL=minimax/minimax-m3.1-flash:free` (coste 0).
+
 ## Estado real verificado (Misión 12, 2026-10-11)
 - `cargo fmt --check`: PASS (exit 0). `cargo clippy --all-targets`: 0 errores (solo warnings dead-code preexistentes en `src/handlers/`).
 - `cargo test`: **~300 suites** — ~292 pasados, 0 fallidos, ~1 ignorado (`test_mission11_logged_out_cookie_reuse` — requiere login flow real con token opaco post-M12; ignored con razón documentada en código). Desglose por suite:
@@ -85,3 +295,35 @@
 - **Binario**: sha256 `2c686e8e...` (bin v0.1.0 con fix content-type HTML), 7.04 MB, GLIBC 2.38
 - **M12b fix**: `login_form()` ahora devuelve `Response` con `content-type: text/html; charset=utf-8` en lugar de `&'static str` (text/plain). Tailwind CSS + HTMX renderizado correcto.
 - **Presupuesto**: $0.40 intacto, 0 llamadas pagadas
+
+## Sprint 2026-10-19 (tarde) — LLM real + F9 + streaming + integración
+
+**Motor IA**: `POST /api/ai/chat` y `POST /api/ai/chat/stream` (SSE real) contra OpenRouter `minimax/minimax-m3.1-flash:free` (key en `.env`). Coste en vivo $0.0, presupuesto $2.0 intacto. E2E vivo: `tests/openrouter_live.rs` (login + chat + coste, pasa contra el proveedor real).
+
+**F9 cerrado (verificado en vivo)**: panel `/admin` (dashboard/metrics/budget/backups), `src/backup` con backup automático diario (spawn 60 s tras arranque, retention 5, dir `data/backups`), primer backup ya creado. Fix de producción: `check_mcp_connection` contaba `Ok(Err(_))` como conectado — MCP muerto ya no engaña.
+
+**SSE streaming**: `src/ai/streaming.rs` reimplementado sin crates nuevos (channel `http_body_util::Channel` no existía): `SseBody` hace `impl http_body::Body` manual sobre `tokio::sync::mpsc`; frames `delta`/`reasoning`/`done`/`error`, backpressure 16, idle 30 s, total 300 s. `http-body = "1"` añadido a Cargo.toml (ya estaba en lock).
+
+**Tests**: ~352 en verde, 0 fallos, 3 ignorados documentados (2 por decisión épica, 1 por segue de auth). Tests ajustados al contrato honesto nuevo (banner "sin datos de Mikareno", `mock_subjects` vacío, create=303+Location, mock OpenRouter hermético binario). Fixes del racimo: chat_json ya no serializa doble, MCP de tests apunta a puerto muerto, `start_time: Instant::now()` añadido a los 12 AppState de tests.
+
+**Horario 7-días**: `src/handlers/schedule.rs` corregido (cache-first 30 s, reintento con re-handshake; mapeo de días endurecido). Página `/dashboard/horario` muestra las 5 cols lectivas reales.
+
+**Pendiente conocido (no bloquea)**:
+- ~~Legacy `/api/admin/backup` (gz en `./backups`) y el nuevo sistema~~ →
+  **resuelto**: el `GET /api/admin/backup` legacy ya delega en el sistema
+  unificado (`data/backups/`, `app-*.db` + sidecar) y devuelve sus claves
+  (`name`, `bytes`) junto a las legacy (`path`, `size_bytes`). Ya no se escribe
+  ningún `.gz`.
+- ~~Despliegue en Dell:8091 corre binario release VIEJO~~ → **resuelto**: la
+  Dell corre el release `9740466f…` (mismo hash que el local), desplegado con
+  `scp` a `.new` + `mv` + `pkill` (systemd lo levanta solo).
+- `tests/security.rs` mantiene un `#[ignore]` por la decisión de auth legacy (documento en el propio test).
+- El repo **sí** está bajo git (rama `main`, remoto `dell` en `edd3146`), pero
+  hay ~109 archivos modificados o sin seguimiento sin commitear.
+
+---
+
+## 2026-10-19 (noche) — Cierre del sprint: 562 tests, despliegue
+
+Ver la sección **"Estado de HOY — 2026-10-19"** al principio de este documento
+(qué se entregó por área, estado de despliegue y **PENDIENTES REALES**).

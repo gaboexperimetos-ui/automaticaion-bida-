@@ -23,6 +23,8 @@ pub mod academic;
 #[allow(unused)]
 pub mod ai;
 #[allow(unused)]
+pub mod backup;
+#[allow(unused)]
 pub mod integrations;
 #[allow(unused)]
 pub mod knowledge;
@@ -38,4 +40,10 @@ pub use config::Config;
 pub struct AppState {
     pub config: Config,
     pub db: sqlx::SqlitePool,
+    /// Cliente Mikareno compartido. Mantiene la sesión MCP y su caché de
+    /// 180s entre requests; crear uno por request re-handshakea y re-scrapea
+    /// en cada carga. `None` cuando la URL del MCP no es localhost.
+    pub mikareno: Option<crate::integrations::mikareno::MikarenoClient>,
+    /// Tiempo de inicio del servidor (para reportar uptime honesto).
+    pub start_time: std::time::Instant,
 }

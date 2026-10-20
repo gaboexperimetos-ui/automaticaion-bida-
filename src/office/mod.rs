@@ -10,16 +10,28 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use axum::Router;
+use axum::{
+    extract::{Request, State},
+    http::StatusCode,
+    middleware::Next,
+    response::{IntoResponse, Response},
+    Json, Router,
+};
+use serde_json::json;
 
 use crate::middleware::auth::require_auth_state;
 use crate::AppState;
 
 pub mod documents;
+pub mod genoffice;
 pub mod library;
 pub mod presentations;
+pub mod report;
 pub mod spreadsheets;
 pub mod templates;
+
+pub use genoffice::OfficeError;
+pub use report::export_docx_report;
 
 /// Filesystem root for all office artifacts: `<db parent>/office`.
 pub(crate) fn office_root(state: &AppState) -> PathBuf {
@@ -102,7 +114,7 @@ pub fn register_routes(
         office_root(&state).display()
     );
 
-    let office = Router::new()
+    let office: Router<Arc<AppState>> = Router::new()
         .route("/office", axum::routing::get(documents::office_home))
         // Documents
         .route(
@@ -201,5 +213,48 @@ pub fn register_routes(
             require_auth_state,
         ));
 
-    router.merge(office)
+    // Endpoints JSON de la suite de oficina (descargas). Viven aparte porque
+    // `require_auth_state` redirige a `/login` (HTML) en las rutas que no
+    // empiezan por `/api/`: una descarga sin sesión debe responder 401 + JSON,
+    // nunca una página de login. Ver `require_auth_json`.
+    let json_api: Router<Arc<AppState>> = Router::new()
+        // Informe del estudiante (.docx vía MCP de GenOffice)
+        .route("/office/report", axum::routing::get(report::download))
+        .route_layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            require_auth_json,
+        ));
+
+    router.merge(office).merge(json_api)
+}
+
+/// Autenticación para los endpoints JSON de la suite de oficina.
+///
+/// Reutiliza la validación de sesión de [`require_auth_state`] (misma tabla
+/// `sessions`, mismo comprovado de expiración) y traduce su 302→`/login` en
+/// un **401 + JSON**: un endpoint de descarga nunca devuelve HTML.
+///
+/// Fallo cerrado: sin cookie, con cookie inválida o con la base de datos
+/// caída, la respuesta es 401 (no se sirve el documento).
+async fn require_auth_json(
+    State(state): State<Arc<AppState>>,
+    req: Request,
+    next: Next,
+) -> Response {
+    let resp = require_auth_state(State(state), req, next).await;
+    if resp.status() == StatusCode::FOUND {
+        // 302 → /login: el middleware no distingue el motivo, así que el
+        // 401 los agrupa ("ausente, inválida o expirada").
+        return unauthorized("Sesión ausente, inválida o expirada");
+    }
+    resp
+}
+
+/// Respuesta 401 en JSON (nunca HTML).
+fn unauthorized(motivo: &str) -> Response {
+    (
+        StatusCode::UNAUTHORIZED,
+        Json(json!({ "error": "No autorizado", "motivo": motivo })),
+    )
+        .into_response()
 }

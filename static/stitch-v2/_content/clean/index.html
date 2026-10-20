@@ -13,8 +13,8 @@
 <span class="font-code-inline text-[11px] text-primary-fixed-dim">WORKSPACE_DEV_V2</span>
 </div>
 <div class="flex items-baseline gap-space-sm mt-1">
-<h1 class="font-headline-lg text-headline-lg text-on-surface font-semibold tracking-tight">Buenas tardes, Alex</h1>
-<span class="font-label-sm text-label-sm text-on-surface-variant font-normal">| Miércoles, 24 de Octubre • Semana 9 del Semestre</span>
+<!--SLOT:GREETING-->
+<!--SLOT:TODAYLINE-->
 </div>
 </div>
 <!-- Sync telemetry pill & Quick Action toggles -->
@@ -22,7 +22,7 @@
 <div class="flex items-center gap-2 px-space-sm py-1.5 rounded-lg bg-surface-container-low shadow-sm">
 <span class="material-symbols-outlined text-[16px] text-primary-container">sync_saved_locally</span>
 <div class="flex flex-col">
-<span class="font-label-sm text-[11px] text-on-surface leading-tight font-medium">Mikareno: sincronizado hace 12m</span>
+<!--SLOT:SYNC-->
 <span class="font-code-inline text-[9px] text-outline uppercase tracking-wider">Acceso solo lectura</span>
 </div>
 <span class="w-1.5 h-1.5 rounded-full bg-secondary-fixed"></span>
@@ -162,7 +162,7 @@
 <h2 class="font-headline-sm text-headline-sm text-on-surface">Hoy & En Curso</h2>
 </div>
 <span class="px-2 py-0.5 rounded-full bg-surface-container-highest text-[10px] font-code-inline text-outline flex items-center gap-1">
-<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span> 2 clases rest.
+<!--SLOT:CLASSCOUNT-->
             </span>
 </div>
 <!-- Mikareno sync source indicator -->
@@ -174,84 +174,16 @@
 <span class="font-code-inline text-[10px] text-outline">Solo lectura</span>
 </div>
 <!-- Lista de Próximas Clases -->
-<div class="space-y-space-xs">
-<!-- Clase 1 (En curso o inmediata) -->
-<div class="p-space-sm rounded-lg bg-surface-container hover:bg-surface-container-high transition-all flex flex-col gap-1.5">
-<div class="flex items-center justify-between">
-<span class="font-code-inline text-[11px] text-primary-fixed-dim px-1.5 py-0.5 rounded bg-primary-container/10">09:00 - 10:30</span>
-<span class="font-label-sm text-[11px] text-secondary flex items-center gap-1">
-<span class="w-1.5 h-1.5 rounded-full bg-secondary animate-ping"></span> En 25 min
-                </span>
-</div>
-<div>
-<h3 class="font-label-md text-label-md text-on-surface font-semibold leading-snug">Algoritmos y Estructuras de Datos</h3>
-<p class="font-body-sm text-body-sm text-outline mt-0.5 flex items-center gap-1">
-<span class="material-symbols-outlined text-[14px]">meeting_room</span> Aula Lab 3 • Prof. Dr. Arismendi
-                </p>
-</div>
-<div class="flex items-center justify-between pt-1">
-<span class="font-code-inline text-[10px] text-on-surface-variant">Tema: Grafos y Árboles AVL</span>
-<button class="font-label-sm text-[11px] text-primary-container hover:underline flex items-center gap-0.5">
-                  Ver temario <span class="material-symbols-outlined text-[12px]">arrow_forward</span>
-</button>
-</div>
-</div>
-<!-- Clase 2 -->
-<div class="p-space-sm rounded-lg bg-surface-container hover:bg-surface-container-high transition-all flex flex-col gap-1.5">
-<div class="flex items-center justify-between">
-<span class="font-code-inline text-[11px] text-outline px-1.5 py-0.5 rounded bg-surface-container-highest">11:00 - 13:00</span>
-<span class="font-label-sm text-[11px] text-outline">Próxima</span>
-</div>
-<div>
-<h3 class="font-label-md text-label-md text-on-surface font-semibold leading-snug">Redes y Sistemas Distribuidos</h3>
-<p class="font-body-sm text-body-sm text-outline mt-0.5 flex items-center gap-1">
-<span class="material-symbols-outlined text-[14px]">meeting_room</span> Aula 204 • Pabellón Tecnológico
-                </p>
-</div>
-<div class="flex items-center justify-between pt-1">
-<span class="font-code-inline text-[10px] text-on-surface-variant">Práctica: Sockets UDP en C++</span>
-<span class="font-label-sm text-[10px] px-1.5 py-0.5 rounded bg-surface-container-lowest text-outline">Lab presencial</span>
-</div>
-</div>
-</div>
+<!--SLOT:CLASSES-->
 <!-- Tareas con Vencimiento Hoy -->
 <div class="mt-space-md pt-space-sm">
 <div class="flex items-center justify-between mb-space-xs">
 <span class="font-label-sm text-label-sm uppercase tracking-wider text-outline flex items-center gap-1">
 <span class="material-symbols-outlined text-[14px] text-error">priority_high</span> Entregas Hoy
               </span>
-<span class="font-code-inline text-[11px] text-error font-medium">2 pendientes</span>
+<!--SLOT:TASKCOUNT-->
 </div>
-<div class="space-y-1.5">
-<!-- Item 1 -->
-<div class="p-2 rounded-lg bg-surface-container flex items-start gap-2.5">
-<input class="mt-1 w-4 h-4 rounded bg-surface-container-lowest accent-secondary cursor-pointer" type="checkbox"/>
-<div class="flex-1 min-w-0">
-<div class="flex items-center justify-between">
-<p class="font-label-md text-label-md text-on-surface font-medium truncate">Laboratorio 4: Tiempos de Ejecución</p>
-<span class="font-code-inline text-[10px] text-error ml-2">23:59</span>
-</div>
-<div class="flex items-center gap-2 mt-0.5">
-<span class="px-1.5 py-0.2 rounded text-[10px] bg-primary-container/15 text-primary-container font-label-sm">Algoritmos</span>
-<span class="font-body-sm text-[10px] text-outline">Mikareno LMS</span>
-</div>
-</div>
-</div>
-<!-- Item 2 -->
-<div class="p-2 rounded-lg bg-surface-container flex items-start gap-2.5">
-<input class="mt-1 w-4 h-4 rounded bg-surface-container-lowest accent-secondary cursor-pointer" type="checkbox"/>
-<div class="flex-1 min-w-0">
-<div class="flex items-center justify-between">
-<p class="font-label-md text-label-md text-on-surface font-medium truncate">Cuestionario Pre-clase: Handshake TCP</p>
-<span class="font-code-inline text-[10px] text-error ml-2">10:50</span>
-</div>
-<div class="flex items-center gap-2 mt-0.5">
-<span class="px-1.5 py-0.2 rounded text-[10px] bg-secondary-container/20 text-secondary font-label-sm">Redes</span>
-<span class="font-body-sm text-[10px] text-outline">Autoevaluación</span>
-</div>
-</div>
-</div>
-</div>
+<!--SLOT:TASKTODAY-->
 </div>
 </div>
 <!-- Segundo Cerebro & Notas Recientes (Col 1 Lower) -->
@@ -264,53 +196,7 @@
 <a class="font-label-sm text-label-sm text-primary-container hover:underline" href="#">Ver vault</a>
 </div>
 <p class="font-body-sm text-body-sm text-outline mb-space-sm">Notas enlazadas y síntesis activa de conocimiento</p>
-<div class="space-y-space-xs">
-<div class="p-2.5 rounded-lg bg-surface-container hover:bg-surface-container-high transition-colors flex items-center justify-between">
-<div class="flex items-start gap-2 min-w-0">
-<span class="material-symbols-outlined text-[18px] text-tertiary-fixed-dim mt-0.5">draft</span>
-<div class="min-w-0">
-<span class="font-code-inline text-[12px] text-primary-fixed-dim hover:underline cursor-pointer truncate block">[[Arquitectura Von Neumann]]</span>
-<div class="flex items-center gap-1.5 mt-0.5">
-<span class="font-label-sm text-[10px] text-outline">#teoria</span>
-<span class="font-label-sm text-[10px] text-outline">#sistemas</span>
-<span class="text-outline/40 text-[10px]">•</span>
-<span class="font-body-sm text-[10px] text-on-surface-variant">hace 35m</span>
-</div>
-</div>
-</div>
-<span class="font-code-inline text-[10px] px-1.5 py-0.5 rounded bg-surface-container-lowest text-outline">3 backlinks</span>
-</div>
-<div class="p-2.5 rounded-lg bg-surface-container hover:bg-surface-container-high transition-colors flex items-center justify-between">
-<div class="flex items-start gap-2 min-w-0">
-<span class="material-symbols-outlined text-[18px] text-tertiary-fixed-dim mt-0.5">draft</span>
-<div class="min-w-0">
-<span class="font-code-inline text-[12px] text-primary-fixed-dim hover:underline cursor-pointer truncate block">[[Protocolos TCP vs UDP]]</span>
-<div class="flex items-center gap-1.5 mt-0.5">
-<span class="font-label-sm text-[10px] text-outline">#redes</span>
-<span class="font-label-sm text-[10px] text-outline">#transporte</span>
-<span class="text-outline/40 text-[10px]">•</span>
-<span class="font-body-sm text-[10px] text-on-surface-variant">hace 2h</span>
-</div>
-</div>
-</div>
-<span class="font-code-inline text-[10px] px-1.5 py-0.5 rounded bg-surface-container-lowest text-outline">7 backlinks</span>
-</div>
-<div class="p-2.5 rounded-lg bg-surface-container hover:bg-surface-container-high transition-colors flex items-center justify-between">
-<div class="flex items-start gap-2 min-w-0">
-<span class="material-symbols-outlined text-[18px] text-tertiary-fixed-dim mt-0.5">draft</span>
-<div class="min-w-0">
-<span class="font-code-inline text-[12px] text-primary-fixed-dim hover:underline cursor-pointer truncate block">[[Grafos Dijkstra]]</span>
-<div class="flex items-center gap-1.5 mt-0.5">
-<span class="font-label-sm text-[10px] text-outline">#algoritmos</span>
-<span class="font-label-sm text-[10px] text-outline">#grafos</span>
-<span class="text-outline/40 text-[10px]">•</span>
-<span class="font-body-sm text-[10px] text-on-surface-variant">ayer</span>
-</div>
-</div>
-</div>
-<span class="font-code-inline text-[10px] px-1.5 py-0.5 rounded bg-surface-container-lowest text-outline">12 backlinks</span>
-</div>
-</div>
+<!--SLOT:NOTES-->
 </div>
 </section>
 <!-- ==============================================
@@ -324,27 +210,9 @@
 <span class="material-symbols-outlined text-primary-container text-[20px] animate-pulse">auto_awesome</span>
 <span class="font-headline-sm text-headline-sm text-on-surface font-semibold">Copiloto Académico</span>
 </div>
-<span class="px-2 py-0.5 rounded-full bg-primary-container/10 text-primary-container font-code-inline text-[10px]">Modelo: Claude 3.5 Sonnet</span>
+<span class="px-2 py-0.5 rounded-full bg-primary-container/10 text-primary-container font-code-inline text-[10px]"><!--SLOT:AI_MODEL--></span>
 </div>
-<div class="p-3 rounded-lg bg-surface-container mb-space-sm">
-<div class="flex items-start gap-2.5">
-<div class="w-7 h-7 rounded-lg bg-primary-container/20 flex items-center justify-center shrink-0 text-primary-container">
-<span class="material-symbols-outlined text-[16px]">terminal</span>
-</div>
-<div class="min-w-0 flex-1">
-<span class="font-label-sm text-[10px] uppercase tracking-wider text-outline">Reanudar sesión previa:</span>
-<p class="font-label-md text-label-md text-on-surface font-medium truncate mt-0.5">
-                  “Análisis de complejidad temporal O(n log n) en MergeSort vs QuickSort”
-                </p>
-<div class="flex items-center gap-2 mt-2">
-<button class="px-2.5 py-1 rounded bg-primary-container text-on-primary font-label-sm text-label-sm font-semibold hover:bg-primary-fixed-dim transition-all">
-                    Continuar Chat
-                  </button>
-<span class="font-body-sm text-[11px] text-outline">3 respuestas generadas</span>
-</div>
-</div>
-</div>
-</div>
+<!--SLOT:AI_RESUME-->
 <!-- Quick AI Action Badges -->
 <div class="grid grid-cols-3 gap-2">
 <button class="p-2 rounded-lg bg-surface-container hover:bg-surface-container-high transition-all text-left flex flex-col gap-1 group">
@@ -391,127 +259,12 @@
 </tr>
 </thead>
 <tbody class="space-y-1">
-<!-- Row 1 -->
-<tr class="hover:bg-surface-container transition-colors group rounded-lg">
-<td class="py-2.5 pl-1 align-middle">
-<input class="w-3.5 h-3.5 rounded bg-surface-container-lowest accent-secondary cursor-pointer" type="checkbox"/>
-</td>
-<td class="py-2.5 pr-2 align-middle font-medium text-on-surface min-w-[140px]">
-<div class="truncate font-label-md text-label-sm">Implementación HeapSort en Rust</div>
-<span class="text-[10px] font-code-inline text-outline">Repo local / git commit</span>
-</td>
-<td class="py-2.5 pr-2 align-middle whitespace-nowrap">
-<span class="px-2 py-0.5 rounded text-[10px] font-label-sm bg-primary-container/15 text-primary-container font-semibold">Algoritmos</span>
-</td>
-<td class="py-2.5 pr-2 align-middle whitespace-nowrap">
-<span class="font-code-inline text-[11px] text-error font-medium">Hoy 23:59</span>
-</td>
-<td class="py-2.5 pr-2 align-middle whitespace-nowrap">
-<span class="px-1.5 py-0.5 rounded text-[10px] font-code-inline bg-error-container/40 text-error">ALTA</span>
-</td>
-<td class="py-2.5 pr-1 align-middle text-right whitespace-nowrap">
-<div class="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-<button class="p-1 text-on-surface-variant hover:text-secondary" title="Completar">
-<span class="material-symbols-outlined text-[16px]">done</span>
-</button>
-<button class="p-1 text-on-surface-variant hover:text-on-surface" title="Detalles">
-<span class="material-symbols-outlined text-[16px]">more_vert</span>
-</button>
-</div>
-</td>
-</tr>
-<!-- Row 2 -->
-<tr class="hover:bg-surface-container transition-colors group">
-<td class="py-2.5 pl-1 align-middle">
-<input class="w-3.5 h-3.5 rounded bg-surface-container-lowest accent-secondary cursor-pointer" type="checkbox"/>
-</td>
-<td class="py-2.5 pr-2 align-middle font-medium text-on-surface min-w-[140px]">
-<div class="truncate font-label-md text-label-sm">Entrega Proyecto: Routing RIP v2</div>
-<span class="text-[10px] font-code-inline text-primary-fixed-dim">Mikareno Sync</span>
-</td>
-<td class="py-2.5 pr-2 align-middle whitespace-nowrap">
-<span class="px-2 py-0.5 rounded text-[10px] font-label-sm bg-secondary-container/20 text-secondary font-semibold">Redes</span>
-</td>
-<td class="py-2.5 pr-2 align-middle whitespace-nowrap">
-<span class="font-code-inline text-[11px] text-secondary font-medium">Mañana 18:00</span>
-</td>
-<td class="py-2.5 pr-2 align-middle whitespace-nowrap">
-<span class="px-1.5 py-0.5 rounded text-[10px] font-code-inline bg-secondary-container/30 text-secondary font-semibold">MEDIA</span>
-</td>
-<td class="py-2.5 pr-1 align-middle text-right whitespace-nowrap">
-<div class="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-<button class="p-1 text-on-surface-variant hover:text-secondary" title="Completar">
-<span class="material-symbols-outlined text-[16px]">done</span>
-</button>
-<button class="p-1 text-on-surface-variant hover:text-on-surface" title="Detalles">
-<span class="material-symbols-outlined text-[16px]">more_vert</span>
-</button>
-</div>
-</td>
-</tr>
-<!-- Row 3 -->
-<tr class="hover:bg-surface-container transition-colors group">
-<td class="py-2.5 pl-1 align-middle">
-<input class="w-3.5 h-3.5 rounded bg-surface-container-lowest accent-secondary cursor-pointer" type="checkbox"/>
-</td>
-<td class="py-2.5 pr-2 align-middle font-medium text-on-surface min-w-[140px]">
-<div class="truncate font-label-md text-label-sm">Ensayo: Paralelismo y Concurrencia</div>
-<span class="text-[10px] font-code-inline text-outline">Documento Vault</span>
-</td>
-<td class="py-2.5 pr-2 align-middle whitespace-nowrap">
-<span class="px-2 py-0.5 rounded text-[10px] font-label-sm bg-tertiary-container/30 text-tertiary-fixed-dim font-semibold">Sistemas Op.</span>
-</td>
-<td class="py-2.5 pr-2 align-middle whitespace-nowrap">
-<span class="font-code-inline text-[11px] text-outline">Viernes 23:59</span>
-</td>
-<td class="py-2.5 pr-2 align-middle whitespace-nowrap">
-<span class="px-1.5 py-0.5 rounded text-[10px] font-code-inline bg-surface-container-high text-outline">BAJA</span>
-</td>
-<td class="py-2.5 pr-1 align-middle text-right whitespace-nowrap">
-<div class="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-<button class="p-1 text-on-surface-variant hover:text-secondary" title="Completar">
-<span class="material-symbols-outlined text-[16px]">done</span>
-</button>
-<button class="p-1 text-on-surface-variant hover:text-on-surface" title="Detalles">
-<span class="material-symbols-outlined text-[16px]">more_vert</span>
-</button>
-</div>
-</td>
-</tr>
-<!-- Row 4 -->
-<tr class="hover:bg-surface-container transition-colors group">
-<td class="py-2.5 pl-1 align-middle">
-<input class="w-3.5 h-3.5 rounded bg-surface-container-lowest accent-secondary cursor-pointer" type="checkbox"/>
-</td>
-<td class="py-2.5 pr-2 align-middle font-medium text-on-surface min-w-[140px]">
-<div class="truncate font-label-md text-label-sm">Lectura: Paginación y Memoria Virtual</div>
-<span class="text-[10px] font-code-inline text-outline">PDF Annotations</span>
-</td>
-<td class="py-2.5 pr-2 align-middle whitespace-nowrap">
-<span class="px-2 py-0.5 rounded text-[10px] font-label-sm bg-tertiary-container/30 text-tertiary-fixed-dim font-semibold">Sistemas Op.</span>
-</td>
-<td class="py-2.5 pr-2 align-middle whitespace-nowrap">
-<span class="font-code-inline text-[11px] text-outline">Sábado 12:00</span>
-</td>
-<td class="py-2.5 pr-2 align-middle whitespace-nowrap">
-<span class="px-1.5 py-0.5 rounded text-[10px] font-code-inline bg-secondary-container/30 text-secondary font-semibold">MEDIA</span>
-</td>
-<td class="py-2.5 pr-1 align-middle text-right whitespace-nowrap">
-<div class="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-<button class="p-1 text-on-surface-variant hover:text-secondary" title="Completar">
-<span class="material-symbols-outlined text-[16px]">done</span>
-</button>
-<button class="p-1 text-on-surface-variant hover:text-on-surface" title="Detalles">
-<span class="material-symbols-outlined text-[16px]">more_vert</span>
-</button>
-</div>
-</td>
-</tr>
+<!--SLOT:TASKTABLE-->
 </tbody>
 </table>
 </div>
 <div class="pt-space-sm mt-space-sm flex items-center justify-between text-outline font-label-sm text-[11px]">
-<span>Mostrando 4 de 11 tareas activas</span>
+<!--SLOT:TASKFOOTER-->
 <button class="text-primary-container hover:underline flex items-center gap-1 font-medium">
               Ver todas las tareas <span class="material-symbols-outlined text-[14px]">chevron_right</span>
 </button>
@@ -527,146 +280,20 @@
 <div class="flex items-center justify-between pb-space-xs mb-space-xs">
 <div class="flex items-center gap-2">
 <span class="material-symbols-outlined text-on-surface text-[20px]">calendar_month</span>
-<h2 class="font-headline-sm text-headline-sm text-on-surface">Semana 9</h2>
+<!--SLOT:WEEKTITLE-->
 </div>
 <a class="font-label-sm text-label-sm text-primary-container hover:underline" href="#">Ver mes</a>
 </div>
 <!-- Días de la semana interactivos -->
-<div class="grid grid-cols-7 gap-1 text-center py-2">
-<!-- LUN -->
-<div class="flex flex-col items-center p-1.5 rounded-lg bg-surface-container/60 hover:bg-surface-container transition-colors">
-<span class="font-label-sm text-[10px] text-outline">L</span>
-<span class="font-code-inline text-code-inline text-on-surface font-semibold mt-0.5">22</span>
-<div class="flex gap-0.5 mt-1.5">
-<span class="w-1 h-1 rounded-full bg-secondary"></span>
-</div>
-</div>
-<!-- MAR -->
-<div class="flex flex-col items-center p-1.5 rounded-lg bg-surface-container/60 hover:bg-surface-container transition-colors">
-<span class="font-label-sm text-[10px] text-outline">M</span>
-<span class="font-code-inline text-code-inline text-on-surface font-semibold mt-0.5">23</span>
-<div class="flex gap-0.5 mt-1.5">
-<span class="w-1 h-1 rounded-full bg-secondary"></span>
-<span class="w-1 h-1 rounded-full bg-primary-container"></span>
-</div>
-</div>
-<!-- MIE (HOY) -->
-<div class="flex flex-col items-center p-1.5 rounded-lg bg-primary-container/15 text-primary-container shadow-inner">
-<span class="font-label-sm text-[10px] font-bold text-primary-container">X</span>
-<span class="font-code-inline text-code-inline text-primary-container font-bold mt-0.5">24</span>
-<div class="flex gap-0.5 mt-1.5">
-<span class="w-1.5 h-1.5 rounded-full bg-error"></span>
-<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
-</div>
-</div>
-<!-- JUE -->
-<div class="flex flex-col items-center p-1.5 rounded-lg bg-surface-container/60 hover:bg-surface-container transition-colors">
-<span class="font-label-sm text-[10px] text-outline">J</span>
-<span class="font-code-inline text-code-inline text-on-surface font-semibold mt-0.5">25</span>
-<div class="flex gap-0.5 mt-1.5">
-<span class="w-1 h-1 rounded-full bg-secondary"></span>
-</div>
-</div>
-<!-- VIE -->
-<div class="flex flex-col items-center p-1.5 rounded-lg bg-surface-container/60 hover:bg-surface-container transition-colors">
-<span class="font-label-sm text-[10px] text-outline">V</span>
-<span class="font-code-inline text-code-inline text-on-surface font-semibold mt-0.5">26</span>
-<div class="flex gap-0.5 mt-1.5">
-<span class="w-1 h-1 rounded-full bg-error"></span>
-</div>
-</div>
-<!-- SAB -->
-<div class="flex flex-col items-center p-1.5 rounded-lg bg-surface-container/30 opacity-70">
-<span class="font-label-sm text-[10px] text-outline">S</span>
-<span class="font-code-inline text-code-inline text-outline mt-0.5">27</span>
-<div class="h-1 mt-1.5"></div>
-</div>
-<!-- DOM (EXAMEN) -->
-<div class="flex flex-col items-center p-1.5 rounded-lg bg-error-container/20 text-error">
-<span class="font-label-sm text-[10px] text-error font-bold">D</span>
-<span class="font-code-inline text-code-inline font-bold mt-0.5">28</span>
-<div class="flex gap-0.5 mt-1.5">
-<span class="w-1.5 h-1.5 rounded-full bg-error animate-ping"></span>
-</div>
-</div>
-</div>
+<!--SLOT:WEEKCAL-->
 <div class="flex items-center justify-between pt-2 text-[10px] text-outline font-label-sm">
 <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-error"></span> Alta carga</span>
 <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-secondary"></span> Clases regulares</span>
 <span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span> Laboratorios</span>
 </div>
 </div>
-<!-- Tarjeta de Próximo Examen Crítico (Countdown Glow) -->
-<div class="rounded-xl bg-surface-container-low p-space-md shadow-md relative overflow-hidden">
-<div class="absolute -right-6 -bottom-6 w-28 h-28 bg-error/10 rounded-full blur-xl pointer-events-none"></div>
-<div class="flex items-center justify-between mb-2">
-<span class="px-2 py-0.5 rounded text-[10px] font-code-inline bg-error-container/40 text-error font-semibold flex items-center gap-1">
-<span class="material-symbols-outlined text-[12px]">timer</span> EXAMEN PARCIAL
-            </span>
-<span class="font-code-inline text-[11px] text-outline">28 Oct • 08:30</span>
-</div>
-<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold leading-snug">
-            Sistemas Operativos: Concurrencia y Kernel
-          </h3>
-<p class="font-body-sm text-body-sm text-outline mt-1">
-            Auditorio Central • Cobertura Capítulos 1 al 5
-          </p>
-<!-- Cuenta atrás circular / widget de progreso SVG inline -->
-<div class="mt-space-sm p-space-sm rounded-lg bg-surface-container flex items-center justify-between">
-<div class="flex items-center gap-3">
-<!-- Inline SVG Progress Radial (under 1KB) -->
-<svg class="w-10 h-10 -rotate-90" viewbox="0 0 36 36">
-<circle class="text-surface-container-highest" cx="18" cy="18" fill="none" r="15.9155" stroke="currentColor" stroke-width="3"></circle>
-<circle class="text-error" cx="18" cy="18" fill="none" r="15.9155" stroke="currentColor" stroke-dasharray="72, 100" stroke-linecap="round" stroke-width="3"></circle>
-</svg>
-<div>
-<span class="font-label-sm text-[10px] uppercase text-outline tracking-wider">Tiempo Restante</span>
-<div class="font-headline-sm text-headline-sm text-on-surface font-bold leading-none mt-0.5">4 Días : 18 Horas</div>
-</div>
-</div>
-<button class="px-2.5 py-1.5 rounded-lg bg-surface-container-high hover:bg-surface-bright text-primary-container font-label-sm text-label-sm transition-all flex items-center gap-1 shadow-sm">
-<span class="material-symbols-outlined text-[16px]">menu_book</span>
-              Repasar
-            </button>
-</div>
-</div>
-<!-- Telemetría de Rendimiento Semanal / Sesiones de Estudio -->
-<div class="rounded-xl bg-surface-container-low p-space-md shadow-md flex flex-col">
-<div class="flex items-center justify-between pb-space-xs mb-space-xs">
-<span class="font-label-sm text-[10px] uppercase text-outline tracking-wider font-semibold">Métricas de Foco (Deep Work)</span>
-<span class="font-code-inline text-[11px] text-secondary font-semibold">28.4h / Meta 35h</span>
-</div>
-<!-- Inline Bar Graphic -->
-<div class="space-y-1.5 mt-1">
-<div class="flex items-center justify-between text-body-sm text-[11px]">
-<span class="text-on-surface-variant">Algoritmos & Complejidad</span>
-<span class="font-code-inline text-on-surface">12.5 hrs</span>
-</div>
-<div class="w-full h-1.5 rounded-full bg-surface-container overflow-hidden">
-<div class="h-full bg-primary-container rounded-full" style="width: 78%"></div>
-</div>
-<div class="flex items-center justify-between text-body-sm text-[11px] pt-1">
-<span class="text-on-surface-variant">Redes de Computadoras</span>
-<span class="font-code-inline text-on-surface">9.2 hrs</span>
-</div>
-<div class="w-full h-1.5 rounded-full bg-surface-container overflow-hidden">
-<div class="h-full bg-secondary rounded-full" style="width: 62%"></div>
-</div>
-<div class="flex items-center justify-between text-body-sm text-[11px] pt-1">
-<span class="text-on-surface-variant">Sistemas Operativos</span>
-<span class="font-code-inline text-on-surface">6.7 hrs</span>
-</div>
-<div class="w-full h-1.5 rounded-full bg-surface-container overflow-hidden">
-<div class="h-full bg-tertiary-fixed-dim rounded-full" style="width: 45%"></div>
-</div>
-</div>
-<!-- Micro Quick Link -->
-<div class="mt-space-sm pt-space-xs flex justify-end">
-<button class="font-label-sm text-[11px] text-outline hover:text-on-surface transition-colors flex items-center gap-1">
-<span class="material-symbols-outlined text-[14px]">query_stats</span> Ver historial de estudio
-            </button>
-</div>
-</div>
+<!--SLOT:EXAM-->
+<!--SLOT:FOCUS-->
 </section>
 </div>
 <!-- Quick Slide-in / Drawer Demo Panel (Event inspector detail preview) -->
@@ -690,10 +317,7 @@
 <div>
 <label class="block font-label-sm text-label-sm text-on-surface-variant mb-1">Asignatura</label>
 <select class="w-full px-3 py-2 rounded-lg bg-surface-container text-on-surface font-body-md text-body-md outline-none focus:ring-1 focus:ring-primary-container">
-<option>Algoritmos y Estructuras de Datos</option>
-<option>Redes y Sistemas Distribuidos</option>
-<option>Sistemas Operativos</option>
-<option>Cálculo Multivariable</option>
+<!--SLOT:SUBJECT_OPTIONS-->
 </select>
 </div>
 <div>

@@ -7,9 +7,12 @@
 
 pub mod calendar;
 pub mod dashboard;
+pub mod exams;
 pub mod planner;
 pub mod profile;
 pub mod schedule;
+pub mod school_life;
+pub mod subject_detail;
 pub mod subjects;
 pub mod templates;
 
@@ -33,24 +36,26 @@ pub fn register_routes(
     let academic = Router::new()
         .route("/calendar", get(calendar::monthly))
         .route("/calendar/daily", get(calendar::daily))
-        .route("/horario", get(schedule::weekly))
+        .route("/horario", get(crate::handlers::schedule::weekly))
         .route("/planner", get(planner::weekly))
         .route("/profile", get(profile::index))
         .route("/subjects", get(subjects::index))
+        .route("/subjects/{code}", get(subject_detail::view))
+        .route("/examenes", get(exams::index))
+        .route("/vida-escolar", get(school_life::index))
         .route_layer(from_fn_with_state(state.clone(), require_auth_state));
 
     router.merge(academic)
 }
 
-/// Create a MikarenoClient from app config.
-/// Returns None if the URL is not localhost.
+/// Devuelve el cliente Mikareno compartido de la app (si está configurado).
+///
+/// Reutiliza la misma instancia en todos los handlers para que la caché de
+/// respuestas (TTL 180s) y la sesión MCP persistan entre requests. Si no hay
+/// cliente compartido, cae a crear uno local (tests/arranques antiguos).
 pub fn mikareno_client(state: &AppState) -> Option<crate::integrations::mikareno::MikarenoClient> {
-    let url = &state.config.mikareno_mcp_url;
-    if url.starts_with("http://127.0.0.1") || url.starts_with("http://localhost") {
-        Some(crate::integrations::mikareno::MikarenoClient::new(
-            url.clone(),
-        ))
-    } else {
-        None
+    if let Some(client) = state.mikareno.clone() {
+        return Some(client);
     }
+    crate::integrations::mikareno::MikarenoClient::from_config(&state.config.mikareno_mcp_url)
 }

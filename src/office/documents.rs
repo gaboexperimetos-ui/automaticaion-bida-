@@ -44,13 +44,23 @@ pub struct EditQuery {
 
 /// Office dashboard landing page.
 pub async fn office_home(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let docs = templates::count_files(&docs_dir(&state), "md");
+    let dir = docs_dir(&state);
+    let docs = templates::count_files(&dir, "md");
     let sheets = templates::count_files(&crate::office::sheets_dir(&state), "csv");
     let pres = templates::count_files(&crate::office::pres_dir(&state), "json");
 
+    // Sondeo honesto del MCP de GenOffice (cached, 30s TTL).
+    let genoffice_ms =
+        templates::genoffice_probe_cached(&state.config.genoffice_mcp_url).await;
+    let mcp_banner =
+        templates::genoffice_status_banner(&state.config.genoffice_mcp_url, genoffice_ms);
+
     let body = format!(
         r#"<div class="space-y-4">
-            <h2 class="text-xl font-bold text-accent">Suite de oficina</h2>
+            <div class="flex justify-between items-center">
+                <h2 class="text-xl font-bold text-accent">Suite de oficina</h2>
+                {mcp}
+            </div>
             <p class="text-gray-400">Documentos, hojas de cálculo y presentaciones.</p>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
                 <a href="/office/docs" class="block bg-card border border-gray-800 rounded-lg p-5 hover:border-accent">
@@ -76,6 +86,7 @@ pub async fn office_home(State(state): State<Arc<AppState>>) -> impl IntoRespons
         docs = docs,
         sheets = sheets,
         pres = pres,
+        mcp = mcp_banner,
     );
 
     layout("Suite de oficina", &body)
@@ -84,7 +95,22 @@ pub async fn office_home(State(state): State<Arc<AppState>>) -> impl IntoRespons
 /// List all documents.
 pub async fn list(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let dir = docs_dir(&state);
-    let files = templates::list_files(&dir, "md");
+
+    // Honest source-of-truth: si la tabla `office_files` existe en la BD,
+    // usamos los metadatos allí registrados; si no, usamos el filesystem.
+    // Nunca inventamos documentos.
+    let use_db = templates::office_files_table_exists(&state.db).await;
+    let files = if use_db {
+        templates::list_files_from_db(&state.db, "docs").await
+    } else {
+        templates::list_files(&dir, "md")
+    };
+
+    // Sondeo honesto del MCP de GenOffice (cached, 30s TTL).
+    let genoffice_ms =
+        templates::genoffice_probe_cached(&state.config.genoffice_mcp_url).await;
+    let mcp_banner =
+        templates::genoffice_status_banner(&state.config.genoffice_mcp_url, genoffice_ms);
 
     let rows = if files.is_empty() {
         r#"<p class="text-gray-500">No hay documentos aún.</p>"#.to_string()
@@ -129,14 +155,16 @@ pub async fn list(State(state): State<Arc<AppState>>) -> impl IntoResponse {
                 <thead class="border-b border-gray-800"><tr>
                     <th class="py-2 text-gray-400">Nombre</th>
                     <th class="py-2 text-gray-400">Tamaño</th>
-                    <th class="py-2 text-gray-400">Modificado</th>
+                    <th class="py-2 text-gray-500">Modificado</th>
                     <th class="py-2 text-gray-400">Acciones</th>
                 </tr></thead>
                 <tbody>{rows}</tbody>
             </table>
-        </div>"#,
+        </div>
+        {mcp}"#,
         count = files.len(),
         rows = rows,
+        mcp = mcp_banner,
     );
 
     layout("Documentos", &body)
@@ -196,6 +224,12 @@ pub async fn edit(
         ""
     };
 
+    // Sondeo honesto del MCP de GenOffice (cached, 30s TTL).
+    let genoffice_ms =
+        templates::genoffice_probe_cached(&state.config.genoffice_mcp_url).await;
+    let mcp_banner =
+        templates::genoffice_status_banner(&state.config.genoffice_mcp_url, genoffice_ms);
+
     let editor = doc_editor(&slug, &content);
     let body = format!(
         r#"{saved}
@@ -207,8 +241,10 @@ pub async fn edit(
                 <a href="/office/docs/{slug}/export?fmt=html" class="px-3 py-1 bg-card border border-gray-700 rounded text-sm hover:bg-gray-800">Exportar .html</a>
             </div>
         </div>
+        {mcp}
         {editor}"#,
         saved = saved_banner,
+        mcp = mcp_banner,
         title = templates::html_escape(&slug.replace('-', " ")),
         slug = templates::html_escape(&slug),
         editor = editor,
@@ -303,6 +339,23 @@ pub async fn create(
         )
             .into_response();
     }
+
+    // Si la tabla `office_files` existe, registramos el índice sin tocar el
+    // archivo en disco (el .md real ya está escrito arriba).
+    if templates::office_files_table_exists(&state.db).await {
+        let _ = sqlx::query(
+            r#"
+            INSERT INTO office_files (slug, kind, filename, size, modified_at)
+            VALUES (?, 'docs', ?, ?, datetime('now'))
+            "#,
+        )
+        .bind(&slug)
+        .bind(format!("{}.md", slug))
+        .bind(form.content.len() as i64)
+        .execute(&state.db)
+        .await;
+    }
+
     templates::hx_redirect(&format!("/office/docs/{}?saved=1", slug))
 }
 
@@ -369,6 +422,15 @@ pub async fn delete(
     }
     let file_path = docs_dir(&state).join(format!("{}.md", slug));
     let _ = std::fs::remove_file(&file_path);
+
+    // Si la tabla `office_files` existe, mantén el índice sincronizado.
+    if templates::office_files_table_exists(&state.db).await {
+        let _ = sqlx::query("DELETE FROM office_files WHERE kind = 'docs' AND slug = ?")
+            .bind(&slug)
+            .execute(&state.db)
+            .await;
+    }
+
     templates::hx_redirect("/office/docs")
 }
 
@@ -397,12 +459,21 @@ pub async fn preview(
     }
     let content = templates::read_text(&file_path);
     let html = md_to_html(&content);
+
+    // Sondeo honesto del MCP de GenOffice (cached, 30s TTL).
+    let genoffice_ms =
+        templates::genoffice_probe_cached(&state.config.genoffice_mcp_url).await;
+    let mcp_banner =
+        templates::genoffice_status_banner(&state.config.genoffice_mcp_url, genoffice_ms);
+
     let body = format!(
-        r#"<div class="flex justify-between items-center mb-4">
+        r#"{mcp}
+        <div class="flex justify-between items-center mb-4">
             <h2 class="text-xl font-bold text-accent">Vista previa: {title}</h2>
             <a href="/office/docs/{slug}/export?fmt=html" class="px-3 py-1 bg-accent text-black rounded text-sm font-bold hover:bg-cyan-300">Exportar HTML</a>
         </div>
         <div class="prose prose-invert max-w-none bg-card border border-gray-800 rounded-lg p-6">{html}</div>"#,
+        mcp = mcp_banner,
         title = templates::html_escape(&slug.replace('-', " ")),
         slug = templates::html_escape(&slug),
         html = html,

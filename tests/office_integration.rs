@@ -71,6 +71,8 @@ async fn setup() -> (Arc<AppState>, tempfile::TempDir) {
     let notes_dir = work_dir.path().join("notes");
 
     let config = Config {
+        db_max_connections: 4,
+        mcp_timeout_ms: 5_000,
         host: "127.0.0.1".to_string(),
         port: 18090,
         session_secret: "test_secret_key_at_least_32_chars_long!!".to_string(),
@@ -83,7 +85,9 @@ async fn setup() -> (Arc<AppState>, tempfile::TempDir) {
         mikareno_mcp_url: "http://127.0.0.1:8080/mcp".to_string(),
         genoffice_mcp_url: "http://127.0.0.1:8453/mcp".to_string(),
         custom_mcp_api_key: None,
+        registration_token: None,
         rust_log: "test".to_string(),
+        auth_disabled: false,
     };
 
     let pool = SqlitePoolOptions::new()
@@ -157,7 +161,10 @@ async fn setup() -> (Arc<AppState>, tempfile::TempDir) {
         .await
         .expect("seed session for auth tests");
 
-    let state = Arc::new(AppState { config, db: pool });
+    let state = Arc::new(AppState { config, db: pool,
+        mikareno: None,
+        start_time: std::time::Instant::now(),
+    });
 
     (state, work_dir)
 }

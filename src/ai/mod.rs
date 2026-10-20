@@ -9,10 +9,12 @@ pub mod chat;
 pub mod handlers;
 pub mod openrouter;
 pub mod quiz;
+pub mod streaming;
 
 pub use chat::AiAssistant;
 pub use openrouter::{AiError, CostSummary, CostTracker};
 pub use quiz::{Quiz, QuizQuestion};
+pub use streaming::{chat_stream_handler, stream_chat, ChatStreamId};
 
 use crate::AppState;
 use axum::Router;
@@ -34,6 +36,10 @@ pub fn register_routes(
     // Auth-protected API routes
     let api = Router::new()
         .route("/api/ai/chat", axum::routing::post(handlers::chat_handler))
+        .route(
+            "/api/ai/chat/stream",
+            axum::routing::post(streaming::chat_stream_handler),
+        )
         .route(
             "/api/ai/summary",
             axum::routing::post(handlers::summarize_handler),

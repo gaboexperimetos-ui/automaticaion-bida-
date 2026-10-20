@@ -15,11 +15,22 @@
 //!   (`estimated = 1`), so history is complete and mock traffic can never
 //!   trip the gate by itself. If the month is already exhausted, even mock
 //!   calls are rejected — fail-closed.
-//! - Monthly spend = `SUM(cost_usd)` over rows with
-//!   `created_at >= date('now', 'start of month')` (UTC, matching the
-//!   `datetime('now')` default).
+//! - Monthly spend = `SUM(cost_usd)` over the rows of the current calendar
+//!   month (UTC), selected by [`MONTH_FILTER`]: a half-open range on
+//!   `created_at`, whose default is `datetime('now')`.
 //! - The cost summary exposes `alert = true` once spend reaches 90% of the
 //!   budget ([`ALERT_RATIO`]; $1.80 on the default $2.00 budget).
+//!
+//! Cost honesty (never invent a number):
+//! - The cost written to `usage_metrics` is the one the provider reported.
+//!   When the provider reports none, the row is stored with `cost_usd = 0.0`
+//!   and `estimated = 1`. We do NOT guess a $/token rate: an invented rate
+//!   would silently distort the monthly budget.
+//! - The REAL token counts are stored in every row, so the true cost of an
+//!   `estimated = 1` call can be computed later from the model's published
+//!   price without running the call again.
+//! - Consequently `total_cost` is a LOWER BOUND of the real spend: calls
+//!   with an unknown cost contribute 0.0, never a made-up number.
 
 use serde::{Deserialize, Serialize};
 use sqlx::pool::PoolConnection;
@@ -141,10 +152,14 @@ impl CostTracker {
     }
 
     /// Record a request and check budget. Returns Err if exceeded.
+    ///
+    /// A budget of `0.0` means "no AI spend allowed": the request is rejected
+    /// even when it costs nothing, which keeps this tracker consistent with
+    /// [`CostTracker::can_proceed`] (also `false` when the budget is 0.0).
     pub fn record_request(&mut self, cost: f64) -> Result<(), AiError> {
         self.requests_count += 1;
         self.total_cost += cost;
-        if self.total_cost > self.budget_limit {
+        if self.budget_limit <= 0.0 || self.total_cost > self.budget_limit {
             Err(AiError::BudgetExceeded {
                 spent: self.total_cost,
                 budget: self.budget_limit,
@@ -212,50 +227,78 @@ struct OrUsage {
     cost: Option<f64>,
 }
 
-/// Price per 1M tokens for cohere/north-mini-code:free (free model = $0).
+/// Cost stored for a call whose cost the provider did not report.
 ///
-/// Used only to estimate cost when the provider returns token usage without
-/// an explicit `cost` field. Returns 0.0 for the default free model; unknown
-/// models also map to 0.0 (fail-closed accounting happens via the gate, and
-/// the row is still marked `estimated = 1`).
-const fn model_cost_per_1m(_model: &str) -> f64 {
-    0.0
+/// We deliberately do NOT keep a $/token price table: an invented (or stale)
+/// rate would silently distort the monthly budget. The row is stored with
+/// `estimated = 1` and the REAL token counts, so the true cost can be
+/// computed later from the model's published price without repeating the
+/// call.
+const UNKNOWN_COST_USD: f64 = 0.0;
+
+/// Map the provider's `usage` object to the values stored in `usage_metrics`.
+///
+/// - cost reported by the provider → stored as-is, `estimated = false`;
+/// - no cost reported (or no `usage` object at all) → `cost_usd = 0.0` and
+///   `estimated = true`; the token counts are still stored whenever the
+///   provider sent them.
+///
+/// Returns `(input_tokens, output_tokens, cost_usd, estimated)`.
+fn usage_to_row(usage: Option<&OrUsage>) -> (i64, i64, f64, bool) {
+    match usage {
+        Some(u) => (
+            u.prompt_tokens as i64,
+            u.completion_tokens as i64,
+            u.cost.unwrap_or(UNKNOWN_COST_USD),
+            u.cost.is_none(),
+        ),
+        None => (0, 0, UNKNOWN_COST_USD, true),
+    }
 }
 
 // ---------------------------------------------------------------------------
 // Persistent usage accounting (`usage_metrics` table)
 // ---------------------------------------------------------------------------
 
-const USAGE_TABLE_DDL: &str = "CREATE TABLE IF NOT EXISTS usage_metrics (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
-    model         TEXT    NOT NULL,
-    input_tokens  INTEGER NOT NULL DEFAULT 0,
-    output_tokens INTEGER NOT NULL DEFAULT 0,
-    cost_usd      REAL    NOT NULL DEFAULT 0.0,
-    estimated     INTEGER NOT NULL DEFAULT 0,
-    endpoint      TEXT    NOT NULL DEFAULT ''
-)";
+/// DDL of the `usage_metrics` table, embedded from the migration that owns
+/// it (`migrations/20240101000005_usage_metrics.sql`).
+///
+/// Single source of truth: the runtime guard and the migration can never
+/// drift apart. Both statements are idempotent (`IF NOT EXISTS`).
+const USAGE_METRICS_DDL: &str = include_str!("../../migrations/20240101000005_usage_metrics.sql");
 
-const USAGE_INDEX_DDL: &str =
-    "CREATE INDEX IF NOT EXISTS idx_usage_metrics_created_at ON usage_metrics(created_at)";
-
-/// SQL fragment filtering rows to the current calendar month (UTC).
-const MONTH_FILTER: &str = "created_at >= date('now', 'start of month')";
+/// SQL fragment selecting the rows of the current calendar month (UTC).
+///
+/// Half-open range on `created_at`: `[start of month, start of next month)`.
+/// It is equivalent to `strftime('%Y-%m', created_at) = strftime('%Y-%m',
+/// 'now')` but keeps the `created_at` index usable (a function call on the
+/// column would defeat it) and it excludes rows dated in the future, which
+/// would otherwise be counted as this month's spend.
+const MONTH_FILTER: &str = "created_at >= date('now', 'start of month') \
+                            AND created_at < date('now', 'start of month', '+1 month')";
 
 /// Ensure the `usage_metrics` table exists.
 ///
-/// Migrations create it in production; this idempotent guard keeps the gate
-/// (and tests that build their schema manually) robust when migrations have
-/// not run.
+/// The migration creates it in production; this idempotent guard keeps the
+/// gate (and tests that build their schema manually) robust when migrations
+/// have not run. When the table is already there — the normal case — the
+/// migration DDL is NOT executed again, so the schema is never duplicated.
 pub async fn ensure_usage_metrics_table(db: &SqlitePool) -> Result<(), AiError> {
-    sqlx::query(USAGE_TABLE_DDL).execute(db).await?;
-    sqlx::query(USAGE_INDEX_DDL).execute(db).await?;
+    let exists: Option<String> = sqlx::query_scalar(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'usage_metrics'",
+    )
+    .fetch_optional(db)
+    .await?;
+    if exists.is_some() {
+        return Ok(());
+    }
+    sqlx::query(USAGE_METRICS_DDL).execute(db).await?;
     Ok(())
 }
 
 /// Current month's total AI spend in USD (0.0 when no usage recorded).
 pub async fn month_spend(db: &SqlitePool) -> Result<f64, AiError> {
+    ensure_usage_metrics_table(db).await?;
     let sql = format!(
         "SELECT SUM(cost_usd) FROM usage_metrics WHERE {}",
         MONTH_FILTER
@@ -268,6 +311,7 @@ pub async fn month_spend(db: &SqlitePool) -> Result<f64, AiError> {
 
 /// Current month's number of recorded AI calls.
 pub async fn month_request_count(db: &SqlitePool) -> Result<u64, AiError> {
+    ensure_usage_metrics_table(db).await?;
     let sql = format!("SELECT COUNT(*) FROM usage_metrics WHERE {}", MONTH_FILTER);
     let count: i64 = sqlx::query_scalar::<_, i64>(&sql).fetch_one(db).await?;
     Ok(count.max(0) as u64)
@@ -277,6 +321,11 @@ pub async fn month_request_count(db: &SqlitePool) -> Result<u64, AiError> {
 ///
 /// This is what `GET /api/ai/cost` serves, so spend survives restarts and
 /// `AiAssistant` re-creation (handlers build a new instance per request).
+///
+/// Honesty note: `total_cost` sums the costs the provider reported. Rows
+/// stored with `estimated = 1` (mock calls, or calls whose cost the provider
+/// did not report) contribute 0.0 because their real cost is unknown — the
+/// figure is a lower bound, never an invented number.
 pub async fn persistent_summary(db: &SqlitePool, config: &Config) -> Result<CostSummary, AiError> {
     ensure_usage_metrics_table(db).await?;
     let total_cost = month_spend(db).await?;
@@ -298,7 +347,9 @@ pub struct UsageEntry {
     pub output_tokens: i64,
     pub cost_usd: f64,
     /// True when the cost did not come from the provider (mock mode, or the
-    /// provider response carried no `cost` field).
+    /// provider response carried no `cost` field). Those rows store
+    /// `cost_usd = 0.0` plus the real token counts, so the cost can be
+    /// estimated later without repeating the call.
     pub estimated: bool,
     /// API endpoint that originated the call (`chat`, `summary`, ...).
     pub endpoint: String,
@@ -381,6 +432,11 @@ impl BudgetGuard {
 ///
 /// Concurrent callers serialize on the write lock, so the check-then-insert
 /// sequence is atomic and total spend can never overshoot the cap.
+///
+/// Edge cases of the comparison `spend >= budget`:
+/// - budget 2.0, spend 0.0 → allowed (the normal fresh-month case);
+/// - budget 0.0 (no spend allowed), spend 0.0 → BLOCKED, because `0.0 >= 0.0`;
+/// - spend exactly at the budget → blocked (the cap is never exceeded).
 pub async fn check_budget_and_reserve(
     db: &SqlitePool,
     config: &Config,
@@ -531,23 +587,9 @@ pub async fn chat_completion(
     };
 
     // Actual usage: tokens from the provider when present else 0s; cost from
-    // the provider when present else estimated 0.0 (free-model rate).
-    let (input_tokens, output_tokens, cost_usd, estimated) = match or_resp.usage {
-        Some(u) => {
-            let estimated = u.cost.is_none();
-            let cost = u.cost.unwrap_or_else(|| {
-                (u.prompt_tokens as f64 + u.completion_tokens as f64) * model_cost_per_1m(&model)
-                    / 1_000_000.0
-            });
-            (
-                u.prompt_tokens as i64,
-                u.completion_tokens as i64,
-                cost,
-                estimated,
-            )
-        }
-        None => (0, 0, 0.0, true),
-    };
+    // the provider when present, else 0.0 with `estimated = true` (no $/token
+    // rate is ever invented — see `usage_to_row`).
+    let (input_tokens, output_tokens, cost_usd, estimated) = usage_to_row(or_resp.usage.as_ref());
 
     guard
         .record(&UsageEntry {
@@ -574,6 +616,39 @@ fn default_model_name() -> &'static str {
 mod tests {
     use super::*;
 
+    /// Config with a fixed budget and no API key (mock mode, no network).
+    fn test_config(budget_usd: f64) -> Config {
+        Config {
+            host: "127.0.0.1".to_string(),
+            port: 1,
+            session_secret: "test_secret_key_at_least_32_chars_long!!".to_string(),
+            db_path: std::path::PathBuf::from(":memory:"),
+            notes_dir: std::path::PathBuf::from("/tmp"),
+            openrouter_api_key: None,
+            openrouter_model: "cohere/north-mini-code:free".to_string(),
+            openrouter_max_tokens: 100,
+            openrouter_max_cost_usd: budget_usd,
+            mikareno_mcp_url: String::new(),
+            genoffice_mcp_url: String::new(),
+            custom_mcp_api_key: None,
+            rust_log: "test".to_string(),
+            auth_disabled: false,
+            registration_token: None,
+            db_max_connections: 4,
+            mcp_timeout_ms: 5_000,
+        }
+    }
+
+    /// In-memory pool with a single connection (SQLite in-memory DBs are
+    /// per-connection).
+    async fn test_pool() -> sqlx::SqlitePool {
+        sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap()
+    }
+
     #[test]
     fn test_cost_tracker_within_budget() {
         let mut tracker = CostTracker::new(2.0);
@@ -598,9 +673,36 @@ mod tests {
         }
     }
 
+    /// A budget of 0.0 means "no AI spend allowed": the tracker must refuse
+    /// the request even when it costs nothing.
     #[test]
-    fn test_model_cost_for_free_model() {
-        assert_eq!(model_cost_per_1m("cohere/north-mini-code:free"), 0.0);
+    fn test_cost_tracker_zero_budget_is_exhausted() {
+        let mut tracker = CostTracker::new(0.0);
+        assert!(!tracker.can_proceed());
+        let err = tracker.record_request(0.0).unwrap_err();
+        assert!(matches!(err, AiError::BudgetExceeded { .. }));
+    }
+
+    /// The cost of a call is the one the provider reported. When it reports
+    /// none, we store 0.0 + `estimated = 1` and keep the REAL token counts —
+    /// no $/token rate is invented.
+    #[test]
+    fn test_unknown_cost_is_not_invented() {
+        let usage = OrUsage {
+            prompt_tokens: 120,
+            completion_tokens: 30,
+            cost: Some(0.42),
+        };
+        assert_eq!(usage_to_row(Some(&usage)), (120, 30, 0.42, false));
+
+        let usage = OrUsage {
+            prompt_tokens: 120,
+            completion_tokens: 30,
+            cost: None,
+        };
+        assert_eq!(usage_to_row(Some(&usage)), (120, 30, 0.0, true));
+
+        assert_eq!(usage_to_row(None), (0, 0, 0.0, true));
     }
 
     #[test]
@@ -613,27 +715,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_gate_rejects_when_month_exhausted() {
-        let pool = sqlx::sqlite::SqlitePoolOptions::new()
-            .max_connections(1)
-            .connect("sqlite::memory:")
-            .await
-            .unwrap();
+        let pool = test_pool().await;
         ensure_usage_metrics_table(&pool).await.unwrap();
-        let config = Config {
-            host: "127.0.0.1".to_string(),
-            port: 1,
-            session_secret: "test_secret_key_at_least_32_chars_long!!".to_string(),
-            db_path: std::path::PathBuf::from(":memory:"),
-            notes_dir: std::path::PathBuf::from("/tmp"),
-            openrouter_api_key: None,
-            openrouter_model: "cohere/north-mini-code:free".to_string(),
-            openrouter_max_tokens: 100,
-            openrouter_max_cost_usd: 1.0,
-            mikareno_mcp_url: String::new(),
-            genoffice_mcp_url: String::new(),
-            custom_mcp_api_key: None,
-            rust_log: "test".to_string(),
-        };
+        let config = test_config(1.0);
         sqlx::query(
             "INSERT INTO usage_metrics (model, cost_usd, endpoint) VALUES ('m', 1.0, 'test')",
         )
@@ -643,5 +727,105 @@ mod tests {
         let err = check_budget_and_reserve(&pool, &config).await.unwrap_err();
         assert!(matches!(err, AiError::BudgetExceeded { .. }));
         assert_eq!(err.status_code(), axum::http::StatusCode::TOO_MANY_REQUESTS);
+    }
+
+    /// Fresh month + budget 2.0 → the gate must let the call through.
+    #[tokio::test]
+    async fn test_gate_allows_fresh_month() {
+        let pool = test_pool().await;
+        let config = test_config(2.0);
+        let guard = check_budget_and_reserve(&pool, &config)
+            .await
+            .expect("fresh month must be allowed");
+        assert_eq!(guard.spend_at_check(), 0.0);
+        assert_eq!(guard.budget(), 2.0);
+        guard.abort().await.unwrap();
+    }
+
+    /// Budget 0.0 (no spend allowed) → the gate must block even with a
+    /// 0.0 spend, because `0.0 >= 0.0`.
+    #[tokio::test]
+    async fn test_gate_blocks_with_zero_budget() {
+        let pool = test_pool().await;
+        let config = test_config(0.0);
+        let err = check_budget_and_reserve(&pool, &config).await.unwrap_err();
+        match err {
+            AiError::BudgetExceeded { spent, budget } => {
+                assert_eq!(spent, 0.0);
+                assert_eq!(budget, 0.0);
+            }
+            other => panic!("Expected BudgetExceeded, got {other:?}"),
+        }
+    }
+
+    /// `usage_metrics` must always exist: the guard creates it (and its
+    /// index) from the migration DDL when the migrations did not run.
+    #[tokio::test]
+    async fn test_ensure_usage_metrics_table_creates_table_and_index() {
+        let pool = test_pool().await;
+        let table: Option<String> = sqlx::query_scalar(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'usage_metrics'",
+        )
+        .fetch_optional(&pool)
+        .await
+        .unwrap();
+        assert!(table.is_none(), "table must not exist before the guard");
+
+        ensure_usage_metrics_table(&pool).await.unwrap();
+
+        let table: Option<String> = sqlx::query_scalar(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'usage_metrics'",
+        )
+        .fetch_optional(&pool)
+        .await
+        .unwrap();
+        assert_eq!(table.as_deref(), Some("usage_metrics"));
+
+        let index: Option<String> = sqlx::query_scalar(
+            "SELECT name FROM sqlite_master WHERE type = 'index' \
+             AND name = 'idx_usage_metrics_created_at'",
+        )
+        .fetch_optional(&pool)
+        .await
+        .unwrap();
+        assert_eq!(index.as_deref(), Some("idx_usage_metrics_created_at"));
+
+        // Idempotent: calling it again on the existing table is a no-op.
+        ensure_usage_metrics_table(&pool).await.unwrap();
+    }
+
+    /// Spend and request count cover the CURRENT calendar month only: rows of
+    /// the previous month and rows dated in the future must be ignored.
+    #[tokio::test]
+    async fn test_month_filter_is_the_calendar_month() {
+        let pool = test_pool().await;
+        ensure_usage_metrics_table(&pool).await.unwrap();
+
+        for (model, cost, created_at) in [
+            ("prev", 5.0, "datetime('now', 'start of month', '-1 day')"),
+            ("next", 7.0, "datetime('now', 'start of month', '+1 month')"),
+        ] {
+            sqlx::query(
+                "INSERT INTO usage_metrics (model, cost_usd, estimated, endpoint, created_at)
+                 VALUES (?, ?, 0, 'test', ?)",
+            )
+            .bind(model)
+            .bind(cost)
+            .bind(created_at)
+            .execute(&pool)
+            .await
+            .unwrap();
+        }
+        // Current month (default `created_at`): counts.
+        sqlx::query(
+            "INSERT INTO usage_metrics (model, cost_usd, estimated, endpoint)
+             VALUES ('now', 0.25, 0, 'test')",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        assert!((month_spend(&pool).await.unwrap() - 0.25).abs() < 1e-9);
+        assert_eq!(month_request_count(&pool).await.unwrap(), 1);
     }
 }

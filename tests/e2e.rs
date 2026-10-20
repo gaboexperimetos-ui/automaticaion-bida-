@@ -29,6 +29,8 @@ const TEST_SESSION_UUID: &str = "550e8400-e29b-41d4-a716-446655440000";
 /// No secrets: `openrouter_api_key` and `custom_mcp_api_key` are `None`.
 fn test_config(db_path: PathBuf, notes_dir: PathBuf) -> Config {
     Config {
+        db_max_connections: 4,
+        mcp_timeout_ms: 5_000,
         host: "127.0.0.1".to_string(),
         port: 18091,
         session_secret: "e2e_test_secret_key_at_least_32_chars!!".to_string(),
@@ -41,7 +43,9 @@ fn test_config(db_path: PathBuf, notes_dir: PathBuf) -> Config {
         mikareno_mcp_url: "http://127.0.0.1:8080/mcp".to_string(),
         genoffice_mcp_url: "http://127.0.0.1:8453/mcp".to_string(),
         custom_mcp_api_key: None,
+        registration_token: None,
         rust_log: "test".to_string(),
+        auth_disabled: false,
     }
 }
 
@@ -129,7 +133,10 @@ async fn setup_state() -> Arc<AppState> {
     // Keep the temp dir alive for the duration of the test process.
     std::mem::forget(tmp);
 
-    Arc::new(AppState { config, db: pool })
+    Arc::new(AppState { config, db: pool,
+        mikareno: None,
+        start_time: std::time::Instant::now(),
+    })
 }
 
 async fn get(app: axum::Router, uri: &str, cookie: Option<&str>) -> axum::response::Response {
@@ -367,7 +374,7 @@ async fn test_e2e_mcp_tools_list() {
     let tools = json["result"]["tools"]
         .as_array()
         .expect("tools/list should return a tools array");
-    assert_eq!(tools.len(), 6, "MCP server should expose 6 tools");
+    assert_eq!(tools.len(), 9, "MCP server should expose 9 tools");
 }
 
 // --- 6. Office auth ---

@@ -14,6 +14,8 @@ use study_platform::AppState;
 
 fn test_config(db_path: PathBuf, notes_dir: PathBuf) -> Config {
     Config {
+        db_max_connections: 4,
+        mcp_timeout_ms: 5_000,
         host: "127.0.0.1".to_string(),
         port: 18090,
         session_secret: "test_secret_key_at_least_32_chars_long!!".to_string(),
@@ -26,7 +28,9 @@ fn test_config(db_path: PathBuf, notes_dir: PathBuf) -> Config {
         mikareno_mcp_url: "http://127.0.0.1:8080/mcp".to_string(),
         genoffice_mcp_url: "http://127.0.0.1:8453/mcp".to_string(),
         custom_mcp_api_key: None,
+        registration_token: None,
         rust_log: "test".to_string(),
+        auth_disabled: false,
     }
 }
 
@@ -66,7 +70,10 @@ async fn setup_test_state() -> Arc<AppState> {
     .await
     .unwrap();
 
-    Arc::new(AppState { config, db: pool })
+    Arc::new(AppState { config, db: pool,
+        mikareno: None,
+        start_time: std::time::Instant::now(),
+    })
 }
 
 #[tokio::test]
@@ -232,10 +239,14 @@ async fn test_mikareno_client_not_localhost() {
 
     let state = Arc::new(AppState {
         config: Config {
+        db_max_connections: 4,
+        mcp_timeout_ms: 5_000,
             mikareno_mcp_url: "http://remote.example.com/mcp".to_string(),
             ..config
         },
         db: pool,
+        mikareno: None,
+        start_time: std::time::Instant::now(),
     });
 
     let client = study_platform::academic::mikareno_client(&state);
@@ -328,11 +339,13 @@ async fn test_subject_grid_html_with_data() {
             name: "Matematicas".to_string(),
             average: 8.5,
             count: 2,
+            codigo: "M1".to_string(),
         },
         study_platform::academic::templates::SubjectSummary {
             name: "Lenguaje".to_string(),
             average: 6.0,
             count: 1,
+            codigo: "L1".to_string(),
         },
     ];
     let html = study_platform::academic::templates::subject_grid_html(&subjects);
@@ -342,6 +355,8 @@ async fn test_subject_grid_html_with_data() {
     assert!(html.contains("6.0"));
     assert!(html.contains("text-green-400"));
     assert!(html.contains("text-yellow-400"));
+    assert!(html.contains("/dashboard/subjects/M1"));
+    assert!(html.contains("/dashboard/subjects/L1"));
 }
 
 #[tokio::test]
@@ -387,9 +402,11 @@ async fn test_subject_grid_html_links_to_subjects() {
         name: "Test".to_string(),
         average: 7.0,
         count: 1,
+        codigo: String::new(),
     }];
     let html = study_platform::academic::templates::subject_grid_html(&subjects);
-    assert!(html.contains("href=\"/dashboard/subjects\""));
+    // When codigo is empty, the card falls back to URL-encoded name.
+    assert!(html.contains("/dashboard/subjects/"));
 }
 
 #[tokio::test]
@@ -431,14 +448,16 @@ async fn test_stats_grid_html_renders_counts() {
 async fn test_mcp_status_banner_disconnected_has_mock_label() {
     let html = study_platform::academic::templates::mcp_status_banner(false);
     assert!(html.contains("no conectado"));
-    assert!(html.contains("datos de ejemplo"));
+    // Honest policy: el banner ya no promete datos de ejemplo; dice qué falta.
+    assert!(html.contains("sin datos de Mikareno"));
 }
 
 #[tokio::test]
-async fn test_mock_subjects_returns_data() {
+async fn test_mock_subjects_are_honestly_empty() {
+    // Honest policy: sin MCP no se inventan asignaturas; la UI muestra
+    // estado vacío en vez de datos de ejemplo.
     let subjects = study_platform::academic::templates::mock_subjects();
-    assert!(!subjects.is_empty());
-    assert!(subjects.iter().any(|s| s.name == "Matematicas"));
+    assert!(subjects.is_empty());
 }
 
 #[tokio::test]
@@ -448,16 +467,19 @@ async fn test_subjects_from_notas_groups_by_materia() {
             materia: "Math".to_string(),
             nota: 8.0,
             trimestre: 1,
+            codigo: "M1".to_string(),
         },
         study_platform::integrations::mikareno::Nota {
             materia: "Math".to_string(),
             nota: 10.0,
             trimestre: 2,
+            codigo: "M1".to_string(),
         },
         study_platform::integrations::mikareno::Nota {
             materia: "Science".to_string(),
             nota: 7.0,
             trimestre: 1,
+            codigo: "S1".to_string(),
         },
     ];
     let subjects = study_platform::academic::templates::subjects_from_notas(&notas);

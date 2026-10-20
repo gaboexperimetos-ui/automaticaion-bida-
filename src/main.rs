@@ -73,6 +73,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tracing::warn!("Schema verification warning: {}", e);
     }
 
+    // Backup diario (F9): primer backup 60s tras el arranque, luego cada 24h.
+    study_platform::backup::spawn_backup_task(
+        db.clone(),
+        std::path::PathBuf::from(study_platform::backup::DEFAULT_DIR),
+    );
+
     // Create admin user if requested
     if let Some(username) = cli.create_admin {
         db::create_admin(&db, &username).await?;
@@ -83,11 +89,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    // Cliente Mikareno compartido (caché de 180s entre requests).
+    let mikareno = study_platform::integrations::mikareno::MikarenoClient::from_config(
+        &config.mikareno_mcp_url,
+    );
+
     // Build router with state
     let app_state = Arc::new(AppState {
         config: config.clone(),
         db: db.clone(),
+        mikareno: mikareno.clone(),
+        start_time: std::time::Instant::now(),
     });
+
+    // Precalienta la caché del MCP en segundo plano: la primera petición real
+    // ya no paga el coste de los scrapes en frío.
+    if let Some(client) = mikareno.clone() {
+        tokio::spawn(async move {
+            if client.initialize().await.is_ok() {
+                let _ = client.perfil().await;
+                // Una sola llamada que trae promedios, horario, calendario y tareas.
+                let _ = client
+                    .call_tool("get_student_full", serde_json::json!({ "bg": true }))
+                    .await;
+                info!("Mikareno cache warmed");
+            }
+        });
+    }
 
     let app = handlers::router(app_state).layer(TraceLayer::new_for_http());
 

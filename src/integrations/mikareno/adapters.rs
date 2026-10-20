@@ -12,7 +12,8 @@
 use serde_json::Value;
 
 use crate::integrations::mikareno::models::{
-    CalendarioEvent, Horario, HorarioDia, HorarioSlot, Nota, Perfil, Tarea,
+    AnoEscolar, Biblioteca, CalendarioEvent, CuotaCumple, Horario, HorarioDia, HorarioSlot, Nota,
+    Perfil, Tarea,
 };
 
 /// Extract a string field from `obj` trying each candidate key in order.
@@ -293,6 +294,7 @@ pub fn parse_notas(raw: &Value) -> Result<Vec<Nota>, String> {
         }
         let val = m;
         let materia = first_str(val, &["materia", "courseName", "name", "subject"]);
+        let codigo = first_str(val, &["codigo", "code", "courseCode"]);
         let nota = val
             .get("nota")
             .or_else(|| val.get("average"))
@@ -311,9 +313,326 @@ pub fn parse_notas(raw: &Value) -> Result<Vec<Nota>, String> {
             materia,
             nota: trimmed,
             trimestre,
+            codigo,
         });
     }
     Ok(out)
+}
+
+/// Parsea los promedios por materia de `get_student_full` (`promedios.stats`).
+///
+/// El tool `get_notas_trimestre` devuelve `materias_y_notas: []` en el servidor
+/// real, pero `get_student_full` sí trae los promedios del parcial en curso en
+/// `promedios.stats[]` con `courseName`, `average` y `partialId` (p.ej.
+/// `"2026:T3:1"`, de donde se deriva el trimestre).
+pub fn parse_promedios_full(raw: &Value) -> Vec<Nota> {
+    let Some(stats) = raw
+        .get("promedios")
+        .and_then(|p| p.get("stats"))
+        .and_then(|s| s.as_array())
+    else {
+        return Vec::new();
+    };
+    stats
+        .iter()
+        .filter_map(|s| {
+            let materia = s
+                .get("courseName")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            let codigo = s
+                .get("courseCode")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let nota = s.get("average").and_then(|v| v.as_f64())?;
+            if materia.is_empty() {
+                return None;
+            }
+            let trimestre = s
+                .get("partialId")
+                .and_then(|v| v.as_str())
+                .and_then(|p| p.split(":T").nth(1))
+                .and_then(|t| t.split(':').next())
+                .and_then(|t| t.parse::<u8>().ok())
+                .unwrap_or(0);
+            Some(Nota {
+                materia,
+                nota: (nota * 100.0).round() / 100.0,
+                trimestre,
+                codigo,
+            })
+        })
+        .collect()
+}
+
+/// Etiquetas de una lista de términos/parciales donde cada entrada puede venir
+/// como string (`"T1"`) o como dict (`{"codigo": "T1", "nombre": "…"}`);
+/// un dict sin código reconocible se descarta.
+fn lista_etiquetas(v: &Value) -> Vec<String> {
+    if let Some(arr) = v.as_array() {
+        return arr.iter().filter_map(entrada_etiqueta).collect();
+    }
+    if let Some(map) = v.as_object() {
+        // `{"P1": {…}, "P2": {…}}` → las claves son las etiquetas.
+        return map.keys().cloned().collect();
+    }
+    Vec::new()
+}
+
+fn entrada_etiqueta(v: &Value) -> Option<String> {
+    match v {
+        Value::String(s) => {
+            let s = s.trim();
+            (!s.is_empty()).then(|| s.to_string())
+        }
+        Value::Number(n) => Some(n.to_string()),
+        _ if v.is_object() => {
+            let l = first_str(v, &["codigo", "nombre", "name", "id", "label"]);
+            (!l.is_empty()).then_some(l)
+        }
+        _ => None,
+    }
+}
+
+/// Fecha ISO truncada a `YYYY-MM-DD` si viene con hora (mismo trato que en
+/// `parse_calendario`).
+fn truncar_fecha(s: &str) -> String {
+    if s.len() >= 10 {
+        s.chars().take(10).collect()
+    } else {
+        s.to_string()
+    }
+}
+
+/// Parsea la salida de `get_ano_escolar` en un resumen del año lectivo.
+///
+/// Los nombres de campo varían según el backend, así que cada dato admite
+/// varios candidatos y los ausentes quedan vacíos (`configuracion` en null).
+/// La firma mantiene `Result` por simetría con los demás adapters; hoy
+/// siempre devuelve `Ok`.
+pub fn parse_ano_escolar(raw: &Value) -> Result<AnoEscolar, String> {
+    let null = Value::Null;
+
+    let mut ano = first_str(raw, &["ano", "anio", "year", "anoEscolar", "school_year"]);
+    if ano.is_empty() {
+        for k in ["ano_escolar", "anio_escolar"] {
+            ano = first_str(
+                raw.get(k).unwrap_or(&null),
+                &["ano", "anio", "year", "codigo", "nombre"],
+            );
+            if !ano.is_empty() {
+                break;
+            }
+        }
+    }
+
+    let terminos = raw
+        .get("terminos")
+        .or_else(|| raw.get("trimestres"))
+        .map(lista_etiquetas)
+        .unwrap_or_default();
+    let parciales = raw
+        .get("parciales")
+        .map(lista_etiquetas)
+        .unwrap_or_default();
+
+    let mut periodo_actual =
+        first_str(raw, &["periodo_actual", "trimestre_actual", "termino_actual"]);
+    if periodo_actual.is_empty() {
+        periodo_actual = first_str(
+            raw.get("periodo").unwrap_or(&null),
+            &["trimestre", "termino", "codigo", "nombre"],
+        );
+    }
+
+    let mut parcial_actual = first_str(raw, &["parcial_actual"]);
+    if parcial_actual.is_empty() {
+        parcial_actual = first_str(
+            raw.get("parcial").unwrap_or(&null),
+            &["nombre", "codigo", "id"],
+        );
+    }
+
+    Ok(AnoEscolar {
+        ano,
+        terminos,
+        parciales,
+        inicio_clases: truncar_fecha(&first_str(
+            raw,
+            &["inicio_clases", "fecha_inicio", "inicioClases", "start_date", "fechaInicio"],
+        )),
+        fin_clases: truncar_fecha(&first_str(
+            raw,
+            &["fin_clases", "fecha_fin", "finClases", "end_date", "fechaFin"],
+        )),
+        periodo_actual,
+        parcial_actual,
+        configuracion: raw
+            .get("configuracion")
+            .or_else(|| raw.get("config"))
+            .cloned()
+            .unwrap_or(Value::Null),
+    })
+}
+
+/// Parsea la salida de `get_biblioteca` a una lista de recursos.
+///
+/// Acepta una lista directa, un dict con la lista bajo
+/// `recursos`/`items`/`lista`/`biblioteca`/`resultados`/`coleccion`, o un
+/// único recurso suelto. Las entradas que no parecen recursos (dicts sin
+/// título ni url ni tipo) se descartan; sin nada reconocible devuelve `Err`
+/// para que el llamador degrade con gracia.
+pub fn parse_biblioteca(raw: &Value) -> Result<Vec<Biblioteca>, String> {
+    if let Some(arr) = raw.as_array() {
+        return Ok(arr.iter().filter_map(recurso_biblioteca).collect());
+    }
+    if raw.is_object() {
+        for k in [
+            "recursos", "items", "lista", "biblioteca", "resultados", "coleccion",
+        ] {
+            if let Some(arr) = raw.get(k).and_then(|v| v.as_array()) {
+                return Ok(arr.iter().filter_map(recurso_biblioteca).collect());
+            }
+        }
+        if let Some(recurso) = recurso_biblioteca(raw) {
+            return Ok(vec![recurso]);
+        }
+    }
+    Err("get_biblioteca: sin lista de recursos ni recurso único reconocible".to_string())
+}
+
+/// Convierte un dict suelto en `Biblioteca`; `None` si no parece un recurso.
+fn recurso_biblioteca(entry: &Value) -> Option<Biblioteca> {
+    if !entry.is_object() {
+        return None;
+    }
+    let titulo = first_str(entry, &["titulo", "title", "nombre", "name"]);
+    let tipo = first_str(entry, &["tipo", "type", "formato", "format"]);
+    let url = first_str(entry, &["url", "enlace", "link", "href"]);
+    // Exigimos al menos una marca de recurso para no convertir dicts
+    // arbitrarios (p.ej. `{"status": "ok"}`) en filas vacías.
+    if titulo.is_empty() && tipo.is_empty() && url.is_empty() {
+        return None;
+    }
+    Some(Biblioteca {
+        codigo: first_str(entry, &["codigo", "code", "id"]),
+        titulo: if titulo.is_empty() {
+            "Recurso sin título".to_string()
+        } else {
+            titulo
+        },
+        descripcion: first_str(entry, &["descripcion", "description", "resumen", "detalle"]),
+        url,
+        tipo,
+        categoria: first_str(entry, &["categoria", "category", "materia", "subject", "seccion"]),
+        disponible: entry
+            .get("disponible")
+            .or_else(|| entry.get("available"))
+            .and_then(|v| v.as_bool()),
+    })
+}
+
+/// Parsea la salida de `get_cumpleanos` al registro de cumpleaños.
+///
+/// El servidor real (`mikareno-mcp/server.py::get_cumpleanos`, verificado
+/// contra `127.0.0.1:8080`) responde:
+/// `{"es_cumpleanos_hoy": bool, "celebracion": {…}}`, donde `celebracion`
+/// trae datos del backend whose keys drift between terms (`contextKey`,
+/// `pending`, `isLeapDayAdjustment`…), por eso cada texto admite varios
+/// candidatos y el payload crudo se conserva en `raw`.
+///
+/// Nunca falla: un `{}` devuelve los valores por defecto (mismo trato que
+/// `parse_ano_escolar`).
+pub fn parse_cumpleanos(raw: &Value) -> Result<CuotaCumple, String> {
+    let null = Value::Null;
+    // La celebración vive bajo `celebracion` (o `celebration` según backend).
+    let celebracion = raw
+        .get("celebracion")
+        .or_else(|| raw.get("celebration"))
+        .unwrap_or(&null);
+
+    let es_cumpleanos_hoy = [
+        "es_cumpleanos_hoy",
+        "esCumpleanosHoy",
+        "isUserBirthday",
+        "is_birthday",
+    ]
+    .iter()
+    .find_map(|k| raw.get(*k).and_then(|v| v.as_bool()))
+    .or_else(|| {
+        ["es_cumpleanos_hoy", "isUserBirthday"]
+            .iter()
+            .find_map(|k| celebracion.get(*k).and_then(|v| v.as_bool()))
+    })
+    .unwrap_or(false);
+
+    // Título/mensaje/día: primero en la celebración, luego en la raíz.
+    let titulo = {
+        let t = first_str(
+            celebracion,
+            &[
+                "titulo",
+                "title",
+                "nombre",
+                "name",
+                "encabezado",
+                "headline",
+            ],
+        );
+        if t.is_empty() {
+            first_str(raw, &["titulo", "title"])
+        } else {
+            t
+        }
+    };
+    let mensaje = {
+        let m = first_str(
+            celebracion,
+            &[
+                "mensaje",
+                "message",
+                "texto",
+                "descripcion",
+                "description",
+                "felicitacion",
+            ],
+        );
+        if m.is_empty() {
+            first_str(raw, &["mensaje", "message"])
+        } else {
+            m
+        }
+    };
+    let dia = {
+        let d = first_str(
+            celebracion,
+            &["dia", "day", "fecha", "date", "diaNacimiento"],
+        );
+        if d.is_empty() {
+            first_str(raw, &["dia", "day", "fecha", "date"])
+        } else {
+            d
+        }
+    };
+
+    // `raw` guarda el payload tal cual; un objeto vacío no aporta nada y se
+    // deja en null para que `{}` equivalga al valor por defecto del modelo.
+    let crudo = if raw.as_object().map(|m| m.is_empty()).unwrap_or(false) {
+        Value::Null
+    } else {
+        raw.clone()
+    };
+
+    Ok(CuotaCumple {
+        es_cumpleanos_hoy,
+        dia: (!dia.is_empty()).then_some(dia),
+        mensaje: (!mensaje.is_empty()).then_some(mensaje),
+        titulo: (!titulo.is_empty()).then_some(titulo),
+        raw: crudo,
+    })
 }
 
 #[cfg(test)]
@@ -429,5 +748,73 @@ mod tests {
     #[test]
     fn parse_notas_missing_list_is_err() {
         assert!(parse_notas(&json!({})).is_err());
+    }
+
+    #[test]
+    fn parse_ano_escolar_y_biblioteca_roundtrip() {
+        let raw_ano = json!({
+            "ano": "2026",
+            "terminos": ["T1", {"codigo": "T2", "nombre": "2º trimestre"}, "T3"],
+            "parciales": ["P1", "P2", "P3"],
+            "inicio_clases": "2026-02-16T00:00:00",
+            "fin_clases": "2026-12-18",
+            "periodo_actual": "T3",
+            "parcial_actual": "P2",
+            "configuracion": {"dias_habiles": 5},
+        });
+        let a = parse_ano_escolar(&raw_ano).unwrap();
+        assert_eq!(a.ano, "2026");
+        assert_eq!(a.terminos, vec!["T1", "T2", "T3"]); // string y dict → etiqueta
+        assert_eq!(a.parciales, vec!["P1", "P2", "P3"]);
+        assert_eq!(a.inicio_clases, "2026-02-16"); // truncado desde ISO-datetime
+        assert_eq!(a.fin_clases, "2026-12-18");
+        assert_eq!(a.periodo_actual, "T3");
+        assert_eq!(a.parcial_actual, "P2");
+        assert_eq!(a.configuracion["dias_habiles"], json!(5));
+        let back: AnoEscolar = serde_json::from_str(&serde_json::to_string(&a).unwrap()).unwrap();
+        assert_eq!(a, back);
+
+        let raw_bib = json!({
+            "recursos": [
+                {
+                    "codigo": "BIB-007",
+                    "titulo": "Diccionario de la RAE",
+                    "descripcion": "Edición vigente 2026",
+                    "url": "https://biblioteca.local/7",
+                    "tipo": "libro",
+                    "categoria": "Lenguaje",
+                    "disponible": true,
+                },
+            ],
+        });
+        let b = parse_biblioteca(&raw_bib).unwrap();
+        assert_eq!(b.len(), 1);
+        assert_eq!(b[0].titulo, "Diccionario de la RAE");
+        assert_eq!(b[0].codigo, "BIB-007");
+        assert_eq!(b[0].categoria, "Lenguaje");
+        assert_eq!(b[0].disponible, Some(true));
+        let back: Vec<Biblioteca> =
+            serde_json::from_str(&serde_json::to_string(&b).unwrap()).unwrap();
+        assert_eq!(b, back);
+    }
+
+    #[test]
+    fn parse_ano_escolar_y_biblioteca_toleran_campos_faltantes() {
+        let a = parse_ano_escolar(&json!({})).unwrap();
+        assert!(a.ano.is_empty());
+        assert!(a.terminos.is_empty() && a.parciales.is_empty());
+        assert!(a.inicio_clases.is_empty() && a.fin_clases.is_empty());
+        assert!(a.periodo_actual.is_empty() && a.parcial_actual.is_empty());
+        assert!(a.configuracion.is_null());
+
+        // Lista vacía → Ok vacío; recurso mínimo usa rellenos; basura → Err.
+        assert!(parse_biblioteca(&json!([])).unwrap().is_empty());
+        let b = parse_biblioteca(&json!([{"titulo": "Revista UNAM"}])).unwrap();
+        assert_eq!(b.len(), 1);
+        assert_eq!(b[0].titulo, "Revista UNAM");
+        assert!(b[0].descripcion.is_empty() && b[0].url.is_empty());
+        assert!(b[0].disponible.is_none());
+        assert!(parse_biblioteca(&json!(null)).is_err());
+        assert!(parse_biblioteca(&json!({"status": "ok"})).is_err());
     }
 }
