@@ -58,7 +58,9 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/styles.css", get(static_ui::serve_css))
         .route("/app.js", get(static_ui::serve_js))
         // Capa de interactividad del shell Stitch v2 (toasts, menús, editor).
-        .route("/shell.js", get(static_ui::serve_shell_js));
+        .route("/shell.js", get(static_ui::serve_shell_js))
+        .route("/favicon.ico", get(static_ui::serve_favicon))
+        .route("/favicon.svg", get(static_ui::serve_favicon));
 
     // Protected routes — require authentication
     let protected = Router::new()

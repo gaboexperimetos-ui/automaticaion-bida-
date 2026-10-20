@@ -1251,9 +1251,12 @@
         .replace(/`([^`]+)`/g, "<code>$1</code>")
         .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
         .replace(/\*([^*]+)\*/g, "<em>$1</em>")
-        .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, "<a href=\"$2\">$1</a>");
+        .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, function (_, txt2, href) {
+          var destino = /^(https?:|mailto:|\/|#)/i.test(href) ? href : "#";
+          return '<a href="' + destino.replace(/"/g, "&quot;") + '">' + txt2 + "</a>";
+        });
       s = s.replace(/\[\[([^\]]+)\]\]/g, function (_, t) {
-        var name = t.trim();
+        var name = t.trim().replace(/"/g, "&quot;");
         var slug = titlesIndex[name.toLowerCase()];
         return "<a href=\"" + (slug ? "/app/notes/" + slug : "/app/notes") + "\">" + name + "</a>";
       });

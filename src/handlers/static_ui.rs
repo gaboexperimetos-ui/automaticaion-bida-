@@ -46,6 +46,14 @@ pub async fn serve_shell_js(State(_state): State<Arc<AppState>>) -> Response<Bod
     make_response_with_cache(content, "application/javascript; charset=utf-8")
 }
 
+/// Favicon (SVG) en `/favicon.ico` y `/favicon.svg`: evita el 404 que dispara
+/// el navegador por defecto. Un SVG declarado con su content-type sirve como
+/// icono de pestaña en los navegadores actuales.
+pub async fn serve_favicon(State(_state): State<Arc<AppState>>) -> Response<Body> {
+    let content = include_bytes!("../../static/app/favicon.svg");
+    make_response(content, "image/svg+xml")
+}
+
 fn make_response(content: &[u8], content_type: &'static str) -> Response<Body> {
     let mut resp = Response::new(Body::from(content.to_vec()));
     *resp.status_mut() = StatusCode::OK;
