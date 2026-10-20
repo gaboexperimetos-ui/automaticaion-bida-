@@ -772,7 +772,17 @@ fn month_name_es(month: u32) -> &'static str {
 /// matches a cell are listed below the day number. `today` (`YYYY-MM-DD`) is
 /// highlighted. Leading/trailing blanks always pad the grid so weeks run
 /// Monday→Sunday with a minimum of six rows.
-pub fn calendar_grid_html(events: &[CalendarioEvent], focus: chrono::NaiveDate, today: Option<&str>) -> String {
+///
+/// `dias` (opcional) es el mapa `YYYY-MM-DD` → contenido del día que
+/// devuelve `academic::calendar_data`: al pasarlo, cada celda muestra clases
+/// del horario, tareas que vencen, eventos y anotaciones del usuario. Sin él
+/// la celda sólo muestra los eventos de `events` (comportamiento anterior).
+pub fn calendar_grid_html(
+    events: &[CalendarioEvent],
+    focus: chrono::NaiveDate,
+    today: Option<&str>,
+    dias: Option<&std::collections::HashMap<String, crate::academic::calendar_data::DiaData>>,
+) -> String {
     use chrono::Datelike;
 
     let year = focus.year();
@@ -803,6 +813,20 @@ pub fn calendar_grid_html(events: &[CalendarioEvent], focus: chrono::NaiveDate, 
     let prev_href = format!("/dashboard/calendar?partial=grid&month={:04}-{:02}", prev.year(), prev.month());
     let next_href = format!("/dashboard/calendar?partial=grid&month={:04}-{:02}", next.year(), next.month());
 
+    // La navegación de meses se renderiza FUERA de la rejilla (en su propio
+    // bloque `#calendar-nav`): el swap de la rejilla es `outerHTML`, así que
+    // si los botones vivieran dentro, desaparecerían con el primer clic.
+    let nav = format!(
+        r###"<div id="calendar-nav" class="flex items-center justify-between mb-space-sm">
+            <button hx-get="{}" hx-target="#calendar-grid" hx-swap="outerHTML"
+                class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors" title="Mes anterior">‹</button>
+            <span class="font-headline-sm text-headline-sm text-primary-container">{}</span>
+            <button hx-get="{}" hx-target="#calendar-grid" hx-swap="outerHTML"
+                class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors" title="Próximo mes">›</button>
+        </div>"###,
+        prev_href, label, next_href
+    );
+
     let weekdays = ["L", "M", "X", "J", "V", "S", "D"];
 
     let mut cells: Vec<String> = Vec::new();
@@ -825,6 +849,29 @@ pub fn calendar_grid_html(events: &[CalendarioEvent], focus: chrono::NaiveDate, 
             )
         }).collect();
 
+        // Con el mapa de días (clases + tareas + anotaciones) el contenido de
+        // la celda se construye ahí; si no, se usan los eventos sueltos.
+        let (contenido, atributos_celda) = match dias.and_then(|m| m.get(&fecha)) {
+            Some(dia) => {
+                let chips = crate::academic::calendar_data::chips_del_dia(dia, 3);
+                let extra = crate::academic::calendar_data::total_elementos(dia);
+                let oculto = crate::academic::calendar_data::ocultos(dia);
+                let mas = if oculto > 0 {
+                    format!(
+                        r#"<div class="text-[9px] text-outline mt-space-xs">+{oculto} más</div>"#
+                    )
+                } else {
+                    String::new()
+                };
+                let attrs = format!(
+                    r#" data-date="{fecha}" data-total="{extra}" data-dia-vacio="{}""#,
+                    if dia.vacio() { "1" } else { "0" }
+                );
+                (format!("{chips}{mas}"), attrs)
+            }
+            None => (ev_html, String::new()),
+        };
+
         let (cell_cls, num_cls) = if is_today {
             (
                 "border-2 border-primary-container/60 bg-surface-container/40 rounded-lg p-space-xs",
@@ -838,8 +885,8 @@ pub fn calendar_grid_html(events: &[CalendarioEvent], focus: chrono::NaiveDate, 
         };
 
         cells.push(format!(
-            r#"<div class="calendar-cell relative h-28 {}"><span class="{} mb-space-xs">{}</span><div class="mt-space-xs space-y-0.5 overflow-hidden">{}</div></div>"#,
-            cell_cls, num_cls, d, ev_html
+            r#"<div class="calendar-cell relative h-28 {}{}"><span class="{} mb-space-xs">{}</span><div class="mt-space-xs space-y-0.5 overflow-hidden">{}</div></div>"#,
+            cell_cls, atributos_celda, num_cls, d, contenido
         ));
     }
     // Trailing blanks: pad to a multiple of 7, minimum six rows.
@@ -858,18 +905,12 @@ pub fn calendar_grid_html(events: &[CalendarioEvent], focus: chrono::NaiveDate, 
         .collect();
 
     format!(
-        r###"<div class="flex items-center justify-between mb-space-sm">
-            <button hx-get="{}" hx-target="#calendar-grid" hx-swap="innerHTML"
-                class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors" title="Mes anterior">‹</button>
-            <span class="font-headline-sm text-headline-sm text-primary-container">{}</span>
-            <button hx-get="{}" hx-target="#calendar-grid" hx-swap="innerHTML"
-                class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors" title="Próximo mes">›</button>
-        </div>
+        r###"{nav}
         <div class="grid grid-cols-7 gap-px bg-surface-container-highest rounded-lg overflow-hidden border border-outline">
             {}
             {}
         </div>"###,
-        prev_href, label, next_href, header, cells.join("")
+        header, cells.join("")
     )
 }
 

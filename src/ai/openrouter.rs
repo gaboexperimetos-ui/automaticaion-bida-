@@ -475,6 +475,33 @@ pub async fn check_budget_and_reserve(
 /// `endpoint` names the originating API (`chat`, `summary`, `quiz`,
 /// `study-sheet`) and is stored on the usage row. When no API key is
 /// configured, returns a mock response starting with `[Modo simulado]` and
+/// Clave en `app_config` con el modelo elegido por el usuario.
+const CLAVE_MODELO: &str = "ai.model";
+
+/// Modelo a usar en la llamada: el que el usuario eligió en la interfaz si
+/// hay uno guardado, si no el del `.env` (`OPENROUTER_MODEL`).
+///
+/// La interfaz guarda el modelo en `app_config` (`ai.model`) para que el
+/// cambio surta efecto **sin reiniciar**. Si la fila no existe o la consulta
+/// falla, se usa el del `.env` (comportamiento anterior).
+pub async fn modelo_configurado(db: &SqlitePool, config: &Config) -> String {
+    let guardado = sqlx::query_scalar::<_, String>("SELECT value FROM app_config WHERE key = ?")
+        .bind(CLAVE_MODELO)
+        .fetch_optional(db)
+        .await;
+    match guardado {
+        Ok(Some(v)) => {
+            let v = v.trim();
+            if v.is_empty() {
+                config.openrouter_model.clone()
+            } else {
+                v.to_string()
+            }
+        }
+        _ => config.openrouter_model.clone(),
+    }
+}
+
 /// records a 0.0-cost row (`estimated = 1`).
 ///
 /// The persistent budget gate applies to both paths: an exhausted month
@@ -488,7 +515,7 @@ pub async fn chat_completion(
     messages: Vec<ChatMessage>,
     max_tokens: u32,
 ) -> Result<String, AiError> {
-    let model = config.openrouter_model.clone();
+    let model = modelo_configurado(db, config).await;
     let api_key: Option<String> = match &config.openrouter_api_key {
         Some(k) if !k.is_empty() => Some(k.clone()),
         _ => None,

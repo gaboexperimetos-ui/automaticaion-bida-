@@ -6,6 +6,7 @@
 //! for academic data, with simulated data fallback when MCP is disconnected.
 
 pub mod calendar;
+pub mod calendar_data;
 pub mod dashboard;
 pub mod exams;
 pub mod planner;

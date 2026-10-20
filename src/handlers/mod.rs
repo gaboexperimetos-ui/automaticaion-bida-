@@ -30,6 +30,7 @@ pub mod stitch_mcp;
 pub mod stitch_notes;
 pub mod stitch_v2;
 mod admin;
+pub mod calendar_annotations;
 pub mod schedule;
 mod static_ui;
 
@@ -87,6 +88,15 @@ pub fn router(state: Arc<AppState>) -> Router {
         // Búsqueda de notas (Agente C1 engancha el top-bar a /api/search).
         .route("/api/search", get(search::search_api))
         .route("/dashboard/search", get(search::search_page))
+        // Anotaciones del calendario (datos locales del usuario).
+        .route(
+            "/api/calendar/annotations",
+            get(calendar_annotations::list).post(calendar_annotations::create),
+        )
+        .route(
+            "/api/calendar/annotations/{id}",
+            put(calendar_annotations::update).delete(calendar_annotations::delete),
+        )
         // Admin API legacy (métricas/backup; el dashboard F9 vive en admin::register_routes).
         .route("/api/admin/metrics", get(admin::metrics))
         .route(

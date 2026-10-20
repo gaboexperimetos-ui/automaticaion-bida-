@@ -35,6 +35,8 @@ pub mod office;
 
 pub use config::Config;
 
+use std::sync::Arc;
+
 /// Shared application state (cloned per-request via Arc).
 #[derive(Clone)]
 pub struct AppState {
@@ -44,6 +46,15 @@ pub struct AppState {
     /// 180s entre requests; crear uno por request re-handshakea y re-scrapea
     /// en cada carga. `None` cuando la URL del MCP no es localhost.
     pub mikareno: Option<crate::integrations::mikareno::MikarenoClient>,
+    /// Caché en memoria de los datos de Mikareno que usa el calendario
+    /// (eventos escolares + horario semanal + tareas). Evita que cada render
+    /// del calendario pague el timeout del MCP: se sirve la copia cacheada al
+    /// instante y se refresca en background (stale-while-revalidate).
+    pub cache_mikareno: Arc<crate::academic::calendar_data::CacheMikareno>,
+    /// Caché en memoria del catálogo de modelos free de OpenRouter (30 min).
+    ///
+    /// Evita pegarse al proveedor en cada visita al selector de modelo.
+    pub cache_catalogo: Arc<crate::ai::modelos::CacheCatalogo>,
     /// Tiempo de inicio del servidor (para reportar uptime honesto).
     pub start_time: std::time::Instant,
 }

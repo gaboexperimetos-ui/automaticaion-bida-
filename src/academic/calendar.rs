@@ -7,9 +7,48 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use tokio::time::{self, Duration};
 
-use crate::academic::{mikareno_client, templates};
-use crate::integrations::mikareno::CalendarioEvent;
+use crate::academic::{calendar_data, mikareno_client, templates};
+use crate::integrations::mikareno::{CalendarioEvent, Horario, Tarea};
 use crate::AppState;
+
+/// Rango de fechas que cubre la rejilla del mes: el mes visible más los días
+/// de los meses vecinos que se muestran atenuados.
+fn rango_mes(focus: NaiveDate) -> (NaiveDate, NaiveDate) {
+    use chrono::Datelike;
+    let primero = focus.with_day(1).unwrap_or(focus);
+    let (year, month) = (primero.year(), primero.month());
+    let siguiente = if month == 12 {
+        NaiveDate::from_ymd_opt(year + 1, 1, 1)
+    } else {
+        NaiveDate::from_ymd_opt(year, month + 1, 1)
+    };
+    let fin_mes = siguiente
+        .and_then(|s| s.pred_opt())
+        .unwrap_or(primero);
+    // La rejilla empieza en lunes y termina en domingo: se toma una semana de
+    // margen a cada lado para que ningún día atenuado quede fuera.
+    (
+        primero - chrono::Duration::days(7),
+        fin_mes + chrono::Duration::days(7),
+    )
+}
+
+/// Banner honesto del estado de Mikareno en el calendario.
+fn banner_mcp_datos(datos: &calendar_data::DatosMikareno) -> String {
+    if !datos.error {
+        return String::new();
+    }
+    let texto = if datos.leido.is_some() {
+        "Mikareno no responde ahora: se muestra la última lectura conocida."
+    } else {
+        "Mikareno no responde ahora: el calendario va sin datos de la plataforma."
+    };
+    format!(
+        r###"<div class="bg-surface-container border border-outline rounded-xl p-3 mb-space-md">
+            <p class="font-body-sm text-body-sm text-on-surface-variant">{texto}</p>
+        </div>"###
+    )
+}
 
 /// Max length for the `partial` query param (overlong values are ignored).
 const MAX_PARTIAL_LEN: usize = 32;
@@ -449,14 +488,22 @@ fn mark_current_month(grid: &str, focus: NaiveDate, today: NaiveDate) -> String 
 }
 
 /// GET /dashboard/calendar — Google-Calendar-style monthly view.
+///
+/// La fuente de datos es Mikareno (misma que el panel del dashboard) a través
+/// de [`calendar_data`], que_cachea el resultado: la navegación entre meses
+/// no vuelve a pagar el scrape. Cada día puede mostrar clases del horario,
+/// eventos escolares, tareas que vencen y las anotaciones del usuario.
+///
+/// El partial `grid` devuelve **sólo el cuerpo de la rejilla** (sin la
+/// cabecera de navegación): así el swap de HTMX nunca puede anidar la
+/// rejilla dentro de sí misma (el bug que hacía que el calendario creciera
+/// hacia abajo y se encogiera a la mitad con cada clic).
 pub async fn monthly(
     State(state): State<Arc<AppState>>,
     query: axum::extract::Query<CalendarQuery>,
 ) -> Html<String> {
-    // MCP con presupuesto acotado: si no responde, la vista degrada a un
-    // estado vacío honesto en menos de 5 s en vez de quedarse colgada.
-    let carga = cargar_calendario(&state).await;
-    let events = &carga.eventos;
+    // Datos de Mikareno (cacheados; el refresh va en background).
+    let datos = calendar_data::datos_mikareno(&state).await;
 
     // Partial reload — return just the requested fragment (overlong values ignored).
     let partial = query
@@ -467,10 +514,20 @@ pub async fn monthly(
     let today_date = chrono::Local::now().date_naive();
     let today = today_date.format("%Y-%m-%d").to_string();
 
+    // Rango del mes visible (incluye los días de los meses vecinos que la
+    // rejilla muestra atenuados).
+    let (desde, hasta) = rango_mes(focus);
+
+    // Anotaciones locales del usuario en el rango.
+    let anotaciones = calendar_data::anotaciones_en_rango(&state, desde, hasta).await;
+
+    // Mapa día → contenido.
+    let dias = calendar_data::dias_del_mes(&datos, &anotaciones, focus);
+
     // Month grid, with the per-cell event counter badge.
-    let buckets = bucket_by_day(events);
+    let buckets = bucket_by_day(&datos.eventos);
     let grid_html = inject_event_badges(
-        &templates::calendar_grid_html(events, focus, Some(&today)),
+        &templates::calendar_grid_html(&datos.eventos, focus, Some(&today), Some(&dias)),
         focus.year(),
         focus.month(),
         &buckets,
@@ -483,15 +540,23 @@ pub async fn monthly(
     );
 
     // HTMX partial: swap just the grid (used by the month nav buttons).
+    //
+    // El swap es `outerHTML` sobre `#calendar-grid`, así que la respuesta es
+    // el elemento **completo** (con su id). Así el HTMX reemplaza la rejilla
+    // en vez de meterla dentro: es imposible que la rejilla se anide en sí
+    // misma, que era lo que hacía que el calendario creciera hacia abajo y se
+    // encogiera a la mitad con cada clic.
     if partial == Some("grid") {
-        return Html(grid_html);
-    }
-    // HTMX partial: swap just the timeline.
+        return Html(format!(
+            r###"<div id="calendar-grid" class="mb-space-md">{}</div>"###,
+            grid_html
+        ));
+    }    // HTMX partial: swap just the timeline.
     if partial == Some("timeline") {
-        return Html(templates::event_timeline_html(events, Some(&today)));
+        return Html(templates::event_timeline_html(&datos.eventos, Some(&today)));
     }
 
-    let status = banner_mcp(&carga);
+    let status = banner_mcp_datos(&datos);
     let grid = format!(
         r###"<div id="calendar-grid" class="mb-space-md">{}</div>"###,
         grid_html
@@ -501,7 +566,7 @@ pub async fn monthly(
             <h2 class="font-headline-sm text-headline-sm text-primary-container mb-space-sm">Próximos eventos</h2>
             {}
         </div>"###,
-        templates::event_timeline_html(events, Some(&today))
+        templates::event_timeline_html(&datos.eventos, Some(&today))
     );
 
     // Page header with the iCalendar download (route /dashboard/calendar.ics).
@@ -1145,7 +1210,7 @@ mod tests {
             event("2026-10-19", "Reunión"),
             event("2026-10-19", "Examen"),
         ];
-        let grid = templates::calendar_grid_html(&events, focus, Some(today));
+        let grid = templates::calendar_grid_html(&events, focus, Some(today), None);
         let buckets = bucket_by_day(&events);
         let grid = inject_event_badges(&grid, 2026, 10, &buckets);
         let grid = render_outside_days(&grid, focus, &buckets);

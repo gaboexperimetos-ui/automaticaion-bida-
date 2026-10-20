@@ -685,7 +685,9 @@ pub async fn chat_stream_handler(
 
     let messages = serde_json::to_value(&messages).unwrap_or_else(|_| Value::Array(Vec::new()));
 
-    let model = state.config.openrouter_model.clone();
+    // El modelo puede haberlo cambiado el usuario en la interfaz (se guarda
+    // en `app_config`); el del `.env` es sólo el valor por defecto.
+    let model = crate::ai::openrouter::modelo_configurado(&state.db, &state.config).await;
     let max_tokens = u64::from(state.config.openrouter_max_tokens);
 
     // Long-lived streams own their own timeouts (see `stream_chat`), so the

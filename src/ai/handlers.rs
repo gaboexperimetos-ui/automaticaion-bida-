@@ -682,7 +682,10 @@ fn is_safe_subject(s: &str) -> bool {
 /// - Right: sources/context rail (empty until backend provides)
 
 pub async fn ai_page(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let model = &state.config.openrouter_model;
+    // El modelo mostrado es el activo: el que el usuario eligió en la
+    // interfaz (`app_config`) o, si no, el del `.env`.
+    let model = crate::ai::openrouter::modelo_configurado(&state.db, &state.config).await;
+    let model = model.as_str();
 
     let mock_mode = state.config.openrouter_api_key.is_none();
 

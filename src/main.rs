@@ -99,6 +99,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         config: config.clone(),
         db: db.clone(),
         mikareno: mikareno.clone(),
+        cache_mikareno: Arc::new(study_platform::academic::calendar_data::CacheMikareno::default()),
+        cache_catalogo: Arc::new(study_platform::ai::modelos::CacheCatalogo::default()),
         start_time: std::time::Instant::now(),
     });
 

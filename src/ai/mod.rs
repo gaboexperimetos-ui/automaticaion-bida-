@@ -7,6 +7,7 @@
 
 pub mod chat;
 pub mod handlers;
+pub mod modelos;
 pub mod openrouter;
 pub mod quiz;
 pub mod streaming;
@@ -50,6 +51,11 @@ pub fn register_routes(
             axum::routing::post(handlers::study_sheet_handler),
         )
         .route("/api/ai/cost", axum::routing::get(handlers::cost_handler))
+        .route("/api/ai/models", axum::routing::get(modelos::list_models))
+        .route(
+            "/api/ai/model",
+            axum::routing::get(modelos::get_model).put(modelos::set_model),
+        )
         .route(
             "/api/ai/conversations",
             axum::routing::get(handlers::conversations_handler),

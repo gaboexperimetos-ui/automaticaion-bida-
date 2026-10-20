@@ -488,6 +488,31 @@ fn cache_guardar_shell(url: &str, d: &ShellData) {
 
 /// `horario.periodMap` → `Horario` con las mismas etiquetas planas que usa el
 /// adaptador de `get_horario` (`"07:35 - 08:15 — Religión [RELI]"`).
+///
+/// **Público para el calendario**: la vista mensual proyecta este horario
+/// sobre las fechas del mes (ver `academic::calendar_data`).
+pub fn parse_horario_public(full: &serde_json::Value) -> Horario {
+    parse_period_map(full).unwrap_or_default()
+}
+
+/// `calendario[]` → eventos con fecha ISO corta y título.
+///
+/// **Público para el calendario**: es la misma fuente que usa el panel del
+/// dashboard, así que el calendario y el panel muestran los mismos días.
+pub fn parse_calendario_public(full: &serde_json::Value) -> Vec<CalendarioEvent> {
+    parse_calendario(full)
+}
+
+/// `tareas_paginadas.pageContent[]` → lista de tareas.
+///
+/// **Público para el calendario**: las tareas con vencimiento se muestran el
+/// día que vencen.
+pub fn parse_tareas_public(full: &serde_json::Value) -> Vec<Tarea> {
+    parse_tareas_paginadas(full)
+}
+
+/// `horario.periodMap` → `Horario` con las mismas etiquetas planas que usa el
+/// adaptador de `get_horario` (`"07:35 - 08:15 — Religión [RELI]"`).
 fn parse_period_map(full: &serde_json::Value) -> Option<Horario> {
     let map = full.get("horario")?.get("periodMap")?.as_object()?;
     let days = [
