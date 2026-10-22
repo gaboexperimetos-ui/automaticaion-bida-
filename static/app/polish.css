@@ -1,0 +1,192 @@
+/* =============================================================
+   polish.css — capa de pulido transversal (cargada tras el base).
+   Tematiza lo que el kit no dibuja y el navegador trae de fábrica:
+   selección, caret, placeholder, foco, barras de scroll, numerales
+   y el único momento de movimiento del app. Paleta: #101419 / #e0e2ea
+   con acento #66e4db (los tokens del shell).
+   Se sirve embebido (include_bytes): cero latencia de red.
+   ============================================================= */
+
+:root { color-scheme: dark; }
+
+/* Selección y caret con la paleta propia, no con las azules del SO. */
+::selection { background: rgba(102, 228, 219, .30); color: #f0f4fa; }
+input, textarea { caret-color: #66e4db; }
+
+/* Placeholder legible sobre las superficies del kit (≥4.5:1). Las utilidades
+   de Tailwind (`placeholder:text-outline/60`) se lo quedan con alfa 0.6: aquí
+   gana la legibilidad en cualquier input, con o sin utilidad. */
+::placeholder { color: #7e8fa0 !important; opacity: 1 !important; }
+
+/* Foco visible coherente en TODO el app, no sólo en formularios. */
+:focus-visible {
+  outline: 2px solid #66e4db;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Scrollbars ocultos también en Firefox (Chrome ya los esconde en el
+   base overlay del kit): scroll limpio, sin paneles grises. */
+html { scrollbar-width: none; }
+
+/* Enlaces en el contexto de la interfaz principal (no todos los enlaces en la página) */
+/* Apunta a enlaces dentro del contenido principal, no a todos los enlaces */
+main a, .sp-box a, dialog a, .calendar-cell a {
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition: color 160ms cubic-bezier(.2, .8, .2, 1);
+}
+
+/* Respetar enlaces con clases utilitarias específicas (ej: Tailwind) */
+button, input, textarea, select, summary,
+.main a, .sp-box a, dialog a, .calendar-cell a {
+  transition:
+    background-color 160ms cubic-bezier(.2, .8, .2, 1),
+    border-color 160ms cubic-bezier(.2, .8, .2, 1),
+    color 160ms cubic-bezier(.2, .8, .2, 1),
+    box-shadow 160ms cubic-bezier(.2, .8, .2, 1),
+    opacity 160ms cubic-bezier(.2, .8, .2, 1),
+    transform 160ms cubic-bezier(.2, .8, .2, 1);
+}
+
+/* Mejorar la visibilidad del foco para elementos interactivos en el contexto de la interfaz principal */
+main a:focus-visible, .sp-box a:focus-visible, dialog a:focus-visible,
+.calendar-cell a:focus-visible, button:focus-visible,
+input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 2px solid #66e4db;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Asegurar que los enlaces mantengan su color base y solo cambien de color en hover */
+main a, .sp-box a, dialog a, .calendar-cell a {
+  color: #66e4db;
+}
+
+main a:hover, .sp-box a:hover, dialog a:hover, .calendar-cell a:hover {
+  color: #5eead4;
+}
+
+/* Una transición única y discreta para todo lo interactivo. Nada
+   desfila salvo la caja de diálogo (abajo). */
+button, a, .calendar-cell, input, textarea, select, summary {
+  transition:
+    background-color 160ms cubic-bezier(.2, .8, .2, 1),
+    border-color 160ms cubic-bezier(.2, .8, .2, 1),
+    color 160ms cubic-bezier(.2, .8, .2, 1),
+    box-shadow 160ms cubic-bezier(.2, .8, .2, 1),
+    opacity 160ms cubic-bezier(.2, .8, .2, 1),
+    transform 160ms cubic-bezier(.2, .8, .2, 1);
+}
+
+/* Entrada de los diálogos del shell: el velo funde, la caja sube y
+   desenfoca un instante. Es el único momento authored del app. */
+.sp-veil { animation: sp-veil-in 140ms ease-out both; }
+.sp-box { animation: sp-box-in 200ms cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes sp-veil-in { from { opacity: 0; } }
+@keyframes sp-box-in {
+  from { opacity: 0; transform: translateY(8px) scale(.985); filter: blur(2px); }
+}
+
+/* HTMX: los swaps aparecen asentándose, no a saltos. */
+.htmx-settling { transition: opacity 140ms cubic-bezier(.2, .8, .2, 1); opacity: 1; }
+
+/* Respeta a quien no quiere movimiento. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+
+/* ── Visual refresh: Study Platform ───────────────────────────────────── */
+:root {
+  --sp-bg: #0b1014;
+  --sp-panel: rgba(22, 29, 35, .88);
+  --sp-line: rgba(148, 163, 184, .14);
+  --sp-mint: #7cf2d0;
+  --sp-lime: #b7ee69;
+}
+html { scroll-behavior: smooth; background: var(--sp-bg); }
+body {
+  background:
+    radial-gradient(ellipse at 82% 0%, rgba(54,125,111,.10), transparent 36rem),
+    radial-gradient(ellipse at 0% 65%, rgba(123,175,74,.055), transparent 32rem),
+    var(--sp-bg);
+  color: #e6edf0;
+  font-family: "Hanken Grotesk", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+::selection { background: rgba(124,242,208,.28); color: #f4fffc; }
+:focus-visible { outline: 2px solid var(--sp-mint); outline-offset: 3px; }
+::-webkit-scrollbar { display:block; width:8px; height:8px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:#35434a; border-radius:99px; border:2px solid var(--sp-bg); }
+::-webkit-scrollbar-thumb:hover { background:#53666c; }
+aside#app-rail {
+  background: rgba(13,19,23,.96) !important;
+  border-color: var(--sp-line) !important;
+  box-shadow: 16px 0 44px rgba(0,0,0,.10);
+  backdrop-filter: blur(24px);
+}
+#app-rail nav a {
+  min-height:38px;
+  border:1px solid transparent;
+  border-radius:10px !important;
+  transition: background .18s ease, color .18s ease, border-color .18s ease, transform .18s ease !important;
+}
+#app-rail nav a:hover { transform:translateX(2px); border-color:rgba(148,163,184,.10); }
+#app-rail nav a[aria-current="page"] {
+  background:linear-gradient(110deg,rgba(124,242,208,.17),rgba(124,242,208,.055)) !important;
+  border-color:rgba(124,242,208,.20) !important;
+  color:#b9ffeb !important;
+  box-shadow:inset 2px 0 0 var(--sp-mint);
+}
+#app-topbar {
+  background:rgba(11,16,20,.84) !important;
+  border-color:var(--sp-line) !important;
+  backdrop-filter:blur(22px) saturate(150%);
+}
+#contenido { min-width:0; }
+#contenido button, #app-topbar button {
+  transition:transform .16s ease, box-shadow .16s ease, background-color .16s ease, border-color .16s ease;
+}
+#contenido button:active, #app-topbar button:active { transform:scale(.985); }
+#contenido input:not([type="checkbox"]):not([type="radio"]),
+#contenido textarea, #contenido select {
+  border-radius:10px;
+  transition:border-color .18s ease, box-shadow .18s ease;
+}
+#contenido input:focus, #contenido textarea:focus, #contenido select:focus {
+  outline:none;
+  border-color:rgba(124,242,208,.65);
+  box-shadow:0 0 0 3px rgba(124,242,208,.09);
+}
+#quick-create-btn {
+  border-radius:11px;
+  box-shadow:0 6px 20px rgba(158,215,83,.12);
+}
+#quick-create-btn:hover { box-shadow:0 8px 26px rgba(158,215,83,.2); transform:translateY(-1px); }
+#create-modal-popover {
+  border:1px solid rgba(148,163,184,.20);
+  box-shadow:0 24px 80px rgba(0,0,0,.48);
+}
+@media (prefers-reduced-motion:reduce) {
+  *,*::before,*::after { scroll-behavior:auto !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; }
+}
+@media (max-width:900px) {
+  #app-topbar { gap:.5rem; padding-left:.75rem; padding-right:.75rem; }
+  #app-topbar > div:first-child { min-width:0; }
+  #app-topbar > div:first-child > div:nth-child(2) { display:none; }
+  #app-topbar > div:last-child { gap:.5rem; }
+  #app-topbar > div:last-child > div:nth-last-child(1) > div:nth-child(2) { display:none; }
+}
+@media (max-width:640px) {
+  #contenido .p-gutter-desktop { padding:1rem; }
+  #contenido .gap-gutter-desktop { gap:1rem; }
+  #create-modal-popover { position:fixed; top:4.5rem; left:.75rem; right:.75rem; width:auto; max-height:calc(100dvh - 6rem); overflow:auto; }
+}
