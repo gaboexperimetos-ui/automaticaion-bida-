@@ -1,0 +1,102 @@
+/* =============================================================
+   polish.css — capa de pulido transversal (cargada tras el base).
+   Tematiza lo que el kit no dibuja y el navegador trae de fábrica:
+   selección, caret, placeholder, foco, barras de scroll, numerales
+   y el único momento de movimiento del app. Paleta: #101419 / #e0e2ea
+   con acento #66e4db (los tokens del shell).
+   Se sirve embebido (include_bytes): cero latencia de red.
+   ============================================================= */
+
+:root { color-scheme: dark; }
+
+/* Selección y caret con la paleta propia, no con las azules del SO. */
+::selection { background: rgba(102, 228, 219, .30); color: #f0f4fa; }
+input, textarea { caret-color: #66e4db; }
+
+/* Placeholder legible sobre las superficies del kit (≥4.5:1). Las utilidades
+   de Tailwind (`placeholder:text-outline/60`) se lo quedan con alfa 0.6: aquí
+   gana la legibilidad en cualquier input, con o sin utilidad. */
+::placeholder { color: #7e8fa0 !important; opacity: 1 !important; }
+
+/* Foco visible coherente en TODO el app, no sólo en formularios. */
+:focus-visible {
+  outline: 2px solid #66e4db;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Scrollbars ocultos también en Firefox (Chrome ya los esconde en el
+   base overlay del kit): scroll limpio, sin paneles grises. */
+html { scrollbar-width: none; }
+
+/* Enlaces en el contexto de la interfaz principal (no todos los enlaces en la página) */
+/* Apunta a enlaces dentro del contenido principal, no a todos los enlaces */
+main a, .sp-box a, dialog a, .calendar-cell a {
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition: color 160ms cubic-bezier(.2, .8, .2, 1);
+}
+
+/* Respetar enlaces con clases utilitarias específicas (ej: Tailwind) */
+button, input, textarea, select, summary,
+.main a, .sp-box a, dialog a, .calendar-cell a {
+  transition:
+    background-color 160ms cubic-bezier(.2, .8, .2, 1),
+    border-color 160ms cubic-bezier(.2, .8, .2, 1),
+    color 160ms cubic-bezier(.2, .8, .2, 1),
+    box-shadow 160ms cubic-bezier(.2, .8, .2, 1),
+    opacity 160ms cubic-bezier(.2, .8, .2, 1),
+    transform 160ms cubic-bezier(.2, .8, .2, 1);
+}
+
+/* Mejorar la visibilidad del foco para elementos interactivos en el contexto de la interfaz principal */
+main a:focus-visible, .sp-box a:focus-visible, dialog a:focus-visible,
+.calendar-cell a:focus-visible, button:focus-visible,
+input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 2px solid #66e4db;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Asegurar que los enlaces mantengan su color base y solo cambien de color en hover */
+main a, .sp-box a, dialog a, .calendar-cell a {
+  color: #66e4db;
+}
+
+main a:hover, .sp-box a:hover, dialog a:hover, .calendar-cell a:hover {
+  color: #5eead4;
+}
+
+/* Una transición única y discreta para todo lo interactivo. Nada
+   desfila salvo la caja de diálogo (abajo). */
+button, a, .calendar-cell, input, textarea, select, summary {
+  transition:
+    background-color 160ms cubic-bezier(.2, .8, .2, 1),
+    border-color 160ms cubic-bezier(.2, .8, .2, 1),
+    color 160ms cubic-bezier(.2, .8, .2, 1),
+    box-shadow 160ms cubic-bezier(.2, .8, .2, 1),
+    opacity 160ms cubic-bezier(.2, .8, .2, 1),
+    transform 160ms cubic-bezier(.2, .8, .2, 1);
+}
+
+/* Entrada de los diálogos del shell: el velo funde, la caja sube y
+   desenfoca un instante. Es el único momento authored del app. */
+.sp-veil { animation: sp-veil-in 140ms ease-out both; }
+.sp-box { animation: sp-box-in 200ms cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes sp-veil-in { from { opacity: 0; } }
+@keyframes sp-box-in {
+  from { opacity: 0; transform: translateY(8px) scale(.985); filter: blur(2px); }
+}
+
+/* HTMX: los swaps aparecen asentándose, no a saltos. */
+.htmx-settling { transition: opacity 140ms cubic-bezier(.2, .8, .2, 1); opacity: 1; }
+
+/* Respeta a quien no quiere movimiento. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

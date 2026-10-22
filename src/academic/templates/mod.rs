@@ -66,11 +66,11 @@ const STITCH_TAILWIND_CONFIG: &str = r###"tailwind.config = {
                 "headline-sm": ["Manrope", "sans-serif"],
                 "headline-md": ["Manrope", "sans-serif"],
                 "headline-lg": ["Manrope", "sans-serif"],
-                "body-sm": ["Inter", "Hanken Grotesk", "sans-serif"],
-                "body-md": ["Inter", "Hanken Grotesk", "sans-serif"],
-                "body-lg": ["Inter", "Hanken Grotesk", "sans-serif"],
-                "label-sm": ["Inter", "Hanken Grotesk", "sans-serif"],
-                "label-md": ["Inter", "Hanken Grotesk", "sans-serif"],
+                "body-sm": ["Hanken Grotesk", "Inter", "sans-serif"],
+                "body-md": ["Hanken Grotesk", "Inter", "sans-serif"],
+                "body-lg": ["Hanken Grotesk", "Inter", "sans-serif"],
+                "label-sm": ["Hanken Grotesk", "Inter", "sans-serif"],
+                "label-md": ["Hanken Grotesk", "Inter", "sans-serif"],
                 "code-inline": ["monospace", "monospace"]
             },
             fontSize: {
@@ -115,7 +115,7 @@ const STITCH_BASE_STYLE: &str = r###"@layer base {
     body {
         background: #101419;
         color: #e0e2ea;
-        font-family: "Inter", "Hanken Grotesk", sans-serif;
+        font-family: "Hanken Grotesk", "Inter", sans-serif;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
         overscroll-behavior: none;
@@ -293,7 +293,10 @@ pub fn head(title: &str) -> String {
         r###"<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#101419">
     <title>{}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <script src="https://unpkg.com/htmx.org@2.0.3/dist/htmx.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/shell.js" defer></script>
@@ -305,6 +308,7 @@ pub fn head(title: &str) -> String {
     <style id="stitch-base">
     {}
     </style>
+    <link rel="stylesheet" href="/polish.css">
 </head>"###,
         html_escape(title),
         STITCH_TAILWIND_CONFIG,
