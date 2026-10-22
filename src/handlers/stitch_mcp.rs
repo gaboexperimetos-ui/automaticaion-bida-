@@ -239,7 +239,10 @@ pub fn fill_mcp(content: &str, d: &McpPanelData) -> String {
             "<!--SLOT:MCP_URL_GENOFFICE-->",
             &render_url(&d.genoffice_url, "GenOffice"),
         )
-        .replace("<!--SLOT:MCP_NATIVE_LOCATION-->", &render_native_location(d))
+        .replace(
+            "<!--SLOT:MCP_NATIVE_LOCATION-->",
+            &render_native_location(d),
+        )
         .replace("<!--SLOT:MCP_NATIVE_TOOLS-->", &render_native_tools(d))
         .replace("<!--SLOT:MCP_TELEMETRY-->", &render_telemetry(d))
         .replace("<!--SLOT:MCP_TRANSCRIPT-->", &render_transcript(d));
@@ -259,7 +262,8 @@ fn render_orchestrator(d: &McpPanelData) -> String {
         <span class="font-label-sm text-label-sm text-on-surface">Orquestador: Activo</span>"#.to_string()
     } else {
         r#"<span class="w-2 h-2 rounded-full bg-outline"></span>
-        <span class="font-label-sm text-label-sm text-outline">Orquestador: Sin API key</span>"#.to_string()
+        <span class="font-label-sm text-label-sm text-outline">Orquestador: Sin API key</span>"#
+            .to_string()
     }
 }
 
@@ -433,7 +437,9 @@ fn render_telemetry(d: &McpPanelData) -> String {
             .to_string();
     }
     let pct = if d.budget_usd > 0.0 {
-        ((d.spend_usd / d.budget_usd) * 100.0).round().clamp(0.0, 100.0) as u32
+        ((d.spend_usd / d.budget_usd) * 100.0)
+            .round()
+            .clamp(0.0, 100.0) as u32
     } else {
         0
     };
@@ -620,7 +626,9 @@ fn patch_ai_form(html: &str, d: &McpPanelData) -> String {
     // 12. Red de seguridad: si el botón viejo sobrevivió al parche (el kit
     //     cambió), se neutraliza: un botón deshabilitado no finge guardar.
     if h.contains("btn-save-key") {
-        tracing::warn!("stitch_mcp: el botón de guardado del template sigue presente: se neutraliza");
+        tracing::warn!(
+            "stitch_mcp: el botón de guardado del template sigue presente: se neutraliza"
+        );
         h = h.replace(
             r#"id="btn-save-key" type="button""#,
             r#"id="btn-save-key" type="button" disabled"#,
@@ -668,8 +676,7 @@ const ANCHOR_KEY_TOGGLE: &str = r#"<button class="absolute right-3 px-2 py-1 rou
 <span class="material-symbols-outlined text-[16px]" id="eye-icon">visibility</span>
 <span id="eye-text">Mostrar</span>
 </button>"#;
-const KEY_TOGGLE_HTML: &str =
-    r#"<span class="absolute right-3 font-code-inline text-[11px] text-outline">no se muestra aquí</span>"#;
+const KEY_TOGGLE_HTML: &str = r#"<span class="absolute right-3 font-code-inline text-[11px] text-outline">no se muestra aquí</span>"#;
 
 /// Nota bajo el campo de la clave: cómo se aplica de verdad.
 const ANCHOR_KEY_NOTE: &str = r#"</button>
@@ -770,7 +777,10 @@ mod tests {
     #[test]
     fn la_pagina_no_muestra_la_clave_ni_su_sufijo() {
         let html = fill_mcp(TEMPLATE, &datos());
-        assert!(!html.contains(KEY), "la clave real no puede aparecer en el HTML");
+        assert!(
+            !html.contains(KEY),
+            "la clave real no puede aparecer en el HTML"
+        );
         assert!(
             !html.contains("wxyz"),
             "ni los últimos 4 caracteres de la clave pueden aparecer"
@@ -832,10 +842,13 @@ mod tests {
 
     #[test]
     fn la_red_de_seguridad_apaga_el_boton_falso() {
-        let viejo = r#"<button id="btn-save-key" type="button"><span>Guardar Parámetros</span></button>"#;
+        let viejo =
+            r#"<button id="btn-save-key" type="button"><span>Guardar Parámetros</span></button>"#;
         let html = patch_ai_form(viejo, &datos());
-        assert!(html.contains("disabled"), "el botón viejo debe quedar inerte");
+        assert!(
+            html.contains("disabled"),
+            "el botón viejo debe quedar inerte"
+        );
         assert!(!html.contains("Guardar Parámetros"));
     }
 }
-

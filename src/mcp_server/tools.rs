@@ -72,7 +72,8 @@ pub fn all_tools() -> Vec<McpTool> {
         },
         McpTool {
             name: "get_subject_notes".to_string(),
-            description: "Get notes of a subject (matched by tag, with full-text fallback)".to_string(),
+            description: "Get notes of a subject (matched by tag, with full-text fallback)"
+                .to_string(),
             input_schema: json!({
                 "type": "object",
                 "properties": {
@@ -83,7 +84,8 @@ pub fn all_tools() -> Vec<McpTool> {
         },
         McpTool {
             name: "get_study_sheets".to_string(),
-            description: "Get study material (notes with their body) to build study sheets from".to_string(),
+            description: "Get study material (notes with their body) to build study sheets from"
+                .to_string(),
             input_schema: json!({
                 "type": "object",
                 "properties": {

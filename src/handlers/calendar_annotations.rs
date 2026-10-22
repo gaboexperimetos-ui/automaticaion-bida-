@@ -18,11 +18,11 @@
 //! caracteres y el cuerpo a 4000. Un body o una fecha inválidos devuelven 400
 //! con un mensaje en español, nunca un 500.
 
-use chrono::Datelike;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
+use chrono::Datelike;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use sqlx::Row;
@@ -92,10 +92,12 @@ pub async fn list(
             (f.trim().to_string(), t.trim().to_string())
         }
         (Some(f), None) if fecha_valida(f) => {
-            let f = chrono::NaiveDate::parse_from_str(f.trim(), "%Y-%m-%d")
-                .unwrap_or(hoy);
+            let f = chrono::NaiveDate::parse_from_str(f.trim(), "%Y-%m-%d").unwrap_or(hoy);
             let fin = f + chrono::Duration::days(31);
-            (f.format("%Y-%m-%d").to_string(), fin.format("%Y-%m-%d").to_string())
+            (
+                f.format("%Y-%m-%d").to_string(),
+                fin.format("%Y-%m-%d").to_string(),
+            )
         }
         _ => {
             // Mes en curso: del 1º al último día.
@@ -168,14 +170,12 @@ pub async fn create(
             .into_response();
     }
 
-    let res = sqlx::query(
-        "INSERT INTO calendar_annotations (date, title, body) VALUES (?, ?, ?)",
-    )
-    .bind(&date)
-    .bind(&title)
-    .bind(&body)
-    .execute(&state.db)
-    .await;
+    let res = sqlx::query("INSERT INTO calendar_annotations (date, title, body) VALUES (?, ?, ?)")
+        .bind(&date)
+        .bind(&title)
+        .bind(&body)
+        .execute(&state.db)
+        .await;
 
     match res {
         Ok(r) => {

@@ -26,7 +26,7 @@ use std::sync::Arc;
 
 use axum::{
     body::Body,
-    extract::{Path, State, Request},
+    extract::{Path, Request, State},
     http::{header, HeaderValue, StatusCode},
     response::{Html, IntoResponse, Json, Response},
 };
@@ -88,24 +88,20 @@ struct BackupEntry {
 /// `page_ext`). Se conserva sin cablear: si el orquestador deja de usar
 /// `dashboard`, este sigue siendo un panel completo.
 #[allow(dead_code)]
-pub async fn index(
-    State(state): State<Arc<AppState>>,
-    req: Request<Body>,
-) -> impl IntoResponse {
+pub async fn index(State(state): State<Arc<AppState>>, req: Request<Body>) -> impl IntoResponse {
     let data = fetch_admin_data(&state).await;
     let content = render_admin_content(&data);
     let authenticated = state.config.auth_disabled
         || crate::middleware::auth::extract_session_cookie(&req).is_some();
-    let html = crate::handlers::stitch_v2::stitch_v2_page("administracion", &content, authenticated);
+    let html =
+        crate::handlers::stitch_v2::stitch_v2_page("administracion", &content, authenticated);
     let shell = crate::handlers::stitch_panel::fetch_shell_data(&state).await;
     let html = crate::handlers::stitch_panel::fill_shell(&html, &shell);
     (StatusCode::OK, Html(html))
 }
 
 /// GET /api/admin/metrics — Métricas en JSON para monitoreo.
-pub async fn metrics(
-    State(state): State<Arc<AppState>>,
-) -> (StatusCode, Json<serde_json::Value>) {
+pub async fn metrics(State(state): State<Arc<AppState>>) -> (StatusCode, Json<serde_json::Value>) {
     let data = fetch_admin_data(&state).await;
     (
         StatusCode::OK,
@@ -132,9 +128,7 @@ pub async fn metrics(
 ///
 /// La respuesta conserva las claves legacy (`path`, `size_bytes`) que usa el
 /// JS del panel y añade las del sistema unificado (`name`, `bytes`).
-pub async fn backup(
-    State(state): State<Arc<AppState>>,
-) -> (StatusCode, Json<serde_json::Value>) {
+pub async fn backup(State(state): State<Arc<AppState>>) -> (StatusCode, Json<serde_json::Value>) {
     let dir = std::path::Path::new(crate::backup::DEFAULT_DIR);
     match crate::backup::backup_now(&state.db, dir).await {
         Ok(copia) => (
@@ -166,9 +160,7 @@ pub async fn backup(
 /// Lee `data/backups/` (el directorio único del sistema unificado) y sólo los
 /// ficheros `*.db` (los sidecars `.sha256` quedan fuera). Mismo shape JSON
 /// que antes: `{last_backup: {path, size_bytes, created_at}, count}`.
-pub async fn backup_status(
-    _state: State<Arc<AppState>>,
-) -> (StatusCode, Json<serde_json::Value>) {
+pub async fn backup_status(_state: State<Arc<AppState>>) -> (StatusCode, Json<serde_json::Value>) {
     let dir = std::path::Path::new(crate::backup::DEFAULT_DIR);
 
     if !dir.exists() {
@@ -381,7 +373,12 @@ fn format_uptime(secs: u64) -> String {
     } else if secs < 86400 {
         format!("{}h {}m", secs / 3600, (secs % 3600) / 60)
     } else {
-        format!("{}d {}h {}m", secs / 86400, (secs % 86400) / 3600, (secs % 3600) / 60)
+        format!(
+            "{}d {}h {}m",
+            secs / 86400,
+            (secs % 86400) / 3600,
+            (secs % 3600) / 60
+        )
     }
 }
 
@@ -824,8 +821,14 @@ fn render_admin_content(d: &AdminData) -> String {
         .replace("<!--SLOT:ADMIN_UPTIME_SECS-->", &d.uptime_secs.to_string())
         .replace("<!--SLOT:ADMIN_NOTES_COUNT-->", &d.notes_count.to_string())
         .replace("<!--SLOT:ADMIN_CHATS_COUNT-->", &d.chats_count.to_string())
-        .replace("<!--SLOT:ADMIN_SPEND-->", &format!("${:.2} USD", d.spend_usd))
-        .replace("<!--SLOT:ADMIN_BUDGET-->", &format!("${:.2} USD", d.budget_usd))
+        .replace(
+            "<!--SLOT:ADMIN_SPEND-->",
+            &format!("${:.2} USD", d.spend_usd),
+        )
+        .replace(
+            "<!--SLOT:ADMIN_BUDGET-->",
+            &format!("${:.2} USD", d.budget_usd),
+        )
         .replace("<!--SLOT:ADMIN_REQUESTS-->", &d.requests_month.to_string())
         .replace("<!--SLOT:ADMIN_BUDGET_PCT-->", &budget_pct.to_string())
         .replace("<!--SLOT:ADMIN_MCP_ICON-->", mcp_icon)
@@ -841,7 +844,10 @@ fn render_admin_content(d: &AdminData) -> String {
         .replace("<!--SLOT:ADMIN_LAST_BACKUP_PATH-->", &esc(&last_path))
         .replace("<!--SLOT:ADMIN_LAST_BACKUP_MS-->", &last_ms)
         .replace("<!--SLOT:ADMIN_NEXT_BACKUP-->", &esc(&next_text))
-        .replace("<!--SLOT:ADMIN_BACKUP_COUNT-->", &d.backup_count.to_string())
+        .replace(
+            "<!--SLOT:ADMIN_BACKUP_COUNT-->",
+            &d.backup_count.to_string(),
+        )
         .replace("<!--SLOT:ADMIN_BACKUP_ROWS-->", &backup_rows)
 }
 
@@ -904,10 +910,7 @@ fn render_backup_row(b: &BackupEntry) -> String {
 /// `fetch` (el shell de Stitch v2 no carga htmx).
 fn render_backup_acciones(nombre: &str) -> String {
     let n = esc(nombre);
-    let url = format!(
-        "/api/admin/backup/download/{}",
-        percent_encode(nombre)
-    );
+    let url = format!("/api/admin/backup/download/{}", percent_encode(nombre));
     format!(
         r#"<div class="flex items-center justify-end gap-1">
 <a href="{url}" download class="flex items-center gap-1 px-space-sm py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors font-label-md"><span class="material-symbols-outlined text-[16px]">download</span>Descargar</a>
@@ -1372,11 +1375,11 @@ async fn list_backup_files(dir: &str) -> Vec<serde_json::Value> {
         // La fecha ya formateada en español y en la zona horaria del
         // servidor: el JS la usa tal cual para que la tabla no cambie de
         // hora al repintarse (la del navegador puede ser otra).
-        let created_es = meta
-            .modified()
-            .or_else(|_| meta.created())
-            .ok()
-            .map(|t| chrono::DateTime::<chrono::Local>::from(t).format("%d/%m/%Y %H:%M").to_string());
+        let created_es = meta.modified().or_else(|_| meta.created()).ok().map(|t| {
+            chrono::DateTime::<chrono::Local>::from(t)
+                .format("%d/%m/%Y %H:%M")
+                .to_string()
+        });
         files.push((nombre, bytes, created, created_es));
     }
 

@@ -810,8 +810,16 @@ pub fn calendar_grid_html(
     };
 
     let label = format!("{} {}", month_name_es(month), year);
-    let prev_href = format!("/dashboard/calendar?partial=grid&month={:04}-{:02}", prev.year(), prev.month());
-    let next_href = format!("/dashboard/calendar?partial=grid&month={:04}-{:02}", next.year(), next.month());
+    let prev_href = format!(
+        "/dashboard/calendar?partial=grid&month={:04}-{:02}",
+        prev.year(),
+        prev.month()
+    );
+    let next_href = format!(
+        "/dashboard/calendar?partial=grid&month={:04}-{:02}",
+        next.year(),
+        next.month()
+    );
 
     // La navegación de meses se renderiza FUERA de la rejilla (en su propio
     // bloque `#calendar-nav`): el swap de la rejilla es `outerHTML`, así que
@@ -839,7 +847,8 @@ pub fn calendar_grid_html(
         let fecha = format!("{:04}-{:02}-{:02}", year, month, d);
         let is_today = today.map_or(false, |t| t == fecha);
 
-        let mut day_evs: Vec<&CalendarioEvent> = events.iter().filter(|e| e.fecha == fecha).collect();
+        let mut day_evs: Vec<&CalendarioEvent> =
+            events.iter().filter(|e| e.fecha == fecha).collect();
         day_evs.sort_by(|a, b| a.evento.cmp(&b.evento));
         let ev_html: String = day_evs.iter().take(3).map(|e| {
             format!(
@@ -910,7 +919,8 @@ pub fn calendar_grid_html(
             {}
             {}
         </div>"###,
-        header, cells.join("")
+        header,
+        cells.join("")
     )
 }
 
@@ -1309,27 +1319,26 @@ pub fn subject_detail_html(
     let status = mcp_status_banner(connected);
 
     // Resolve display values: prefer detalle, fall back to promedios values.
-    let (avg, maximo, bloqueada, es_cualitativa, observacion) =
-        detalle.first().map_or_else(
-            || {
-                (
-                    promedio_fallback,
-                    maximo_fallback,
-                    bloqueada_fallback,
-                    false,
-                    String::new(),
-                )
-            },
-            |d| {
-                (
-                    d.nota_promedio.unwrap_or(promedio_fallback),
-                    d.maximo,
-                    d.bloqueada,
-                    d.es_cualitativa,
-                    d.observacion.clone(),
-                )
-            },
-        );
+    let (avg, maximo, bloqueada, es_cualitativa, observacion) = detalle.first().map_or_else(
+        || {
+            (
+                promedio_fallback,
+                maximo_fallback,
+                bloqueada_fallback,
+                false,
+                String::new(),
+            )
+        },
+        |d| {
+            (
+                d.nota_promedio.unwrap_or(promedio_fallback),
+                d.maximo,
+                d.bloqueada,
+                d.es_cualitativa,
+                d.observacion.clone(),
+            )
+        },
+    );
 
     let avg_fmt = fmt_grade(avg);
     let color = grade_color(avg);
@@ -1382,7 +1391,11 @@ pub fn subject_detail_html(
         html_escape(codigo),
         maximo_fmt,
         bloqueada_txt,
-        if es_cualitativa { "Cualitativa" } else { "Cuantitativa" },
+        if es_cualitativa {
+            "Cualitativa"
+        } else {
+            "Cuantitativa"
+        },
     );
 
     // Activities grouped by submenu.
@@ -1460,7 +1473,14 @@ pub fn subject_detail_html(
         parts.join("")
     };
 
-    let content = format!(r###"{}{}{}{}{}"###, status, header, summary_card, observacion_html(&observacion), activities_html);
+    let content = format!(
+        r###"{}{}{}{}{}"###,
+        status,
+        header,
+        summary_card,
+        observacion_html(&observacion),
+        activities_html
+    );
 
     page_ext(
         &format!("{} — Study Platform", materia),

@@ -268,9 +268,9 @@ impl TransportError {
     /// del error) sigan funcionando.
     fn into_mikareno(self) -> MikarenoError {
         match self {
-            TransportError::SessionGone(reason) => MikarenoError::Http(format!(
-                "MCP session not found (HTTP 404): {reason}"
-            )),
+            TransportError::SessionGone(reason) => {
+                MikarenoError::Http(format!("MCP session not found (HTTP 404): {reason}"))
+            }
             TransportError::Other(e) => e,
         }
     }
@@ -320,7 +320,10 @@ impl MikarenoClient {
     /// que no se intenta ninguna conexión saliente.
     pub fn maybe_local(base_url: &str) -> Option<Self> {
         let host = host_of(base_url)?;
-        if host == "localhost" || host.parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback())
+        if host == "localhost"
+            || host
+                .parse::<std::net::IpAddr>()
+                .is_ok_and(|ip| ip.is_loopback())
         {
             Some(Self::new(base_url.to_string()))
         } else {
@@ -726,26 +729,22 @@ impl MikarenoClient {
         // The handshake gets its own deadline: `post_sse` retries 3× with
         // backoff, so without this a hung server would block the caller for
         // minutes instead of degrading gracefully.
-        let session_id = match tokio::time::timeout(
-            Duration::from_secs(INIT_DEADLINE_SECS),
-            init,
-        )
-        .await
-        {
-            Ok(Ok(v)) => v,
-            Ok(Err(e)) => return Err(e),
-            Err(_) => {
-                warn!(
-                    "MCP initialize timed out after {}s; marking session disconnected",
-                    INIT_DEADLINE_SECS
-                );
-                self.mark_disconnected();
-                return Err(MikarenoError::Unexpected(format!(
-                    "MCP sin respuesta a tiempo (initialize, {}s)",
-                    INIT_DEADLINE_SECS
-                )));
-            }
-        };
+        let session_id =
+            match tokio::time::timeout(Duration::from_secs(INIT_DEADLINE_SECS), init).await {
+                Ok(Ok(v)) => v,
+                Ok(Err(e)) => return Err(e),
+                Err(_) => {
+                    warn!(
+                        "MCP initialize timed out after {}s; marking session disconnected",
+                        INIT_DEADLINE_SECS
+                    );
+                    self.mark_disconnected();
+                    return Err(MikarenoError::Unexpected(format!(
+                        "MCP sin respuesta a tiempo (initialize, {}s)",
+                        INIT_DEADLINE_SECS
+                    )));
+                }
+            };
 
         debug!(
             "Mikareno initialize ok; session_id={}",
@@ -757,7 +756,10 @@ impl MikarenoClient {
         // Sent once per session; a session that was already notified (same
         // `mcp-session-id`) must not be notified twice.
         if !self.already_notified(session_id.as_deref()) {
-            if let Err(e) = self.send_initialized_notification(session_id.as_deref()).await {
+            if let Err(e) = self
+                .send_initialized_notification(session_id.as_deref())
+                .await
+            {
                 // A failed notification is not fatal for the handshake itself,
                 // but the server may refuse subsequent calls — log it loudly.
                 warn!("MCP notifications/initialized failed: {}", e);
@@ -794,9 +796,10 @@ impl MikarenoClient {
                 builder = builder.header("mcp-session-id", sid);
             }
 
-            let resp = builder.send().await.map_err(|e| {
-                MikarenoError::Http(format!("notifications/initialized: {}", e))
-            })?;
+            let resp = builder
+                .send()
+                .await
+                .map_err(|e| MikarenoError::Http(format!("notifications/initialized: {}", e)))?;
             let status = resp.status();
             if status.is_success() {
                 Ok::<(), MikarenoError>(())
@@ -934,11 +937,7 @@ impl MikarenoClient {
                 }
                 Ok(Err(TransportError::Other(e))) => return Err(e),
                 Err(_) => {
-                    warn!(
-                        "MCP {} timed out after {}s",
-                        op,
-                        budget.as_secs()
-                    );
+                    warn!("MCP {} timed out after {}s", op, budget.as_secs());
                     self.mark_disconnected();
                     return Err(MikarenoError::Unexpected(format!(
                         "MCP sin respuesta a tiempo ({op})"
@@ -1103,7 +1102,10 @@ impl MikarenoClient {
             Ok(h) => h,
             Err(_) => {
                 self.end_refresh(&cache_key);
-                warn!("MCP: sin runtime Tokio, no se lanza el refresco de {}", label);
+                warn!(
+                    "MCP: sin runtime Tokio, no se lanza el refresco de {}",
+                    label
+                );
                 return;
             }
         };
@@ -1234,12 +1236,7 @@ impl MikarenoClient {
     /// Reproduce exactamente la clave que usa [`MikarenoClient::call_tool`]
     /// para poder probar la ruta "stale" sin tocar la red.
     #[cfg(test)]
-    fn seed_cache_for_test(
-        &self,
-        name: &str,
-        args: serde_json::Value,
-        value: serde_json::Value,
-    ) {
+    fn seed_cache_for_test(&self, name: &str, args: serde_json::Value, value: serde_json::Value) {
         let key = format!(
             "call:{}:{}",
             name,
@@ -1499,7 +1496,8 @@ mod tests {
     fn is_session_gone_detects_only_the_404_session_case() {
         // Cuerpo real del servidor MCP 2.3 (`_error_response("Session not
         // found", 404)`).
-        let body = r#"{"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Session not found"}}"#;
+        let body =
+            r#"{"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Session not found"}}"#;
         assert!(is_session_gone(404, body));
 
         // Variante del transporte: "Not Found: Invalid or expired session ID".

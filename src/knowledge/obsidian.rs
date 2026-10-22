@@ -185,15 +185,15 @@ impl KnowledgeService {
         for note in notes {
             // The body of a note only lives on disk. The file is named after
             // the slug, which never carries path separators.
-            let path = self.state.config.notes_dir.join(format!("{}.md", note.slug));
+            let path = self
+                .state
+                .config
+                .notes_dir
+                .join(format!("{}.md", note.slug));
             let content = match std::fs::read_to_string(&path) {
                 Ok(c) => c,
                 Err(e) => {
-                    tracing::warn!(
-                        "Export: cannot read the body of '{}': {}",
-                        note.slug,
-                        e
-                    );
+                    tracing::warn!("Export: cannot read the body of '{}': {}", note.slug, e);
                     continue;
                 }
             };
@@ -210,11 +210,7 @@ impl KnowledgeService {
             let target = out_dir.join(format!("{}.md", vault_note.slug));
             match std::fs::write(&target, vault_note.render()) {
                 Ok(()) => {
-                    tracing::info!(
-                        "Export: '{}' -> {}",
-                        vault_note.title,
-                        target.display()
-                    );
+                    tracing::info!("Export: '{}' -> {}", vault_note.title, target.display());
                     exported.push(ExportedNote {
                         slug: vault_note.slug,
                         title: vault_note.title,
@@ -618,8 +614,16 @@ mod tests {
         assert!(fisica.starts_with("---\n"), "frontmatter: {}", fisica);
         assert!(fisica.contains("title: Física Cuántica"), "{}", fisica);
         assert!(fisica.contains("tags: [ondas, fotones]"), "{}", fisica);
-        assert!(fisica.contains("created: 2026-01-01T00:00:00Z"), "{}", fisica);
-        assert!(fisica.contains("updated: 2026-01-02T00:00:00Z"), "{}", fisica);
+        assert!(
+            fisica.contains("created: 2026-01-01T00:00:00Z"),
+            "{}",
+            fisica
+        );
+        assert!(
+            fisica.contains("updated: 2026-01-02T00:00:00Z"),
+            "{}",
+            fisica
+        );
         assert!(fisica.contains("Ver [[materia]]."), "cuerpo: {}", fisica);
 
         let materia = std::fs::read_to_string(out_dir.join("materia.md")).expect("nota exportada");

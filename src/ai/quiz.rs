@@ -61,7 +61,9 @@ pub enum QuizParseError {
     Empty,
     #[error("model response contained neither JSON nor a recognizable text quiz")]
     Unrecognized,
-    #[error("model response produced {found} usable question(s); at least {MIN_QUESTIONS} are required")]
+    #[error(
+        "model response produced {found} usable question(s); at least {MIN_QUESTIONS} are required"
+    )]
     TooFewQuestions { found: usize },
 }
 
@@ -219,7 +221,12 @@ fn quiz_from_json(value: &Value) -> Option<Quiz> {
                     // Nested shape: {"quiz": {"questions": [...]}}
                     return quiz_from_json(&Value::Object(inner.clone()));
                 }
-                Some(_) => return Some(Quiz { title, questions: Vec::new() }),
+                Some(_) => {
+                    return Some(Quiz {
+                        title,
+                        questions: Vec::new(),
+                    })
+                }
                 None => return None,
             };
             let questions = items.iter().filter_map(question_from_json).collect();
@@ -318,7 +325,13 @@ fn resolve_json_answer(raw: &Value, options: &[String]) -> Option<usize> {
         Value::Object(map) => {
             if let Some(v) = first_value(
                 map,
-                &["index", "correct_answer", "correctAnswer", "answer", "position"],
+                &[
+                    "index",
+                    "correct_answer",
+                    "correctAnswer",
+                    "answer",
+                    "position",
+                ],
             ) {
                 return resolve_json_answer(v, options);
             }
@@ -522,7 +535,10 @@ fn parse_option_line(line: &str) -> Option<(Option<char>, String)> {
                 let after = &rest[c.len_utf8()..];
                 if after.starts_with(')') {
                     let letter = c.to_ascii_uppercase();
-                    let text = after[1..].trim_start_matches(['.', ')', ':', '-']).trim().to_string();
+                    let text = after[1..]
+                        .trim_start_matches(['.', ')', ':', '-'])
+                        .trim()
+                        .to_string();
                     return Some((Some(letter), text));
                 }
             }
@@ -557,13 +573,20 @@ fn parse_question_line(line: &str) -> Option<String> {
     if let Some(rest) = strip_keyword_prefix(t, "pregunta") {
         let mut rest = rest.trim_start();
         if let Some(tail) = rest.strip_prefix('s') {
-            if !tail.chars().next().map(|c| c.is_alphabetic()).unwrap_or(false) {
+            if !tail
+                .chars()
+                .next()
+                .map(|c| c.is_alphabetic())
+                .unwrap_or(false)
+            {
                 rest = tail.trim_start();
             }
         }
         let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
         let text = if digits.is_empty() {
-            rest.trim_start_matches([':', '.', ')', '-']).trim().to_string()
+            rest.trim_start_matches([':', '.', ')', '-'])
+                .trim()
+                .to_string()
         } else {
             rest[digits.len()..]
                 .trim_start()
@@ -580,7 +603,10 @@ fn parse_question_line(line: &str) -> Option<String> {
         let tail = t[digits.len()..].trim_start();
         let sep = tail.chars().next()?;
         if matches!(sep, '.' | ')' | ':') {
-            let text = tail[1..].trim_start_matches(['-', '\u{2013}']).trim().to_string();
+            let text = tail[1..]
+                .trim_start_matches(['-', '\u{2013}'])
+                .trim()
+                .to_string();
             return Some(text);
         }
     }
@@ -593,9 +619,11 @@ fn is_bare_answer(s: &str) -> bool {
     if t.is_empty() || t.chars().count() > 2 {
         return false;
     }
-    t.chars()
-        .all(|c| c.is_ascii_alphanumeric())
-        && t.chars().next().map(|c| c.is_ascii_alphabetic() || c.is_ascii_digit()) == Some(true)
+    t.chars().all(|c| c.is_ascii_alphanumeric())
+        && t.chars()
+            .next()
+            .map(|c| c.is_ascii_alphabetic() || c.is_ascii_digit())
+            == Some(true)
 }
 
 /// Resolve an answer token into an index into `options`.
@@ -670,7 +698,11 @@ fn resolve_answer(
         let tail = t[digits.len()..].trim();
         if tail.is_empty() || tail.starts_with([')', '.', ':', '-', ',']) {
             let n: usize = digits.parse().ok()?;
-            let idx = if numeric_base == 1 { n.checked_sub(1)? } else { n };
+            let idx = if numeric_base == 1 {
+                n.checked_sub(1)?
+            } else {
+                n
+            };
             if idx < options.len() {
                 return Some(idx);
             }
@@ -831,10 +863,7 @@ fn match_balanced(chars: &[char], start: usize) -> Option<usize> {
 // ---------------------------------------------------------------------------
 
 /// First present key of a JSON object.
-fn first_value<'a>(
-    map: &'a serde_json::Map<String, Value>,
-    keys: &[&str],
-) -> Option<&'a Value> {
+fn first_value<'a>(map: &'a serde_json::Map<String, Value>, keys: &[&str]) -> Option<&'a Value> {
     keys.iter().find_map(|k| map.get(*k))
 }
 
@@ -861,7 +890,9 @@ fn strip_keyword_prefix<'a>(text: &'a str, keyword: &str) -> Option<&'a str> {
 
 /// Remove markdown emphasis markers.
 fn strip_emphasis(s: &str) -> String {
-    s.chars().filter(|c| !matches!(c, '*' | '`' | '~')).collect()
+    s.chars()
+        .filter(|c| !matches!(c, '*' | '`' | '~'))
+        .collect()
 }
 
 /// Clean a title line (strip leading hashes and emphasis).
@@ -954,7 +985,10 @@ Espero que te sirva."#;
             assert_eq!(q.options.len(), OPTION_COUNT);
             assert!(q.correct_answer < q.options.len());
         }
-        assert_eq!(quiz.questions[0].question, "¿Año de la Revolución Francesa?");
+        assert_eq!(
+            quiz.questions[0].question,
+            "¿Año de la Revolución Francesa?"
+        );
         assert_eq!(quiz.questions[3].correct_answer, 1);
     }
 
@@ -987,7 +1021,10 @@ Correcta: D\n";
         assert_eq!(quiz.questions[0].correct_answer, 1);
         assert_eq!(quiz.questions[1].correct_answer, 2);
         assert_eq!(quiz.questions[2].correct_answer, 3);
-        assert!(quiz.questions.iter().all(|q| q.options.len() == OPTION_COUNT));
+        assert!(quiz
+            .questions
+            .iter()
+            .all(|q| q.options.len() == OPTION_COUNT));
 
         // Garbage: neither JSON nor a recognizable text quiz.
         let err = Quiz::parse_model_response("Lo siento, no puedo generar un cuestionario ahora.")
@@ -995,10 +1032,8 @@ Correcta: D\n";
         assert!(matches!(err, QuizParseError::Unrecognized));
 
         // A question with an empty "Correcta:" must not produce a broken quiz.
-        let err = Quiz::parse_model_response(
-            "Pregunta 1: ¿X?\nA) 1\nB) 2\nC) 3\nD) 4\nCorrecta: ",
-        )
-        .expect_err("empty answer must fail");
+        let err = Quiz::parse_model_response("Pregunta 1: ¿X?\nA) 1\nB) 2\nC) 3\nD) 4\nCorrecta: ")
+            .expect_err("empty answer must fail");
         assert!(matches!(err, QuizParseError::TooFewQuestions { found: 0 }));
 
         // Empty response.

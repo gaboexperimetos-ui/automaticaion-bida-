@@ -132,7 +132,12 @@ pub fn dia_a_weekday(dia: &str) -> Option<Weekday> {
 
 /// Etiqueta `Lunes 19` para una fecha: día en español (`weekday_es`) + día del mes.
 pub fn etiqueta_dia(fecha: NaiveDate) -> String {
-    let iso = format!("{:04}-{:02}-{:02}", fecha.year(), fecha.month(), fecha.day());
+    let iso = format!(
+        "{:04}-{:02}-{:02}",
+        fecha.year(),
+        fecha.month(),
+        fecha.day()
+    );
     format!("{} {}", templates::weekday_es(&iso), fecha.day())
 }
 

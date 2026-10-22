@@ -70,7 +70,13 @@ async fn setup_test_state() -> Arc<AppState> {
     .await
     .unwrap();
 
-    Arc::new(AppState { config, db: pool,
+    Arc::new(AppState {
+        cache_mikareno: std::sync::Arc::new(
+            study_platform::academic::calendar_data::CacheMikareno::default(),
+        ),
+        cache_catalogo: std::sync::Arc::new(study_platform::ai::modelos::CacheCatalogo::default()),
+        config,
+        db: pool,
         mikareno: None,
         start_time: std::time::Instant::now(),
     })
@@ -238,9 +244,13 @@ async fn test_mikareno_client_not_localhost() {
         .unwrap();
 
     let state = Arc::new(AppState {
+        cache_mikareno: std::sync::Arc::new(
+            study_platform::academic::calendar_data::CacheMikareno::default(),
+        ),
+        cache_catalogo: std::sync::Arc::new(study_platform::ai::modelos::CacheCatalogo::default()),
         config: Config {
-        db_max_connections: 4,
-        mcp_timeout_ms: 5_000,
+            db_max_connections: 4,
+            mcp_timeout_ms: 5_000,
             mikareno_mcp_url: "http://remote.example.com/mcp".to_string(),
             ..config
         },

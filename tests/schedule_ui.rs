@@ -112,6 +112,10 @@ async fn setup_app() -> TestApp {
     .expect("sembrar usuario byron");
 
     let state = Arc::new(AppState {
+        cache_mikareno: std::sync::Arc::new(
+            study_platform::academic::calendar_data::CacheMikareno::default(),
+        ),
+        cache_catalogo: std::sync::Arc::new(study_platform::ai::modelos::CacheCatalogo::default()),
         config,
         db: pool,
         mikareno: None,

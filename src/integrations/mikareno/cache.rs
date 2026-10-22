@@ -211,7 +211,12 @@ fn approx_size(v: &Value) -> usize {
         Value::Null | Value::Bool(_) | Value::Number(_) => NODE,
         Value::String(s) => NODE + s.len(),
         Value::Array(a) => NODE + a.iter().map(approx_size).sum::<usize>(),
-        Value::Object(m) => NODE + m.iter().map(|(k, v)| k.len() + approx_size(v)).sum::<usize>(),
+        Value::Object(m) => {
+            NODE + m
+                .iter()
+                .map(|(k, v)| k.len() + approx_size(v))
+                .sum::<usize>()
+        }
     }
 }
 

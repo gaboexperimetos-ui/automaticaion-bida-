@@ -16,32 +16,46 @@ use crate::middleware::auth::{extract_session_cookie, require_auth_state};
 use crate::middleware::rate_limit::rate_limit_middleware;
 use crate::AppState;
 
+mod admin;
 mod api;
 mod auth;
+pub mod calendar_annotations;
 mod dashboard;
 pub mod handoff;
 pub mod material;
 pub mod notes;
+pub mod schedule;
 mod search;
 pub mod settings;
-pub mod stitch_panel;
+mod static_ui;
 pub mod stitch_chat;
 pub mod stitch_mcp;
 pub mod stitch_notes;
+pub mod stitch_panel;
 pub mod stitch_v2;
-mod admin;
-pub mod calendar_annotations;
-pub mod schedule;
-mod static_ui;
 
 /// Build the main application router.
 pub fn router(state: Arc<AppState>) -> Router {
     // Public routes — no authentication required
     let public = Router::new()
-        .route("/dashboard", get(stitch_v2::stitch_dashboard).layer(from_fn_with_state(state.clone(), require_auth_state)))
-        .route("/dashboard/ai", get(stitch_chat::page).layer(from_fn_with_state(state.clone(), require_auth_state)))
-        .route("/dashboard/notes", get(stitch_v2::stitch_notes).layer(from_fn_with_state(state.clone(), require_auth_state)))
-        .route("/dashboard/mcp", get(stitch_v2::stitch_mcp).layer(from_fn_with_state(state.clone(), require_auth_state)))
+        .route(
+            "/dashboard",
+            get(stitch_v2::stitch_dashboard)
+                .layer(from_fn_with_state(state.clone(), require_auth_state)),
+        )
+        .route(
+            "/dashboard/ai",
+            get(stitch_chat::page).layer(from_fn_with_state(state.clone(), require_auth_state)),
+        )
+        .route(
+            "/dashboard/notes",
+            get(stitch_v2::stitch_notes)
+                .layer(from_fn_with_state(state.clone(), require_auth_state)),
+        )
+        .route(
+            "/dashboard/mcp",
+            get(stitch_v2::stitch_mcp).layer(from_fn_with_state(state.clone(), require_auth_state)),
+        )
         .route("/login", get(auth::login_form).post(auth::login_submit))
         .route("/register", post(auth::register))
         .route("/logout", post(auth::logout))
@@ -77,7 +91,10 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/app/notes/{slug}/edit", get(notes::edit))
         .route("/app/notes/{slug}/update", put(notes::update))
         .route("/app/notes/{slug}/delete", delete(notes::delete))
-        .route("/dashboard/material", get(material::page).post(material::generate))
+        .route(
+            "/dashboard/material",
+            get(material::page).post(material::generate),
+        )
         .route("/api/notes", get(notes::api_list).post(notes::api_create))
         .route(
             "/api/notes/{slug}",
@@ -103,7 +120,10 @@ pub fn router(state: Arc<AppState>) -> Router {
             "/api/admin/backup",
             get(admin::backup).post(admin::backup_now_handler),
         )
-        .route("/api/admin/backup/restore", post(admin::backup_restore_handler))
+        .route(
+            "/api/admin/backup/restore",
+            post(admin::backup_restore_handler),
+        )
         .route(
             "/api/admin/backup/download/{name}",
             get(admin::backup_download_handler),
@@ -154,10 +174,7 @@ pub fn router(state: Arc<AppState>) -> Router {
 /// `/api/*` lo consume el frontend con `fetch` y `/mcp` es JSON-RPC: un
 /// cuerpo HTML los rompe, así que ambos responden `{"error":"not_found"}`.
 fn es_ruta_json(path: &str) -> bool {
-    path == "/api"
-        || path.starts_with("/api/")
-        || path == "/mcp"
-        || path.starts_with("/mcp/")
+    path == "/api" || path.starts_with("/api/") || path == "/mcp" || path.starts_with("/mcp/")
 }
 
 /// Contenido de la página 404 (el shell Stitch v2 lo envuelve después).

@@ -53,14 +53,17 @@ const TTL_CATALOGO: Duration = Duration::from_secs(1800);
 /// Se usa cuando no hay clave de API o el proveedor no responde, para que la
 /// lista nunca esté vacía y el usuario pueda elegir.
 const MODELOS_RESPALDO: &[(&str, &str)] = &[
-    ("minimax/minimax-m3.1-flash:free", "MiniMax M3.1 Flash"),
+    (
+        "nvidia/nemotron-3-ultra-550b-a55b:free",
+        "Nemotron 3 Ultra 550B",
+    ),
     ("poolside/laguna-s-2.1:free", "Laguna S 2.1"),
     ("poolside/laguna-xs-2.1:free", "Laguna XS 2.1"),
     ("cohere/north-mini-code:free", "North Mini Code"),
     ("thinkingmachines/inkling:free", "Inkling"),
     ("thinkingmachines/inkling-small:free", "Inkling Small"),
     ("liquid/lfm-2.5-2.6b:free", "LFM 2.5 2.6B"),
-    ("nvidia/nemotron-3.5-lightning:free", "Nemotron 3.5 Lightning"),
+    ("google/gemma-4-31b-it:free", "Gemma 4 31B"),
 ];
 
 /// Un modelo del catálogo.
@@ -173,10 +176,11 @@ pub async fn catalogo(state: &Arc<AppState>) -> Vec<ModeloInfo> {
 /// Modelo activo: el de `app_config` si el usuario eligió uno; si no, el del
 /// `.env` (`OPENROUTER_MODEL`).
 pub async fn modelo_activo(state: &Arc<AppState>) -> String {
-    if let Ok(Some(v)) = sqlx::query_scalar::<_, String>("SELECT value FROM app_config WHERE key = ?")
-        .bind(CLAVE_MODELO)
-        .fetch_optional(&state.db)
-        .await
+    if let Ok(Some(v)) =
+        sqlx::query_scalar::<_, String>("SELECT value FROM app_config WHERE key = ?")
+            .bind(CLAVE_MODELO)
+            .fetch_optional(&state.db)
+            .await
     {
         let v = v.trim().to_string();
         if !v.is_empty() {

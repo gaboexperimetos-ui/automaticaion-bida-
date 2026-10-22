@@ -225,7 +225,10 @@ pub async fn index(
                     warn_rearmar(CLAVE_PERFIL);
                 }
                 Ok(Err(e)) => {
-                    warn_una_vez(CLAVE_PERFIL, &format!("MCP: no se pudo leer el perfil: {e}"));
+                    warn_una_vez(
+                        CLAVE_PERFIL,
+                        &format!("MCP: no se pudo leer el perfil: {e}"),
+                    );
                 }
                 Err(_) => {
                     warn_una_vez(
@@ -325,7 +328,10 @@ mod tests {
         assert!(html.contains(r#"aria-valuenow="28""#), "html: {html}");
         assert!(html.contains(r#"style="width: 28%""#), "html: {html}");
         // Relleno con color (clase bg-*) y no solo de texto.
-        assert!(html.contains(r#"class="h-full bg-red-400""#), "html: {html}");
+        assert!(
+            html.contains(r#"class="h-full bg-red-400""#),
+            "html: {html}"
+        );
     }
 
     #[test]

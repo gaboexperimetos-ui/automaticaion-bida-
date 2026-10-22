@@ -138,6 +138,10 @@ async fn setup_app() -> TestApp {
         .expect("Failed to seed admin session");
 
     let state = Arc::new(AppState {
+        cache_mikareno: std::sync::Arc::new(
+            study_platform::academic::calendar_data::CacheMikareno::default(),
+        ),
+        cache_catalogo: std::sync::Arc::new(study_platform::ai::modelos::CacheCatalogo::default()),
         config: config.clone(),
         db: pool,
         mikareno: None,

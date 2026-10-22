@@ -25,7 +25,7 @@ use std::time::Instant;
 use argon2::password_hash::SaltString;
 use argon2::{Argon2, PasswordHasher};
 use axum::body::Body;
-use axum::http::{Request, StatusCode, header};
+use axum::http::{header, Request, StatusCode};
 use sqlx::sqlite::SqlitePoolOptions;
 use tower::ServiceExt;
 
@@ -124,6 +124,10 @@ async fn setup_state(api_key: &str, model: &str) -> LiveApp {
         .expect("set admin password");
 
     let state = Arc::new(AppState {
+        cache_mikareno: std::sync::Arc::new(
+            study_platform::academic::calendar_data::CacheMikareno::default(),
+        ),
+        cache_catalogo: std::sync::Arc::new(study_platform::ai::modelos::CacheCatalogo::default()),
         config,
         db: pool.clone(),
         mikareno: None,
@@ -262,7 +266,10 @@ async fn test_live_openrouter_chat_cycle() {
         !content.contains("[Modo simulado]"),
         "response came from mock mode — the API key was not used"
     );
-    println!("live test: model replied with {} chars", content.chars().count());
+    println!(
+        "live test: model replied with {} chars",
+        content.chars().count()
+    );
 
     // --- 3. Usage row persisted by the budget gate ---
     let rows: Vec<(String, i64, i64, f64, i64)> = sqlx::query_as(

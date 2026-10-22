@@ -83,6 +83,12 @@
     "#sp-coleccion{max-width:16rem;background:#1c2025;color:#e0e2ea;border:1px solid #3c4946;border-radius:.55rem;padding:.3rem .45rem;font:500 .75rem/1.2 'Hanken Grotesk',sans-serif;cursor:pointer}",
     "#sp-coleccion[data-vista]{border-color:#5eead4;color:#5eead4}",
     ".sp-banner{display:flex;align-items:center;gap:.5rem;margin:.8rem;padding:.7rem .9rem;border-radius:.6rem;background:#1c2025;border:1px solid #3c4946;color:#bbcac5;font:500 .8125rem/1.35 'Hanken Grotesk',sans-serif}",
+    ".sp-html{display:grid;gap:.55rem}",
+    ".sp-field{display:grid;gap:.25rem}",
+    ".sp-field-label{font:600 .7rem/1.2 'Hanken Grotesk',sans-serif;color:#bbcac5;text-transform:uppercase;letter-spacing:.05em}",
+    ".sp-input{width:100%;background:#12161a;border:1px solid #3c4946;border-radius:.5rem;padding:.5rem .6rem;color:#e0e2ea;font:400 .8125rem/1.4 'Hanken Grotesk',sans-serif}",
+    ".sp-input:focus{outline:2px solid #5eead4;outline-offset:-1px}",
+    ".sp-anot-lista{display:grid;gap:.35rem}",
     ".sp-link{color:#5eead4;font-weight:600;text-decoration:underline;white-space:nowrap}",
     "[data-rec='1']{color:#9ed753!important;animation:sp-pulse 1.2s ease-in-out infinite}",
     "@keyframes sp-pulse{50%{opacity:.55}}"
@@ -237,6 +243,12 @@
           input.maxLength = opts.field.max || 120;
           if (opts.field.value) { input.value = opts.field.value; }
           form.appendChild(input);
+        } else if (opts.html) {
+          // Contenido libre (formulario compuesto): se inyecta en el box.
+          var cont = el("div", "sp-html");
+          if (typeof opts.html === "string") { cont.innerHTML = opts.html; }
+          else if (opts.html.nodeType) { cont.appendChild(opts.html); }
+          box.appendChild(cont);
         }
         var acts = el("div", "sp-actions");
         var cancel = el("button", "sp-btn ghost", "Cancelar");
@@ -253,6 +265,11 @@
             var v = (input.value || "").trim();
             if (!v) { input.focus(); return; }
             done(v);
+          } else if (opts.onOk) {
+            // El callback decide qué se devuelve (o cancela con `false`).
+            var r = opts.onOk(box);
+            if (r === false) { return; }
+            done(r === undefined ? true : r);
           } else { done(true); }
         });
         box.appendChild(form);
@@ -1115,6 +1132,133 @@
   /* =================================================================
    *  ASISTENTE IA: chips, attach, microfono
    * ================================================================= */
+  /* =================================================================
+   *  CALENDARIO: anotaciones locales del usuario
+   * ================================================================= */
+  function initCalendar() {
+    var grid = document.getElementById("calendar-grid");
+    if (!grid) { return; }
+
+    function dialogoAnotacion(fecha, anotacion) {
+      var cuerpo = document.createElement("div");
+      cuerpo.innerHTML =
+        '<label class="sp-field"><span class="sp-field-label">Titulo</span>' +
+        '<input class="sp-input" id="sp-anot-titulo" maxlength="120" placeholder="Ej. Examen de matematicas"></label>' +
+        '<label class="sp-field"><span class="sp-field-label">Nota</span>' +
+        '<textarea class="sp-input" id="sp-anot-cuerpo" rows="4" maxlength="4000" placeholder="Detalles, material que llevar, recordatorios..."></textarea></label>' +
+        '<div class="sp-anot-lista" id="sp-anot-lista"></div>';
+      SP.dialog({
+        title: anotacion ? "Editar anotacion" : "Anotar el " + fecha,
+        html: cuerpo,
+        ok: anotacion ? "Guardar" : "Anotar",
+        onOk: function (box) {
+          var t = box.querySelector("#sp-anot-titulo");
+          var c = box.querySelector("#sp-anot-cuerpo");
+          return { title: t ? t.value : "", body: c ? c.value : "" };
+        }
+      }).then(function (res) {
+        if (!res) { return; }
+        var json = res;
+        var p = anotacion
+          ? SP.api("/api/calendar/annotations/" + anotacion.id, { method: "PUT", json: json })
+          : SP.api("/api/calendar/annotations", { method: "POST", json: { date: fecha, title: json.title, body: json.body } });
+        p.then(function () {
+          SP.toast(anotacion ? "Anotacion actualizada" : "Anotacion guardada", "ok");
+          setTimeout(function () { window.location.reload(); }, 500);
+        }).catch(function (err) { SP.toast(msgErr(err), "err"); });
+      });
+    }
+
+    function listar(fecha) {
+      SP.api("/api/calendar/annotations?from=" + fecha + "&to=" + fecha).then(function (d) {
+        var lista = (d && d.annotations) || [];
+        if (!lista.length) { dialogoAnotacion(fecha, null); return; }
+        var items = lista.map(function (a) {
+          return { label: a.title || a.body.slice(0, 40) || "Anotacion", sub: a.body ? a.body.slice(0, 60) : "", icon: "sticky_note_2", value: a };
+        });
+        items.push({ label: "Anadir otra anotacion", icon: "add", value: "new" });
+        SP.dialog({ title: "Anotaciones del " + fecha, items: items }).then(function (v) {
+          if (!v) { return; }
+          if (v === "new") { dialogoAnotacion(fecha, null); return; }
+          if (typeof v === "object" && v.id) { dialogoAnotacion(fecha, v); }
+        });
+      }).catch(function (err) { SP.toast(msgErr(err), "err"); });
+    }
+
+    grid.addEventListener("click", function (e) {
+      var cell = e.target.closest ? e.target.closest(".calendar-cell") : null;
+      if (!cell) { return; }
+      var fecha = cell.getAttribute("data-date");
+      if (!fecha) { return; }
+      e.preventDefault();
+      e.stopPropagation();
+      listar(fecha);
+    });
+
+    // Clic derecho: borrar anotación directamente (atajo para limpiar).
+    grid.addEventListener("contextmenu", function (e) {
+      var cell = e.target.closest ? e.target.closest(".calendar-cell") : null;
+      if (!cell) { return; }
+      var fecha = cell.getAttribute("data-date");
+      if (!fecha) { return; }
+      e.preventDefault();
+      SP.api("/api/calendar/annotations?from=" + fecha + "&to=" + fecha).then(function (d) {
+        var lista = (d && d.annotations) || [];
+        if (!lista.length) { return; }
+        SP.api("/api/calendar/annotations/" + lista[0].id, { method: "DELETE" }).then(function () {
+          SP.toast("Anotacion borrada", "ok");
+          setTimeout(function () { window.location.reload(); }, 400);
+        }).catch(function (err) { SP.toast(msgErr(err), "err"); });
+      }).catch(function () { });
+    });
+  }
+
+  /* =================================================================
+   *  ASISTENTE: selector de modelo free de OpenRouter
+   * ================================================================= */
+  function initModelPicker() {
+    var chips = document.querySelectorAll("#modelo-chip, [data-sp-modelo]");
+    if (!chips.length) { return; }
+
+    function pintar(mensaje) {
+      chips.forEach(function (c) {
+        var span = c.querySelector("[data-sp-modelo-nombre]") || c;
+        span.textContent = mensaje;
+      });
+    }
+
+    SP.api("/api/ai/models").then(function (d) {
+      var modelos = (d && d.models) || [];
+      if (!modelos.length) { return; }
+      var activo = d.active || "";
+      chips.forEach(function (c) {
+        var span = c.querySelector("[data-sp-modelo-nombre]") || c;
+        var m = modelos.filter(function (x) { return x.id === activo; })[0];
+        span.textContent = m ? m.name : activo;
+        once(c, "spModelo", function (chip) {
+          chip.addEventListener("click", function (e) {
+            e.preventDefault();
+            var items = modelos.map(function (x) {
+              return {
+                label: x.name,
+                sub: x.id,
+                icon: x.id === activo ? "check_circle" : "memory",
+                value: x.id
+              };
+            });
+            SP.dialog({ title: "Modelo de IA (solo los free de OpenRouter)", items: items }).then(function (id) {
+              if (!id || id === activo) { return; }
+              SP.api("/api/ai/model", { method: "PUT", json: { model: id } }).then(function () {
+                SP.toast("Modelo cambiado a " + id, "ok", 4000);
+                pintar(id);
+              }).catch(function (err) { SP.toast(msgErr(err), "err"); });
+            });
+          });
+        });
+      });
+    }).catch(function () { });
+  }
+
   function initAssistant() {
     var promptInput = document.getElementById("prompt-input");
     var sendBtn = document.getElementById("send-btn");
@@ -1330,6 +1474,8 @@
     initTopbarCreate();
     initDashboards();
     initCollectionsSafe();
+    initCalendar();
+    initModelPicker();
     initNotesEditor();
     initAssistant();
     initSettings();

@@ -66,9 +66,7 @@ fn make_response(content: &[u8], content_type: &'static str) -> Response<Body> {
 /// archivo cambia con cada build, así que basta con revalidar.
 fn make_response_with_cache(content: &[u8], content_type: &'static str) -> Response<Body> {
     let mut resp = make_response(content, content_type);
-    resp.headers_mut().insert(
-        header::CACHE_CONTROL,
-        HeaderValue::from_static("no-cache"),
-    );
+    resp.headers_mut()
+        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));
     resp
 }

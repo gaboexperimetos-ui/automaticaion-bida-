@@ -310,9 +310,7 @@ const COPY_ENV_SCRIPT: &str = r####"<script>
 })();
 </script>"####;
 
-const CONTENT_SETTINGS: &str = include_str!(
-    "../../static/stitch-v2/_content/clean/settings.html"
-);
+const CONTENT_SETTINGS: &str = include_str!("../../static/stitch-v2/_content/clean/settings.html");
 
 /// Bloque antiguo de la sección IA en el template estático (`include_str!` es
 /// de sólo lectura): se reemplaza en runtime por la tarjeta "IA / OpenRouter".
@@ -397,7 +395,8 @@ pub async fn fetch_settings_data(state: &AppState) -> SettingsData {
 fn render_mcp_dot(d: &SettingsData) -> String {
     match d.mcp_probe {
         McpProbe::Connected { .. } => {
-            r#"<span class="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span>"#.to_string()
+            r#"<span class="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span>"#
+                .to_string()
         }
         // "Sin respuesta" no es "sin conexión": el MCP puede estar vivo y
         // sólo ir lento. Se distingue con un punto ámbar.
@@ -485,7 +484,11 @@ fn render_ai_badge(d: &SettingsData) -> String {
 /// de línea del modelo se aplanan para que el bloque siga siendo un `.env`
 /// válido (una línea por variable).
 fn env_block_text(model: &str, max_tokens: u32, max_cost_usd: f64) -> String {
-    let model = model.replace('\n', " ").replace('\r', " ").trim().to_string();
+    let model = model
+        .replace('\n', " ")
+        .replace('\r', " ")
+        .trim()
+        .to_string();
     format!(
         "OPENROUTER_MODEL={model}\nOPENROUTER_MAX_TOKENS={max_tokens}\nOPENROUTER_MAX_COST_USD={max_cost_usd:.2}"
     )
@@ -828,11 +831,7 @@ pub async fn page(
     let data = fetch_settings_data(&state).await;
     let content = settings_content(&data);
     let authenticated = state.config.auth_disabled || extract_session_cookie(&req).is_some();
-    let html = crate::handlers::stitch_v2::stitch_v2_page(
-        "configuracion",
-        &content,
-        authenticated,
-    );
+    let html = crate::handlers::stitch_v2::stitch_v2_page("configuracion", &content, authenticated);
     let shell = crate::handlers::stitch_panel::fetch_shell_data(&state).await;
     let html = crate::handlers::stitch_panel::fill_shell(&html, &shell);
     (StatusCode::OK, Html(html))

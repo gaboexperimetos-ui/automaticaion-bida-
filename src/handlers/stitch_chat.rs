@@ -49,7 +49,8 @@ use crate::AppState;
 const MCP_TIMEOUT_SECS: u64 = 10;
 
 /// HTML del kit Stitch para el asistente (el que rellena `fill_chat`).
-const CONTENT_ASISTENTE: &str = include_str!("../../static/stitch-v2/_content/clean/asistente.html");
+const CONTENT_ASISTENTE: &str =
+    include_str!("../../static/stitch-v2/_content/clean/asistente.html");
 
 /// Longitud máxima de una materia (el input de "nueva materia" usa 60).
 const MAX_SUBJECT_LEN: usize = 60;
@@ -180,10 +181,7 @@ where
             }
         }
 
-        fn visit_map<A: serde::de::MapAccess<'de>>(
-            self,
-            _map: A,
-        ) -> Result<Self::Value, A::Error> {
+        fn visit_map<A: serde::de::MapAccess<'de>>(self, _map: A) -> Result<Self::Value, A::Error> {
             Ok(None)
         }
     }
@@ -911,8 +909,10 @@ pub async fn fetch_chat_data(state: &AppState) -> ChatPanelData {
 /// antemano (la que pide `?subject=`). Si no se indica ninguna, o la
 /// indicada no existe, manda la materia más reciente de `chat_history`.
 pub async fn fetch_chat_data_for(state: &AppState, subject: Option<&str>) -> ChatPanelData {
+    // El modelo mostrado es el activo: el que el usuario eligió en la
+    // interfaz (`app_config`) o, si no, el del `.env`.
     let mut d = ChatPanelData {
-        model: state.config.openrouter_model.clone(),
+        model: crate::ai::openrouter::modelo_configurado(&state.db, &state.config).await,
         api_configured: state.config.openrouter_api_key.is_some(),
         ..Default::default()
     };
@@ -1089,8 +1089,14 @@ pub async fn page(
 
 /// Nombre del modelo configurado, tal cual llega a `state.config` (el kit lo
 /// coloca tras el punto de modo en la telemetría).
+///
+/// Se renderiza como chip clicable: `shell.js` (`initModelPicker`) abre ahí el
+/// selector de modelos free de OpenRouter y guarda la elección en `app_config`.
 fn render_model(d: &ChatPanelData) -> String {
-    model_display(&d.model)
+    let nombre = model_display(&d.model);
+    format!(
+        r#"<button type="button" id="modelo-chip" data-sp-modelo class="flex items-center gap-1 hover:underline transition-colors" title="Cambiar de modelo de IA (solo modelos free de OpenRouter)"><span data-sp-modelo-nombre>{nombre}</span><span aria-hidden="true">▾</span></button>"#
+    )
 }
 
 /// Punto + etiqueta de modo: esquina inferior del bloque de telemetría
@@ -1108,7 +1114,11 @@ fn render_mode(d: &ChatPanelData) -> String {
 
 /// Solo el punto de modo (va junto al nombre del modelo).
 fn render_mode_dot(d: &ChatPanelData) -> String {
-    let dot = if d.api_configured { "bg-secondary" } else { "bg-outline" };
+    let dot = if d.api_configured {
+        "bg-secondary"
+    } else {
+        "bg-outline"
+    };
     format!(r#"<span class="w-1.5 h-1.5 rounded-full {dot} animate-pulse"></span>"#)
 }
 
@@ -1252,7 +1262,11 @@ fn render_sessions(d: &ChatPanelData) -> String {
     for s in d.sessions.iter() {
         let (key, label) = session_bucket(&s.last_at, &today_iso);
         if key != shown.as_str() {
-            let pad = if out.is_empty() { "pt-space-xs" } else { "pt-space-sm" };
+            let pad = if out.is_empty() {
+                "pt-space-xs"
+            } else {
+                "pt-space-sm"
+            };
             out.push_str(&format!(
                 r#"<div class="px-space-sm {pad} pb-1 font-label-sm text-[10px] tracking-wider uppercase text-outline">{label}</div>"#,
                 pad = pad,
@@ -1630,9 +1644,18 @@ mod tests {
             !script.contains(SUBJECT_MARKER),
             "queda el marcador del asunto"
         );
-        assert!(!script.contains(CLASSES_MARKER), "queda el marcador de clases");
-        assert!(!script.contains(LIMIT_MARKER), "queda el marcador del límite");
-        assert!(!script.contains(MODEL_MARKER), "queda el marcador del modelo");
+        assert!(
+            !script.contains(CLASSES_MARKER),
+            "queda el marcador de clases"
+        );
+        assert!(
+            !script.contains(LIMIT_MARKER),
+            "queda el marcador del límite"
+        );
+        assert!(
+            !script.contains(MODEL_MARKER),
+            "queda el marcador del modelo"
+        );
         assert!(!script.contains("__CFG__"), "queda un marcador ajeno");
         assert!(!script.contains("/*__"), "queda un marcador en comentario");
 
@@ -1809,12 +1832,21 @@ mod tests {
     fn la_materia_se_normaliza() {
         assert_eq!(normalize_subject(None), None);
         assert_eq!(normalize_subject(Some("   ")), None);
-        assert_eq!(normalize_subject(Some("  Cálculo  ")).as_deref(), Some("Cálculo"));
+        assert_eq!(
+            normalize_subject(Some("  Cálculo  ")).as_deref(),
+            Some("Cálculo")
+        );
         // Los caracteres de control no pueden colarse.
-        assert_eq!(normalize_subject(Some("Cálculo\n")).as_deref(), Some("Cálculo"));
+        assert_eq!(
+            normalize_subject(Some("Cálculo\n")).as_deref(),
+            Some("Cálculo")
+        );
         // La longitud está acotada.
         let largo = "x".repeat(500);
-        assert_eq!(normalize_subject(Some(&largo)).unwrap().len(), MAX_SUBJECT_LEN);
+        assert_eq!(
+            normalize_subject(Some(&largo)).unwrap().len(),
+            MAX_SUBJECT_LEN
+        );
     }
 
     #[test]
@@ -1829,7 +1861,9 @@ mod tests {
         // Sin query no hay materia.
         assert_eq!(query_de("/dashboard/ai").unwrap(), None);
         // Una query vacía se normaliza a "no hay materia".
-        assert!(normalize_subject(query_de("/dashboard/ai?subject=").unwrap().as_deref()).is_none());
+        assert!(
+            normalize_subject(query_de("/dashboard/ai?subject=").unwrap().as_deref()).is_none()
+        );
         // Una query rara no se rechaza (no hay 400).
         assert!(query_de("/dashboard/ai?subject[]=x").is_ok());
         assert!(query_de("/dashboard/ai?otro=1").is_ok());
@@ -1895,6 +1929,10 @@ mod tests {
         }
 
         AppState {
+            cache_mikareno: std::sync::Arc::new(
+                crate::academic::calendar_data::CacheMikareno::default(),
+            ),
+            cache_catalogo: std::sync::Arc::new(crate::ai::modelos::CacheCatalogo::default()),
             config: crate::config::Config {
                 host: "127.0.0.1".to_string(),
                 port: 1,
@@ -1927,7 +1965,10 @@ mod tests {
 
         assert_eq!(d.active_subject.as_deref(), Some("Cálculo"));
         // La sesión más reciente es otra: la materia pedida manda.
-        assert_eq!(d.sessions.first().map(|s| s.subject.as_str()), Some("Biología"));
+        assert_eq!(
+            d.sessions.first().map(|s| s.subject.as_str()),
+            Some("Biología")
+        );
         let (subject, msgs) = d.focus.expect("historial de la materia pedida");
         assert_eq!(subject, "Cálculo");
         assert!(msgs.iter().any(|m| m.content == "¿Qué es un límite?"));
@@ -1955,6 +1996,9 @@ mod tests {
         assert_eq!(active_subject(&d), "Física");
         let html = render_filters(&d);
         assert!(html.contains("<option value=\"Física\" selected>Física</option>"));
-        assert_eq!(linea_subject(&render_stream_script(&d)), r#"var SUBJECT = "Física";"#);
+        assert_eq!(
+            linea_subject(&render_stream_script(&d)),
+            r#"var SUBJECT = "Física";"#
+        );
     }
 }
