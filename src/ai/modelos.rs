@@ -215,27 +215,19 @@ pub struct SetModel {
 
 /// `PUT /api/ai/model` — guarda el modelo elegido.
 ///
-/// Sólo se aceptan modelos que estén en el catálogo real de free: es la
-/// garantía de que esta vía no abre la puerta a un modelo de pago.
+/// Se acepta **cualquier** identificador que acabe en `:free`: es la garantía
+/// de que esta vía no abre la puerta a un modelo de pago, al tiempo que no
+/// bloquea modelos nuevos que el catálogo cacheado (30 min) todavía no lista.
 pub async fn set_model(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<SetModel>,
 ) -> Response {
     let elegido = payload.model.trim().to_string();
-    if elegido.is_empty() {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({ "error": "Indica un modelo" })),
-        )
-            .into_response();
-    }
-
-    let modelos = catalogo(&state).await;
-    if !modelos.iter().any(|m| m.id == elegido) {
+    if !elegido.ends_with(":free") {
         return (
             StatusCode::BAD_REQUEST,
             Json(json!({
-                "error": "Ese modelo no está en la lista de modelos free de OpenRouter",
+                "error": "Solo se aceptan modelos free de OpenRouter (identificadores que acaban en ':free')",
                 "model": elegido,
             })),
         )
