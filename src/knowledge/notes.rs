@@ -493,6 +493,10 @@ mod tests {
         sqlx::migrate!().run(&pool).await.expect("migraciones");
 
         let state = Arc::new(AppState {
+            cache_mikareno: std::sync::Arc::new(
+                crate::academic::calendar_data::CacheMikareno::default(),
+            ),
+            cache_catalogo: std::sync::Arc::new(crate::ai::modelos::CacheCatalogo::default()),
             config,
             db: pool,
             mikareno: None,

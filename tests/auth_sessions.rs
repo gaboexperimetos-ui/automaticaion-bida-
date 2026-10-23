@@ -110,7 +110,13 @@ async fn setup() -> (Arc<AppState>, tempfile::TempDir) {
     .await
     .expect("Failed to seed admin user");
 
-    let state = Arc::new(AppState { config, db: pool,
+    let state = Arc::new(AppState {
+        cache_mikareno: std::sync::Arc::new(
+            study_platform::academic::calendar_data::CacheMikareno::default(),
+        ),
+        cache_catalogo: std::sync::Arc::new(study_platform::ai::modelos::CacheCatalogo::default()),
+        config,
+        db: pool,
         mikareno: None,
         start_time: std::time::Instant::now(),
     });
@@ -127,10 +133,7 @@ fn guarded_router(state: Arc<AppState>) -> Router {
         .route("/dashboard", get(stitch_v2::stitch_dashboard))
         .route("/app/notes", get(notes::list))
         // API route exercising the 401 rejection split for `/api/*`.
-        .route(
-            "/api/thing",
-            get(|| async { StatusCode::OK }),
-        )
+        .route("/api/thing", get(|| async { StatusCode::OK }))
         .route_layer(from_fn_with_state(state.clone(), require_auth_state))
         .with_state(state)
 }
@@ -196,7 +199,10 @@ async fn get_guarded(
 ) -> (StatusCode, String) {
     let app = guarded_router(state);
     let mut builder = Request::builder().uri(uri).header("x-forwarded-for", ip);
-    eprintln!("DEBUG get_guarded uri={uri} cookie={:?}", cookie.map(|s| s.to_string()));
+    eprintln!(
+        "DEBUG get_guarded uri={uri} cookie={:?}",
+        cookie.map(|s| s.to_string())
+    );
     if let Some(c) = cookie {
         builder = builder.header("cookie", c);
     }
@@ -348,7 +354,13 @@ async fn test_unknown_and_malformed_tokens_are_rejected() {
     )
     .await;
     assert_eq!(s, StatusCode::FOUND, "malformed token must redirect");
-    let (s, _) = get_guarded(state.clone(), "/dashboard", Some("session_id=not a valid token!!!"), "192.0.2.105").await;
+    let (s, _) = get_guarded(
+        state.clone(),
+        "/dashboard",
+        Some("session_id=not a valid token!!!"),
+        "192.0.2.105",
+    )
+    .await;
     assert_eq!(s, StatusCode::FOUND);
 
     // Missing cookie.

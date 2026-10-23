@@ -163,7 +163,8 @@ pub fn genoffice_status_banner(url: &str, probe_ms: Option<u128>) -> String {
         r#"<div class="mb-3 flex items-center gap-1.5 text-xs text-red-400">
             <span class="w-1.5 h-1.5 rounded-full bg-error animate-pulse"></span>
             Sin conexión al MCP de GenOffice
-        </div>"#.to_string()
+        </div>"#
+            .to_string()
     }
 }
 

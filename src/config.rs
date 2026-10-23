@@ -138,7 +138,9 @@ impl Config {
         // "Sin login" (single-user local). Off by default so production keeps
         // password auth; enable explicitly with AUTH_DISABLED=true.
         let auth_disabled = matches!(
-            get_or("AUTH_DISABLED", "false").to_ascii_lowercase().as_str(),
+            get_or("AUTH_DISABLED", "false")
+                .to_ascii_lowercase()
+                .as_str(),
             "1" | "true" | "yes" | "on"
         );
 

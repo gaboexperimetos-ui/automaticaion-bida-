@@ -88,8 +88,14 @@ async fn setup_app() -> TestApp {
         .await
         .expect("Failed to create test database");
 
-    sqlx::query("PRAGMA journal_mode=WAL;").execute(&pool).await.ok();
-    sqlx::query("PRAGMA foreign_keys=ON;").execute(&pool).await.ok();
+    sqlx::query("PRAGMA journal_mode=WAL;")
+        .execute(&pool)
+        .await
+        .ok();
+    sqlx::query("PRAGMA foreign_keys=ON;")
+        .execute(&pool)
+        .await
+        .ok();
     sqlx::migrate!()
         .run(&pool)
         .await
@@ -131,6 +137,10 @@ async fn setup_app() -> TestApp {
         .expect("Failed to seed admin session");
 
     let state = Arc::new(AppState {
+        cache_mikareno: std::sync::Arc::new(
+            study_platform::academic::calendar_data::CacheMikareno::default(),
+        ),
+        cache_catalogo: std::sync::Arc::new(study_platform::ai::modelos::CacheCatalogo::default()),
         config: config.clone(),
         db: pool,
         mikareno: None,
@@ -155,22 +165,16 @@ async fn request(
     if let Some(c) = cookie {
         builder = builder.header("cookie", c);
     }
-    app.oneshot(builder.body(Body::empty()).unwrap()).await.unwrap()
+    app.oneshot(builder.body(Body::empty()).unwrap())
+        .await
+        .unwrap()
 }
 
-async fn get(
-    app: axum::Router,
-    uri: &str,
-    cookie: Option<&str>,
-) -> axum::response::Response {
+async fn get(app: axum::Router, uri: &str, cookie: Option<&str>) -> axum::response::Response {
     request(app, Method::GET, uri, cookie).await
 }
 
-async fn post(
-    app: axum::Router,
-    uri: &str,
-    cookie: Option<&str>,
-) -> axum::response::Response {
+async fn post(app: axum::Router, uri: &str, cookie: Option<&str>) -> axum::response::Response {
     request(app, Method::POST, uri, cookie).await
 }
 

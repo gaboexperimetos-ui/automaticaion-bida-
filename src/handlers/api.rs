@@ -51,10 +51,7 @@ async fn probe_mcp(url: &str) -> bool {
 
 /// Cached `(mikareno, genoffice)` availability, refreshed at most each TTL.
 async fn mcp_components(state: &AppState) -> (bool, bool) {
-    if let Some((at, m, g)) = *MCP_PROBE_CACHE
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-    {
+    if let Some((at, m, g)) = *MCP_PROBE_CACHE.lock().unwrap_or_else(|e| e.into_inner()) {
         if at.elapsed() < MCP_PROBE_TTL {
             return (m, g);
         }

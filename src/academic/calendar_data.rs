@@ -183,11 +183,7 @@ fn fecha_vencimiento(tarea: &Tarea) -> Option<String> {
         let d = partes[0].trim();
         let m = partes[1].trim();
         let a = partes[2].trim();
-        if let (Ok(dd), Ok(mm), Ok(aa)) = (
-            d.parse::<u32>(),
-            m.parse::<u32>(),
-            a.parse::<i32>(),
-        ) {
+        if let (Ok(dd), Ok(mm), Ok(aa)) = (d.parse::<u32>(), m.parse::<u32>(), a.parse::<i32>()) {
             if let Some(f) = NaiveDate::from_ymd_opt(aa, mm, dd) {
                 return Some(f.format("%Y-%m-%d").to_string());
             }
@@ -366,7 +362,10 @@ pub fn dias_del_mes(
     }
 
     for a in anotaciones {
-        mapa.entry(a.date.clone()).or_default().anotaciones.push(a.clone());
+        mapa.entry(a.date.clone())
+            .or_default()
+            .anotaciones
+            .push(a.clone());
     }
 
     // Las clases se proyectan sobre todos los días del mes (el horario es

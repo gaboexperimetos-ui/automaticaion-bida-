@@ -375,10 +375,7 @@ fn inline_html(raw: &str, notes: &HashSet<String>) -> String {
             Some(open) => match rest.get(open + 1..).and_then(|r| r.find('`')) {
                 Some(close) if close > 0 => {
                     out.push_str(&wikilink_html(&rest[..open], notes));
-                    out.push_str(&format!(
-                        r###"<code class="{}">"###,
-                        CODE_CLASSES
-                    ));
+                    out.push_str(&format!(r###"<code class="{}">"###, CODE_CLASSES));
                     out.push_str(&html_escape(&rest[open + 1..open + 1 + close]));
                     out.push_str("</code>");
                     rest = &rest[open + close + 2..];
@@ -571,7 +568,11 @@ fn emphasis_html(raw: &str) -> String {
 /// si hay choque; mínimo `seccion` cuando el slug queda vacío.
 fn unique_heading_id(text: &str, used: &mut HashSet<String>) -> String {
     let base = slugify(text);
-    let base = if base.is_empty() { "seccion".to_string() } else { base };
+    let base = if base.is_empty() {
+        "seccion".to_string()
+    } else {
+        base
+    };
     let mut id = base.clone();
     let mut n = 2;
     while used.contains(&id) {
@@ -902,7 +903,10 @@ mod tests {
 
         let ids = extract(&html, "id=\"");
         let hrefs = extract(&toc, "href=\"#");
-        assert_eq!(ids, vec!["teoria", "seccion", "seccion-2", "teoria-2", "seccion-3"]);
+        assert_eq!(
+            ids,
+            vec!["teoria", "seccion", "seccion-2", "teoria-2", "seccion-3"]
+        );
         // Cada `href` del índice apunta a un `id` real del render.
         assert_eq!(hrefs, ids);
     }

@@ -54,6 +54,14 @@ pub async fn serve_favicon(State(_state): State<Arc<AppState>>) -> Response<Body
     make_response(content, "image/svg+xml")
 }
 
+/// Capa de pulido transversal (`static/app/polish.css`) en `/polish.css`:
+/// superficies del navegador tematizadas, foco, selección, movimiento al
+/// cargar los swaps de HTMX. Va embebida como `shell.js`.
+pub async fn serve_polish_css(State(_state): State<Arc<AppState>>) -> Response<Body> {
+    let content = include_bytes!("../../static/app/polish.css");
+    make_response_with_cache(content, "text/css; charset=utf-8")
+}
+
 fn make_response(content: &[u8], content_type: &'static str) -> Response<Body> {
     let mut resp = Response::new(Body::from(content.to_vec()));
     *resp.status_mut() = StatusCode::OK;
@@ -66,9 +74,7 @@ fn make_response(content: &[u8], content_type: &'static str) -> Response<Body> {
 /// archivo cambia con cada build, así que basta con revalidar.
 fn make_response_with_cache(content: &[u8], content_type: &'static str) -> Response<Body> {
     let mut resp = make_response(content, content_type);
-    resp.headers_mut().insert(
-        header::CACHE_CONTROL,
-        HeaderValue::from_static("no-cache"),
-    );
+    resp.headers_mut()
+        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));
     resp
 }

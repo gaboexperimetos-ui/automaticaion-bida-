@@ -52,7 +52,6 @@ const SHELL_PRESUPUESTO_SECS: u64 = 8;
 // usa el mismo markup que el resto, con el item "generador-de-material"
 // resaltado. No hay una copia local del rail.
 
-
 /// Contenido de la página (solo el <main> content, sin wrappers).
 const CONTENT_MATERIAL: &str = include_str!("../../static/stitch-v2/_content/clean/material.html");
 
@@ -213,7 +212,8 @@ async fn fase_mcp(state: &AppState) -> FaseMcp {
 fn render_materia_options(d: &MaterialData) -> String {
     if d.subjects.is_empty() {
         if d.timeout {
-            r#"<option value="">Mikareno no responde ahora: no hay asignaturas</option>"#.to_string()
+            r#"<option value="">Mikareno no responde ahora: no hay asignaturas</option>"#
+                .to_string()
         } else if d.connected {
             r#"<option value="">Sin materias con notas</option>"#.to_string()
         } else {
@@ -222,7 +222,11 @@ fn render_materia_options(d: &MaterialData) -> String {
     } else {
         let mut opts = vec![r#"<option value="">Selecciona una materia</option>"#.to_string()];
         opts.extend(d.subjects.iter().map(|s| {
-            format!("<option value=\"{}\">{}</option>", esc(&s.name), esc(&s.name))
+            format!(
+                "<option value=\"{}\">{}</option>",
+                esc(&s.name),
+                esc(&s.name)
+            )
         }));
         opts.join("\n")
     }
@@ -234,17 +238,20 @@ fn render_mcp_status(d: &MaterialData) -> String {
         r#"<span class="flex items-center gap-1.5 text-[11px] text-outline">
             <span class="w-1.5 h-1.5 rounded-full bg-outline"></span>
             Mikareno: no responde ahora
-        </span>"#.to_string()
+        </span>"#
+            .to_string()
     } else if d.connected {
         r#"<span class="flex items-center gap-1.5 text-[11px] text-secondary">
             <span class="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span>
             Mikareno: conectado
-        </span>"#.to_string()
+        </span>"#
+            .to_string()
     } else {
         r#"<span class="flex items-center gap-1.5 text-[11px] text-outline">
             <span class="w-1.5 h-1.5 rounded-full bg-outline"></span>
             Mikareno: sin conexión
-        </span>"#.to_string()
+        </span>"#
+            .to_string()
     }
 }
 
@@ -340,7 +347,11 @@ fn render_ai_subject_field(d: &MaterialData) -> String {
     if d.connected && !d.subjects.is_empty() {
         let mut opts = vec![r#"<option value="">Selecciona una asignatura</option>"#.to_string()];
         opts.extend(d.subjects.iter().map(|s| {
-            format!("<option value=\"{}\">{}</option>", esc(&s.name), esc(&s.name))
+            format!(
+                "<option value=\"{}\">{}</option>",
+                esc(&s.name),
+                esc(&s.name)
+            )
         }));
         opts.push(format!(
             "<option value=\"{}\">Otra (escribir)</option>",
@@ -701,8 +712,9 @@ async fn generar(
                 tema, materia
             );
             let quiz = assistant.generate_quiz(&prompt, 5).await?;
-            Ok(serde_json::to_value(&quiz)
-                .unwrap_or_else(|_| serde_json::json!({ "error": "Error al serializar el cuestionario" })))
+            Ok(serde_json::to_value(&quiz).unwrap_or_else(
+                |_| serde_json::json!({ "error": "Error al serializar el cuestionario" }),
+            ))
         }
         TipoMaterial::Resumen => {
             let prompt = format!(

@@ -477,7 +477,10 @@ pub async fn index(
         templates::html_escape(&caption)
     );
 
-    let content = format!(r###"{}{}<div id="subject-grid">{}</div>"###, status, header, grid_html);
+    let content = format!(
+        r###"{}{}<div id="subject-grid">{}</div>"###,
+        status, header, grid_html
+    );
     Html(templates::page_ext(
         "Asignaturas — Study Platform",
         "Asignaturas",
@@ -570,7 +573,11 @@ fn parse_activity_counts(raw: &Value) -> HashMap<(String, String), ActivityCount
     };
 
     for m in materias {
-        let name = m.get("materia").and_then(|v| v.as_str()).unwrap_or("").trim();
+        let name = m
+            .get("materia")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .trim();
         if name.is_empty() {
             continue;
         }
@@ -584,9 +591,8 @@ fn parse_activity_counts(raw: &Value) -> HashMap<(String, String), ActivityCount
             match activities {
                 Some(acts) if !acts.is_empty() => {
                     for a in acts {
-                        let parcial = parcial_key(
-                            a.get("trimestre").and_then(|v| v.as_str()).unwrap_or(""),
-                        );
+                        let parcial =
+                            parcial_key(a.get("trimestre").and_then(|v| v.as_str()).unwrap_or(""));
                         let graded = a
                             .get("calificada")
                             .and_then(|v| v.as_bool())
@@ -865,11 +871,7 @@ fn normalize_name(s: &str) -> String {
 /// The year prefix is dropped so both sides match even when one of them
 /// omits it.
 fn parcial_key(raw: &str) -> String {
-    let parts: Vec<&str> = raw
-        .trim()
-        .split(':')
-        .filter(|p| !p.is_empty())
-        .collect();
+    let parts: Vec<&str> = raw.trim().split(':').filter(|p| !p.is_empty()).collect();
     match parts.len() {
         0 => String::new(),
         1 => parts[0].to_string(),
@@ -929,7 +931,13 @@ mod tests {
         let html = subject_card_html(
             &summary("Biología", 3.2, "26EGB10A-BIOL - Biología"),
             "2026:T3:1",
-            Some((ActivityCount { total: 6, graded: 1 }, true)),
+            Some((
+                ActivityCount {
+                    total: 6,
+                    graded: 1,
+                },
+                true,
+            )),
         );
         assert!(html.contains("/dashboard/subjects/26EGB10A-BIOL%20-%20Biolog%C3%ADa"));
         assert!(html.contains("Biolog"));
@@ -941,11 +949,7 @@ mod tests {
     #[test]
     fn card_falls_back_to_name_when_code_is_too_long() {
         let long = "X".repeat(MAX_CODE_LEN + 1);
-        let html = subject_card_html(
-            &summary("Matematica", 4.56, &long),
-            "2026:T3:1",
-            None,
-        );
+        let html = subject_card_html(&summary("Matematica", 4.56, &long), "2026:T3:1", None);
         // The link uses the name (the route resolves it too), not the code
         // that the detail route would reject.
         assert!(html.contains(r#"href="/dashboard/subjects/Matematica""#));
@@ -974,7 +978,10 @@ mod tests {
             html.contains(r#"<div class="h-full bg-red-400 transition-all" style="width: 46%">"#),
             "html: {html}"
         );
-        assert!(!html.contains("text-red-400 transition-all"), "html: {html}");
+        assert!(
+            !html.contains("text-red-400 transition-all"),
+            "html: {html}"
+        );
     }
 
     #[test]
@@ -989,7 +996,13 @@ mod tests {
         let html = subject_card_html(
             &summary("Física", f64::NAN, "26EGB10A-FISI - Física"),
             "2026:T3:1",
-            Some((ActivityCount { total: 3, graded: 0 }, true)),
+            Some((
+                ActivityCount {
+                    total: 3,
+                    graded: 0,
+                },
+                true,
+            )),
         );
         assert!(html.contains("sin promedio todavía"));
         assert!(!html.contains("NaN"));

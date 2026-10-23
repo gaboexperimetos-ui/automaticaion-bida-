@@ -216,7 +216,23 @@ struct OrResponse {
 
 #[derive(Debug, Deserialize)]
 struct OrChoice {
-    message: ChatMessage,
+    message: OrMessage,
+}
+
+/// Mensaje devuelto por el proveedor.
+///
+/// Muchos modelos "free" actuales (Nemotron, Gemma, reasoning-modules) pueden
+/// responder con `content: null` y el texto en `reasoning` — sobre todo cuando
+/// el presupuesto de tokens se agota en el razonamiento. El `content: String`
+/// exacto daba un error de parseo (502 "could not be processed") con
+/// respuestas válidas; ahora se acepta `null` y se usa `reasoning` como
+/// respaldo.
+#[derive(Debug, Deserialize)]
+struct OrMessage {
+    #[serde(default)]
+    content: Option<String>,
+    #[serde(default)]
+    reasoning: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -605,13 +621,19 @@ pub async fn chat_completion(
         }
     };
 
-    let response = match or_resp.choices.into_iter().next() {
-        Some(c) => c.message.content,
+    let or_message = match or_resp.choices.into_iter().next() {
+        Some(c) => c.message,
         None => {
             let _ = guard.abort().await;
             return Err(AiError::Api("No choices in response".to_string()));
         }
     };
+    // Contenido del mensaje: `content` o, en modelos de razonamiento, el
+    // propio `reasoning` (Ambos pueden venir `null`; cadena vacía entonces).
+    let response = or_message
+        .content
+        .or(or_message.reasoning)
+        .unwrap_or_default();
 
     // Actual usage: tokens from the provider when present else 0s; cost from
     // the provider when present, else 0.0 with `estimated = true` (no $/token

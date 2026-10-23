@@ -281,35 +281,30 @@ async fn enforce_budget(
 
     let budget_usd = state.config.openrouter_max_cost_usd;
 
-    let spent_usd =
-        match crate::ai::openrouter::persistent_summary(&state.db, &state.config).await {
-            Ok(summary) => summary.total_cost,
-            Err(e) => {
-                tracing::warn!(
+    let spent_usd = match crate::ai::openrouter::persistent_summary(&state.db, &state.config).await
+    {
+        Ok(summary) => summary.total_cost,
+        Err(e) => {
+            tracing::warn!(
 
-                    endpoint = endpoint,
+                endpoint = endpoint,
 
-                    detail = %e.log_detail(),
+                detail = %e.log_detail(),
 
-                    "ai budget check failed; deferring to the provider-side gate"
+                "ai budget check failed; deferring to the provider-side gate"
 
-                );
+            );
 
-                return Ok(());
-            }
-        };
+            return Ok(());
+        }
+    };
 
     if spent_usd >= budget_usd {
         tracing::warn!(
-
             endpoint = endpoint,
-
             budget_usd = budget_usd,
-
             spent_usd = spent_usd,
-
             "ai request blocked: monthly budget exhausted"
-
         );
 
         return Err((
@@ -742,7 +737,12 @@ const AI_PAGE_TEMPLATE: &str = r##"
             <div class="flex items-center justify-between mb-1">
                 <span class="font-label-sm text-[11px] text-on-surface font-semibold flex items-center gap-1">
                     <span class="w-1.5 h-1.5 rounded-full __MODE_DOT__ animate-pulse"></span>
-                    __MODEL__
+                    <button type="button" id="modelo-chip" data-sp-modelo
+                        class="flex items-center gap-1 hover:underline hover:text-primary-container transition-colors"
+                        title="Cambiar de modelo de IA (solo modelos free de OpenRouter)">
+                        <span data-sp-modelo-nombre>__MODEL__</span>
+                        <span class="material-symbols-outlined text-[13px]">expand_more</span>
+                    </button>
                 </span>
                 <span id="mode-badge" class="px-2 py-0.5 rounded-full bg-surface-container font-label-sm text-[10px] __MODE_COLOR__">__MODE_LABEL__</span>
             </div>

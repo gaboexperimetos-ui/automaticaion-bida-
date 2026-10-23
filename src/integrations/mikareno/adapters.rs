@@ -439,8 +439,10 @@ pub fn parse_ano_escolar(raw: &Value) -> Result<AnoEscolar, String> {
         .map(lista_etiquetas)
         .unwrap_or_default();
 
-    let mut periodo_actual =
-        first_str(raw, &["periodo_actual", "trimestre_actual", "termino_actual"]);
+    let mut periodo_actual = first_str(
+        raw,
+        &["periodo_actual", "trimestre_actual", "termino_actual"],
+    );
     if periodo_actual.is_empty() {
         periodo_actual = first_str(
             raw.get("periodo").unwrap_or(&null),
@@ -462,11 +464,23 @@ pub fn parse_ano_escolar(raw: &Value) -> Result<AnoEscolar, String> {
         parciales,
         inicio_clases: truncar_fecha(&first_str(
             raw,
-            &["inicio_clases", "fecha_inicio", "inicioClases", "start_date", "fechaInicio"],
+            &[
+                "inicio_clases",
+                "fecha_inicio",
+                "inicioClases",
+                "start_date",
+                "fechaInicio",
+            ],
         )),
         fin_clases: truncar_fecha(&first_str(
             raw,
-            &["fin_clases", "fecha_fin", "finClases", "end_date", "fechaFin"],
+            &[
+                "fin_clases",
+                "fecha_fin",
+                "finClases",
+                "end_date",
+                "fechaFin",
+            ],
         )),
         periodo_actual,
         parcial_actual,
@@ -491,7 +505,12 @@ pub fn parse_biblioteca(raw: &Value) -> Result<Vec<Biblioteca>, String> {
     }
     if raw.is_object() {
         for k in [
-            "recursos", "items", "lista", "biblioteca", "resultados", "coleccion",
+            "recursos",
+            "items",
+            "lista",
+            "biblioteca",
+            "resultados",
+            "coleccion",
         ] {
             if let Some(arr) = raw.get(k).and_then(|v| v.as_array()) {
                 return Ok(arr.iter().filter_map(recurso_biblioteca).collect());
@@ -527,7 +546,10 @@ fn recurso_biblioteca(entry: &Value) -> Option<Biblioteca> {
         descripcion: first_str(entry, &["descripcion", "description", "resumen", "detalle"]),
         url,
         tipo,
-        categoria: first_str(entry, &["categoria", "category", "materia", "subject", "seccion"]),
+        categoria: first_str(
+            entry,
+            &["categoria", "category", "materia", "subject", "seccion"],
+        ),
         disponible: entry
             .get("disponible")
             .or_else(|| entry.get("available"))

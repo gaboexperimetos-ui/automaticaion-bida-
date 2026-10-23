@@ -624,9 +624,7 @@ fn first_sentence(text: &str) -> String {
     let chars: Vec<char> = text.chars().collect();
     for (i, &c) in chars.iter().enumerate() {
         if c == '.' || c == '!' || c == '?' {
-            let ends_here = chars
-                .get(i + 1)
-                .map_or(true, |n| n.is_whitespace());
+            let ends_here = chars.get(i + 1).map_or(true, |n| n.is_whitespace());
             let after_word = i > 0 && (chars[i - 1].is_alphanumeric() || chars[i - 1] == ')');
             if ends_here && after_word {
                 return chars[..=i].iter().collect();
@@ -754,13 +752,17 @@ mod tests {
 
         // Sin tags (ni frontmatter) la lista queda vacía.
         assert!(parse_note("# Hola").frontmatter.tags().is_empty());
-        assert!(parse_note("---\ntitle: T\n---\n").frontmatter.tags().is_empty());
+        assert!(parse_note("---\ntitle: T\n---\n")
+            .frontmatter
+            .tags()
+            .is_empty());
     }
 
     #[test]
     fn test_summarize_limpia_markdown() {
         // Salta el encabezado y se queda con la primera frase, sin marcas.
-        let body = "# Título\n\nEste es el **primer** párrafo con *énfasis* y `código`.\n\nOtro párrafo.";
+        let body =
+            "# Título\n\nEste es el **primer** párrafo con *énfasis* y `código`.\n\nOtro párrafo.";
         assert_eq!(
             summarize(body, 200),
             "Este es el primer párrafo con énfasis y código."

@@ -22,9 +22,7 @@ fn rango_mes(focus: NaiveDate) -> (NaiveDate, NaiveDate) {
     } else {
         NaiveDate::from_ymd_opt(year, month + 1, 1)
     };
-    let fin_mes = siguiente
-        .and_then(|s| s.pred_opt())
-        .unwrap_or(primero);
+    let fin_mes = siguiente.and_then(|s| s.pred_opt()).unwrap_or(primero);
     // La rejilla empieza en lunes y termina en domingo: se toma una semana de
     // margen a cada lado para que ningún día atenuado quede fuera.
     (
@@ -551,7 +549,7 @@ pub async fn monthly(
             r###"<div id="calendar-grid" class="mb-space-md">{}</div>"###,
             grid_html
         ));
-    }    // HTMX partial: swap just the timeline.
+    } // HTMX partial: swap just the timeline.
     if partial == Some("timeline") {
         return Html(templates::event_timeline_html(&datos.eventos, Some(&today)));
     }
@@ -805,11 +803,7 @@ const NAV_CLASS_OFF: &str = "inline-flex items-center gap-1 px-space-sm py-1.5 r
 /// At the edge of the window (±60 days) the link is disabled instead of
 /// pointing to a day the server would clip back to the same one: a link
 /// that does not move tells the user nothing.
-fn nav_dia(
-    target: NaiveDate,
-    min_date: NaiveDate,
-    max_date: NaiveDate,
-) -> (String, String) {
+fn nav_dia(target: NaiveDate, min_date: NaiveDate, max_date: NaiveDate) -> (String, String) {
     let anterior = target - chrono::Duration::days(1);
     let siguiente = target + chrono::Duration::days(1);
 
@@ -997,9 +991,9 @@ pub async fn weekly(State(state): State<Arc<AppState>>) -> Html<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        bucket_by_day, daily_fragment, day_events, event_time, inject_event_badges, mark_current_month,
-        nav_dia, parse_target_date, render_outside_days, templates, tipo_label, BLANK_CELL,
-        OUTSIDE_CELL_CLASS,
+        bucket_by_day, daily_fragment, day_events, event_time, inject_event_badges,
+        mark_current_month, nav_dia, parse_target_date, render_outside_days, templates, tipo_label,
+        BLANK_CELL, OUTSIDE_CELL_CLASS,
     };
     use crate::integrations::mikareno::CalendarioEvent;
     use chrono::NaiveDate;
@@ -1263,7 +1257,11 @@ mod tests {
         let max_date = NaiveDate::from_ymd_opt(2026, 12, 18).unwrap();
 
         // In the middle both links move.
-        let (prev, next) = nav_dia(NaiveDate::from_ymd_opt(2026, 10, 19).unwrap(), min_date, max_date);
+        let (prev, next) = nav_dia(
+            NaiveDate::from_ymd_opt(2026, 10, 19).unwrap(),
+            min_date,
+            max_date,
+        );
         assert!(prev.contains("date=2026-10-18"));
         assert!(next.contains("date=2026-10-20"));
 

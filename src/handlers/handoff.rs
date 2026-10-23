@@ -168,16 +168,6 @@ pub async fn get_handoff(State(state): State<Arc<AppState>>, req: Request) -> Re
     (StatusCode::OK, Html(html)).into_response()
 }
 
-
-
-
-
-
-
-
-
-
-
 /// ¿La petición trae una sesión válida?
 ///
 /// Misma comprobación que el middleware `require_auth_state`: cookie

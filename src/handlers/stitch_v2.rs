@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use axum::{
     body::Body,
-    extract::{State, Request},
+    extract::{Request, State},
     http::StatusCode,
     response::{Html, IntoResponse},
 };
@@ -335,8 +335,10 @@ const SHELL_JS: &str = r##"
 
 /// Contenido de cada pagina (contenido del <main> sin wrappers).
 const CONTENT_INDEX: &str = include_str!("../../static/stitch-v2/_content/clean/index.html");
-const CONTENT_DASHBOARD: &str = include_str!("../../static/stitch-v2/_content/clean/dashboard.html");
-const CONTENT_ASISTENTE: &str = include_str!("../../static/stitch-v2/_content/clean/asistente.html");
+const CONTENT_DASHBOARD: &str =
+    include_str!("../../static/stitch-v2/_content/clean/dashboard.html");
+const CONTENT_ASISTENTE: &str =
+    include_str!("../../static/stitch-v2/_content/clean/asistente.html");
 const CONTENT_NOTES: &str = include_str!("../../static/stitch-v2/_content/clean/notes.html");
 const CONTENT_MCP: &str = include_str!("../../static/stitch-v2/_content/clean/mcp.html");
 
@@ -428,7 +430,11 @@ fn item_class(existing: &str, active: bool) -> String {
         .split_whitespace()
         .filter(|t| !STATE_CLASS_TOKENS.contains(t))
         .collect();
-    let state = if active { ACTIVE_ITEM_CLASSES } else { IDLE_ITEM_CLASSES };
+    let state = if active {
+        ACTIVE_ITEM_CLASSES
+    } else {
+        IDLE_ITEM_CLASSES
+    };
     tokens.extend(state.split_whitespace());
     tokens.join(" ")
 }
@@ -766,10 +772,7 @@ fn update_nav_rail(aside: &str, active: &str) -> String {
 /// planificador; "Mis notas" y "Segundo cerebro" van a las notas). El primero
 /// del mapa que apunta a la ruta es el principal; los demás son alias.
 fn primary_path_for(route: &str) -> Option<&'static str> {
-    NAV_LINKS
-        .iter()
-        .find(|(_, r)| *r == route)
-        .map(|(p, _)| *p)
+    NAV_LINKS.iter().find(|(_, r)| *r == route).map(|(p, _)| *p)
 }
 
 /// Reescribe rutas **y** marca el item activo del nav.
@@ -832,7 +835,10 @@ pub fn apply_nav_with(
         let path = attr_value(tag, "data-path").map(|p| p.to_string());
 
         let mut out = match path.as_deref().and_then(|p| {
-            NAV_LINKS.iter().find(|(k, _)| *k == p).map(|(_, route)| *route)
+            NAV_LINKS
+                .iter()
+                .find(|(k, _)| *k == p)
+                .map(|(_, route)| *route)
         }) {
             Some(route) => replace_attr(tag, "href", route),
             None => tag.to_string(),
@@ -841,7 +847,11 @@ pub fn apply_nav_with(
         if let Some(p) = path.as_deref() {
             let is_active = active_path == Some(p);
             if let Some(cls) = attr_value(&out, "class").map(|c| c.to_string()) {
-                let state = if is_active { active_classes } else { idle_classes };
+                let state = if is_active {
+                    active_classes
+                } else {
+                    idle_classes
+                };
                 out = replace_attr(&out, "class", &swap_state_tokens(&cls, tokens, state));
             }
             out = remove_attr(&out, "aria-current");
@@ -1242,7 +1252,13 @@ fn relativo_dia(fecha: NaiveDate, hoy: NaiveDate) -> String {
 fn fecha_es(fecha: NaiveDate) -> String {
     let iso = fecha.format("%Y-%m-%d").to_string();
     match mes_es(fecha.month()) {
-        Some(mes) => format!("{}, {} de {} de {}", weekday_es(&iso), fecha.day(), mes, fecha.year()),
+        Some(mes) => format!(
+            "{}, {} de {} de {}",
+            weekday_es(&iso),
+            fecha.day(),
+            mes,
+            fecha.year()
+        ),
         None => iso,
     }
 }
@@ -1446,7 +1462,9 @@ fn siguiente_clase(
     }
     for offset in 1..=7i64 {
         let fecha = hoy + chrono::Duration::days(offset);
-        if let Some((inicio, fin, etiqueta)) = clases_de(horario, fecha.weekday()).into_iter().next() {
+        if let Some((inicio, fin, etiqueta)) =
+            clases_de(horario, fecha.weekday()).into_iter().next()
+        {
             return Some((fecha, inicio, fin, etiqueta));
         }
     }
@@ -1457,7 +1475,9 @@ fn siguiente_clase(
 fn clave_vencimiento(t: &Tarea) -> (u8, String) {
     let v = t.vencimiento.trim();
     let fecha: String = v.chars().take(10).collect();
-    if fecha.len() == 10 && fecha.as_bytes().get(4) == Some(&b'-') && fecha.as_bytes().get(7) == Some(&b'-')
+    if fecha.len() == 10
+        && fecha.as_bytes().get(4) == Some(&b'-')
+        && fecha.as_bytes().get(7) == Some(&b'-')
     {
         (0, fecha)
     } else {
@@ -1569,7 +1589,10 @@ fn insert_day_cards(content: &str, cards: &str) -> String {
 }
 
 /// GET / -> panel principal (dashboard).
-pub async fn stitch_index(State(state): State<Arc<AppState>>, req: Request<Body>) -> impl IntoResponse {
+pub async fn stitch_index(
+    State(state): State<Arc<AppState>>,
+    req: Request<Body>,
+) -> impl IntoResponse {
     let data = crate::handlers::stitch_panel::fetch_panel_data(&state).await;
     let content = crate::handlers::stitch_panel::fill_panel(CONTENT_INDEX, &data);
     let authenticated = state.config.auth_disabled || extract_session_cookie(&req).is_some();
@@ -1591,13 +1614,14 @@ pub async fn stitch_dashboard(
     use axum::extract::FromRequest;
 
     if req.uri().query().is_some_and(|q| q.contains("partial=")) {
-        let parsed = axum::extract::Query::<
-            crate::academic::dashboard::DashboardQuery,
-        >::from_request(req, &state);
+        let parsed =
+            axum::extract::Query::<crate::academic::dashboard::DashboardQuery>::from_request(
+                req, &state,
+            );
         return match parsed.await {
-            Ok(query) => {
-                crate::academic::dashboard::index(State(state), query).await.into_response()
-            }
+            Ok(query) => crate::academic::dashboard::index(State(state), query)
+                .await
+                .into_response(),
             Err(rejection) => rejection.into_response(),
         };
     }
@@ -1615,7 +1639,10 @@ pub async fn stitch_dashboard(
 }
 
 /// GET /dashboard/ai -> asistente academico.
-pub async fn stitch_asistente(State(state): State<Arc<AppState>>, req: Request<Body>) -> impl IntoResponse {
+pub async fn stitch_asistente(
+    State(state): State<Arc<AppState>>,
+    req: Request<Body>,
+) -> impl IntoResponse {
     let data = crate::handlers::stitch_chat::fetch_chat_data(&state).await;
     let content = crate::handlers::stitch_chat::fill_chat(CONTENT_ASISTENTE, &data);
     let authenticated = state.config.auth_disabled || extract_session_cookie(&req).is_some();
@@ -1626,7 +1653,10 @@ pub async fn stitch_asistente(State(state): State<Arc<AppState>>, req: Request<B
 }
 
 /// GET /dashboard/notes -> segundo cerebro (notas markdown).
-pub async fn stitch_notes(State(state): State<Arc<AppState>>, req: Request<Body>) -> impl IntoResponse {
+pub async fn stitch_notes(
+    State(state): State<Arc<AppState>>,
+    req: Request<Body>,
+) -> impl IntoResponse {
     let data = crate::handlers::stitch_notes::fetch_notes_data(&state).await;
     let content = crate::handlers::stitch_notes::fill_notes(CONTENT_NOTES, &data);
     let authenticated = state.config.auth_disabled || extract_session_cookie(&req).is_some();
@@ -1637,7 +1667,10 @@ pub async fn stitch_notes(State(state): State<Arc<AppState>>, req: Request<Body>
 }
 
 /// GET /dashboard/mcp -> centro MCP + configuracion OpenRouter.
-pub async fn stitch_mcp(State(state): State<Arc<AppState>>, req: Request<Body>) -> impl IntoResponse {
+pub async fn stitch_mcp(
+    State(state): State<Arc<AppState>>,
+    req: Request<Body>,
+) -> impl IntoResponse {
     let data = crate::handlers::stitch_mcp::fetch_mcp_data(&state).await;
     let content = crate::handlers::stitch_mcp::fill_mcp(CONTENT_MCP, &data);
     let authenticated = state.config.auth_disabled || extract_session_cookie(&req).is_some();

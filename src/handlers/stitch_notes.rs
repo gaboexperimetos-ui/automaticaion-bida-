@@ -376,7 +376,9 @@ pub async fn fetch_notes_data(state: &AppState) -> NotesPanelData {
     .fetch_one(&state.db)
     .await
     {
-        d.total = row.try_get::<i64, _>("total").unwrap_or(d.notes.len() as i64) as usize;
+        d.total = row
+            .try_get::<i64, _>("total")
+            .unwrap_or(d.notes.len() as i64) as usize;
         d.total_words = row.try_get::<i64, _>("words").unwrap_or(0);
     } else {
         d.total = d.notes.len();
@@ -485,7 +487,10 @@ pub fn fill_notes(content: &str, d: &NotesPanelData) -> String {
         .replace("<!--SLOT:NOTES_LIST-->", &render_list(d))
         .replace("<!--SLOT:NOTES_RECENT-->", &render_recent_block(d))
         .replace("<!--SLOT:TAGS-->", &render_tags(d))
-        .replace("<!--SLOT:NOTE_TITLE-->", &render_featured(|f| esc(&f.title), d))
+        .replace(
+            "<!--SLOT:NOTE_TITLE-->",
+            &render_featured(|f| esc(&f.title), d),
+        )
         .replace("<!--SLOT:NOTE_STATUS-->", &render_status(d))
         .replace("<!--SLOT:NOTE_TAGS-->", &render_note_tags(d))
         .replace("<!--SLOT:NOTE_STATS-->", &render_note_stats(d))
@@ -767,10 +772,7 @@ fn render_featured_actions(f: &FeaturedNote) -> String {
 /// dentro de la barra de herramientas y el botón «Sí, eliminar» se quedaría
 /// sin listener: el JS se ejecutaría como texto, no como código.
 fn render_delete_script() -> String {
-    format!(
-        "<script>\n{js}\n</script>",
-        js = DELETE_NOTE_SCRIPT
-    )
+    format!("<script>\n{js}\n</script>", js = DELETE_NOTE_SCRIPT)
 }
 
 /// Enlace de descarga del `.md` de la nota.
@@ -799,7 +801,12 @@ fn render_export_action(slug: &str) -> String {
 fn render_note_tags(d: &NotesPanelData) -> String {
     render_featured(
         |f| {
-            let tags: Vec<&str> = f.tags.split(',').map(str::trim).filter(|t| !t.is_empty()).collect();
+            let tags: Vec<&str> = f
+                .tags
+                .split(',')
+                .map(str::trim)
+                .filter(|t| !t.is_empty())
+                .collect();
             if tags.is_empty() {
                 return r#"<span class="px-2 py-0.5 rounded bg-surface-container text-outline font-label-sm text-label-sm">sin etiquetas</span>"#.to_string();
             }
@@ -1080,7 +1087,11 @@ fn render_graph_meta(d: &NotesPanelData) -> String {
 </div>"#,
         total = d.total,
         links = d.total_links,
-        dot = if d.total_links > 0 { "bg-secondary" } else { "bg-outline" }
+        dot = if d.total_links > 0 {
+            "bg-secondary"
+        } else {
+            "bg-outline"
+        }
     )
 }
 
@@ -1089,7 +1100,9 @@ fn render_graph_meta(d: &NotesPanelData) -> String {
 /// estado vacío con el mismo contenedor.
 fn render_graph(d: &NotesPanelData) -> String {
     let Some(f) = &d.featured else {
-        return graph_empty("Sin notas todavía: el grafo se dibujará cuando haya contenido enlazado.");
+        return graph_empty(
+            "Sin notas todavía: el grafo se dibujará cuando haya contenido enlazado.",
+        );
     };
     let mut nodes: Vec<(String, bool)> = Vec::new();
     let mut keys: HashSet<String> = HashSet::new();
@@ -1097,7 +1110,11 @@ fn render_graph(d: &NotesPanelData) -> String {
         let (label, key, exists) = if l.exists {
             (l.title.clone(), format!("n:{}", l.slug), true)
         } else {
-            (format!("{} (sin crear)", l.display), format!("x:{}", l.slug), false)
+            (
+                format!("{} (sin crear)", l.display),
+                format!("x:{}", l.slug),
+                false,
+            )
         };
         if keys.insert(key) {
             nodes.push((label, exists));
@@ -1387,7 +1404,11 @@ fn fmt_fecha(s: &str) -> String {
         return s.to_string();
     };
     let mut it = dia.split('-');
-    match (it.next(), it.next().and_then(|m| m.parse::<usize>().ok()), it.next()) {
+    match (
+        it.next(),
+        it.next().and_then(|m| m.parse::<usize>().ok()),
+        it.next(),
+    ) {
         (Some(y), Some(m), Some(d)) if (1..=12).contains(&m) => {
             format!("{} {} {}", d, MESES[m - 1], y)
         }

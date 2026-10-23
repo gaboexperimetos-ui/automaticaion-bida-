@@ -87,8 +87,14 @@ async fn setup_app(api_key: Option<String>) -> TestApp {
         .await
         .expect("Failed to create test database");
 
-    sqlx::query("PRAGMA journal_mode=WAL;").execute(&pool).await.ok();
-    sqlx::query("PRAGMA foreign_keys=ON;").execute(&pool).await.ok();
+    sqlx::query("PRAGMA journal_mode=WAL;")
+        .execute(&pool)
+        .await
+        .ok();
+    sqlx::query("PRAGMA foreign_keys=ON;")
+        .execute(&pool)
+        .await
+        .ok();
     sqlx::migrate!()
         .run(&pool)
         .await
@@ -130,6 +136,10 @@ async fn setup_app(api_key: Option<String>) -> TestApp {
         .expect("Failed to seed session");
 
     let state = Arc::new(AppState {
+        cache_mikareno: std::sync::Arc::new(
+            study_platform::academic::calendar_data::CacheMikareno::default(),
+        ),
+        cache_catalogo: std::sync::Arc::new(study_platform::ai::modelos::CacheCatalogo::default()),
         config: config.clone(),
         db: pool,
         mikareno: None,
@@ -149,7 +159,9 @@ async fn get(app: axum::Router, uri: &str, cookie: Option<&str>) -> axum::respon
     if let Some(c) = cookie {
         builder = builder.header("cookie", c);
     }
-    app.oneshot(builder.body(Body::empty()).unwrap()).await.unwrap()
+    app.oneshot(builder.body(Body::empty()).unwrap())
+        .await
+        .unwrap()
 }
 
 /// Body de la respuesta como texto (HTML).

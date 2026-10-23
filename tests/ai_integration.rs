@@ -206,6 +206,10 @@ async fn setup_test_state() -> Arc<AppState> {
         .unwrap();
 
     Arc::new(AppState {
+        cache_mikareno: std::sync::Arc::new(
+            study_platform::academic::calendar_data::CacheMikareno::default(),
+        ),
+        cache_catalogo: std::sync::Arc::new(study_platform::ai::modelos::CacheCatalogo::default()),
         config: config.clone(),
         db: pool,
         mikareno: None,
@@ -726,11 +730,17 @@ async fn setup_shared_state(budget: f64) -> (Arc<AppState>, tempfile::TempDir) {
 
     (
         Arc::new(AppState {
+            cache_mikareno: std::sync::Arc::new(
+                study_platform::academic::calendar_data::CacheMikareno::default(),
+            ),
+            cache_catalogo: std::sync::Arc::new(
+                study_platform::ai::modelos::CacheCatalogo::default(),
+            ),
             config: config.clone(),
             db: pool,
-        mikareno: None,
-        start_time: std::time::Instant::now(),
-    }),
+            mikareno: None,
+            start_time: std::time::Instant::now(),
+        }),
         dir,
     )
 }

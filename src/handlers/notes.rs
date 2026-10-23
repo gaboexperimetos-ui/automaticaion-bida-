@@ -416,10 +416,7 @@ pub async fn view(
 /// Devuelve el `.md` tal cual está en disco con `Content-Disposition:
 /// attachment`, para que el navegador lo guarde con su nombre en lugar de
 /// mostrarlo dentro de la página.
-pub async fn export(
-    State(state): State<Arc<AppState>>,
-    Path(slug): Path<String>,
-) -> Response {
+pub async fn export(State(state): State<Arc<AppState>>, Path(slug): Path<String>) -> Response {
     if !is_safe_slug(&slug) {
         return (
             StatusCode::NOT_FOUND,
@@ -804,10 +801,7 @@ pub async fn new_note() -> impl IntoResponse {
 }
 
 /// Create a new note.
-pub async fn create(
-    State(state): State<Arc<AppState>>,
-    form: Form<CreateNoteRequest>,
-) -> Response {
+pub async fn create(State(state): State<Arc<AppState>>, form: Form<CreateNoteRequest>) -> Response {
     // Ensure notes directory exists
     let _ = std::fs::create_dir_all(&state.config.notes_dir);
 
@@ -1010,12 +1004,11 @@ pub async fn update(
         // Instantánea del historial: el cuerpo nuevo queda guardado como
         // versión (la BD conserva las 5 últimas), como hace el servicio de
         // notas. Sin esto la vista no tendría historial que mostrar.
-        if let Some(note_id) =
-            sqlx::query_scalar::<_, i64>("SELECT id FROM notes WHERE slug = ?")
-                .bind(&slug)
-                .fetch_optional(&state.db)
-                .await
-                .unwrap_or(None)
+        if let Some(note_id) = sqlx::query_scalar::<_, i64>("SELECT id FROM notes WHERE slug = ?")
+            .bind(&slug)
+            .fetch_optional(&state.db)
+            .await
+            .unwrap_or(None)
         {
             snapshot_version(&state.db, note_id, content, word_count, &now).await;
         }
@@ -1025,10 +1018,7 @@ pub async fn update(
 }
 
 /// Delete a note.
-pub async fn delete(
-    State(state): State<Arc<AppState>>,
-    Path(slug): Path<String>,
-) -> Response {
+pub async fn delete(State(state): State<Arc<AppState>>, Path(slug): Path<String>) -> Response {
     if !is_safe_slug(&slug) {
         return bad_slug_json().into_response();
     }
@@ -1306,9 +1296,7 @@ fn build_tag_index(notes: &[Note]) -> Vec<(String, String, usize)> {
 
 /// ¿La nota tiene alguna etiqueta cuyo slug coincide con el filtro?
 fn note_has_tag(note: &Note, slug: &str) -> bool {
-    note.tags
-        .split(',')
-        .any(|raw| tag_slug(raw) == slug)
+    note.tags.split(',').any(|raw| tag_slug(raw) == slug)
 }
 
 /// Clases Tailwind de un chip de etiqueta (activo / inactivo).
@@ -1460,11 +1448,12 @@ struct NoteVersion {
 
 /// Metadatos de cabecera + nº real de versiones (`COUNT(*)` de `note_versions`).
 async fn load_note_meta(db: &sqlx::SqlitePool, note: &Note) -> NoteMeta {
-    let version_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM note_versions WHERE note_id = ?")
-        .bind(note.id)
-        .fetch_one(db)
-        .await
-        .unwrap_or(0);
+    let version_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM note_versions WHERE note_id = ?")
+            .bind(note.id)
+            .fetch_one(db)
+            .await
+            .unwrap_or(0);
 
     NoteMeta {
         created_at: note.created_at.clone(),
@@ -1589,7 +1578,11 @@ fn render_meta_block(meta: &NoteMeta) -> String {
     let items = [
         meta_time_item("calendar_today", "Creada", &meta.created_at),
         meta_time_item("update", "Actualizada", &meta.updated_at),
-        meta_item("notes", "Palabras", &format!("{} {}", meta.word_count, palabras)),
+        meta_item(
+            "notes",
+            "Palabras",
+            &format!("{} {}", meta.word_count, palabras),
+        ),
         meta_item(
             "history",
             "Versiones",
@@ -2001,7 +1994,10 @@ mod tests {
         };
         let html = render_note(&nota_de_prueba(), "", "", &meta, &[]);
 
-        assert!(html.contains("123 palabras"), "el recuento de palabras es real");
+        assert!(
+            html.contains("123 palabras"),
+            "el recuento de palabras es real"
+        );
         assert!(html.contains("3 versiones"), "el nº de versiones es real");
         // La fecha original queda en `datetime` (ISO-8601, sin zona inventada).
         assert!(html.contains(r#"datetime="2026-10-19T08:30:00+00:00""#));
@@ -2094,6 +2090,10 @@ mod tests {
         let notes = tempfile::tempdir().expect("directorio de notas");
         let config = config_de_prueba(notes.path().to_path_buf(), db_path);
         let state = std::sync::Arc::new(crate::AppState {
+            cache_mikareno: std::sync::Arc::new(
+                crate::academic::calendar_data::CacheMikareno::default(),
+            ),
+            cache_catalogo: std::sync::Arc::new(crate::ai::modelos::CacheCatalogo::default()),
             config,
             db: pool,
             mikareno: None,
@@ -2489,8 +2489,8 @@ mod tests {
         );
 
         // El cuerpo en disco es el de la versión restaurada…
-        let contenido = std::fs::read_to_string(notes.path().join("nota-de-prueba.md"))
-            .expect("leer el .md");
+        let contenido =
+            std::fs::read_to_string(notes.path().join("nota-de-prueba.md")).expect("leer el .md");
         assert_eq!(contenido, "cuerpo viejo");
         // …y la nota queda con el recuento de palabras de esa versión.
         let word_count: i64 = sqlx::query_scalar("SELECT word_count FROM notes WHERE slug = ?")

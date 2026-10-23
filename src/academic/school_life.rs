@@ -84,7 +84,8 @@ const MARCA_AGOTADO: &str = "MCP-AGOTADO";
 
 /// Mensaje honesto cuando el MCP no está disponible (no hay banner aquí: el
 /// banner del shell ya lo dice y trae el único botón "Reintentar").
-const MSG_SIN_CONEXION: &str = "Mikareno no está conectado: no se pudo consultar ningún dato de vida escolar. \
+const MSG_SIN_CONEXION: &str =
+    "Mikareno no está conectado: no se pudo consultar ningún dato de vida escolar. \
 Verifica que el MCP esté corriendo en localhost:8080 y vuelve a reintentar.";
 
 /// Secciones de la página: `(id estable para HTMX, título visible, tools MCP)`.
@@ -93,7 +94,11 @@ Verifica que el MCP esté corriendo en localhost:8080 y vuelve a reintentar.";
 /// en el HTML), así que un parámetro manipulado no puede inyectar markup.
 const SECTIONS: &[(&str, &str, &[&str])] = &[
     ("asistencia", "Asistencia", &["get_asistencia"]),
-    ("puntualidad", "Puntualidad", &["get_semaforo", "get_asistencia"]),
+    (
+        "puntualidad",
+        "Puntualidad",
+        &["get_semaforo", "get_asistencia"],
+    ),
     ("uniforme", "Uniforme", &["get_semaforo"]),
     ("comportamiento", "Comportamiento", &["get_semaforo"]),
     ("tareas", "Tareas", &["get_tareas"]),
@@ -431,7 +436,9 @@ impl LifeData {
             disconnected_msg: msg.to_string(),
             secciones: SECTIONS
                 .iter()
-                .map(|(_id, titulo, _)| Seccion::vacia(titulo, "el MCP de Mikareno no está conectado"))
+                .map(|(_id, titulo, _)| {
+                    Seccion::vacia(titulo, "el MCP de Mikareno no está conectado")
+                })
                 .collect(),
         }
     }
@@ -648,7 +655,10 @@ fn cache_guardar(life: &LifeData) {
     let Ok(mut guard) = CACHE.lock() else {
         return;
     };
-    *guard = Some((Instant::now() + Duration::from_secs(CACHE_TTL_SECS), life.clone()));
+    *guard = Some((
+        Instant::now() + Duration::from_secs(CACHE_TTL_SECS),
+        life.clone(),
+    ));
 }
 
 // ── render: piezas compartidas ───────────────────────────────────────────
@@ -836,7 +846,14 @@ fn seccion_asistencia(r: Option<&Result<Value, String>>) -> Seccion {
                         detalle: v_str(r, &["detalle", "detail", "description", "descripcion"]),
                         hora: v_str(
                             r,
-                            &["hora_slot", "slotOrdinal", "hora", "hour", "periodo", "period"],
+                            &[
+                                "hora_slot",
+                                "slotOrdinal",
+                                "hora",
+                                "hour",
+                                "periodo",
+                                "period",
+                            ],
                         ),
                         observaciones: v_str(
                             r,
@@ -850,9 +867,7 @@ fn seccion_asistencia(r: Option<&Result<Value, String>>) -> Seccion {
     }
     dias.sort_by(|a, b| a.0.cmp(&b.0));
 
-    let total_server = v
-        .get("total_registros_semana")
-        .and_then(|x| x.as_u64());
+    let total_server = v.get("total_registros_semana").and_then(|x| x.as_u64());
     let total_real: usize = dias.iter().map(|(_, r)| r.len()).sum();
     if dias.is_empty() && total_real == 0 && total_server.unwrap_or(0) == 0 {
         return Seccion::vacia(
@@ -950,10 +965,7 @@ fn seccion_asistencia(r: Option<&Result<Value, String>>) -> Seccion {
     }
 
     Seccion {
-        html: format!(
-            r#"<div class="space-y-space-md">{}</div>"#,
-            parts.join("")
-        ),
+        html: format!(r#"<div class="space-y-space-md">{}</div>"#, parts.join("")),
         error: None,
         con_datos: true,
         conteo: Some(total),
@@ -993,7 +1005,10 @@ fn seccion_puntualidad(
     let revisados = candidatos_semaforo.len() + candidatos_asistencia.len();
 
     let mut matches: Vec<Registro> = Vec::new();
-    for reg in candidatos_semaforo.iter().chain(candidatos_asistencia.iter()) {
+    for reg in candidatos_semaforo
+        .iter()
+        .chain(candidatos_asistencia.iter())
+    {
         if registro_es(reg, KW_PUNTUALIDAD) {
             matches.push(registro_desde(reg));
         }
@@ -1059,7 +1074,8 @@ fn seccion_uniforme(semaforo: Option<&Result<Value, String>>) -> Seccion {
         let motivo = if catalogo_texto.contains("uniforme") {
             "Mikareno publica el tipo de registro «uniforme» en su catálogo, pero no hay registros de uniforme del estudiante en esta carga".to_string()
         } else if candidatos.is_empty() {
-            "Mikareno no devolvió registros de conducta en esta carga (no hay nada que revisar)".to_string()
+            "Mikareno no devolvió registros de conducta en esta carga (no hay nada que revisar)"
+                .to_string()
         } else {
             format!(
                 "Mikareno no devolvió registros de uniforme (0 de {n} registros revisados)",
@@ -1095,12 +1111,7 @@ fn seccion_comportamiento(semaforo: Option<&Result<Value, String>>) -> Seccion {
     let sv = match semaforo {
         Some(Ok(v)) => v,
         Some(Err(e)) => return seccion_error("Comportamiento", e),
-        None => {
-            return Seccion::vacia(
-                "Comportamiento",
-                "no se consultó el tool get_semaforo",
-            )
-        }
+        None => return Seccion::vacia("Comportamiento", "no se consultó el tool get_semaforo"),
     };
     if let Some(err) = cap_error(sv) {
         return Seccion::fallo("Comportamiento", &err);
@@ -1322,10 +1333,7 @@ fn seccion_tareas(
         esta_semana
     };
     Seccion {
-        html: format!(
-            r#"<div class="space-y-space-sm">{}</div>"#,
-            parts.join("")
-        ),
+        html: format!(r#"<div class="space-y-space-sm">{}</div>"#, parts.join("")),
         error: error_tecnico,
         con_datos: true,
         conteo: Some(conteo),
@@ -1435,10 +1443,16 @@ fn render_biblioteca_card(r: &Biblioteca) -> String {
     };
     // Badge sólo si el backend informa disponibilidad: si no, no se inventa.
     let badge = match r.disponible {
-        Some(true) => badge_str("Disponible", "bg-green-400", "text-surface-container-lowest"),
-        Some(false) => {
-            badge_str("No disponible", "bg-red-400", "text-surface-container-lowest")
-        }
+        Some(true) => badge_str(
+            "Disponible",
+            "bg-green-400",
+            "text-surface-container-lowest",
+        ),
+        Some(false) => badge_str(
+            "No disponible",
+            "bg-red-400",
+            "text-surface-container-lowest",
+        ),
         None => String::new(),
     };
     let codigo = if r.codigo.is_empty() {
@@ -1518,9 +1532,11 @@ fn badge_str(label: &str, bg: &str, fg: &str) -> String {
 fn section_badge(section: &str, life: &LifeData) -> String {
     match life.seccion(section) {
         Some(s) => match s.conteo {
-            Some(c) if c > 0 && s.con_datos => {
-                badge_str(&c.to_string(), "bg-primary-container/10", "text-primary-container")
-            }
+            Some(c) if c > 0 && s.con_datos => badge_str(
+                &c.to_string(),
+                "bg-primary-container/10",
+                "text-primary-container",
+            ),
             _ => String::new(),
         },
         None => String::new(),
@@ -1546,7 +1562,11 @@ fn render_section(section: &str, life: &LifeData) -> String {
     let icon = section_icon(section);
     let badge = section_badge(section, life);
     let body = section_body(section, life);
-    let open = if section == SECTIONS[0].0 { " open" } else { "" };
+    let open = if section == SECTIONS[0].0 {
+        " open"
+    } else {
+        ""
+    };
     format!(
         r##"<details class="bg-surface-container border border-outline rounded-xl" id="sl-{sid}"{open}>
     <summary class="cursor-pointer list-none p-space-md flex items-center justify-between">
@@ -1629,7 +1649,11 @@ fn resumen_html(life: &LifeData) -> String {
             {detalle_sin}{detalle_error}
         </div>"#,
         con = con_datos,
-        con_label = if con_datos == 1 { "sección" } else { "secciones" },
+        con_label = if con_datos == 1 {
+            "sección"
+        } else {
+            "secciones"
+        },
         sin = sin,
         extra_error = extra_error,
         detalle_sin = detalle_sin,
@@ -1757,7 +1781,9 @@ mod tests {
         assert!(html.contains("<details"));
         assert!(html.contains("Detalle técnico"));
         // El error crudo no aparece en grande: sólo dentro del <details>.
-        assert!(!html.contains("<p class=\"font-body-sm text-body-sm text-on-surface-variant\">timeout de red"));
+        assert!(!html.contains(
+            "<p class=\"font-body-sm text-body-sm text-on-surface-variant\">timeout de red"
+        ));
     }
 
     #[test]
@@ -1847,7 +1873,8 @@ mod tests {
     }
 
     #[test]
-    fn resumen_cuenta_secciones_reales() {        let vida = LifeData {
+    fn resumen_cuenta_secciones_reales() {
+        let vida = LifeData {
             connected: true,
             disconnected_msg: String::new(),
             secciones: vec![
@@ -1891,7 +1918,9 @@ mod tests {
         let s = seccion_error("Uniforme", "timeout de red");
         assert!(!s.con_datos);
         assert!(!s.html.contains("Mikareno no responde ahora"));
-        assert!(s.html.contains("No se pudieron obtener los datos de Uniforme."));
+        assert!(s
+            .html
+            .contains("No se pudieron obtener los datos de Uniforme."));
         assert!(s.error.is_some());
     }
 

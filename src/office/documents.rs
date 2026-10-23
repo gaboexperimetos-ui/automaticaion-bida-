@@ -50,8 +50,7 @@ pub async fn office_home(State(state): State<Arc<AppState>>) -> impl IntoRespons
     let pres = templates::count_files(&crate::office::pres_dir(&state), "json");
 
     // Sondeo honesto del MCP de GenOffice (cached, 30s TTL).
-    let genoffice_ms =
-        templates::genoffice_probe_cached(&state.config.genoffice_mcp_url).await;
+    let genoffice_ms = templates::genoffice_probe_cached(&state.config.genoffice_mcp_url).await;
     let mcp_banner =
         templates::genoffice_status_banner(&state.config.genoffice_mcp_url, genoffice_ms);
 
@@ -107,8 +106,7 @@ pub async fn list(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     };
 
     // Sondeo honesto del MCP de GenOffice (cached, 30s TTL).
-    let genoffice_ms =
-        templates::genoffice_probe_cached(&state.config.genoffice_mcp_url).await;
+    let genoffice_ms = templates::genoffice_probe_cached(&state.config.genoffice_mcp_url).await;
     let mcp_banner =
         templates::genoffice_status_banner(&state.config.genoffice_mcp_url, genoffice_ms);
 
@@ -225,8 +223,7 @@ pub async fn edit(
     };
 
     // Sondeo honesto del MCP de GenOffice (cached, 30s TTL).
-    let genoffice_ms =
-        templates::genoffice_probe_cached(&state.config.genoffice_mcp_url).await;
+    let genoffice_ms = templates::genoffice_probe_cached(&state.config.genoffice_mcp_url).await;
     let mcp_banner =
         templates::genoffice_status_banner(&state.config.genoffice_mcp_url, genoffice_ms);
 
@@ -461,8 +458,7 @@ pub async fn preview(
     let html = md_to_html(&content);
 
     // Sondeo honesto del MCP de GenOffice (cached, 30s TTL).
-    let genoffice_ms =
-        templates::genoffice_probe_cached(&state.config.genoffice_mcp_url).await;
+    let genoffice_ms = templates::genoffice_probe_cached(&state.config.genoffice_mcp_url).await;
     let mcp_banner =
         templates::genoffice_status_banner(&state.config.genoffice_mcp_url, genoffice_ms);
 

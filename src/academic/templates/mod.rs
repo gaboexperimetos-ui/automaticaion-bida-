@@ -66,11 +66,11 @@ const STITCH_TAILWIND_CONFIG: &str = r###"tailwind.config = {
                 "headline-sm": ["Manrope", "sans-serif"],
                 "headline-md": ["Manrope", "sans-serif"],
                 "headline-lg": ["Manrope", "sans-serif"],
-                "body-sm": ["Inter", "Hanken Grotesk", "sans-serif"],
-                "body-md": ["Inter", "Hanken Grotesk", "sans-serif"],
-                "body-lg": ["Inter", "Hanken Grotesk", "sans-serif"],
-                "label-sm": ["Inter", "Hanken Grotesk", "sans-serif"],
-                "label-md": ["Inter", "Hanken Grotesk", "sans-serif"],
+                "body-sm": ["Hanken Grotesk", "Inter", "sans-serif"],
+                "body-md": ["Hanken Grotesk", "Inter", "sans-serif"],
+                "body-lg": ["Hanken Grotesk", "Inter", "sans-serif"],
+                "label-sm": ["Hanken Grotesk", "Inter", "sans-serif"],
+                "label-md": ["Hanken Grotesk", "Inter", "sans-serif"],
                 "code-inline": ["monospace", "monospace"]
             },
             fontSize: {
@@ -115,7 +115,7 @@ const STITCH_BASE_STYLE: &str = r###"@layer base {
     body {
         background: #101419;
         color: #e0e2ea;
-        font-family: "Inter", "Hanken Grotesk", sans-serif;
+        font-family: "Hanken Grotesk", "Inter", sans-serif;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
         overscroll-behavior: none;
@@ -293,7 +293,10 @@ pub fn head(title: &str) -> String {
         r###"<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#101419">
     <title>{}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <script src="https://unpkg.com/htmx.org@2.0.3/dist/htmx.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/shell.js" defer></script>
@@ -305,6 +308,7 @@ pub fn head(title: &str) -> String {
     <style id="stitch-base">
     {}
     </style>
+    <link rel="stylesheet" href="/polish.css">
 </head>"###,
         html_escape(title),
         STITCH_TAILWIND_CONFIG,
@@ -810,8 +814,16 @@ pub fn calendar_grid_html(
     };
 
     let label = format!("{} {}", month_name_es(month), year);
-    let prev_href = format!("/dashboard/calendar?partial=grid&month={:04}-{:02}", prev.year(), prev.month());
-    let next_href = format!("/dashboard/calendar?partial=grid&month={:04}-{:02}", next.year(), next.month());
+    let prev_href = format!(
+        "/dashboard/calendar?partial=grid&month={:04}-{:02}",
+        prev.year(),
+        prev.month()
+    );
+    let next_href = format!(
+        "/dashboard/calendar?partial=grid&month={:04}-{:02}",
+        next.year(),
+        next.month()
+    );
 
     // La navegación de meses se renderiza FUERA de la rejilla (en su propio
     // bloque `#calendar-nav`): el swap de la rejilla es `outerHTML`, así que
@@ -839,7 +851,8 @@ pub fn calendar_grid_html(
         let fecha = format!("{:04}-{:02}-{:02}", year, month, d);
         let is_today = today.map_or(false, |t| t == fecha);
 
-        let mut day_evs: Vec<&CalendarioEvent> = events.iter().filter(|e| e.fecha == fecha).collect();
+        let mut day_evs: Vec<&CalendarioEvent> =
+            events.iter().filter(|e| e.fecha == fecha).collect();
         day_evs.sort_by(|a, b| a.evento.cmp(&b.evento));
         let ev_html: String = day_evs.iter().take(3).map(|e| {
             format!(
@@ -910,7 +923,8 @@ pub fn calendar_grid_html(
             {}
             {}
         </div>"###,
-        header, cells.join("")
+        header,
+        cells.join("")
     )
 }
 
@@ -1309,27 +1323,26 @@ pub fn subject_detail_html(
     let status = mcp_status_banner(connected);
 
     // Resolve display values: prefer detalle, fall back to promedios values.
-    let (avg, maximo, bloqueada, es_cualitativa, observacion) =
-        detalle.first().map_or_else(
-            || {
-                (
-                    promedio_fallback,
-                    maximo_fallback,
-                    bloqueada_fallback,
-                    false,
-                    String::new(),
-                )
-            },
-            |d| {
-                (
-                    d.nota_promedio.unwrap_or(promedio_fallback),
-                    d.maximo,
-                    d.bloqueada,
-                    d.es_cualitativa,
-                    d.observacion.clone(),
-                )
-            },
-        );
+    let (avg, maximo, bloqueada, es_cualitativa, observacion) = detalle.first().map_or_else(
+        || {
+            (
+                promedio_fallback,
+                maximo_fallback,
+                bloqueada_fallback,
+                false,
+                String::new(),
+            )
+        },
+        |d| {
+            (
+                d.nota_promedio.unwrap_or(promedio_fallback),
+                d.maximo,
+                d.bloqueada,
+                d.es_cualitativa,
+                d.observacion.clone(),
+            )
+        },
+    );
 
     let avg_fmt = fmt_grade(avg);
     let color = grade_color(avg);
@@ -1382,7 +1395,11 @@ pub fn subject_detail_html(
         html_escape(codigo),
         maximo_fmt,
         bloqueada_txt,
-        if es_cualitativa { "Cualitativa" } else { "Cuantitativa" },
+        if es_cualitativa {
+            "Cualitativa"
+        } else {
+            "Cuantitativa"
+        },
     );
 
     // Activities grouped by submenu.
@@ -1460,7 +1477,14 @@ pub fn subject_detail_html(
         parts.join("")
     };
 
-    let content = format!(r###"{}{}{}{}{}"###, status, header, summary_card, observacion_html(&observacion), activities_html);
+    let content = format!(
+        r###"{}{}{}{}{}"###,
+        status,
+        header,
+        summary_card,
+        observacion_html(&observacion),
+        activities_html
+    );
 
     page_ext(
         &format!("{} — Study Platform", materia),

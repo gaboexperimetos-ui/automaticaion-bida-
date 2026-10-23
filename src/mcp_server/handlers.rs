@@ -211,7 +211,10 @@ async fn subject_notes(
     subject: &str,
     limit: usize,
 ) -> Result<Vec<crate::models::Note>, McpError> {
-    let notes = knowledge.list_notes(500).await.map_err(McpError::Internal)?;
+    let notes = knowledge
+        .list_notes(500)
+        .await
+        .map_err(McpError::Internal)?;
 
     let tagged: Vec<crate::models::Note> = notes
         .into_iter()
@@ -361,10 +364,7 @@ async fn handle_tool_call(
             // "estudio", que no encuentra nada.
             let notes = match subject.as_deref() {
                 Some(s) => subject_notes(&knowledge, s, 20).await?,
-                None => knowledge
-                    .list_notes(20)
-                    .await
-                    .map_err(McpError::Internal)?,
+                None => knowledge.list_notes(20).await.map_err(McpError::Internal)?,
             };
 
             let sheets = load_note_bodies(&knowledge, &notes).await;

@@ -149,8 +149,7 @@ pub async fn index(State(state): State<Arc<AppState>>) -> Html<String> {
                 <p class="font-body-sm text-body-sm text-on-surface-variant">Sin evaluaciones registradas</p>
                 <p class="font-body-sm text-body-sm text-outline mt-space-sm">Mikareno no devolvió actividades de tipo evaluación (EVALUACIONES / EXAMEN TRIMESTRAL) ni eventos de calendario con título de evaluación.</p>
             </div>{}"###,
-            status,
-            aviso_html
+            status, aviso_html
         )
     } else {
         let today = chrono::Local::now().date_naive();
@@ -603,13 +602,10 @@ fn chip_origen(ev: &Evaluacion) -> String {
 /// Subtítulo de la tarjeta: materia + categoría, o el origen del evento.
 fn subtitulo(ev: &Evaluacion) -> String {
     let partes: Vec<String> = match ev.origen {
-        Origen::Mikareno => vec![
-            ev.materia.clone(),
-            etiqueta_clase(&ev.clase),
-        ]
-        .into_iter()
-        .filter(|p| !p.is_empty())
-        .collect(),
+        Origen::Mikareno => vec![ev.materia.clone(), etiqueta_clase(&ev.clase)]
+            .into_iter()
+            .filter(|p| !p.is_empty())
+            .collect(),
         Origen::Posible => vec!["Evento de calendario".to_string()],
     };
     partes.join(" · ")

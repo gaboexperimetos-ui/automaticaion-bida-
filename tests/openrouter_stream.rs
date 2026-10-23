@@ -19,10 +19,10 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use axum::Json;
 use axum::body::Body;
 use axum::extract::State;
-use axum::http::{HeaderMap, StatusCode, header};
+use axum::http::{header, HeaderMap, StatusCode};
+use axum::Json;
 use sqlx::sqlite::SqlitePoolOptions;
 use tower::ServiceExt;
 
@@ -59,7 +59,11 @@ fn openrouter_sse_body(model: &str) -> String {
     let words: Vec<&str> = STREAM_FULL_TEXT.split(' ').collect();
     let mut out = String::new();
     for (i, word) in words.iter().enumerate() {
-        let piece = if i == 0 { word.to_string() } else { format!(" {word}") };
+        let piece = if i == 0 {
+            word.to_string()
+        } else {
+            format!(" {word}")
+        };
         let chunk = serde_json::json!({
             "id": "chatcmpl-mock-stream-001",
             "model": model,
@@ -120,13 +124,19 @@ async fn chat_completions(
     headers: HeaderMap,
     Json(payload): Json<serde_json::Value>,
 ) -> axum::response::Response {
-    state
-        .seen_auth
-        .lock()
-        .unwrap()
-        .push(headers.get("authorization").and_then(|v| v.to_str().ok()).map(String::from).unwrap_or_default());
+    state.seen_auth.lock().unwrap().push(
+        headers
+            .get("authorization")
+            .and_then(|v| v.to_str().ok())
+            .map(String::from)
+            .unwrap_or_default(),
+    );
 
-    if payload.get("stream").and_then(serde_json::Value::as_bool).unwrap_or(false) {
+    if payload
+        .get("stream")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
+    {
         let body = openrouter_sse_body(&state.model);
         axum::response::Response::builder()
             .status(StatusCode::OK)
@@ -137,7 +147,9 @@ async fn chat_completions(
         axum::response::Response::builder()
             .status(StatusCode::OK)
             .header(header::CONTENT_TYPE, "application/json")
-            .body(Body::from(openrouter_completion_body(&state.model).to_string()))
+            .body(Body::from(
+                openrouter_completion_body(&state.model).to_string(),
+            ))
             .unwrap()
     }
 }
@@ -175,8 +187,14 @@ async fn setup_app_state() -> (Arc<AppState>, tempfile::TempDir, tempfile::Named
         .connect(&db_url)
         .await
         .expect("Failed to create test database");
-    sqlx::query("PRAGMA journal_mode=WAL;").execute(&pool).await.ok();
-    sqlx::query("PRAGMA foreign_keys=ON;").execute(&pool).await.ok();
+    sqlx::query("PRAGMA journal_mode=WAL;")
+        .execute(&pool)
+        .await
+        .ok();
+    sqlx::query("PRAGMA foreign_keys=ON;")
+        .execute(&pool)
+        .await
+        .ok();
     sqlx::migrate!()
         .run(&pool)
         .await
@@ -184,6 +202,12 @@ async fn setup_app_state() -> (Arc<AppState>, tempfile::TempDir, tempfile::Named
 
     (
         Arc::new(AppState {
+            cache_mikareno: std::sync::Arc::new(
+                study_platform::academic::calendar_data::CacheMikareno::default(),
+            ),
+            cache_catalogo: std::sync::Arc::new(
+                study_platform::ai::modelos::CacheCatalogo::default(),
+            ),
             config,
             db: pool,
             mikareno: None,
@@ -302,7 +326,9 @@ async fn app_chat_in_mock_mode_answers_without_provider_and_records_zero_cost() 
                 .uri("/api/ai/chat")
                 .header("content-type", "application/json")
                 .header("cookie", cookie)
-                .body(Body::from(chat_json("cual es la funcion de la mitocondria?", false).to_string()))
+                .body(Body::from(
+                    chat_json("cual es la funcion de la mitocondria?", false).to_string(),
+                ))
                 .unwrap(),
         )
         .await
@@ -368,7 +394,9 @@ async fn app_stream_endpoint_streams_sse_when_implemented() {
                 .uri("/api/ai/chat/stream")
                 .header("content-type", "application/json")
                 .header("cookie", cookie)
-                .body(Body::from(chat_json("explique la fotosintesis", true).to_string()))
+                .body(Body::from(
+                    chat_json("explique la fotosintesis", true).to_string(),
+                ))
                 .unwrap(),
         )
         .await

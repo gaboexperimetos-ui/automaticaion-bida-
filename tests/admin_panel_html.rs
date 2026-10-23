@@ -80,8 +80,14 @@ async fn setup_admin_app() -> TestApp {
         .await
         .expect("Failed to create test database");
 
-    sqlx::query("PRAGMA journal_mode=WAL;").execute(&pool).await.ok();
-    sqlx::query("PRAGMA foreign_keys=ON;").execute(&pool).await.ok();
+    sqlx::query("PRAGMA journal_mode=WAL;")
+        .execute(&pool)
+        .await
+        .ok();
+    sqlx::query("PRAGMA foreign_keys=ON;")
+        .execute(&pool)
+        .await
+        .ok();
     sqlx::migrate!()
         .run(&pool)
         .await
@@ -123,6 +129,10 @@ async fn setup_admin_app() -> TestApp {
         .expect("Failed to seed admin session");
 
     let state = Arc::new(AppState {
+        cache_mikareno: std::sync::Arc::new(
+            study_platform::academic::calendar_data::CacheMikareno::default(),
+        ),
+        cache_catalogo: std::sync::Arc::new(study_platform::ai::modelos::CacheCatalogo::default()),
         config: config.clone(),
         db: pool,
         mikareno: None,
@@ -142,7 +152,9 @@ async fn get(app: axum::Router, uri: &str, cookie: Option<&str>) -> axum::respon
     if let Some(c) = cookie {
         builder = builder.header("cookie", c);
     }
-    app.oneshot(builder.body(Body::empty()).unwrap()).await.unwrap()
+    app.oneshot(builder.body(Body::empty()).unwrap())
+        .await
+        .unwrap()
 }
 
 async fn body_bytes(resp: axum::response::Response) -> Vec<u8> {
@@ -212,7 +224,11 @@ async fn admin_metrics_endpoint_returns_numeric_system_metrics() {
     let cookie = t.cookie.clone();
 
     let resp = get(app, "/admin/metrics", Some(&cookie)).await;
-    assert_eq!(resp.status(), StatusCode::OK, "GET /admin/metrics must return 200");
+    assert_eq!(
+        resp.status(),
+        StatusCode::OK,
+        "GET /admin/metrics must return 200"
+    );
 
     let json: serde_json::Value = serde_json::from_slice(&body_bytes(resp).await).unwrap();
 
@@ -251,7 +267,10 @@ async fn admin_backup_list_endpoint_returns_count_and_items() {
         .or_else(|| json.get("contar"))
         .and_then(|v| v.as_i64())
         .unwrap_or_else(|| panic!("falta el contador de backups en: {json}"));
-    assert!(count >= 0, "el contador de backups no puede ser negativo: {count}");
+    assert!(
+        count >= 0,
+        "el contador de backups no puede ser negativo: {count}"
+    );
 
     assert!(
         json["items"].is_array(),

@@ -53,14 +53,17 @@ const TTL_CATALOGO: Duration = Duration::from_secs(1800);
 /// Se usa cuando no hay clave de API o el proveedor no responde, para que la
 /// lista nunca esté vacía y el usuario pueda elegir.
 const MODELOS_RESPALDO: &[(&str, &str)] = &[
-    ("minimax/minimax-m3.1-flash:free", "MiniMax M3.1 Flash"),
+    (
+        "nvidia/nemotron-3-ultra-550b-a55b:free",
+        "Nemotron 3 Ultra 550B",
+    ),
     ("poolside/laguna-s-2.1:free", "Laguna S 2.1"),
     ("poolside/laguna-xs-2.1:free", "Laguna XS 2.1"),
     ("cohere/north-mini-code:free", "North Mini Code"),
     ("thinkingmachines/inkling:free", "Inkling"),
     ("thinkingmachines/inkling-small:free", "Inkling Small"),
     ("liquid/lfm-2.5-2.6b:free", "LFM 2.5 2.6B"),
-    ("nvidia/nemotron-3.5-lightning:free", "Nemotron 3.5 Lightning"),
+    ("google/gemma-4-31b-it:free", "Gemma 4 31B"),
 ];
 
 /// Un modelo del catálogo.
@@ -173,10 +176,11 @@ pub async fn catalogo(state: &Arc<AppState>) -> Vec<ModeloInfo> {
 /// Modelo activo: el de `app_config` si el usuario eligió uno; si no, el del
 /// `.env` (`OPENROUTER_MODEL`).
 pub async fn modelo_activo(state: &Arc<AppState>) -> String {
-    if let Ok(Some(v)) = sqlx::query_scalar::<_, String>("SELECT value FROM app_config WHERE key = ?")
-        .bind(CLAVE_MODELO)
-        .fetch_optional(&state.db)
-        .await
+    if let Ok(Some(v)) =
+        sqlx::query_scalar::<_, String>("SELECT value FROM app_config WHERE key = ?")
+            .bind(CLAVE_MODELO)
+            .fetch_optional(&state.db)
+            .await
     {
         let v = v.trim().to_string();
         if !v.is_empty() {
@@ -211,27 +215,19 @@ pub struct SetModel {
 
 /// `PUT /api/ai/model` — guarda el modelo elegido.
 ///
-/// Sólo se aceptan modelos que estén en el catálogo real de free: es la
-/// garantía de que esta vía no abre la puerta a un modelo de pago.
+/// Se acepta **cualquier** identificador que acabe en `:free`: es la garantía
+/// de que esta vía no abre la puerta a un modelo de pago, al tiempo que no
+/// bloquea modelos nuevos que el catálogo cacheado (30 min) todavía no lista.
 pub async fn set_model(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<SetModel>,
 ) -> Response {
     let elegido = payload.model.trim().to_string();
-    if elegido.is_empty() {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({ "error": "Indica un modelo" })),
-        )
-            .into_response();
-    }
-
-    let modelos = catalogo(&state).await;
-    if !modelos.iter().any(|m| m.id == elegido) {
+    if !elegido.ends_with(":free") {
         return (
             StatusCode::BAD_REQUEST,
             Json(json!({
-                "error": "Ese modelo no está en la lista de modelos free de OpenRouter",
+                "error": "Solo se aceptan modelos free de OpenRouter (identificadores que acaban en ':free')",
                 "model": elegido,
             })),
         )

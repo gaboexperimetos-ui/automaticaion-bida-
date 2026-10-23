@@ -38,10 +38,7 @@ const MAX_CODE_LEN: usize = 64;
 /// `code` is the subject `courseCode` from the Mikareno promedios data
 /// (e.g. `"INFO01"`). If the code is not found, the page shows an honest
 /// "asignatura no encontrada" message.
-pub async fn view(
-    State(state): State<Arc<AppState>>,
-    Path(code): Path<String>,
-) -> Html<String> {
+pub async fn view(State(state): State<Arc<AppState>>, Path(code): Path<String>) -> Html<String> {
     let client_opt = mikareno_client(&state);
 
     // Guard against path-traversal / absurdly long codes.
@@ -63,10 +60,9 @@ pub async fn view(
 
     if let Some(client) = client_opt {
         // Handshake — same 10s budget used by the other academic handlers.
-        let init_ok =
-            time::timeout(Duration::from_secs(10), client.initialize())
-                .await
-                .is_ok();
+        let init_ok = time::timeout(Duration::from_secs(10), client.initialize())
+            .await
+            .is_ok();
         if init_ok {
             connected = true;
 
@@ -109,8 +105,7 @@ pub async fn view(
                     // Verified shape: arguments are `materia` (string name)
                     // and `trimestre` (int, partial number within the term).
                     // Returns {"trimestre": N, "materias":[...], "total_materias": N}.
-                    let parcial =
-                        extract_parcial_num(&full, &materia, trimestre_display);
+                    let parcial = extract_parcial_num(&full, &materia, trimestre_display);
 
                     if let Ok(raw) = client
                         .call_tool(
@@ -186,35 +181,22 @@ fn resolve_from_promedios(
 
     for s in stats {
         if let Some(obj) = s.as_object() {
-            let c = obj
-                .get("courseCode")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
-            let name = obj
-                .get("courseName")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
+            let c = obj.get("courseCode").and_then(|v| v.as_str()).unwrap_or("");
+            let name = obj.get("courseName").and_then(|v| v.as_str()).unwrap_or("");
 
             let matches_code = !c.is_empty() && c.eq_ignore_ascii_case(code);
             let matches_name = code_norm == normalize_name(name);
 
             if matches_code || matches_name {
                 *materia = name.to_string();
-                *promedio = obj
-                    .get("average")
-                    .and_then(|v| v.as_f64())
-                    .unwrap_or(0.0);
-                *maximo = obj
-                    .get("maxScore")
-                    .and_then(|v| v.as_f64())
-                    .unwrap_or(10.0);
+                *promedio = obj.get("average").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                *maximo = obj.get("maxScore").and_then(|v| v.as_f64()).unwrap_or(10.0);
                 *bloqueada = obj
                     .get("isLocked")
                     .and_then(|v| v.as_bool())
                     .unwrap_or(false);
-                *trimestre = extract_trimestre_from_partial(
-                    obj.get("partialId").and_then(|v| v.as_str()),
-                );
+                *trimestre =
+                    extract_trimestre_from_partial(obj.get("partialId").and_then(|v| v.as_str()));
                 return true;
             }
         }
@@ -241,10 +223,7 @@ fn extract_parcial_num(full: &Value, materia: &str, _trimestre: u8) -> u8 {
     {
         let norm = normalize_name(materia);
         for s in stats {
-            let name = s
-                .get("courseName")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
+            let name = s.get("courseName").and_then(|v| v.as_str()).unwrap_or("");
             if normalize_name(name) == norm {
                 if let Some(pid) = s.get("partialId").and_then(|v| v.as_str()) {
                     let n = pid.rsplit(':').next();
@@ -310,10 +289,7 @@ fn parse_detalle_materia(raw: &Value, materia_filter: &str) -> Vec<templates::Ma
             if materia.is_empty() {
                 return None;
             }
-            let tipo = e
-                .get("tipo")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
+            let tipo = e.get("tipo").and_then(|v| v.as_str()).unwrap_or("");
             let es_cualitativa = tipo == "cualitativa";
             Some(templates::MateriaDetalle {
                 materia,
@@ -466,11 +442,7 @@ impl NoteIndex {
         }
         let slug = slug.to_string();
 
-        let slug_forms = [
-            slug.clone(),
-            Note::slugify(&slug),
-            Note::slugify(title),
-        ];
+        let slug_forms = [slug.clone(), Note::slugify(&slug), Note::slugify(title)];
         for form in slug_forms.iter() {
             if !form.is_empty() {
                 self.by_slug
@@ -592,27 +564,26 @@ fn subject_page_html(
     let status = templates::mcp_status_banner(connected);
 
     // Valores visibles: preferimos el detalle, caemos a los promedios.
-    let (avg, maximo, bloqueada, es_cualitativa, observacion) =
-        detalle.first().map_or_else(
-            || {
-                (
-                    promedio_fallback,
-                    maximo_fallback,
-                    bloqueada_fallback,
-                    false,
-                    String::new(),
-                )
-            },
-            |d| {
-                (
-                    d.nota_promedio.unwrap_or(promedio_fallback),
-                    d.maximo,
-                    d.bloqueada,
-                    d.es_cualitativa,
-                    d.observacion.clone(),
-                )
-            },
-        );
+    let (avg, maximo, bloqueada, es_cualitativa, observacion) = detalle.first().map_or_else(
+        || {
+            (
+                promedio_fallback,
+                maximo_fallback,
+                bloqueada_fallback,
+                false,
+                String::new(),
+            )
+        },
+        |d| {
+            (
+                d.nota_promedio.unwrap_or(promedio_fallback),
+                d.maximo,
+                d.bloqueada,
+                d.es_cualitativa,
+                d.observacion.clone(),
+            )
+        },
+    );
 
     let avg_fmt = fmt_grade(avg);
     let color = grade_color(avg);
@@ -676,7 +647,11 @@ fn subject_page_html(
         templates::html_escape(codigo),
         maximo_fmt,
         bloqueada_txt,
-        if es_cualitativa { "Cualitativa" } else { "Cuantitativa" },
+        if es_cualitativa {
+            "Cualitativa"
+        } else {
+            "Cuantitativa"
+        },
     );
 
     let observacion_card = if observacion.is_empty() {
@@ -823,11 +798,7 @@ fn subject_page_html(
 
     let content = format!(
         r###"{}{}{}{}{}"###,
-        status,
-        header,
-        summary_card,
-        observacion_card,
-        activities_html
+        status, header, summary_card, observacion_card, activities_html
     );
 
     templates::page_ext(
@@ -1020,8 +991,13 @@ mod tests {
         let mut trimestre = 0u8;
         let mut bloqueada = false;
         assert!(resolve_from_promedios(
-            &raw, "INFO01", &mut materia, &mut promedio, &mut maximo,
-            &mut trimestre, &mut bloqueada
+            &raw,
+            "INFO01",
+            &mut materia,
+            &mut promedio,
+            &mut maximo,
+            &mut trimestre,
+            &mut bloqueada
         ));
         assert_eq!(materia, "INFORMATICA");
         assert_eq!(promedio, 8.5);
@@ -1051,8 +1027,13 @@ mod tests {
         let mut bloqueada = false;
         // Match by normalized name (accents stripped).
         assert!(resolve_from_promedios(
-            &raw, "Matemáticas", &mut materia, &mut promedio, &mut maximo,
-            &mut trimestre, &mut bloqueada
+            &raw,
+            "Matemáticas",
+            &mut materia,
+            &mut promedio,
+            &mut maximo,
+            &mut trimestre,
+            &mut bloqueada
         ));
         assert_eq!(materia, "Matematicas");
         assert_eq!(trimestre, 2);
@@ -1068,8 +1049,13 @@ mod tests {
         let mut trimestre = 0u8;
         let mut bloqueada = false;
         assert!(!resolve_from_promedios(
-            &raw, "NOEXISTE", &mut materia, &mut promedio, &mut maximo,
-            &mut trimestre, &mut bloqueada
+            &raw,
+            "NOEXISTE",
+            &mut materia,
+            &mut promedio,
+            &mut maximo,
+            &mut trimestre,
+            &mut bloqueada
         ));
     }
 
@@ -1082,8 +1068,13 @@ mod tests {
         let mut trimestre = 0u8;
         let mut bloqueada = false;
         assert!(!resolve_from_promedios(
-            &raw, "CODE", &mut materia, &mut promedio, &mut maximo,
-            &mut trimestre, &mut bloqueada
+            &raw,
+            "CODE",
+            &mut materia,
+            &mut promedio,
+            &mut maximo,
+            &mut trimestre,
+            &mut bloqueada
         ));
     }
 

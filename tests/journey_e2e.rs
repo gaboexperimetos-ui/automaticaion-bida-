@@ -109,8 +109,14 @@ async fn setup_app() -> TestApp {
         .await
         .expect("no se pudo crear la base de datos de test");
 
-    sqlx::query("PRAGMA journal_mode=WAL;").execute(&pool).await.ok();
-    sqlx::query("PRAGMA foreign_keys=ON;").execute(&pool).await.ok();
+    sqlx::query("PRAGMA journal_mode=WAL;")
+        .execute(&pool)
+        .await
+        .ok();
+    sqlx::query("PRAGMA foreign_keys=ON;")
+        .execute(&pool)
+        .await
+        .ok();
     sqlx::migrate!()
         .run(&pool)
         .await
@@ -133,6 +139,10 @@ async fn setup_app() -> TestApp {
     .expect("no se pudo sembrar el usuario admin");
 
     let state = Arc::new(AppState {
+        cache_mikareno: std::sync::Arc::new(
+            study_platform::academic::calendar_data::CacheMikareno::default(),
+        ),
+        cache_catalogo: std::sync::Arc::new(study_platform::ai::modelos::CacheCatalogo::default()),
         config: config.clone(),
         db: pool,
         mikareno: None,
@@ -160,10 +170,7 @@ async fn send(
     }
     let body = match form {
         Some(f) => {
-            builder = builder.header(
-                header::CONTENT_TYPE,
-                "application/x-www-form-urlencoded",
-            );
+            builder = builder.header(header::CONTENT_TYPE, "application/x-www-form-urlencoded");
             Body::from(f.to_string())
         }
         None => Body::empty(),
@@ -303,7 +310,14 @@ async fn journey_completo_de_un_usuario() {
     // ------------------------------------------------------------------
     // Paso 3 — ver la nota: GET /app/notes/{slug} → 200 con el contenido.
     // ------------------------------------------------------------------
-    let resp = send(&app, Method::GET, &format!("/app/notes/{}", slug), Some(cookie), None).await;
+    let resp = send(
+        &app,
+        Method::GET,
+        &format!("/app/notes/{}", slug),
+        Some(cookie),
+        None,
+    )
+    .await;
     assert_eq!(
         resp.status(),
         StatusCode::OK,
@@ -346,11 +360,19 @@ async fn journey_completo_de_un_usuario() {
     let json: serde_json::Value =
         serde_json::from_str(&body_text(resp).await).expect("el update debe devolver JSON");
     assert_eq!(
-        json["message"], serde_json::json!("Note updated"),
+        json["message"],
+        serde_json::json!("Note updated"),
         "Paso 4 (editar nota): la respuesta debe confirmar la actualización, se recibió: {json}"
     );
 
-    let resp = send(&app, Method::GET, &format!("/app/notes/{}", slug), Some(cookie), None).await;
+    let resp = send(
+        &app,
+        Method::GET,
+        &format!("/app/notes/{}", slug),
+        Some(cookie),
+        None,
+    )
+    .await;
     assert_eq!(
         resp.status(),
         StatusCode::OK,
@@ -442,7 +464,8 @@ async fn journey_completo_de_un_usuario() {
     let json: serde_json::Value =
         serde_json::from_str(&body_text(resp).await).expect("el borrado debe devolver JSON");
     assert_eq!(
-        json["message"], serde_json::json!("Note deleted"),
+        json["message"],
+        serde_json::json!("Note deleted"),
         "Paso 7 (borrar nota): la respuesta debe confirmar el borrado, se recibió: {json}"
     );
     assert!(
@@ -453,7 +476,14 @@ async fn journey_completo_de_un_usuario() {
     // ------------------------------------------------------------------
     // Paso 8 — verificar que ya no está: GET /app/notes/{slug} → 404.
     // ------------------------------------------------------------------
-    let resp = send(&app, Method::GET, &format!("/app/notes/{}", slug), Some(cookie), None).await;
+    let resp = send(
+        &app,
+        Method::GET,
+        &format!("/app/notes/{}", slug),
+        Some(cookie),
+        None,
+    )
+    .await;
     assert_eq!(
         resp.status(),
         StatusCode::NOT_FOUND,

@@ -133,7 +133,13 @@ async fn setup_state() -> Arc<AppState> {
     // Keep the temp dir alive for the duration of the test process.
     std::mem::forget(tmp);
 
-    Arc::new(AppState { config, db: pool,
+    Arc::new(AppState {
+        cache_mikareno: std::sync::Arc::new(
+            study_platform::academic::calendar_data::CacheMikareno::default(),
+        ),
+        cache_catalogo: std::sync::Arc::new(study_platform::ai::modelos::CacheCatalogo::default()),
+        config,
+        db: pool,
         mikareno: None,
         start_time: std::time::Instant::now(),
     })

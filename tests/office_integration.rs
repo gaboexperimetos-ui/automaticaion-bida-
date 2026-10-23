@@ -161,7 +161,13 @@ async fn setup() -> (Arc<AppState>, tempfile::TempDir) {
         .await
         .expect("seed session for auth tests");
 
-    let state = Arc::new(AppState { config, db: pool,
+    let state = Arc::new(AppState {
+        cache_mikareno: std::sync::Arc::new(
+            study_platform::academic::calendar_data::CacheMikareno::default(),
+        ),
+        cache_catalogo: std::sync::Arc::new(study_platform::ai::modelos::CacheCatalogo::default()),
+        config,
+        db: pool,
         mikareno: None,
         start_time: std::time::Instant::now(),
     });
