@@ -9,7 +9,7 @@
     <div class="flex items-center justify-between mb-space-sm">
       <h2 class="font-headline-sm text-headline-sm text-primary-container flex items-center gap-space-xs">
         <span class="material-symbols-outlined text-[20px] text-primary-container">draw</span>
-        <span>Generador de Material</span>
+        <span>Generador de material de estudio</span>
       </h2>
       <div class="flex items-center gap-space-xs">
         <span class="w-2 h-2 rounded-full <!--SLOT:AI_DOT-->"></span>
@@ -19,11 +19,11 @@
 
     <!-- Form Grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
-      <!-- Materia Selector -->
+      <!-- Asignatura Selector -->
       <div>
         <label for="materia-select" class="font-label-sm text-label-sm text-on-surface-variant mb-1 flex items-center gap-1">
           <span class="material-symbols-outlined text-[18px] text-primary-container" aria-hidden="true">menu_book</span>
-          <span>Materia</span>
+          <span>Asignatura</span>
         </label>
         <select id="materia-select"
                 class="w-full px-space-sm py-2 rounded-lg bg-surface-container-high border border-outline-variant text-on-surface font-body-md text-body-md focus:outline-none focus:ring-1 focus:ring-primary-container appearance-none">
@@ -35,7 +35,7 @@
       <div>
         <label for="tipo-select" class="font-label-sm text-label-sm text-on-surface-variant mb-1 flex items-center gap-1">
           <span class="material-symbols-outlined text-[18px] text-primary-container" aria-hidden="true">quiz</span>
-          <span>Tipo de material</span>
+          <span>Tipo de recurso</span>
         </label>
         <select id="tipo-select"
                 class="w-full px-space-sm py-2 rounded-lg bg-surface-container-high border border-outline-variant text-on-surface font-body-md text-body-md focus:outline-none focus:ring-1 focus:ring-primary-container appearance-none">
@@ -47,11 +47,11 @@
       </div>
     </div>
 
-    <!-- Tema Input -->
+    <!-- Tema de estudio Input -->
     <div class="mt-space-md">
       <label for="tema-input" class="font-label-sm text-label-sm text-on-surface-variant mb-1 flex items-center gap-1">
         <span class="material-symbols-outlined text-[18px] text-primary-container" aria-hidden="true">topic</span>
-        <span>Tema</span>
+        <span>Tema de estudio</span>
       </label>
       <input id="tema-input" type="text"
              placeholder="Ej: Derivadas, La Revolución Francesa, Fotosíntesis..."
@@ -65,11 +65,11 @@
               title="Genera el material con el modelo configurado. Se deshabilita mientras la IA responde (el botón muestra «Generando…»)."
               class="flex items-center justify-center gap-1.5 px-space-md py-2.5 rounded-lg bg-primary-container text-on-primary-container font-label-md font-semibold hover:bg-primary-fixed-dim transition-all shadow-md">
         <span class="material-symbols-outlined text-[18px]">auto_awesome</span>
-        <span>Generar</span>
+        <span>Generar material</span>
       </button>
       <div id="cost-info" aria-live="polite" class="flex items-center gap-1 font-code-inline text-[10px] text-outline">
         <span class="material-symbols-outlined text-[14px]">schedule</span>
-        <span>Cargando...</span>
+        <span>Cargando información…</span>
       </div>
     </div>
   </div>
@@ -108,7 +108,7 @@
     resultsArea.innerHTML =
       '<div class="flex items-center justify-center gap-2 py-8">' +
       '  <span class="material-symbols-outlined text-primary animate-spin text-[24px]">autorenew</span>' +
-      '  <span class="font-body-sm text-body-sm text-on-surface-variant">Generando material…</span>' +
+      '  <span class="font-body-sm text-body-sm text-on-surface-variant">Generando el material…</span>' +
       '</div>';
   }
 
@@ -116,7 +116,7 @@
     generateBtn.disabled = false;
     generateBtn.innerHTML =
       '<span class="material-symbols-outlined text-[18px]">auto_awesome</span>' +
-      '<span>Generar</span>';
+      '<span>Generar material</span>';
   }
 
   function renderError(message) {
@@ -165,7 +165,7 @@
     } else {
       html +=
         '<p class="font-body-sm text-body-sm text-on-surface-variant">' +
-        'No se pudieron parsear las preguntas del cuestionario.' +
+        'No se pudieron interpretar las preguntas del cuestionario.' +
         '</p>';
     }
 
@@ -220,7 +220,7 @@
         } else if (data.material) {
           renderGeneric(data.material);
         } else {
-          renderText('Material generado sin contenido reconocible.');
+          renderText('Asignatural generado sin contenido reconocible.');
         }
       } else {
         renderError(data.error || 'Error desconocido al generar material.');
@@ -240,7 +240,7 @@
         data.total_cost.toFixed(2) + ' / $' + data.budget_limit.toFixed(2) +
         '</span>';
     } catch (e) {
-      costInfo.innerHTML = '<span class="text-outline">No disponible</span>';
+      costInfo.innerHTML = '<span class="text-outline">Información no disponible</span>';
     }
   }
 
