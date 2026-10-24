@@ -21,7 +21,9 @@ fn sin_comentarios(html: &str) -> String {
     while let Some(inicio) = resto.find("<!--") {
         salida.push_str(&resto[..inicio]);
         let despues = &resto[inicio + 4..];
-        let Some(fin) = despues.find("-->") else { return salida };
+        let Some(fin) = despues.find("-->") else {
+            return salida;
+        };
         resto = &despues[fin + 3..];
     }
     salida.push_str(resto);
@@ -33,7 +35,9 @@ fn rutas_nav(html: &str) -> Vec<&str> {
     let mut rest = html;
     while let Some(start) = rest.find("data-path=\"") {
         let after = &rest[start + "data-path=\"".len()..];
-        let Some(end) = after.find('"') else { break };
+        let Some(end) = after.find('"') else {
+            break;
+        };
         out.push(&after[..end]);
         rest = &after[end + 1..];
     }
@@ -43,11 +47,19 @@ fn rutas_nav(html: &str) -> Vec<&str> {
 #[test]
 fn la_navegacion_conserva_los_22_destinos_unicos() {
     let rutas = rutas_nav(NAVEGACION);
-    assert_eq!(rutas.len(), 22, "se deben conservar todos los apartados del menú");
+    assert_eq!(
+        rutas.len(),
+        22,
+        "se deben conservar todos los apartados del menú"
+    );
     let mut unicas = rutas.clone();
     unicas.sort_unstable();
     unicas.dedup();
-    assert_eq!(unicas.len(), rutas.len(), "no debe haber destinos duplicados en el menú");
+    assert_eq!(
+        unicas.len(),
+        rutas.len(),
+        "no debe haber destinos duplicados en el menú"
+    );
 }
 
 #[test]
@@ -63,7 +75,8 @@ fn las_vistas_inyectadas_no_anidan_elementos_main() {
     ] {
         let html_sin_comentarios = sin_comentarios(html);
         assert!(
-            !html_sin_comentarios.contains("<main") && !html_sin_comentarios.contains("</main>"),
+            !html_sin_comentarios.contains("<main")
+                && !html_sin_comentarios.contains("</main>"),
             "la vista {nombre} es un fragmento del main del shell y no debe anidar otra etiqueta main"
         );
     }
@@ -71,26 +84,68 @@ fn las_vistas_inyectadas_no_anidan_elementos_main() {
 
 #[test]
 fn la_captura_de_tareas_y_la_importacion_conservan_sus_controles() {
-    for id in ["quick-task-modal", "quick-task-title", "quick-task-subject", "quick-task-priority", "quick-task-date", "quick-task-time", "save-task-as-note"] {
-        assert!(PORTADA.contains(&format!("id=\"{id}\"")), "falta el control {id} en la portada");
-        assert!(PANEL.contains(&format!("id=\"{id}\"")), "falta el control {id} en el panel");
+    for id in [
+        "quick-task-modal",
+        "quick-task-title",
+        "quick-task-subject",
+        "quick-task-priority",
+        "quick-task-date",
+        "quick-task-time",
+        "save-task-as-note",
+    ] {
+        assert!(
+            PORTADA.contains(&format!("id=\"{id}\"")),
+            "falta el control {id} en la portada"
+        );
+        assert!(
+            PANEL.contains(&format!("id=\"{id}\"")),
+            "falta el control {id} en el panel"
+        );
     }
-    for id in ["btn-import-vault", "import-vault-modal", "choose-vault-folder-btn", "confirm-import-btn"] {
-        assert!(NOTAS.contains(&format!("id=\"{id}\"")), "falta el control de importación {id}");
+    for id in [
+        "btn-import-vault",
+        "import-vault-modal",
+        "choose-vault-folder-btn",
+        "confirm-import-btn",
+    ] {
+        assert!(
+            NOTAS.contains(&format!("id=\"{id}\"")),
+            "falta el control de importación {id}"
+        );
     }
-    assert!(NOTAS.contains("value=\"keep-both\""), "la política segura de conservar ambas versiones debe seguir disponible");
-    assert!(NOTAS.contains("value=\"overwrite-newer\""), "la política de actualización controlada debe seguir disponible");
-    assert!(SHELL_JS.contains("SP.importObsidianFiles = function"), "el importador real debe estar conectado al shell");
-    assert!(SHELL_JS.contains("t: \"nota markdown\""), "el botón de nota traducido debe conservar su acción");
-    assert!(SHELL_JS.contains("t: \"hoja de cálculo\""), "el botón de hoja de cálculo traducido debe conservar su acción");
-    assert!(!SHELL_JS.contains("setTimeout(siguiente, 120)"), "la importación no debe avanzar antes de que termine cada guardado");
+    assert!(
+        NOTAS.contains("value=\"keep-both\""),
+        "la política segura de conservar ambas versiones debe seguir disponible"
+    );
+    assert!(
+        NOTAS.contains("value=\"overwrite-newer\""),
+        "la política de actualización controlada debe seguir disponible"
+    );
+    assert!(
+        SHELL_JS.contains("SP.importObsidianFiles = function"),
+        "el importador real debe estar conectado al shell"
+    );
+    assert!(
+        SHELL_JS.contains("t: \"nota markdown\""),
+        "el botón de nota traducido debe conservar su acción"
+    );
+    assert!(
+        SHELL_JS.contains("t: \"hoja de cálculo\""),
+        "el botón de hoja de cálculo traducido debe conservar su acción"
+    );
+    assert!(
+        !SHELL_JS.contains("setTimeout(siguiente, 120)"),
+        "la importación no debe avanzar antes de que termine cada guardado"
+    );
 }
 
 #[test]
 fn la_interfaz_principal_mantiene_la_identidad_en_espanol() {
     for texto in ["Tu espacio académico", "Panel principal", "Segundo cerebro"] {
         assert!(
-            PORTADA.contains(texto) || NAVEGACION.contains(texto) || BARRA_SUPERIOR.contains(texto),
+            PORTADA.contains(texto)
+                || NAVEGACION.contains(texto)
+                || BARRA_SUPERIOR.contains(texto),
             "falta una etiqueta española esperada: {texto}"
         );
     }
@@ -101,7 +156,16 @@ fn la_interfaz_principal_mantiene_la_identidad_en_espanol() {
 fn el_css_nova_mantiene_bloques_balanceados() {
     let abiertas = NOVA_CSS.chars().filter(|c| *c == '{').count();
     let cerradas = NOVA_CSS.chars().filter(|c| *c == '}').count();
-    assert_eq!(abiertas, cerradas, "el CSS del diseño debe tener todas las llaves cerradas");
-    assert!(NOVA_CSS.contains("#chat-messages-container"), "el chat necesita estilos específicos");
-    assert!(NOVA_CSS.contains("@media (max-width: 767px)"), "la interfaz debe conservar reglas para móvil");
+    assert_eq!(
+        abiertas, cerradas,
+        "el CSS del diseño debe tener todas las llaves cerradas"
+    );
+    assert!(
+        NOVA_CSS.contains("#chat-messages-container"),
+        "el chat necesita estilos específicos"
+    );
+    assert!(
+        NOVA_CSS.contains("@media (max-width: 767px)"),
+        "la interfaz debe conservar reglas para móvil"
+    );
 }
