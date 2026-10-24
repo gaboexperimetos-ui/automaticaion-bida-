@@ -1157,6 +1157,16 @@ pub async fn api_update(
     if !is_safe_slug(&slug) {
         return bad_slug_json();
     }
+    if payload
+        .title
+        .as_deref()
+        .is_some_and(|title| title.trim().is_empty())
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "Title is required" })),
+        );
+    }
     if let Some(err) = check_note_fields(
         payload.title.as_deref(),
         payload.content.as_deref(),
@@ -1164,30 +1174,99 @@ pub async fn api_update(
     ) {
         return err;
     }
-    let now = chrono::Utc::now().to_rfc3339();
-    let file_path = state.config.notes_dir.join(format!("{}.md", slug));
 
-    if let Some(content) = &payload.content {
-        let _ = std::fs::write(&file_path, content);
+    // Confirmar que la nota existe antes de tocar el archivo: una petición
+    // a un slug inexistente no debe dejar un .md huérfano en la bóveda.
+    let exists = sqlx::query_scalar::<_, i64>("SELECT id FROM notes WHERE slug = ?")
+        .bind(&slug)
+        .fetch_optional(&state.db)
+        .await;
+    match exists {
+        Ok(Some(_)) => {}
+        Ok(None) => return (StatusCode::NOT_FOUND, Json(json!({ "error": "not found" }))),
+        Err(e) => {
+            tracing::error!(
+                slug_len = slug.len(),
+                "notes api_update: existence check failed: {}",
+                e
+            );
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": INTERNAL_ERROR })),
+            );
+        }
     }
 
-    let result = sqlx::query(
-        r#"UPDATE notes SET title = COALESCE(?, title),
-           tags = COALESCE(?, tags),
-           updated_at = ?
-           WHERE slug = ? returning id"#,
+    let now = chrono::Utc::now().to_rfc3339();
+    let file_path = state.config.notes_dir.join(format!("{}.md", slug));
+    let previous_file_existed = file_path.exists();
+    let previous_content = if payload.content.is_some() {
+        std::fs::read_to_string(&file_path).ok()
+    } else {
+        None
+    };
+
+    if let Some(content) = &payload.content {
+        if let Err(e) = std::fs::write(&file_path, content) {
+            tracing::error!(
+                slug_len = slug.len(),
+                "notes api_update: file write failed: {}",
+                e
+            );
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": INTERNAL_ERROR })),
+            );
+        }
+    }
+
+    let word_count = payload
+        .content
+        .as_ref()
+        .map(|content| content.split_whitespace().count() as i64);
+    let result = sqlx::query_scalar::<_, i64>(
+        r#"UPDATE notes SET
+               title = COALESCE(?, title),
+               tags = COALESCE(?, tags),
+               word_count = COALESCE(?, word_count),
+               updated_at = ?
+           WHERE slug = ?
+           RETURNING id"#,
     )
-    .bind(&payload.title)
+    .bind(payload.title.as_deref())
     .bind(payload.tags.as_deref())
+    .bind(word_count)
     .bind(&now)
     .bind(&slug)
-    .execute(&state.db)
+    .fetch_optional(&state.db)
     .await;
 
     match result {
-        Ok(res) if res.rows_affected() > 0 => (StatusCode::OK, Json(json!({ "updated": true }))),
-        Ok(_) => (StatusCode::NOT_FOUND, Json(json!({ "error": "not found" }))),
+        Ok(Some(note_id)) => {
+            if let Some(content) = payload.content.as_deref() {
+                if !ultima_version_tiene_contenido(&state.db, note_id, content).await {
+                    snapshot_version(&state.db, note_id, content, word_count.unwrap_or(0), &now)
+                        .await;
+                }
+            }
+            (StatusCode::OK, Json(json!({ "updated": true })))
+        }
+        Ok(None) => {
+            // Rollback del archivo si la nota se eliminó concurrentemente.
+            restaurar_archivo_nota(
+                &file_path,
+                previous_file_existed,
+                previous_content.as_deref(),
+            );
+            (StatusCode::NOT_FOUND, Json(json!({ "error": "not found" })))
+        }
         Err(e) => {
+            // Si falla SQLite, no dejar el archivo nuevo con metadatos antiguos.
+            restaurar_archivo_nota(
+                &file_path,
+                previous_file_existed,
+                previous_content.as_deref(),
+            );
             tracing::error!(
                 slug_len = slug.len(),
                 "notes api_update: db update failed: {}",
@@ -1197,6 +1276,27 @@ pub async fn api_update(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "error": INTERNAL_ERROR })),
             )
+        }
+    }
+}
+
+/// Intenta revertir el archivo Markdown cuando su actualización no llegó a la BD.
+fn restaurar_archivo_nota(path: &std::path::Path, existed: bool, previous: Option<&str>) {
+    match (existed, previous) {
+        (true, Some(content)) => {
+            if let Err(e) = std::fs::write(path, content) {
+                tracing::error!("notes api_update: file rollback failed: {}", e);
+            }
+        }
+        (false, _) => {
+            if let Err(e) = std::fs::remove_file(path) {
+                if e.kind() != std::io::ErrorKind::NotFound {
+                    tracing::error!("notes api_update: orphan file cleanup failed: {}", e);
+                }
+            }
+        }
+        (true, None) => {
+            tracing::warn!("notes api_update: no readable backup was available for file rollback");
         }
     }
 }
