@@ -547,3 +547,28 @@ body:has(#chat-messages-container) #chat-messages-container img {
 @media (prefers-reduced-motion: reduce) {
   body:has(#chat-messages-container) #chat-messages-container { scroll-behavior: auto; }
 }
+
+
+/* El panel de fuentes se superpone en móvil en vez de desplazarse debajo del chat. */
+@media (max-width: 767px) {
+  body:has(#chat-messages-container) #contenido > div:first-child > div.flex.w-full.h-full {
+    position: relative;
+  }
+  body:has(#chat-messages-container) #contenido > div:first-child > div.flex.w-full.h-full > #sources-sidebar:not(.hidden) {
+    position: absolute;
+    z-index: 35;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(88vw, 320px);
+    max-height: none;
+    min-height: 0;
+    height: auto;
+    flex: none;
+    overflow-y: auto;
+    border-top: 0;
+    border-left: 1px solid var(--nova-line);
+    box-shadow: -18px 0 48px rgba(0, 0, 0, .32);
+    background: var(--nova-panel, #121a23);
+  }
+}
