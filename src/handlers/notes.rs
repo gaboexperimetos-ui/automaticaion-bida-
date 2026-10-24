@@ -1252,21 +1252,25 @@ pub async fn api_update(
             (StatusCode::OK, Json(json!({ "updated": true })))
         }
         Ok(None) => {
-            // Rollback del archivo si la nota se eliminó concurrentemente.
-            restaurar_archivo_nota(
-                &file_path,
-                previous_file_existed,
-                previous_content.as_deref(),
-            );
+            // Rollback del archivo solo si esta petición llegó a escribir contenido.
+            if payload.content.is_some() {
+                restaurar_archivo_nota(
+                    &file_path,
+                    previous_file_existed,
+                    previous_content.as_deref(),
+                );
+            }
             (StatusCode::NOT_FOUND, Json(json!({ "error": "not found" })))
         }
         Err(e) => {
             // Si falla SQLite, no dejar el archivo nuevo con metadatos antiguos.
-            restaurar_archivo_nota(
-                &file_path,
-                previous_file_existed,
-                previous_content.as_deref(),
-            );
+            if payload.content.is_some() {
+                restaurar_archivo_nota(
+                    &file_path,
+                    previous_file_existed,
+                    previous_content.as_deref(),
+                );
+            }
             tracing::error!(
                 slug_len = slug.len(),
                 "notes api_update: db update failed: {}",
