@@ -198,7 +198,7 @@
       var veil = el("div", "sp-veil");
       veil.setAttribute("role", "dialog");
       veil.setAttribute("aria-modal", "true");
-      veil.setAttribute("aria-label", opts.title || "Dialogo");
+      veil.setAttribute("aria-label", opts.title || "Diálogo");
       var box = el("div", "sp-box");
       veil.appendChild(box);
       if (opts.title) { box.appendChild(el("h2", null, opts.title)); }
@@ -1071,7 +1071,7 @@
       var sel = editor.value.slice(s, e2).trim();
       if (sel) { insert("[[" + sel + "]]"); return; }
       SP.dialog({
-        title: "WikiLink",
+        title: "Enlace interno (WikiLink)",
         text: "Nombre de la nota destino (la puedes crear despues).",
         field: { placeholder: "Ej. Apuntes de redes", max: 60 },
         ok: "Insertar"
@@ -1363,7 +1363,7 @@
               };
             });
             // Cualquier id `:free` nuevo que el catálogo cacheado aún no liste.
-            items.push({ label: "Escribir otro modelo free", icon: "edit", value: "custom" });
+            items.push({ label: "Escribir otro modelo gratuito", icon: "edit", value: "custom" });
             function aplicar(id) {
               if (!id || id === activo) { return; }
               SP.api("/api/ai/model", { method: "PUT", json: { model: id } }).then(function () {
@@ -1372,21 +1372,21 @@
                 pintar(id);
               }).catch(function (err) { SP.toast(msgErr(err), "err"); });
             }
-            SP.dialog({ title: "Modelo de IA (solo los free de OpenRouter)", items: items }).then(function (id) {
+            SP.dialog({ title: "Modelo de IA (solo modelos gratuitos de OpenRouter)", items: items }).then(function (id) {
               if (!id || id === activo) { return; }
               if (id === "custom") {
                 SP.dialog({
                   title: "Escribe el identificador del modelo",
                   field: {
-                    label: "id de OpenRouter (acaba en :free)",
-                    placeholder: "p.ej. google/gemma-4-31b-it:free",
+                    label: "ID de modelo de OpenRouter (termina en :free)",
+                    placeholder: "Por ejemplo: google/gemma-4-31b-it:free",
                     value: activo,
                     max: 200
                   }
                 }).then(function (txt) {
                   if (!txt) { return; }
                   txt = txt.trim();
-                  if (!/:free$/.test(txt)) { SP.toast("Solo se aceptan modelos free (acabados en ':free')", "err"); return; }
+                  if (!/:free$/.test(txt)) { SP.toast("Solo se aceptan modelos gratuitos (terminados en ':free')", "err"); return; }
                   aplicar(txt);
                 });
                 return;
