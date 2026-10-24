@@ -15,6 +15,19 @@ const CONFIGURACION: &str = include_str!("../static/stitch-v2/_content/clean/set
 const SHELL_JS: &str = include_str!("../static/app/shell.js");
 const NOVA_CSS: &str = include_str!("../static/app/nova.css");
 
+fn sin_comentarios(html: &str) -> String {
+    let mut salida = String::with_capacity(html.len());
+    let mut resto = html;
+    while let Some(inicio) = resto.find("<!--") {
+        salida.push_str(&resto[..inicio]);
+        let despues = &resto[inicio + 4..];
+        let Some(fin) = despues.find("-->") else { return salida };
+        resto = &despues[fin + 3..];
+    }
+    salida.push_str(resto);
+    salida
+}
+
 fn rutas_nav(html: &str) -> Vec<&str> {
     let mut out = Vec::new();
     let mut rest = html;
@@ -48,8 +61,9 @@ fn las_vistas_inyectadas_no_anidan_elementos_main() {
         ("integraciones", INTEGRACIONES),
         ("configuración", CONFIGURACION),
     ] {
+        let html_sin_comentarios = sin_comentarios(html);
         assert!(
-            !html.contains("<main") && !html.contains("</main>"),
+            !html_sin_comentarios.contains("<main") && !html_sin_comentarios.contains("</main>"),
             "la vista {nombre} es un fragmento del main del shell y no debe anidar otra etiqueta main"
         );
     }
