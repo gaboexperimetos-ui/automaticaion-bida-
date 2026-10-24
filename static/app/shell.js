@@ -874,7 +874,9 @@
         lines.push("", "- [ ] Pasa al planificador cuando lo revises", "");
         SP.api("/api/notes", { method: "POST", json: { title: title, content: lines.join("\n"), tags: "tarea" } })
           .then(function () {
-            modal.classList.add("hidden");
+            var cancelButton = modal.querySelector("#cancel-modal-btn");
+            if (cancelButton) { cancelButton.click(); }
+            else { modal.classList.add("hidden"); }
             SP.toast("Ficha de tarea guardada como nota \u00ab" + title + "\u00bb", "ok", 4200);
           })
           .catch(function (err) { SP.toast(msgErr(err), "err"); });
