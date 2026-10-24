@@ -170,7 +170,7 @@
       menuPopover.classList.toggle('hidden', !open);
       toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
     }
-    var modalReturnFocus = null;
+    var modalReturnFocus;
     function setModal(open) {
       if (!taskModal) { return; }
       if (open && taskModal.classList.contains('hidden')) {
@@ -183,7 +183,7 @@
         }, 40);
       } else if (!open && modalReturnFocus && typeof modalReturnFocus.focus === 'function') {
         var target = modalReturnFocus;
-        modalReturnFocus = null;
+        modalReturnFocus = false;
         target.focus();
       }
     }
