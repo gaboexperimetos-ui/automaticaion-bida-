@@ -979,7 +979,8 @@ pub fn stitch_v2_page(active: &str, content: &str, authenticated: bool) -> Strin
 
     // La navegación es un cajón superpuesto también en escritorio: el
     // contenido siempre usa todo el ancho y el menú se abre bajo demanda.
-    let body_classes = "rail-collapsed bg-background font-body-md text-body-md text-on-surface antialiased";
+    let body_classes =
+        "rail-collapsed bg-background font-body-md text-body-md text-on-surface antialiased";
 
     format!(
         r###"<!DOCTYPE html>
