@@ -857,8 +857,10 @@
       planner.href = "/dashboard/planner";
       row.parentNode.insertBefore(planner, row);
       saveBtn.textContent = "Guardar como nota";
-      saveBtn.addEventListener("click", function (e) {
-        e.preventDefault();
+
+      function guardarFicha(e) {
+        if (e) { e.preventDefault(); }
+        if (saveBtn.disabled) { return; }
         var title = ((titleInput && titleInput.value) || "").trim();
         if (!title) {
           SP.toast("Escribe un título o usa el planificador", "info");
@@ -866,21 +868,32 @@
           return;
         }
         var lines = ["## " + title, ""];
-        if (selects.length > 0 && selText(selects[0])) { lines.push("- Materia: " + selText(selects[0])); }
+        if (selects.length > 0 && selText(selects[0])) { lines.push("- Asignatura: " + selText(selects[0])); }
         if (selects.length > 1 && selText(selects[1])) { lines.push("- Prioridad: " + selText(selects[1])); }
         if (dateInput && dateInput.value) {
           lines.push("- Fecha límite: " + dateInput.value + (timeInput && timeInput.value ? " " + timeInput.value : ""));
         }
         lines.push("", "- [ ] Pasa al planificador cuando lo revises", "");
-        SP.api("/api/notes", { method: "POST", json: { title: title, content: lines.join("\n"), tags: "tarea" } })
+        saveBtn.disabled = true;
+        SP.api("/api/notes", { method: "POST", json: { title: title, content: lines.join("\\n"), tags: "tarea" } })
           .then(function () {
             var cancelButton = modal.querySelector("#cancel-modal-btn");
             if (cancelButton) { cancelButton.click(); }
             else { modal.classList.add("hidden"); }
-            SP.toast("Ficha de tarea guardada como nota \u00ab" + title + "\u00bb", "ok", 4200);
+            SP.toast("Ficha de tarea guardada como nota \\u00ab" + title + "\\u00bb", "ok", 4200);
           })
-          .catch(function (err) { SP.toast(msgErr(err), "err"); });
-      });
+          .catch(function (err) {
+            saveBtn.disabled = false;
+            SP.toast(msgErr(err), "err");
+          });
+      }
+
+      var taskForm = modal.querySelector("form");
+      if (taskForm) {
+        taskForm.addEventListener("submit", guardarFicha);
+      } else {
+        saveBtn.addEventListener("click", guardarFicha);
+      }
     }
   }
 
