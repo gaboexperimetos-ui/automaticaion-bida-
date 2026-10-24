@@ -170,10 +170,38 @@
       menuPopover.classList.toggle('hidden', !open);
       toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
     }
+    var modalReturnFocus = null;
     function setModal(open) {
       if (!taskModal) { return; }
+      if (open && taskModal.classList.contains('hidden')) {
+        modalReturnFocus = document.activeElement;
+      }
       taskModal.classList.toggle('hidden', !open);
-      if (open && titleInput) { setTimeout(function () { titleInput.focus(); }, 40); }
+      if (open && titleInput) {
+        setTimeout(function () {
+          if (!taskModal.classList.contains('hidden')) { titleInput.focus(); }
+        }, 40);
+      } else if (!open && modalReturnFocus && typeof modalReturnFocus.focus === 'function') {
+        var target = modalReturnFocus;
+        modalReturnFocus = null;
+        target.focus();
+      }
+    }
+    if (taskModal) {
+      taskModal.addEventListener('keydown', function (event) {
+        if (event.key !== 'Tab') { return; }
+        var items = taskModal.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])');
+        if (!items.length) { return; }
+        var first = items[0];
+        var last = items[items.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      });
     }
 
     if (toggleBtn) {
