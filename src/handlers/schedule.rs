@@ -242,7 +242,7 @@ pub fn horario_html_detalles(dias: &[HorarioDia], hoy: NaiveDate) -> String {
             format!(r#"<ul class="mt-space-xs">{}</ul>"#, lis)
         };
         celdas.push_str(&format!(
-            r#"<div class="{resaltado}bg-surface-container rounded-lg p-space-sm min-h-[120px]">
+            r#"<div class="nova-schedule-day {resaltado}bg-surface-container rounded-lg p-space-sm min-h-[120px]">
                 <h3 class="font-headline-sm text-headline-sm text-primary-container font-semibold">{}</h3>
                 {chip}
                 {items}
@@ -253,7 +253,7 @@ pub fn horario_html_detalles(dias: &[HorarioDia], hoy: NaiveDate) -> String {
 
     format!(
         r#"<div class="overflow-x-auto">
-            <div class="min-w-[840px] grid grid-cols-7 gap-px bg-outline/40 border border-outline rounded-lg overflow-hidden">
+            <div class="nova-schedule-grid min-w-[840px] grid grid-cols-7 gap-px bg-outline/40 border border-outline rounded-lg overflow-hidden">
                 {celdas}
             </div>
         </div>{}"#,
@@ -319,11 +319,10 @@ pub async fn weekly(State(state): State<Arc<AppState>>) -> Html<String> {
     let hoy = Local::now().date_naive();
     let semana = semana_actual(hoy);
     let content = format!(
-        r#"<div class="mb-space-md">
-            <h2 class="font-headline-sm text-headline-sm text-primary-container font-semibold">Horario semanal</h2>
-            <p class="font-body-sm text-body-sm text-on-surface-variant">{}</p>
-        </div>
-        {}{}"#,
+        r#"<div class="nova-page nova-schedule-page">
+          <header class="nova-page-head compact"><div><p class="nova-eyebrow"><span>05</span> Horarios</p><h1>Tu semana,<br><em>bien ubicada.</em></h1><p class="nova-page-lead">{}</p></div><div class="nova-page-actions"><a href="/dashboard/planner" class="nova-button nova-button-quiet">Planificar</a><a href="/dashboard/calendar" class="nova-button nova-button-primary">Abrir agenda</a></div></header>
+          <section class="nova-schedule-board"><div class="nova-panel-caption"><span>01</span><h2>Lunes a domingo</h2><span class="material-symbols-outlined">calendar_view_week</span></div>{}{}</section>
+        </div>"#,
         rango_semana(semana[0], semana[6]),
         templates::mcp_status_banner(conectado),
         horario_html_detalles(&horario.dias, hoy)

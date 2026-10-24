@@ -132,150 +132,6 @@ const STITCH_BASE_STYLE: &str = r###"@layer base {
 .pulse-cyan { animation: pulse 2s infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }"###;
 
-/// Stitch shell: fixed sidebar nav-rail (250px) + fixed top bar (h-16).
-/// Preserved across all pages; the content slot renders inside `<main>`.
-const STITCH_SHELL: &str = r###"
-<!-- Synthetic Cognition shell: sidebar nav-rail -->
-<nav class="fixed top-0 left-0 h-screen w-[250px] bg-surface-container-low border-r border-outline-variant/40 z-50 overflow-y-auto flex flex-col">
-    <div class="flex items-center justify-between h-14 px-space-md border-b border-outline-variant/40">
-        <div class="flex items-center gap-2">
-            <span class="material-symbols-outlined text-primary-container text-[20px]">psychology</span>
-            <div>
-                <span class="font-headline-sm text-headline-sm text-on-surface font-semibold">STUDY PLATFORM</span>
-                <div class="flex items-center gap-1.5 mt-0.5">
-                    <span class="font-code-inline text-[10px] text-primary-fixed-dim">v2.4</span>
-                    <span class="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span>
-                </div>
-            </div>
-        </div>
-        <button class="p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container transition-colors" title="Colapsar barra">
-            <span class="material-symbols-outlined text-[18px]">chevron_left</span>
-        </button>
-    </div>
-    <div class="flex-1 overflow-y-auto py-space-sm">
-        <div class="px-space-sm mb-space-sm">
-            <span class="font-label-sm text-[10px] uppercase text-outline tracking-wider block pb-space-xs">General</span>
-            <a href="/dashboard" class="flex items-center gap-2 p-space-sm rounded-lg text-on-primary-container bg-primary-container font-label-md font-semibold hover:bg-primary-fixed-dim transition-colors" data-path="panel-principal">
-                <span class="material-symbols-outlined text-[18px]">space_dashboard</span> Panel principal
-            </a>
-            <a href="/dashboard/calendar" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="mi-agenda">
-                <span class="material-symbols-outlined text-[18px]">calendar_today</span> Mi agenda
-            </a>
-            <a href="/dashboard/planner" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="planificacion">
-                <span class="material-symbols-outlined text-[18px]">schedule</span> Planificación
-            </a>
-        </div>
-        <div class="px-space-sm mb-space-sm">
-            <span class="font-label-sm text-[10px] uppercase text-outline tracking-wider block pb-space-xs">Estudios</span>
-            <a href="/dashboard/subjects" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="asignaturas">
-                <span class="material-symbols-outlined text-[18px]">menu_book</span> Asignaturas
-            </a>
-            <a href="/dashboard/planner" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="tareas-y-actividades">
-                <span class="material-symbols-outlined text-[18px]">check_box</span> Tareas
-            </a>
-            <a href="/dashboard/examenes" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="examenes">
-                <span class="material-symbols-outlined text-[18px]">school</span> Exámenes
-            </a>
-            <a href="/dashboard/vida-escolar" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="vida-escolar">
-                <span class="material-symbols-outlined text-[18px]">volunteer_activism</span> Vida escolar
-            </a>
-            <a href="/dashboard/horario" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="horarios">
-                <span class="material-symbols-outlined text-[18px]">calendar_view_week</span> Horarios
-            </a>
-        </div>
-        <div class="px-space-sm mb-space-sm">
-            <span class="font-label-sm text-[10px] uppercase text-outline tracking-wider block pb-space-xs">Inteligencia Artificial</span>
-            <a href="/dashboard/ai" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="asistente-academico">
-                <span class="material-symbols-outlined text-[18px]">auto_awesome</span> Asistente
-            </a>
-            <a href="/ai" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="conversaciones">
-                <span class="material-symbols-outlined text-[18px]">forum</span> Conversaciones
-            </a>
-            <a href="/dashboard/material" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="generador-de-material">
-                <span class="material-symbols-outlined text-[18px]">draw</span> Generador de material
-            </a>
-        </div>
-        <div class="px-space-sm mb-space-sm">
-            <span class="font-label-sm text-[10px] uppercase text-outline tracking-wider block pb-space-xs">Conocimiento</span>
-            <a href="/dashboard/notes" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="segundo-cerebro">
-                <span class="material-symbols-outlined text-[18px]">neurology</span> Segundo cerebro
-            </a>
-            <a href="/dashboard/notes" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="mis-notas">
-                <span class="material-symbols-outlined text-[18px]">description</span> Mis notas
-            </a>
-            <a href="/dashboard/search" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="busqueda-global">
-                <span class="material-symbols-outlined text-[18px]">search</span> Búsqueda global
-            </a>
-        </div>
-        <div class="px-space-sm mb-space-sm">
-            <span class="font-label-sm text-[10px] uppercase text-outline tracking-wider block pb-space-xs">Oficina</span>
-            <a href="/office/docs" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="documentos">
-                <span class="material-symbols-outlined text-[18px]">edit_document</span> Documentos
-            </a>
-            <a href="/office/sheets" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="hojas-de-calculo">
-                <span class="material-symbols-outlined text-[18px]">table_chart</span> Hojas
-            </a>
-            <a href="/office/presentations" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="presentaciones">
-                <span class="material-symbols-outlined text-[18px]">slideshow</span> Presentaciones
-            </a>
-            <a href="/office/library" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="biblioteca-de-archivos">
-                <span class="material-symbols-outlined text-[18px]">folder_copy</span> Biblioteca
-            </a>
-        </div>
-        <div class="px-space-sm mb-space-sm">
-            <span class="font-label-sm text-[10px] uppercase text-outline tracking-wider block pb-space-xs">Integraciones</span>
-            <a href="/dashboard/mcp" class="flex items-center justify-between p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="centro-mcp">
-                <div class="flex items-center gap-2">
-                    <span class="material-symbols-outlined text-[18px]">memory</span> Centro MCP
-                </div>
-                <span class="px-1.5 py-0.25 rounded-full bg-secondary-container text-[10px] font-code-inline text-on-secondary-container">Conectado</span>
-            </a>
-            <a href="/dashboard/mcp" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="estado-de-conexiones">
-                <span class="material-symbols-outlined text-[18px]">hub</span> Estado de conexiones
-            </a>
-        </div>
-        <div class="px-space-sm mb-space-sm">
-            <span class="font-label-sm text-[10px] uppercase text-outline tracking-wider block pb-space-xs">Sistema</span>
-            <a href="/admin" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="administracion">
-                <span class="material-symbols-outlined text-[18px]">query_stats</span> Administración
-            </a>
-            <a href="/settings" class="flex items-center gap-2 p-space-sm rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors" data-path="configuracion">
-                <span class="material-symbols-outlined text-[18px]">settings</span> Configuración
-            </a>
-        </div>
-    </div>
-    <div class="h-12 px-space-md border-t border-outline-variant/40 flex items-center gap-2">
-        <span class="material-symbols-outlined text-[14px] text-primary-fixed-dim">shield_lock</span>
-        <span class="font-code-inline text-[10px] text-outline">Localhost only</span>
-    </div>
-</nav>
-<!-- Synthetic Cognition shell: top bar -->
-<header class="fixed top-0 left-[250px] right-0 h-16 bg-surface-container-low/90 backdrop-blur-xl border-b border-outline-variant/40 z-40 flex items-center justify-between px-space-md">
-    <nav aria-label="breadcrumb" class="flex items-center gap-1.5">
-        <span class="material-symbols-outlined text-[14px] text-outline">home</span>
-        <span class="material-symbols-outlined text-[14px] text-outline">chevron_right</span>
-        <span class="font-body-sm text-body-sm text-on-surface">Panel principal</span>
-    </nav>
-    <div class="flex items-center gap-2">
-        <div class="relative">
-            <input type="text" placeholder="Buscar… (Cmd+K)" class="pl-8 pr-24 py-2 w-64 rounded-lg bg-surface-container text-on-surface font-body-md outline-none focus:ring-1 focus:ring-primary-container placeholder:text-outline/60"/>
-            <span class="material-symbols-outlined text-[16px] text-outline absolute left-2 top-1/2 -translate-y-1/2">search</span>
-            <kbd class="font-code-inline text-[9px] text-outline absolute right-2 top-1/2 -translate-y-1/2">⌘K</kbd>
-        </div>
-        <button class="p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors" title="Estado de conexiones">
-            <span class="material-symbols-outlined text-[18px]">wifi</span>
-        </button>
-        <button class="p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors relative" title="Notificaciones">
-            <span class="material-symbols-outlined text-[18px]">notifications</span>
-            <span class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-secondary"></span>
-        </button>
-        <a href="/dashboard/profile" class="p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors" title="Perfil">
-            <span class="material-symbols-outlined text-[18px]">account_circle</span>
-        </a>
-    </div>
-</header>
-"###;
-
 /// A subject summary computed from Nota data for display.
 #[derive(Debug, Clone)]
 pub struct SubjectSummary {
@@ -316,70 +172,18 @@ pub fn head(title: &str) -> String {
     )
 }
 
-/// Full HTML page wrapper with the Stitch shell (sidebar + top bar).
+/// Envoltorio académico unificado con Nova. Las rutas protegidas conservan
+/// sus datos y handlers, pero ya no renderizan el sidebar independiente viejo.
 pub fn page(title: &str, content: &str) -> String {
-    format!(
-        r###"<!DOCTYPE html>
-<html class="dark" lang="es">
-{}
-<body class="bg-surface text-on-surface font-body-md antialiased min-h-screen">
-{}
-<main class="pt-16 pl-[250px] p-space-md space-y-space-md">
-{}
-</main>
-</body>
-</html>"###,
-        head(title),
-        crate::handlers::stitch_v2::apply_nav_with(
-            STITCH_SHELL,
-            "",
-            crate::handlers::stitch_v2::ACADEMIC_STATE_TOKENS,
-            crate::handlers::stitch_v2::ACADEMIC_ACTIVE_CLASSES,
-            crate::handlers::stitch_v2::ACADEMIC_IDLE_CLASSES,
-        ),
-        content
-    )
+    page_ext(title, "", "", content)
 }
 
-/// Full Stitch document for routes outside the `/dashboard` namespace.
-///
-/// Reuses the shared `<head>`, the nav-rail + top-bar shell, and the same
-/// body/main layout so every screen shares identical tokens. `breadcrumb`
-/// (top-bar link label) and `active_href` (highlighted nav-rail entry) are
-/// injected at render time so the shell stays consistent across pages.
-pub fn page_ext(title: &str, breadcrumb: &str, active_href: &str, content: &str) -> String {
-    // Las rutas del menú salen del mapa canónico (`stitch_v2::NAV_LINKS`) y el
-    // item activo se marca por `data-path`: así el shell no puede quedar
-    // apuntando a rutas inexistentes ni resaltar dos entradas a la vez.
-    let shell = crate::handlers::stitch_v2::apply_nav_with(
-        STITCH_SHELL,
-        active_href,
-        crate::handlers::stitch_v2::ACADEMIC_STATE_TOKENS,
-        crate::handlers::stitch_v2::ACADEMIC_ACTIVE_CLASSES,
-        crate::handlers::stitch_v2::ACADEMIC_IDLE_CLASSES,
-    )
-    .replace(
-        "<span class=\"font-body-sm text-body-sm text-on-surface\">Panel principal</span>",
-        &format!(
-            "<span class=\"font-body-sm text-body-sm text-on-surface\">{}</span>",
-            html_escape(breadcrumb)
-        ),
-    );
-
-    format!(
-        r###"<!DOCTYPE html>
-<html class="dark" lang="es">
-{}
-<body class="bg-surface text-on-surface font-body-md antialiased min-h-screen">
-{}
-<main class="pt-16 pl-[250px] p-space-md space-y-space-md">
-{}
-</main>
-</body>
-</html>"###,
-        head(title),
-        shell,
-        content
+/// Documento Nova para cualquier módulo académico o externo. `active_href`
+/// puede ser una ruta canónica; el shell resuelve su entrada principal.
+pub fn page_ext(title: &str, _breadcrumb: &str, active_href: &str, content: &str) -> String {
+    crate::handlers::stitch_v2::stitch_v2_page(active_href, content, true).replace(
+        "<title>Study Platform · Tu espacio académico</title>",
+        &format!("<title>{}</title>", html_escape(title)),
     )
 }
 
@@ -945,24 +749,16 @@ pub fn profile_card_html(perfil: &Perfil) -> String {
     } else {
         perfil.curso.clone()
     };
+    let inicial = perfil
+        .nombre
+        .chars()
+        .find(|c| c.is_alphabetic())
+        .map(|c| c.to_uppercase().collect::<String>())
+        .unwrap_or_else(|| "N".to_string());
 
     format!(
-        r###"<div class="bg-surface-container border border-outline rounded-xl p-space-md mb-space-md" id="profile-section">
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-space-md">
-                <div class="w-16 h-16 rounded-full bg-primary-container/10 flex items-center justify-center text-3xl text-primary-container">N</div>
-                <div>
-                    <h2 class="font-headline-md text-headline-md text-primary-container">{}</h2>
-                    <p class="font-body-sm text-body-sm text-on-surface-variant">{}</p>
-                    <p class="font-body-sm text-body-sm text-on-surface-variant">{}</p>
-                </div>
-            </div>
-            <button hx-get="/dashboard?partial=profile" hx-target="#profile-section" hx-swap="outerHTML"
-                class="inline-flex items-center gap-1.5 px-space-sm py-1.5 rounded-lg text-on-primary-container bg-primary-container font-label-sm font-semibold hover:bg-primary-fixed-dim transition-colors" title="Actualizar">
-                <span class="material-symbols-outlined text-[16px]">refresh</span> Actualizar
-            </button>
-        </div>
-    </div>"###,
+        r###"<section class="nova-profile-identity" id="profile-section"><div class="nova-profile-avatar">{}</div><div class="nova-profile-identity-copy"><p>PERFIL DEL ESTUDIANTE</p><h2>{}</h2><span>{}</span><strong>{}</strong></div><button hx-get="/dashboard?partial=profile" hx-target="#profile-section" hx-swap="outerHTML" class="nova-icon-button" title="Actualizar" aria-label="Actualizar perfil"><span class="material-symbols-outlined">refresh</span></button></section>"###,
+        html_escape(&inicial),
         html_escape(&nombre),
         html_escape(&institucion),
         html_escape(&curso),

@@ -1514,7 +1514,7 @@ fn section_inner(section: &str, life: &LifeData) -> String {
 /// Cuerpo de una sección: contenedor con id estable para HTMX `outerHTML`.
 fn section_body(section: &str, life: &LifeData) -> String {
     format!(
-        r#"<div id="body-{}" class="px-space-md pb-space-md">{}</div>"#,
+        r#"<div id="body-{}" class="nova-life-body">{}</div>"#,
         section,
         section_inner(section, life)
     )
@@ -1568,8 +1568,8 @@ fn render_section(section: &str, life: &LifeData) -> String {
         ""
     };
     format!(
-        r##"<details class="bg-surface-container border border-outline rounded-xl" id="sl-{sid}"{open}>
-    <summary class="cursor-pointer list-none p-space-md flex items-center justify-between">
+        r##"<details class="nova-life-card nova-life-{sid}" id="sl-{sid}"{open}>
+    <summary class="nova-life-summary-row">
       <div class="flex items-center gap-space-sm">
         <span class="material-symbols-outlined text-[18px] text-primary-container">{icon}</span>
         <span class="font-headline-sm text-headline-sm text-primary-container">{title}</span>
@@ -1644,8 +1644,8 @@ fn resumen_html(life: &LifeData) -> String {
         )
     };
     format!(
-        r#"<div class="bg-surface-container border border-outline rounded-xl px-space-md py-space-sm mb-space-md">
-            <p class="font-code-inline text-[11px] text-on-surface-variant">{con} {con_label} con datos · {sin} sin datos{extra_error}</p>
+        r#"<div class="nova-life-overview">
+            <p>{con} {con_label} con datos · {sin} sin datos{extra_error}</p>
             {detalle_sin}{detalle_error}
         </div>"#,
         con = con_datos,
@@ -1681,15 +1681,11 @@ fn page_html(life: &LifeData) -> String {
         .collect::<Vec<_>>()
         .join("");
     let content = format!(
-        r###"<div class="max-w-3xl mx-auto">
-        <div class="flex items-center justify-between mb-space-md">
-          <h1 class="font-headline-lg text-headline-lg text-primary-container flex items-center gap-2">
-            <span class="material-symbols-outlined text-[24px]">school</span> Vida escolar
-          </h1>
-          <span class="font-code-inline text-[10px] text-on-surface-variant">read-only</span>
-        </div>
-        {resumen}{banner}{aviso}{accordion}
-      </div>"###,
+        r###"<div class="nova-page nova-life-page">
+          <header class="nova-page-head compact"><div><p class="nova-eyebrow"><span>06</span> Vida escolar</p><h1>Tu día a día,<br><em>también cuenta.</em></h1><p class="nova-page-lead">Asistencia, convivencia, deberes y recursos institucionales reunidos sin perder el detalle de cada fuente.</p></div><span class="nova-version-badge">Mikareno · solo lectura</span></header>
+          {resumen}{banner}{aviso}
+          <div class="nova-life-grid">{accordion}</div>
+        </div>"###,
         resumen = resumen,
         banner = banner,
         aviso = aviso,

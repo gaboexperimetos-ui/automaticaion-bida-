@@ -465,21 +465,14 @@ pub async fn index(
             cards.len()
         )
     };
-    let header = format!(
-        r###"<div class="flex items-center justify-between mb-space-sm">
-        <h2 class="font-headline-sm text-headline-sm text-primary-container">Mis Asignaturas</h2>
-        <button hx-get="/dashboard/subjects?partial=grid" hx-target="#subject-grid" hx-swap="innerHTML"
-            class="font-label-sm text-label-sm text-primary-container hover:text-primary-fixed-dim" title="Actualizar">
-            Actualizar
-        </button>
-    </div>
-    <p class="font-body-sm text-body-sm text-on-surface-variant mb-space-md">{}</p>"###,
-        templates::html_escape(&caption)
-    );
-
     let content = format!(
-        r###"{}{}<div id="subject-grid">{}</div>"###,
-        status, header, grid_html
+        r###"<div class="nova-page nova-subjects-page">
+          <header class="nova-page-head compact"><div><p class="nova-eyebrow"><span>03</span> Estudios</p><h1>Tus materias,<br><em>en perspectiva.</em></h1><p class="nova-page-lead">{}</p></div><button hx-get="/dashboard/subjects?partial=grid" hx-target="#subject-grid" hx-swap="innerHTML" class="nova-button nova-button-quiet" title="Actualizar"><span class="material-symbols-outlined">refresh</span>Actualizar</button></header>
+          <section class="nova-subjects-collection"><div class="nova-section-heading"><div><span>01 / COLECCIÓN</span><h2>Progreso por asignatura</h2></div><p>Ordenadas por donde necesitas prestar atención primero</p></div>{}<div id="subject-grid">{}</div></section>
+        </div>"###,
+        templates::html_escape(&caption),
+        status,
+        grid_html,
     );
     Html(templates::page_ext(
         "Asignaturas — Study Platform",
@@ -702,7 +695,7 @@ fn compare_names(
 /// Grid of subject cards.
 fn subjects_grid_html(cards: &[String]) -> String {
     format!(
-        r###"<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-space-md">{}</div>"###,
+        r###"<div class="nova-subject-grid">{}</div>"###,
         cards.join("")
     )
 }
@@ -781,21 +774,12 @@ fn subject_card_html(
     };
 
     format!(
-        r###"<a href="{href}" class="block h-full group">
-            <div class="h-full flex flex-col bg-surface-container border border-outline rounded-xl p-space-md hover:border-primary-container transition-colors">
-                <div class="flex items-start justify-between gap-space-sm">
-                    <h3 class="font-headline-sm text-headline-sm text-on-surface group-hover:text-primary-container">{name}</h3>
-                    {chip}
-                </div>
-                <div class="mt-space-sm flex items-baseline justify-between">
-                    <span class="font-headline-md text-headline-md font-bold {color}">{avg_txt}</span>
-                    <span class="font-label-sm text-[11px] text-on-surface-variant">{avg_label}</span>
-                </div>
-                <div class="mt-space-xs h-2 bg-surface-container-highest rounded-full overflow-hidden">
-                    <div class="h-full {fill} transition-all" style="width: {bar_pct}%"></div>
-                </div>
-                <div class="mt-space-sm font-label-sm text-[11px] text-on-surface-variant" title="{acts_title}">{acts_txt}</div>
-            </div>
+        r###"<a href="{href}" class="nova-subject-card">
+            <div class="nova-subject-top"><span class="nova-subject-mark"><span class="material-symbols-outlined">menu_book</span></span>{chip}<span class="material-symbols-outlined nova-subject-arrow">arrow_outward</span></div>
+            <h3>{name}</h3>
+            <div class="nova-subject-grade"><strong class="{color}">{avg_txt}</strong><span>{avg_label}</span></div>
+            <div class="nova-subject-progress"><div class="{fill}" style="width: {bar_pct}%"></div></div>
+            <footer><span title="{acts_title}">{acts_txt}</span><span>Ver detalle</span></footer>
         </a>"###,
         href = href,
         name = templates::html_escape(name),

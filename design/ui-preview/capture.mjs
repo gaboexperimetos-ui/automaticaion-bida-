@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import chromium from './node_modules/@sparticuz/chromium/build/esm/index.js';
 import { inflate } from './node_modules/@sparticuz/chromium/build/esm/lambdafs.js';
 import { setupLambdaEnvironment } from './node_modules/@sparticuz/chromium/build/esm/helper.js';
+import { createPages } from './pages.mjs';
 
 const require = createRequire(import.meta.url);
 const puppeteer = require('./node_modules/puppeteer-core');
@@ -14,112 +16,241 @@ const browser = await puppeteer.launch({
   executablePath: await chromium.executablePath(),
   headless: chromium.headless,
 });
-const page = await browser.newPage();
-const errors = [];
-page.on('pageerror', (error) => errors.push(error.message));
-page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
 
-async function open(width, height) {
-  await page.setViewport({ width, height, deviceScaleFactor: 1 });
-  await page.goto('http://127.0.0.1:3000/dashboard', { waitUntil: 'networkidle0' });
-  await page.evaluate(() => document.fonts.ready);
-  await settle(700);
-}
-async function settle(ms = 350) {
+const base = 'http://127.0.0.1:3000';
+const routes = [...createPages('dashboard').keys()].filter((route) => route !== '/');
+const viewports = [
+  { name: 'desktop', width: 1440, height: 1000 },
+  { name: 'mobile', width: 390, height: 844 },
+];
+const screenshots = new Set([
+  '/dashboard', '/dashboard/material', '/dashboard/ai', '/ai', '/dashboard/notes',
+  '/dashboard/mcp', '/admin', '/settings', '/dashboard/subjects', '/dashboard/calendar',
+  '/dashboard/planner', '/dashboard/vida-escolar', '/dashboard/profile', '/dashboard/search',
+  '/dashboard/subjects/demo', '/dashboard/subjects/missing',
+  '/office', '/office/docs/demo', '/office/sheets/demo', '/office/presentations/demo',
+  '/office/presentations/demo/present', '/office/library',
+]);
+const results = [];
+const failures = [];
+
+const settle = async (page, ms = 100) => {
   await new Promise((resolve) => setTimeout(resolve, ms));
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+};
+
+async function openPage(route, viewport, track = true) {
+  const page = await browser.newPage();
+  const errors = [];
+  const badResponses = [];
+  const external = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
+  page.on('response', (response) => {
+    if (response.url().startsWith(base) && response.status() >= 400) badResponses.push(`${response.status()} ${response.url()}`);
+  });
+  page.on('request', (request) => {
+    const url = request.url();
+    if (!url.startsWith(base) && !url.startsWith('data:') && !url.startsWith('blob:')) external.push(url);
+  });
+  await page.setViewport({ width: viewport.width, height: viewport.height, deviceScaleFactor: 1 });
+  const response = await page.goto(`${base}${route}`, { waitUntil: 'networkidle0', timeout: 30000 });
+  await page.evaluate(() => document.fonts.ready);
+  await settle(page);
+  if (track && response.status() !== 200) badResponses.push(`${response.status()} documento`);
+  return { page, errors, badResponses, external };
 }
 
-await open(1440, 1000);
-const desktop = await page.evaluate(() => ({
-  width: innerWidth,
-  documentWidth: document.documentElement.scrollWidth,
-  menuVisibility: getComputedStyle(document.querySelector('#app-rail')).visibility,
-  contentPadding: getComputedStyle(document.querySelector('#app-rail-content')).paddingLeft,
-  topbarLeft: Math.round(document.querySelector('#app-topbar').getBoundingClientRect().left),
-  navItems: document.querySelectorAll('#app-rail [data-path]').length,
-  panels: document.querySelectorAll('.nova-panel').length,
-  slotsLeft: document.documentElement.innerHTML.includes('<!--SLOT:'),
-  duplicateIds: [...document.querySelectorAll('[id]')].map((el) => el.id).filter((id, index, all) => all.indexOf(id) !== index),
-}));
-console.log('desktop', desktop);
-await page.screenshot({ path: '/tmp/nova-desktop.png', fullPage: true });
-await page.click('#rail-toggle');
-await settle();
-const desktopMenu = await page.evaluate(() => ({
-  visibility: getComputedStyle(document.querySelector('#app-rail')).visibility,
-  transform: getComputedStyle(document.querySelector('#app-rail')).transform,
-  bodyOverflow: document.body.style.overflow,
-  expanded: document.querySelector('#rail-toggle').getAttribute('aria-expanded'),
-}));
-console.log('desktop menu', desktopMenu);
-await page.screenshot({ path: '/tmp/nova-desktop-menu.png', fullPage: false });
-await page.keyboard.press('Escape');
-await settle();
-const desktopMenuClosed = await page.$eval('#app-rail', (el) => getComputedStyle(el).visibility);
-console.log('desktop menu closed', desktopMenuClosed);
-await page.click('#toggle-create-menu');
-const createVisible = await page.$eval('#create-modal-popover', (el) => !el.classList.contains('hidden'));
-console.log('create visible', createVisible);
-await page.screenshot({ path: '/tmp/nova-create.png', fullPage: false });
-await page.click('#close-create-menu');
-await page.click('#quick-create-btn');
-const modalVisible = await page.$eval('#quick-task-modal', (el) => !el.classList.contains('hidden'));
-console.log('modal visible', modalVisible);
-await page.screenshot({ path: '/tmp/nova-modal.png', fullPage: false });
-await page.click('#cancel-modal-btn');
-await page.click('#topProfile');
-const accountVisible = await page.$eval('#user-menu', (el) => !el.hidden);
-console.log('account visible', accountVisible);
-await page.keyboard.press('Escape');
+for (const viewport of viewports) {
+  for (const route of routes) {
+    const { page, errors, badResponses, external } = await openPage(route, viewport);
+    const metrics = await page.evaluate(() => {
+      const ids = [...document.querySelectorAll('[id]')].map((el) => el.id);
+      const main = document.querySelector('#contenido');
+      const nova = document.querySelector('.nova-page, .nova-dashboard');
+      const overflowing = [...document.querySelectorAll('#contenido *')].map((el) => {
+        const rect = el.getBoundingClientRect();
+        return { tag: el.tagName, className: String(el.className).slice(0, 90), left: Math.round(rect.left), right: Math.round(rect.right) };
+      }).filter((item) => item.right > innerWidth + 2 || item.left < -2).slice(0, 8);
+      return {
+        documentWidth: document.documentElement.scrollWidth,
+        viewportWidth: innerWidth,
+        navItems: document.querySelectorAll('#app-rail [data-path]').length,
+        menuVisibility: getComputedStyle(document.querySelector('#app-rail')).visibility,
+        duplicateIds: ids.filter((id, index) => ids.indexOf(id) !== index),
+        slotsLeft: document.documentElement.innerHTML.includes('<!--SLOT:'),
+        mainLength: main ? main.innerText.trim().length : 0,
+        hasNova: Boolean(nova),
+        htmxLoaded: typeof window.htmx === 'function' || typeof window.htmx === 'object',
+        versionVisible: document.body.textContent.includes('3.0'),
+        overflowing,
+      };
+    });
+    const record = { viewport: viewport.name, route, ...metrics, errors, badResponses, external };
+    results.push(record);
+    const problems = [];
+    if (metrics.documentWidth !== metrics.viewportWidth) problems.push(`overflow ${metrics.documentWidth}/${metrics.viewportWidth}`);
+    if (metrics.navItems !== 22) problems.push(`nav=${metrics.navItems}`);
+    if (metrics.menuVisibility !== 'hidden') problems.push(`menú=${metrics.menuVisibility}`);
+    if (metrics.duplicateIds.length) problems.push(`IDs=${metrics.duplicateIds.join(',')}`);
+    if (metrics.slotsLeft) problems.push('slots pendientes');
+    if (metrics.mainLength < 10) problems.push('contenido vacío');
+    if (!metrics.hasNova) problems.push('sin composición Nova');
+    if (!metrics.htmxLoaded) problems.push('HTMX no cargó');
+    if (!metrics.versionVisible) problems.push('versión 3.0 ausente');
+    if (errors.length) problems.push(`consola=${errors.join(' | ')}`);
+    if (badResponses.length) problems.push(`HTTP=${badResponses.join(' | ')}`);
+    if (external.length) problems.push(`externos=${external.join(' | ')}`);
+    if (problems.length) {
+      failures.push({ route, viewport: viewport.name, problems, metrics });
+      console.error(`✗ ${viewport.name} ${route}: ${problems.join(' · ')}`);
+    } else {
+      console.log(`✓ ${viewport.name} ${route}`);
+    }
+    if (screenshots.has(route)) {
+      const slug = route === '/dashboard' ? 'dashboard' : route.replace(/^\//, '').replaceAll('/', '-');
+      await page.screenshot({ path: `/tmp/nova-${slug}-${viewport.name}.png`, fullPage: true });
+    }
+    await page.close();
+  }
+}
 
-await open(390, 844);
-const mobile = await page.evaluate(() => ({
-  width: innerWidth,
-  documentWidth: document.documentElement.scrollWidth,
-  menuVisibility: getComputedStyle(document.querySelector('#app-rail')).visibility,
-  topbarWidth: Math.round(document.querySelector('#app-topbar').getBoundingClientRect().width),
-  overflowElements: [...document.querySelectorAll('body *')].map((el) => {
-    const rect = el.getBoundingClientRect();
-    return { tag: el.tagName, className: String(el.className).slice(0, 100), left: Math.round(rect.left), right: Math.round(rect.right), width: Math.round(rect.width) };
-  }).filter((item) => item.right > innerWidth + 1 || item.left < -1).slice(0, 18),
-  vaultPosition: getComputedStyle(document.querySelector('.nova-menu .app-vault')).position,
-}));
-console.log('mobile', mobile);
-await page.screenshot({ path: '/tmp/nova-mobile.png', fullPage: true });
-await page.click('#rail-toggle');
-await settle();
-const mobileMenu = await page.evaluate(() => ({
-  open: document.body.classList.contains('rail-open'),
-  visibility: getComputedStyle(document.querySelector('#app-rail')).visibility,
-  transform: getComputedStyle(document.querySelector('#app-rail')).transform,
-  vaultBelowSystem: document.querySelector('.nova-menu .app-vault').getBoundingClientRect().top >= document.querySelector('.nova-menu .app-system-nav').getBoundingClientRect().bottom - 1,
-}));
-console.log('mobile menu', mobileMenu);
-await page.screenshot({ path: '/tmp/nova-mobile-menu.png', fullPage: false });
-console.log('errors', errors);
+async function interaction(name, route, callback, viewport = viewports[0]) {
+  const { page, errors, badResponses, external } = await openPage(route, viewport, false);
+  try {
+    await callback(page);
+    await settle(page);
+    assert.deepEqual(errors, [], `Consola limpia en ${name}`);
+    assert.deepEqual(badResponses, [], `Sin respuestas HTTP erróneas en ${name}`);
+    assert.deepEqual(external, [], `Sin recursos externos en ${name}`);
+    console.log(`✓ interacción ${name}`);
+    results.push({ interaction: name, route, ok: true });
+  } catch (error) {
+    failures.push({ interaction: name, route, problems: [error.stack || error.message], errors, badResponses, external });
+    console.error(`✗ interacción ${name}: ${error.message}`);
+  } finally {
+    await page.close();
+  }
+}
+
+await interaction('shell y menús', '/dashboard', async (page) => {
+  await page.click('#rail-toggle');
+  await settle(page);
+  assert.equal(await page.$eval('#app-rail', (el) => getComputedStyle(el).visibility), 'visible');
+  assert.equal(await page.$eval('#rail-toggle', (el) => el.getAttribute('aria-expanded')), 'true');
+  assert.equal(await page.$eval('body', (el) => el.style.overflow), 'hidden');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => getComputedStyle(document.querySelector('#app-rail')).visibility === 'hidden', { polling: 'raf', timeout: 2500 });
+  assert.equal(await page.$eval('#app-rail', (el) => getComputedStyle(el).visibility), 'hidden');
+  await page.click('#toggle-create-menu');
+  assert.equal(await page.$eval('#create-modal-popover', (el) => el.classList.contains('hidden')), false);
+  await page.click('#close-create-menu');
+  await page.click('#quick-create-btn');
+  assert.equal(await page.$eval('#quick-task-modal', (el) => el.classList.contains('hidden')), false);
+  await page.click('#cancel-modal-btn');
+  await page.click('#topProfile');
+  assert.equal(await page.$eval('#user-menu', (el) => el.hidden), false);
+  await page.keyboard.press('Escape');
+});
+
+await interaction('cajón móvil', '/dashboard', async (page) => {
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 390);
+  await page.click('#rail-toggle');
+  await settle(page);
+  assert.equal(await page.$eval('body', (el) => el.classList.contains('rail-open')), true);
+  const vaultBelow = await page.evaluate(() => document.querySelector('.nova-menu .app-vault').getBoundingClientRect().top >= document.querySelector('.nova-menu .app-system-nav').getBoundingClientRect().bottom - 1);
+  assert.equal(vaultBelow, true);
+}, viewports[1]);
+
+await interaction('fuentes del asistente', '/dashboard/ai', async (page) => {
+  await page.click('#toggle-sources-btn');
+  assert.equal(await page.$eval('#sources-sidebar', (el) => el.classList.contains('hidden')), true);
+  await page.click('#toggle-sources-btn');
+  assert.equal(await page.$eval('#sources-sidebar', (el) => el.classList.contains('hidden')), false);
+});
+
+await interaction('historial de conversaciones', '/ai', async (page) => {
+  await page.waitForFunction(() => document.querySelectorAll('.conversation-item').length === 2);
+  await page.click('.conversation-item');
+  await page.waitForFunction(() => document.querySelector('#chat-messages').innerText.includes('semáforo'));
+  await page.click('#toggle-sources-btn');
+  assert.equal(await page.$eval('#sources-sidebar', (el) => el.classList.contains('hidden')), false);
+});
+
+await interaction('notas: hidratación, modos y modal', '/dashboard/notes', async (page) => {
+  await page.waitForFunction(() => document.querySelector('#note-editor')?.value.includes('semáforo'));
+  await page.click('#mode-preview');
+  assert.equal(await page.$eval('#note-editor-pane', (el) => getComputedStyle(el).display), 'none');
+  assert.equal(await page.$eval('#mode-preview', (el) => el.getAttribute('aria-pressed')), 'true');
+  await page.click('#mode-split');
+  assert.notEqual(await page.$eval('#note-editor-pane', (el) => getComputedStyle(el).display), 'none');
+  await page.click('#btn-import-vault');
+  assert.equal(await page.$eval('#import-vault-modal', (el) => el.classList.contains('hidden')), false);
+  await page.click('#cancel-modal-btn');
+  assert.equal(await page.$eval('#import-vault-modal', (el) => el.classList.contains('hidden')), true);
+});
+
+await interaction('MCP: secreto, ping y playground', '/dashboard/mcp', async (page) => {
+  await page.click('#toggle-key-visibility');
+  assert.equal(await page.$eval('#openrouter-key', (el) => el.type), 'text');
+  await page.click('#btn-test-ping');
+  await page.waitForFunction(() => /ms/.test(document.querySelector('#header-latency').textContent));
+  await page.type('#chat-input', 'Prueba local');
+  await page.click('#btn-send-message');
+  await page.waitForFunction(() => document.querySelector('#chat-messages').innerText.includes('Mensaje recibido'));
+});
+
+await interaction('cuadrícula editable y CSV', '/office/sheets/demo', async (page) => {
+  assert.equal(await page.$$eval('#grid td[contenteditable]', (cells) => cells.length), 25);
+  const csv = await page.evaluate(() => {
+    const cell = document.querySelector('#grid td[contenteditable]');
+    cell.textContent = 'Actualizado';
+    serializeGrid();
+    return document.querySelector('#csv_data').value;
+  });
+  assert.equal(csv.startsWith('Actualizado,'), true);
+});
+
+await interaction('toolbar Markdown', '/office/docs/demo', async (page) => {
+  await page.evaluate(() => {
+    const editor = document.querySelector('#editor');
+    editor.value = 'semáforo';
+    editor.setSelectionRange(0, editor.value.length);
+  });
+  await page.click('.nova-markdown-toolbar button');
+  assert.equal(await page.$eval('#editor', (el) => el.value), '**semáforo**');
+});
+
+await interaction('orden de diapositivas', '/office/presentations/demo', async (page) => {
+  const order = await page.evaluate(() => { buildOrder(); return document.querySelector('#order').value; });
+  assert.equal(order, '0,1,2');
+});
+
+await interaction('tipo de importación en biblioteca', '/office/library', async (page) => {
+  await page.select('#library-import-kind', 'sheets');
+  assert.equal(await page.$eval('#library-import-form', (el) => el.getAttribute('hx-post')), '/office/library/import/sheets');
+});
+
+await interaction('parcial HTMX del calendario', '/dashboard/calendar', async (page) => {
+  await page.evaluate(() => window.htmx.ajax('GET', '/dashboard/calendar?partial=grid', { target: '#calendar-grid', swap: 'outerHTML' }));
+  await page.waitForFunction(() => document.querySelector('#calendar-grid')?.innerText.includes('Mes actualizado'));
+  assert.equal(await page.$$eval('#calendar-grid', (els) => els.length), 1);
+  assert.equal(await page.$$eval('.nova-page .nova-page', (els) => els.length), 0);
+});
+
+await interaction('acordeones de vida escolar', '/dashboard/vida-escolar', async (page) => {
+  const second = await page.$$('#lifeCards');
+  assert.equal(await page.$$eval('.nova-life-card', (cards) => cards.length), 6);
+  await page.click('.nova-life-card:nth-child(2) summary');
+  assert.equal(await page.$eval('.nova-life-card:nth-child(2)', (el) => el.open), true);
+});
+
+fs.writeFileSync('/tmp/nova-full-audit.json', JSON.stringify({ generatedAt: new Date().toISOString(), results, failures }, null, 2));
 await browser.close();
-
-assert.equal(desktop.documentWidth, desktop.width, 'El documento de escritorio no debe desbordar');
-assert.equal(desktop.menuVisibility, 'hidden', 'El menú debe iniciar cerrado en escritorio');
-assert.equal(desktop.contentPadding, '0px', 'El contenido debe usar todo el ancho');
-assert.equal(desktop.topbarLeft, 16, 'La cabecera debe flotar a 16 px');
-assert.equal(desktop.navItems, 22, 'Deben conservarse los 22 destinos');
-assert.equal(desktop.panels, 4, 'Deben existir los cuatro paneles principales de Nova');
-assert.equal(desktop.slotsLeft, false, 'No debe quedar ningún slot sin renderizar');
-assert.deepEqual(desktop.duplicateIds, [], 'No debe haber IDs duplicados');
-assert.equal(desktopMenu.visibility, 'visible', 'El menú de escritorio debe abrirse');
-assert.equal(desktopMenu.bodyOverflow, 'hidden', 'El body debe bloquearse con el menú abierto');
-assert.equal(desktopMenu.expanded, 'true', 'El disparador debe exponer aria-expanded=true');
-assert.equal(desktopMenuClosed, 'hidden', 'Escape debe cerrar el menú');
-assert.equal(createVisible, true, 'El menú de creación debe abrirse');
-assert.equal(modalVisible, true, 'El modal de tarea debe abrirse');
-assert.equal(accountVisible, true, 'El menú de cuenta debe abrirse');
-assert.equal(mobile.documentWidth, mobile.width, 'El documento móvil no debe desbordar');
-assert.equal(mobile.menuVisibility, 'hidden', 'El menú debe iniciar cerrado en móvil');
-assert.equal(mobile.vaultPosition, 'static', 'Vault debe seguir el flujo del menú móvil');
-assert.equal(mobileMenu.open, true, 'El menú móvil debe abrirse');
-assert.equal(mobileMenu.visibility, 'visible', 'El menú móvil debe ser visible');
-assert.equal(mobileMenu.vaultBelowSystem, true, 'Vault no debe superponerse a los accesos');
-assert.deepEqual(errors, [], 'La consola del navegador debe quedar limpia');
-console.log('Nova audit: OK');
+console.log(`\nNova full audit: ${results.length} comprobaciones · ${failures.length} fallos`);
+if (failures.length) {
+  console.error(JSON.stringify(failures, null, 2));
+  process.exitCode = 1;
+} else {
+  console.log('Nova full audit: OK');
+}

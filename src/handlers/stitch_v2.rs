@@ -881,6 +881,9 @@ fn swap_state_tokens(existing: &str, tokens: &[&str], state: &str) -> String {
 
 /// Construye la pagina completa: head + shell + contenido + script de auth.
 pub fn stitch_v2_page(active: &str, content: &str, authenticated: bool) -> String {
+    // Acepta tanto la clave canónica (`mi-agenda`) como una ruta
+    // (`/dashboard/calendar`) para que todos los renderizadores compartan shell.
+    let active = primary_path_for(active).unwrap_or(active);
     // Real <head> (fonts, Tailwind CDN, design tokens) plus the early auth
     // flag; omitting STITCH_V2_HEAD here rendered every page unstyled.
     // El CSS del shell (rail plegable, skip-link, foco visible) va aquí:

@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import http from 'node:http';
 import { fileURLToPath } from 'node:url';
+import { createPages } from './pages.mjs';
 
 // Preview aislada: todos los datos de este archivo son ficticios.
 const previewDir = path.dirname(fileURLToPath(import.meta.url));
@@ -65,6 +66,8 @@ let topbar = read('static/stitch-v2/shell/topbar.html')
 
 const head = read('static/stitch-v2/shell/head.html')
   .replace('https://cdn.tailwindcss.com', '/node_modules/tailwindcss-cdn/tailwindcss.js')
+  .replace('https://unpkg.com/htmx.org@2.0.3/dist/htmx.min.js', '/node_modules/htmx.org/dist/htmx.min.js')
+  .replace(/<link rel="preconnect"[^>]+>/g, '')
   .replace(/<link href="https:\/\/fonts\.googleapis\.com[^>]+>/, '<link rel="stylesheet" href="/node_modules/@fontsource/inter/latin.css"><link rel="stylesheet" href="/node_modules/@fontsource/manrope/latin.css"><link rel="stylesheet" href="/node_modules/@fontsource/material-symbols-outlined/latin-400.css">');
 const rust = read('src/handlers/stitch_v2.rs');
 const shellCss = rust.match(/const SHELL_CSS: &str = r##"([\s\S]*?)"##;/)?.[1] || '';
@@ -90,13 +93,70 @@ topbar = topbar.replace(
   `<div class="relative">${fillUserSlots(userButton)}${fillUserSlots(userPanel)}</div>`,
 );
 
-const html = `<!DOCTYPE html><html class="dark" lang="es"><head>${head}<style>${shellCss}</style></head><body class="rail-collapsed bg-background font-body-md text-body-md text-on-surface antialiased"><a class="skip-link" href="#contenido">Saltar al contenido</a>${aside}<button id="rail-backdrop" type="button" aria-label="Cerrar menú"></button><div id="app-rail-content" class="pl-[250px]">${topbar}<main id="contenido" tabindex="-1" class="relative pt-16 w-full min-h-screen bg-background">${dashboard}</main></div><script>${shellJs}${userMenuJs}</script><script src="/shell.js" defer></script></body></html>`;
+const pages = createPages(dashboard);
+const shell = (content) => `<!DOCTYPE html><html class="dark" lang="es"><head>${head}<style>${shellCss}</style></head><body class="rail-collapsed bg-background font-body-md text-body-md text-on-surface antialiased"><a class="skip-link" href="#contenido">Saltar al contenido</a>${aside}<button id="rail-backdrop" type="button" aria-label="Cerrar menú"></button><div id="app-rail-content" class="pl-[250px]">${topbar}<main id="contenido" tabindex="-1" class="relative pt-16 w-full min-h-screen bg-background">${content}</main></div><script>${shellJs}${userMenuJs}</script><script src="/shell.js" defer></script></body></html>`;
 const types = { '.css': 'text/css; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.woff': 'font/woff' };
+const json = (res, value) => {
+  res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+  res.end(JSON.stringify(value));
+};
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
-  if (url.pathname === '/' || url.pathname === '/dashboard') {
+  if (url.pathname === '/health') {
+    json(res, { status: 'ok', components: { openrouter: true, mikareno: true } });
+    return;
+  }
+  if (url.pathname === '/api/notes') {
+    json(res, { notes: [
+      { slug: 'concurrencia', title: 'Concurrencia y semáforos', tags: 'sistemas' },
+      { slug: 'routing', title: 'Routing dinámico', tags: 'redes' },
+    ] });
+    return;
+  }
+  if (url.pathname.startsWith('/api/notes/')) {
+    const slug = decodeURIComponent(url.pathname.slice('/api/notes/'.length));
+    json(res, { note: { slug, title: slug === 'routing' ? 'Routing dinámico' : 'Concurrencia y semáforos', tags: 'sistemas' }, content: '# Concurrencia y semáforos\n\nUn **semáforo** coordina el acceso a recursos compartidos.\n\n## Ideas clave\n\n- Exclusión mutua\n- Sincronización' });
+    return;
+  }
+  if (url.pathname === '/api/ai/conversations') {
+    json(res, { conversations: [
+      { subject: 'sistemas', last_message: 'Un semáforo coordina procesos.', message_count: 6, updated_at: '2026-10-23T16:30:00Z' },
+      { subject: 'redes', last_message: 'RIP utiliza distancia administrativa.', message_count: 4, updated_at: '2026-10-22T14:10:00Z' },
+    ] });
+    return;
+  }
+  if (/^\/api\/ai\/conversations\/[^/]+\/messages$/.test(url.pathname)) {
+    json(res, { messages: [
+      { role: 'user', content: '¿Qué es un semáforo?', created_at: '2026-10-23T16:29:00Z' },
+      { role: 'assistant', content: 'Es un mecanismo de sincronización que coordina el acceso a recursos compartidos.', created_at: '2026-10-23T16:30:00Z' },
+    ] });
+    return;
+  }
+  if (url.pathname === '/api/ai/models') {
+    json(res, { active: 'minimax/minimax-m2:free', models: [
+      { id: 'minimax/minimax-m2:free', name: 'MiniMax M2' },
+      { id: 'google/gemma-4-31b-it:free', name: 'Gemma 4 31B' },
+    ] });
+    return;
+  }
+  if (url.pathname === '/api/ai/cost') {
+    json(res, { total_cost: 0.42, budget_limit: 25 });
+    return;
+  }
+  if (url.pathname === '/api/ai/chat' && req.method === 'POST') {
+    res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
+    res.end('Respuesta ficticia de la preview: repasa la idea y contrástala con tus apuntes.');
+    return;
+  }
+  if (url.pathname === '/dashboard/calendar' && url.searchParams.get('partial') === 'grid') {
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.end('<div id="calendar-grid" class="nova-calendar-grid-host"><p class="nova-card-intro">Mes actualizado · datos ficticios</p></div>');
+    return;
+  }
+  if (pages.has(url.pathname)) {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
-    res.end(html);
+    res.end(shell(pages.get(url.pathname)));
     return;
   }
   const assets = {
@@ -110,10 +170,10 @@ const server = http.createServer((req, res) => {
   if (url.pathname.startsWith('/node_modules/')) file = path.join(previewDir, 'node_modules', decodeURIComponent(url.pathname.slice('/node_modules/'.length)));
   if (!file || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
     res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
-    res.end('Preview visual: solo panel principal.');
+    res.end('Ruta no incluida en la preview Nova.');
     return;
   }
   res.writeHead(200, { 'content-type': types[path.extname(file)] || 'application/octet-stream', 'cache-control': 'no-store' });
   fs.createReadStream(file).pipe(res);
 });
-server.listen(3000, '0.0.0.0', () => console.log('Nova UI preview ready on 0.0.0.0:3000'));
+server.listen(3000, '0.0.0.0', () => console.log(`Nova UI preview ready on 0.0.0.0:3000 · ${pages.size} páginas`));

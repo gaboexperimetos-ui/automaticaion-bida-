@@ -546,7 +546,7 @@ pub async fn monthly(
     // encogiera a la mitad con cada clic.
     if partial == Some("grid") {
         return Html(format!(
-            r###"<div id="calendar-grid" class="mb-space-md">{}</div>"###,
+            r###"<div id="calendar-grid" class="nova-calendar-grid-host">{}</div>"###,
             grid_html
         ));
     } // HTMX partial: swap just the timeline.
@@ -555,44 +555,31 @@ pub async fn monthly(
     }
 
     let status = banner_mcp_datos(&datos);
-    let grid = format!(
-        r###"<div id="calendar-grid" class="mb-space-md">{}</div>"###,
-        grid_html
-    );
     let timeline = format!(
-        r###"<div class="mb-space-md">
-            <h2 class="font-headline-sm text-headline-sm text-primary-container mb-space-sm">Próximos eventos</h2>
+        r###"<aside class="nova-calendar-upcoming">
+            <div class="nova-panel-caption"><span>02</span><h2>A continuación</h2><span class="material-symbols-outlined">upcoming</span></div>
+            <p class="nova-card-intro">Eventos registrados en el calendario escolar.</p>
             {}
-        </div>"###,
+        </aside>"###,
         templates::event_timeline_html(&datos.eventos, Some(&today))
     );
 
-    // Page header with the iCalendar download (route /dashboard/calendar.ics).
-    let link_class = "inline-flex items-center gap-1.5 px-space-md py-2 rounded-lg border border-outline text-on-surface font-label-md font-semibold hover:bg-surface-container transition-colors";
-    let header = format!(
-        r###"<div class="flex flex-wrap items-center justify-between gap-space-md mb-space-md">
-        <div>
-            <h1 class="font-headline-md text-headline-md text-primary-container">Calendario</h1>
-            <p class="font-body-sm text-body-sm text-on-surface-variant">Eventos del calendario escolar</p>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-            <a href="/dashboard/calendar?month={}" class="{}" title="Ir al mes en curso">Mes actual</a>
-            <a href="/dashboard/calendar/daily" class="{}" title="Ver los eventos de un día">Vista diaria</a>
-            <a href="/dashboard/calendar.ics" download
-                class="{}"
-                title="Descargar el calendario en formato iCalendar (.ics)">
-                <span class="material-symbols-outlined text-[18px] text-primary-container">calendar_down</span>
-                Descargar .ics
-            </a>
-        </div>
-    </div>"###,
+    let content = format!(
+        r###"<div class="nova-page nova-calendar-page">
+          <header class="nova-page-head compact">
+            <div><p class="nova-eyebrow"><span>01</span> Mi agenda</p><h1>El mes,<br><em>a tu ritmo.</em></h1><p class="nova-page-lead">Clases, entregas, eventos y anotaciones en una sola lectura temporal.</p></div>
+            <div class="nova-page-actions"><a href="/dashboard/calendar?month={}" class="nova-button nova-button-quiet">Mes actual</a><a href="/dashboard/calendar/daily" class="nova-button nova-button-quiet">Vista diaria</a><a href="/dashboard/calendar.ics" download class="nova-button nova-button-primary"><span class="material-symbols-outlined">download</span>Descargar .ics</a></div>
+          </header>
+          <div class="nova-calendar-layout">
+            <section class="nova-month-panel" aria-label="Calendario mensual"><div class="nova-panel-caption"><span>01</span><h2>Mapa del mes</h2><span class="material-symbols-outlined">calendar_month</span></div>{}<div id="calendar-grid" class="nova-calendar-grid-host">{}</div></section>
+            {}
+          </div>
+        </div>"###,
         today_date.format("%Y-%m"),
-        link_class,
-        link_class,
-        link_class
+        status,
+        grid_html,
+        timeline,
     );
-
-    let content = format!(r###"{}{}{}{}"###, status, header, grid, timeline);
 
     Html(templates::page_ext(
         "Calendario — Study Platform",
@@ -889,29 +876,8 @@ pub async fn daily(
         ""
     };
 
-    let header = format!(
-        r###"<div class="flex flex-wrap items-center justify-between gap-space-md mb-space-sm">
-            <div>
-                <div class="flex items-center gap-2">
-                    <h2 class="font-headline-sm text-headline-sm text-primary-container">{}</h2>
-                    {}
-                </div>
-                <p class="font-body-sm text-body-sm text-on-surface-variant">{} · {}</p>
-            </div>
-            <div class="flex items-center gap-2">
-                {}
-                <a href="/dashboard/calendar/daily" class="{}" title="Volver a hoy">Hoy</a>
-                {}
-                <button hx-get="/dashboard/calendar/daily?date={}&partial=list" hx-target="#daily-events" hx-swap="innerHTML"
-                    class="{}" title="Actualizar">
-                    <span class="material-symbols-outlined text-[16px]">refresh</span> Actualizar
-                </button>
-            </div>
-        </div>"###,
-        templates::html_escape(&title),
-        hoy_chip,
-        templates::weekday_es(&target_iso),
-        templates::html_escape(&format_fecha_es(&target_iso)),
+    let navigation = format!(
+        r###"<div class="nova-daily-nav"><div>{}<a href="/dashboard/calendar/daily" class="{}" title="Volver a hoy">Hoy</a>{}</div><button hx-get="/dashboard/calendar/daily?date={}&partial=list" hx-target="#daily-events" hx-swap="innerHTML" class="{}" title="Actualizar"><span class="material-symbols-outlined">refresh</span>Actualizar</button></div>"###,
         prev,
         NAV_CLASS,
         next,
@@ -931,7 +897,17 @@ pub async fn daily(
         fragment
     );
 
-    let content = format!(r###"{}{}{}{}"###, status, header, band, list);
+    let content = format!(
+        r###"<div class="nova-page nova-daily-page"><header class="nova-page-head compact"><div><p class="nova-eyebrow"><span>01</span> Agenda diaria</p><h1>Un día,<br><em>sin distracciones.</em></h1><p class="nova-page-lead">{} · {} · {}</p></div><div class="nova-page-actions">{}<a href="/dashboard/calendar" class="nova-button nova-button-quiet">Volver al mes</a></div></header><section class="nova-daily-panel">{}{}{}{}</section></div>"###,
+        templates::html_escape(&title),
+        templates::weekday_es(&target_iso),
+        templates::html_escape(&format_fecha_es(&target_iso)),
+        hoy_chip,
+        status,
+        navigation,
+        band,
+        list,
+    );
     Html(templates::page_ext(
         "Calendario Diario — Study Platform",
         "Mi agenda",
@@ -944,6 +920,7 @@ pub async fn daily(
 pub async fn weekly(State(state): State<Arc<AppState>>) -> Html<String> {
     let carga = cargar_calendario(&state).await;
     let events = &carga.eventos;
+    let status = banner_mcp_datos(&carga);
 
     let days = [
         "Lunes",
@@ -954,32 +931,42 @@ pub async fn weekly(State(state): State<Arc<AppState>>) -> Html<String> {
         "Sábado",
         "Domingo",
     ];
-    let mut day_items: Vec<String> = Vec::new();
+    let mut columns: Vec<String> = Vec::new();
 
     for day in &days {
         let day_events: Vec<&CalendarioEvent> = events
             .iter()
             .filter(|e| templates::weekday_es(&e.fecha) == *day)
             .collect();
-        if !day_events.is_empty() {
-            let items: Vec<String> = day_events
+        let items = if day_events.is_empty() {
+            r#"<p class="nova-weekly-empty">Sin eventos</p>"#.to_string()
+        } else {
+            day_events
                 .iter()
                 .map(|e| {
                     format!(
-                        "{} ({}) — {}",
-                        templates::weekday_es(&e.fecha),
-                        e.fecha,
-                        e.evento
+                        r#"<article><span>{}</span><h3>{}</h3><time>{}</time></article>"#,
+                        templates::html_escape(&tipo_label(&e.tipo)),
+                        templates::html_escape(&e.evento),
+                        templates::html_escape(&e.fecha),
                     )
                 })
-                .collect();
-            day_items.extend(items);
-        } else {
-            day_items.push(format!("{} — Sin eventos", day));
-        }
+                .collect::<Vec<_>>()
+                .join("")
+        };
+        columns.push(format!(
+            r#"<section class="nova-weekly-day"><header><span>{}</span><strong>{}</strong></header><div>{}</div></section>"#,
+            &day[..1],
+            day,
+            items,
+        ));
     }
 
-    let content = templates::card_list("Vista semanal", &day_items);
+    let content = format!(
+        r###"<div class="nova-page nova-weekly-page"><header class="nova-page-head compact"><div><p class="nova-eyebrow"><span>01</span> Agenda semanal</p><h1>Siete días.<br><em>Una sola vista.</em></h1><p class="nova-page-lead">Los eventos se agrupan por día de la semana usando los datos reales del calendario.</p></div><div class="nova-page-actions"><a href="/dashboard/calendar/daily" class="nova-button nova-button-quiet">Vista diaria</a><a href="/dashboard/calendar" class="nova-button nova-button-primary">Volver al mes</a></div></header><section class="nova-schedule-board"><div class="nova-panel-caption"><span>01</span><h2>Eventos por día</h2><span class="material-symbols-outlined">calendar_view_week</span></div>{}<div class="nova-weekly-agenda">{}</div></section></div>"###,
+        status,
+        columns.join(""),
+    );
     Html(templates::page_ext(
         "Semana — Study Platform",
         "Mi agenda",

@@ -291,166 +291,24 @@ pub fn human_size(bytes: u64) -> String {
     }
 }
 
-/// Full-page HTML wrapper (cyberpunk dark theme + office navigation).
+/// Envoltorio de Oficina unificado con Nova. Los editores conservan sus
+/// formularios, scripts y endpoints; desaparece la cabecera independiente.
 pub fn layout(title: &str, body: &str) -> String {
-    LAYOUT_TEMPLATE
-        .replace("__TITLE__", &html_escape(title))
-        .replace("__BODY__", body)
+    layout_as(title, "", body)
+}
+
+/// Variante que marca la sección activa dentro del mapa Nova.
+pub fn layout_as(title: &str, active: &str, body: &str) -> String {
+    crate::handlers::stitch_v2::stitch_v2_page(active, body, true).replace(
+        "<title>Study Platform · Tu espacio académico</title>",
+        &format!("<title>{} — Nova Oficina</title>", html_escape(title)),
+    )
 }
 
 /// Return an empty page (used when a document/slide editor has no row body).
 pub fn empty_layout() -> String {
-    LAYOUT_TEMPLATE
-        .replace("__TITLE__", "Suite de oficina")
-        .replace("__BODY__", "")
+    layout("Suite de oficina", "")
 }
-
-const LAYOUT_TEMPLATE: &str = r##"<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>__TITLE__ — Suite de oficina</title>
-    <!-- Google Fonts: Manrope (headings) + Inter (body) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Material Symbols Outlined -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined">
-    <!-- HTMX + Tailwind CDN -->
-    <script src="https://unpkg.com/htmx.org@2.0.3/dist/htmx.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        /* Surface stack */
-                        background: '#0b1016',
-                        surface: '#0b1016',
-                        'surface-dim': '#080c11',
-                        'surface-bright': '#263442',
-                        'surface-container-lowest': '#080d12',
-                        'surface-container-low': '#101720',
-                        'surface-container': '#151e28',
-                        'surface-container-high': '#1b2733',
-                        'surface-container-highest': '#243240',
-                        'surface-variant': '#243240',
-                        'surface-tint': '#72e4d0',
-                        'on-surface': '#edf3f6',
-                        'on-surface-variant': '#a8b7c2',
-                        'on-background': '#edf3f6',
-                        /* Outline */
-                        outline: '#788b99',
-                        'outline-variant': '#2c3b48',
-                        /* Primary (luminescent cyan - AI telemetry) */
-                        primary: '#72e4d0',
-                        'on-primary': '#07332d',
-                        'primary-container': '#72e4d0',
-                        'on-primary-container': '#075247',
-                        'inverse-primary': '#148f7d',
-                        'primary-fixed': '#8df0de',
-                        'primary-fixed-dim': '#72e4d0',
-                        'on-primary-fixed': '#06251f',
-                        'on-primary-fixed-variant': '#075247',
-                        /* Secondary (soft lime - user action) */
-                        secondary: '#b8e986',
-                        'on-secondary': '#1d2d0d',
-                        'secondary-container': '#668f38',
-                        'on-secondary-container': '#172609',
-                        'secondary-fixed': '#c9f39e',
-                        'secondary-fixed-dim': '#b8e986',
-                        'on-secondary-fixed': '#152307',
-                        'on-secondary-fixed-variant': '#39571a',
-                        /* Tertiary (muted violet - taxonomy/metadata) */
-                        tertiary: '#b7a5ea',
-                        'on-tertiary': '#382665',
-                        'tertiary-container': '#b7a5ea',
-                        'on-tertiary-container': '#493578',
-                        'tertiary-fixed': '#ded3fb',
-                        'tertiary-fixed-dim': '#b7a5ea',
-                        'on-tertiary-fixed': '#241643',
-                        'on-tertiary-fixed-variant': '#493578',
-                        /* Error */
-                        error: '#ffb4ab',
-                        'on-error': '#690005',
-                        'error-container': '#93000a',
-                        'on-error-container': '#ffdad6',
-                        /* Inverse */
-                        'inverse-surface': '#edf3f6',
-                        'inverse-on-surface': '#17222c',
-                    },
-                    fontFamily: {
-                        manrope: ['Manrope', 'sans-serif'],
-                        hanken: ['Inter', 'Hanken Grotesk', 'sans-serif'],
-                    },
-                }
-            },
-        }
-    </script>
-    <style>
-        @layer base {
-            body {
-                @apply bg-surface text-on-surface font-hanken;
-            }
-            h1, h2, h3, h4, h5, h6 {
-                @apply font-manrope;
-            }
-        }
-        td[contenteditable]:focus {
-            outline: 2px solid #72e4d0;
-            @apply bg-surface-container;
-        }
-        th {
-            @apply bg-surface-container;
-        }
-        .slide {
-            @apply border border-outline-variant;
-        }
-    </style>
-    <link rel="stylesheet" href="/polish.css">
-</head>
-<body class="min-h-screen">
-    <header class="fixed top-0 left-0 right-0 bg-surface-container-low/90 backdrop-blur-sm border-b border-outline z-50">
-        <div class="flex items-center justify-between px-6 py-3">
-            <div class="flex items-center space-x-6">
-                <h1 class="text-xl font-semibold text-primary">Suite de oficina</h1>
-                <nav class="flex items-center space-x-1">
-                    <a href="/office/docs" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/50 transition-colors">
-                        <span class="material-symbols-outlined text-base">edit_document</span>
-                        <span>Documentos</span>
-                    </a>
-                    <a href="/office/sheets" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/50 transition-colors">
-                        <span class="material-symbols-outlined text-base">table_chart</span>
-                        <span>Hojas</span>
-                    </a>
-                    <a href="/office/presentations" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/50 transition-colors">
-                        <span class="material-symbols-outlined text-base">slideshow</span>
-                        <span>Presentaciones</span>
-                    </a>
-                    <a href="/office/library" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/50 transition-colors">
-                        <span class="material-symbols-outlined text-base">folder_copy</span>
-                        <span>Biblioteca</span>
-                    </a>
-                </nav>
-            </div>
-            <form hx-post="/logout" hx-swap="outerHTML">
-                <button type="submit" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-on-surface-variant hover:text-primary transition-colors">
-                    <span class="material-symbols-outlined text-base">logout</span>
-                    <span>Salir</span>
-                </button>
-            </form>
-        </div>
-    </header>
-    <main class="pt-16 pb-6 px-6">
-        <div class="max-w-5xl mx-auto">
-            <div class="bg-surface-container rounded-xl border border-outline p-6">
-__BODY__
-            </div>
-        </div>
-    </main>
-</body>
-</html>"##;
 
 /// HTMX-friendly redirect: HTTP 200 + `HX-Redirect` header.
 /// HTMX clients perform a client-side navigation to `url`; plain clients receive

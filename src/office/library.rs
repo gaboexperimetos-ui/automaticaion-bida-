@@ -10,7 +10,7 @@ use axum::{
 use serde::Deserialize;
 use std::sync::Arc;
 
-use crate::office::templates::{self, hx_redirect, layout, slugify};
+use crate::office::templates::{self, hx_redirect, layout, layout_as, slugify};
 use crate::office::{type_dir, type_ext};
 use crate::AppState;
 
@@ -73,82 +73,7 @@ pub async fn search(
 }
 
 fn render_list(state: &AppState, filter: Option<&str>) -> Response {
-    let all = gather(state);
-    let filtered: Vec<&LibEntry> = match filter {
-        Some(q) if !q.trim().is_empty() => {
-            let q = q.to_lowercase();
-            all.iter()
-                .filter(|e| {
-                    e.file.name.to_lowercase().contains(&q)
-                        || e.file.display.to_lowercase().contains(&q)
-                })
-                .collect()
-        }
-        _ => all.iter().collect(),
-    };
-
-    let rows = if filtered.is_empty() {
-        r#"<tr><td colspan="5" class="py-4 text-center text-gray-500">No se encontraron archivos.</td></tr>"#.to_string()
-    } else {
-        filtered
-            .iter()
-            .map(|e| {
-                let f = &e.file;
-                format!(
-                    r#"<tr class="border-t border-gray-800">
-                        <td class="py-2"><span class="text-accent">{kind}</span> · <a href="/office/library/{ty}/{slug}/download" class="text-gray-200 hover:text-white">{display}</a></td>
-                        <td class="py-2 text-sm text-gray-500">{ty}</td>
-                        <td class="py-2 text-sm text-gray-500">{size}</td>
-                        <td class="py-2 text-sm text-gray-500">{modified}</td>
-                        <td class="py-2"><form hx-post="/office/library/{ty}/{slug}/delete" class="inline">
-                            <button type="submit" onclick="return confirm('¿Borrar?')"
-                                class="text-xs text-red-400 hover:text-red-300">borrar</button>
-                        </form></td>
-                    </tr>"#,
-                    kind = e.kind,
-                    ty = e.kind, // note: using kind label for type path segment is WRONG; fix below
-                    slug = templates::html_escape(&f.name),
-                    display = templates::html_escape(&f.display),
-                    size = templates::human_size(f.size),
-                    modified = &f.modified,
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("\n")
-    };
-
-    let q_val = filter.unwrap_or("");
-    let body = format!(
-        r#"<div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-bold text-accent">Biblioteca de archivos</h2>
-            <form hx-get="/office/library/search" class="flex gap-2">
-                <input type="text" name="q" value="{q}" placeholder="Buscar por nombre..."
-                    class="px-3 py-1 bg-card border border-gray-700 rounded text-white focus:border-accent focus:outline-none text-sm">
-                <button type="submit" class="px-3 py-1 bg-accent text-black font-bold rounded text-sm hover:bg-cyan-300">Buscar</button>
-            </form>
-        </div>
-        <p class="text-sm text-gray-500 mb-3">{count} archivo(s)</p>
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm">
-                <thead class="border-b border-gray-800"><tr>
-                    <th class="py-2 text-gray-400">Archivo</th>
-                    <th class="py-2 text-gray-400">Tipo</th>
-                    <th class="py-2 text-gray-400">Tamaño</th>
-                    <th class="py-2 text-gray-400">Modificado</th>
-                    <th class="py-2 text-gray-400">Acciones</th>
-                </tr></thead>
-                <tbody>{rows}</tbody>
-            </table>
-        </div>"#,
-        q = templates::html_escape(q_val),
-        count = filtered.len(),
-        rows = rows,
-    );
-
-    // Fix: the `ty` placeholder must be the URL type segment, not the display label.
-    // We rebuild rows with the correct type by re-iterating.
-    let _ = body;
-    rebuild(state, filter, q_val)
+    rebuild(state, filter, filter.unwrap_or(""))
 }
 
 /// Rebuild the table with correct type segments in the action links.
@@ -173,23 +98,21 @@ fn rebuild(state: &AppState, filter: Option<&str>, q_val: &str) -> Response {
             .iter()
             .map(|e| {
                 let f = &e.file;
-                let url_type = match e.kind {
-                    "documento" => "docs",
-                    "hoja" => "sheets",
-                    "presentación" => "presentations",
-                    _ => "docs",
+                let (url_type, icon) = match e.kind {
+                    "documento" => ("docs", "description"),
+                    "hoja" => ("sheets", "table_chart"),
+                    "presentación" => ("presentations", "present_to_all"),
+                    _ => ("docs", "draft"),
                 };
                 format!(
-                    r#"<tr class="border-t border-gray-800">
-                        <td class="py-2"><span class="text-accent">{kind}</span> · <a href="/office/library/{ty}/{slug}/download" class="text-gray-200 hover:text-white">{display}</a></td>
-                        <td class="py-2 text-sm text-gray-500">{kind}</td>
-                        <td class="py-2 text-sm text-gray-500">{size}</td>
-                        <td class="py-2 text-sm text-gray-500">{modified}</td>
-                        <td class="py-2"><form hx-post="/office/library/{ty}/{slug}/delete" class="inline">
-                            <button type="submit" onclick="return confirm('¿Borrar?')"
-                                class="text-xs text-red-400 hover:text-red-300">borrar</button>
-                        </form></td>
+                    r#"<tr>
+                        <td><a href="/office/library/{ty}/{slug}/download" class="nova-library-file"><span class="material-symbols-outlined">{icon}</span><span>{display}</span></a></td>
+                        <td><span class="nova-file-kind">{kind}</span></td>
+                        <td>{size}</td>
+                        <td>{modified}</td>
+                        <td><div class="nova-library-actions"><a href="/office/library/{ty}/{slug}/download" class="nova-icon-button" aria-label="Descargar {display}"><span class="material-symbols-outlined">download</span></a><form hx-post="/office/library/{ty}/{slug}/delete"><button type="submit" onclick="return confirm('¿Borrar?')" class="nova-icon-button danger" aria-label="Borrar {display}"><span class="material-symbols-outlined">delete</span></button></form></div></td>
                     </tr>"#,
+                    icon = icon,
                     kind = e.kind,
                     ty = url_type,
                     slug = templates::html_escape(&f.name),
@@ -202,42 +125,7 @@ fn rebuild(state: &AppState, filter: Option<&str>, q_val: &str) -> Response {
             .join("\n")
     };
     let body = format!(
-        r#"<div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-bold text-accent">Biblioteca de archivos</h2>
-            <form hx-get="/office/library/search" class="flex gap-2">
-                <input type="text" name="q" value="{q}" placeholder="Buscar por nombre..."
-                    class="px-3 py-1 bg-card border border-gray-700 rounded text-white focus:border-accent focus:outline-none text-sm">
-                <button type="submit" class="px-3 py-1 bg-accent text-black font-bold rounded text-sm hover:bg-cyan-300">Buscar</button>
-            </form>
-        </div>
-        <p class="text-sm text-gray-500 mb-3">{count} archivo(s)</p>
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm">
-                <thead class="border-b border-gray-800"><tr>
-                    <th class="py-2 text-gray-400">Archivo</th>
-                    <th class="py-2 text-gray-400">Tipo</th>
-                    <th class="py-2 text-gray-400">Tamaño</th>
-                    <th class="py-2 text-gray-400">Modificado</th>
-                    <th class="py-2 text-gray-400">Acciones</th>
-                </tr></thead>
-                <tbody>{rows}</tbody>
-            </table>
-        </div>
-        <div class="mt-6">
-            <h3 class="text-sm font-bold text-accent mb-2">Importar archivo</h3>
-            <form hx-post="/office/library/import/docs" class="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
-                <input type="text" name="name" placeholder="Nombre" required
-                    class="px-3 py-1 bg-card border border-gray-700 rounded text-white focus:border-accent focus:outline-none">
-                <input type="text" name="content" placeholder="Contenido" required
-                    class="px-3 py-1 bg-card border border-gray-700 rounded text-white focus:border-accent focus:outline-none">
-                <select name="kind" class="px-3 py-1 bg-card border border-gray-700 rounded text-white focus:border-accent focus:outline-none">
-                    <option value="docs">Documento</option>
-                    <option value="sheets">Hoja</option>
-                    <option value="presentations">Presentación</option>
-                </select>
-                <button type="submit" class="px-4 py-1 bg-accent text-black font-bold rounded text-sm hover:bg-cyan-300">Importar</button>
-            </form>
-        </div>"#,
+        r#"<div class="nova-page nova-library-page"><header class="nova-page-head compact"><div><p class="nova-eyebrow"><span>08</span> Biblioteca</p><h1>Todo tu trabajo.<br><em>Un solo archivo.</em></h1><p class="nova-page-lead">Documentos, hojas y presentaciones ordenados por su última modificación.</p></div><span class="nova-version-badge">{count} archivo(s)</span></header><nav class="nova-office-switch" aria-label="Aplicaciones de oficina"><a href="/office/docs">Documentos</a><a href="/office/sheets">Hojas</a><a href="/office/presentations">Presentaciones</a><a href="/office/library" aria-current="page">Biblioteca</a></nav><form hx-get="/office/library/search" hx-target="closest .nova-page" hx-select=".nova-page" hx-swap="outerHTML" hx-push-url="true" class="nova-library-search"><span class="material-symbols-outlined">search</span><label class="sr-only" for="library-query">Buscar archivos</label><input id="library-query" type="search" name="q" value="{q}" placeholder="Buscar por nombre…"><button type="submit" class="nova-button nova-button-quiet">Buscar</button></form><div class="nova-library-layout"><section class="nova-library-browser"><div class="nova-panel-caption"><span>01</span><h2>Archivos recientes</h2><span class="material-symbols-outlined">folder_open</span></div><div class="nova-table-scroll"><table class="nova-library-table"><thead><tr><th>Archivo</th><th>Tipo</th><th>Tamaño</th><th>Modificado</th><th aria-label="Acciones"></th></tr></thead><tbody>{rows}</tbody></table></div></section><aside class="nova-library-import"><div class="nova-panel-caption"><span>02</span><h2>Importar</h2><span class="material-symbols-outlined">upload_file</span></div><p>Crea un archivo directamente en la biblioteca local.</p><form id="library-import-form" hx-post="/office/library/import/docs"><label for="library-import-name">Nombre</label><input id="library-import-name" type="text" name="name" placeholder="mi-archivo" required><label for="library-import-content">Contenido</label><textarea id="library-import-content" name="content" rows="7" placeholder="Escribe o pega el contenido…" required></textarea><label for="library-import-kind">Tipo de archivo</label><select id="library-import-kind" name="kind" onchange="this.form.setAttribute('hx-post','/office/library/import/'+this.value)"><option value="docs">Documento</option><option value="sheets">Hoja</option><option value="presentations">Presentación</option></select><button type="submit" class="nova-button nova-button-primary">Importar archivo<span class="material-symbols-outlined">arrow_forward</span></button></form></aside></div></div>"#,
         count = filtered.len(),
         q = templates::html_escape(q_val),
         rows = rows,
@@ -245,7 +133,7 @@ fn rebuild(state: &AppState, filter: Option<&str>, q_val: &str) -> Response {
 
     Response::builder()
         .status(200)
-        .body(Body::from(layout("Biblioteca", &body)))
+        .body(Body::from(layout_as("Biblioteca", "biblioteca", &body)))
         .unwrap()
 }
 

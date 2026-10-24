@@ -632,7 +632,7 @@
   }
 
   function initAiLegacy() {
-    if (location.pathname !== "/ai") { return; }
+    if (location.pathname !== "/ai" || document.querySelector(".nova-conversations-page")) { return; }
     var main = document.querySelector("main") || document.body;
     if (!main) { return; }
     var aviso = document.createElement("div");
@@ -1041,14 +1041,15 @@
     }
     function updateStats() {
       var words = editor.value.trim() ? editor.value.trim().split(/\s+/).length : 0;
-      var stat = document.querySelector("div.ml-auto");
+      var stat = document.querySelector(".nova-note-stats") || document.querySelector("div.ml-auto");
       if (stat) { stat.textContent = words + " palabras" + (dirty ? " - sin guardar" : ""); }
     }
 
     document.querySelectorAll("main button").forEach(function (b) {
       var t = txt(b);
+      var noteAction = b.getAttribute("data-note-action");
       once(b, "spAction", function (btn) {
-        if (t === "Exportar a PDF") {
+        if (noteAction === "pdf" || t === "Exportar a PDF") {
           btn.addEventListener("click", function (e) {
             e.preventDefault();
             setMode("preview");
@@ -1059,7 +1060,7 @@
             setTimeout(function () { window.print(); }, 80);
             setTimeout(off, 4000);
           });
-        } else if (t === "Exportar a Suite Oficina") {
+        } else if (noteAction === "office" || t === "Exportar a Suite Oficina") {
           btn.addEventListener("click", function (e) {
             e.preventDefault();
             var content = editor.value || current.content;
@@ -1081,7 +1082,7 @@
               })
               .finally(function () { track(btn, false); });
           });
-        } else if (t === "Inyectar a Asistente IA") {
+        } else if (noteAction === "ai" || t === "Inyectar a Asistente IA") {
           btn.addEventListener("click", function (e) {
             e.preventDefault();
             var c = editor.value || current.content;
@@ -1090,8 +1091,13 @@
             SP.toast("Contexto adjuntado: abriendo el asistente...", "ok");
             setTimeout(function () { window.location.href = "/dashboard/ai"; }, 600);
           });
-        } else if (t === "+ Nota") {
+        } else if (b.id === "btn-new-note" || t === "+ Nota") {
           btn.addEventListener("click", function (e) { e.preventDefault(); newNotePrompt(); });
+        } else if (b.id === "btn-new-folder") {
+          btn.addEventListener("click", function (e) {
+            e.preventDefault();
+            SP.toast("Las carpetas llegan con la importacion de bovedas (pendiente en backend)", "info");
+          });
         }
       });
     });

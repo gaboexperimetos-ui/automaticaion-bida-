@@ -15,7 +15,7 @@ use std::sync::Arc;
 
 use crate::office::sheets_dir;
 use crate::office::templates;
-use crate::office::templates::{hx_redirect, layout, slugify};
+use crate::office::templates::{hx_redirect, layout, layout_as, slugify};
 use crate::AppState;
 
 /// Input bounds (400 on violation).
@@ -43,69 +43,33 @@ pub async fn list(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let dir = sheets_dir(&state);
     let files = templates::list_files(&dir, "csv");
 
-    let rows = if files.is_empty() {
-        r#"<p class="text-gray-500">No hay hojas aún.</p>"#.to_string()
+    let cards = if files.is_empty() {
+        r#"<div class="nova-office-empty"><span class="material-symbols-outlined">table_chart</span><h2>Empieza con una cuadrícula.</h2><p>Crea una hoja de cinco por cinco o importa tus propios datos CSV.</p><a href="/office/sheets/new" class="nova-button nova-button-primary">Crear hoja</a></div>"#.to_string()
     } else {
-        files
-            .iter()
-            .map(|f| {
-                format!(
-                    r#"<tr class="border-t border-gray-800">
-                        <td class="py-2"><a href="/office/sheets/{slug}" class="text-accent hover:text-cyan-300">{display}</a></td>
-                        <td class="py-2 text-sm text-gray-500">{size}</td>
-                        <td class="py-2 text-sm text-gray-500">{modified}</td>
-                        <td class="py-2 space-x-2">
-                            <a href="/office/sheets/{slug}/export" class="text-xs text-gray-400 hover:text-white">exportar</a>
-                            <form hx-post="/office/sheets/{slug}/delete" class="inline">
-                                <button type="submit" onclick="return confirm('¿Borrar?')"
-                                    class="text-xs text-red-400 hover:text-red-300">borrar</button>
-                            </form>
-                        </td>
-                    </tr>"#,
-                    slug = templates::html_escape(&f.name),
-                    display = templates::html_escape(&f.display),
-                    size = templates::human_size(f.size),
-                    modified = &f.modified,
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("\n")
+        files.iter().map(|f| {
+            format!(
+                r#"<article class="nova-file-card sheet"><div class="nova-file-card-top"><span class="nova-file-type"><span class="material-symbols-outlined">table_chart</span></span><span>CSV</span></div><h2><a href="/office/sheets/{slug}">{display}</a></h2><p class="nova-file-meta">{modified} · {size}</p><footer><a href="/office/sheets/{slug}/export" class="nova-text-link">Exportar CSV<span class="material-symbols-outlined">download</span></a><form hx-post="/office/sheets/{slug}/delete"><button type="submit" onclick="return confirm('¿Borrar?')" class="nova-icon-button danger" aria-label="Borrar {display}"><span class="material-symbols-outlined">delete</span></button></form></footer></article>"#,
+                slug = templates::html_escape(&f.name),
+                display = templates::html_escape(&f.display),
+                size = templates::human_size(f.size),
+                modified = &f.modified,
+            )
+        }).collect::<Vec<_>>().join("
+")
     };
 
     let body = format!(
-        r#"<div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-bold text-accent">Hojas de cálculo</h2>
-            <a href="/office/sheets/new" class="px-4 py-2 bg-accent text-black font-bold rounded hover:bg-cyan-300">+ Nueva</a>
-        </div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm">
-                <thead class="border-b border-gray-800"><tr>
-                    <th class="py-2 text-gray-400">Nombre</th>
-                    <th class="py-2 text-gray-400">Tamaño</th>
-                    <th class="py-2 text-gray-400">Modificado</th>
-                    <th class="py-2 text-gray-400">Acciones</th>
-                </tr></thead>
-                <tbody>{rows}</tbody>
-            </table>
-        </div>"#,
-        rows = rows,
+        r#"<div class="nova-page nova-office-page"><header class="nova-page-head compact"><div><p class="nova-eyebrow"><span>07.2</span> Oficina</p><h1>Datos claros.<br><em>Decisiones simples.</em></h1><p class="nova-page-lead">Edita cuadrículas, importa CSV y calcula sin salir de tu espacio.</p></div><a href="/office/sheets/new" class="nova-button nova-button-primary"><span class="material-symbols-outlined">add</span>Nueva hoja</a></header><nav class="nova-office-switch" aria-label="Aplicaciones de oficina"><a href="/office/docs">Documentos</a><a href="/office/sheets" aria-current="page">Hojas</a><a href="/office/presentations">Presentaciones</a><a href="/office/library">Biblioteca</a></nav><section class="nova-file-grid">{cards}</section></div>"#,
+        cards = cards,
     );
 
-    layout("Hojas de cálculo", &body)
+    layout_as("Hojas de cálculo", "hojas", &body)
 }
 
 /// New-sheet form.
 pub async fn new_sheet() -> impl IntoResponse {
-    let body = r#"<h2 class="text-xl font-bold text-accent mb-4">Nueva hoja</h2>
-<form hx-post="/office/sheets" hx-swap="outerHTML" class="space-y-4">
-    <div>
-        <label class="block text-sm text-gray-400 mb-1">Título</label>
-        <input type="text" name="title" required
-            class="w-full px-4 py-2 bg-card border border-gray-700 rounded text-white focus:border-accent focus:outline-none">
-    </div>
-    <button type="submit" class="px-6 py-2 bg-accent text-black font-bold rounded hover:bg-cyan-300">Crear</button>
-</form>"#;
-    layout("Nueva hoja", &body)
+    let body = r#"<div class="nova-page nova-editor-page"><header class="nova-page-head compact"><div><p class="nova-eyebrow"><span>07.2</span> Nueva hoja</p><h1>Una cuadrícula nueva.<br><em>Lista para tus datos.</em></h1><p class="nova-page-lead">Crearemos una hoja vacía de cinco filas por cinco columnas.</p></div><a href="/office/sheets" class="nova-button nova-button-quiet">Volver</a></header><form hx-post="/office/sheets" hx-swap="outerHTML" class="nova-create-sheet-form"><span class="material-symbols-outlined">table_chart</span><div><label for="new-sheet-title">Nombre de la hoja</label><input id="new-sheet-title" type="text" name="title" placeholder="Ej. Presupuesto del trimestre" required></div><button type="submit" class="nova-button nova-button-primary">Crear hoja<span class="material-symbols-outlined">arrow_forward</span></button></form></div>"#;
+    layout_as("Nueva hoja", "hojas", &body)
 }
 
 /// Create a spreadsheet (empty grid).
@@ -190,31 +154,12 @@ pub async fn edit(
     let computed = compute_grid(&rows);
     let grid_html = render_grid(&slug, &rows, &computed);
     let body = format!(
-        r#"<div class="flex justify-between items-center mb-3">
-            <h2 class="text-xl font-bold text-accent">Hoja: <span class="text-white">{title}</span></h2>
-            <div class="space-x-2">
-                <a href="/office/sheets/{slug}/export" class="px-3 py-1 bg-accent text-black font-bold rounded text-sm hover:bg-cyan-300">Exportar CSV</a>
-                <form hx-post="/office/sheets/{slug}/delete" class="inline">
-                    <button type="submit" onclick="return confirm('¿Borrar hoja?')"
-                        class="px-3 py-1 bg-red-700 border border-red-800 rounded text-sm hover:bg-red-600">Borrar</button>
-                </form>
-            </div>
-        </div>
-        <div>
-            <h3 class="text-sm font-bold text-accent mb-1">Importar CSV (pega o escribe contenido)</h3>
-            <p class="text-xs text-gray-500 mb-2">Fórmulas soportadas: =SUM(rango), =AVG(rango). Las fórmulas no soportadas muestran #ERROR en la rejilla y en la exportación.</p>
-            <form hx-post="/office/sheets/{slug}/import" class="mb-4">
-                <textarea name="csv_data" rows="6"
-                    class="w-full px-3 py-2 bg-card border border-gray-700 rounded text-white font-mono text-sm focus:border-accent focus:outline-none"></textarea>
-                <button type="submit" class="mt-2 px-4 py-1 bg-accent text-black font-bold rounded text-sm hover:bg-cyan-300">Importar</button>
-            </form>
-            {grid}
-        </div>"#,
+        r#"<div class="nova-page nova-sheet-page"><header class="nova-workspace-head"><div class="nova-workspace-title"><span class="nova-workspace-symbol"><span class="material-symbols-outlined">table_chart</span></span><div><p>Hoja de cálculo</p><h1>{title}</h1></div></div><div class="nova-workspace-actions"><a href="/office/sheets" class="nova-button nova-button-quiet">Volver</a><a href="/office/sheets/{slug}/export" class="nova-button nova-button-primary"><span class="material-symbols-outlined">download</span>Exportar CSV</a><form hx-post="/office/sheets/{slug}/delete"><button type="submit" onclick="return confirm('¿Borrar hoja?')" class="nova-icon-button danger" aria-label="Borrar hoja"><span class="material-symbols-outlined">delete</span></button></form></div></header><div class="nova-sheet-layout"><section class="nova-sheet-workspace">{grid}</section><aside class="nova-sheet-import"><div class="nova-panel-caption"><span>02</span><h2>Importar CSV</h2><span class="material-symbols-outlined">upload_file</span></div><p>Pega o escribe contenido CSV para reemplazar los datos actuales.</p><div class="nova-formula-help"><strong>Fórmulas compatibles</strong><code>=SUM(rango)</code><code>=AVG(rango)</code><span>Las demás muestran #ERROR.</span></div><form hx-post="/office/sheets/{slug}/import"><label for="csv-import">Contenido CSV</label><textarea id="csv-import" name="csv_data" rows="10" placeholder="nombre,nota&#10;Examen,8.5"></textarea><button type="submit" class="nova-button nova-button-quiet">Importar datos</button></form></aside></div></div>"#,
         title = templates::html_escape(&slug.replace('-', " ")),
         slug = templates::html_escape(&slug),
         grid = grid_html,
     );
-    layout(&format!("Hoja: {}", slug), &body).into_response()
+    layout_as(&format!("Hoja: {}", slug), "hojas", &body).into_response()
 }
 
 /// Import CSV (or save the grid). Accepts `csv_data` (the grid is serialized
@@ -319,7 +264,7 @@ fn render_grid(slug: &str, rows: &[Vec<String>], computed: &[Vec<String>]) -> St
     let display_rows = if rows.is_empty() { 5 } else { rows.len() };
 
     let mut editable =
-        String::from(r#"<table id="grid" class="border-collapse w-full text-sm mb-2">"#);
+        String::from(r#"<table id="grid" class="nova-sheet-grid" aria-label="Cuadrícula editable">"#);
     for r in 0..display_rows {
         editable.push_str("<tr>");
         for c in 0..cols {
@@ -336,7 +281,7 @@ fn render_grid(slug: &str, rows: &[Vec<String>], computed: &[Vec<String>]) -> St
     }
     editable.push_str("</table>");
 
-    let mut values = String::from(r#"<table class="border-collapse w-full text-sm mt-2"><tbody>"#);
+    let mut values = String::from(r#"<table class="nova-sheet-values"><tbody>"#);
     for r in 0..display_rows {
         values.push_str("<tr>");
         for c in 0..cols {
@@ -356,19 +301,9 @@ fn render_grid(slug: &str, rows: &[Vec<String>], computed: &[Vec<String>]) -> St
     let header = (0..cols).map(row_to_header).collect::<Vec<_>>().join(" ");
 
     format!(
-        r#"<form hx-post="/office/sheets/{slug}/import" hx-on::before-request="serializeGrid()" class="mb-2">
-            <input type="hidden" name="csv_data" id="csv_data" value="">
-            <button type="submit" class="px-4 py-1 bg-accent text-black font-bold rounded text-sm hover:bg-cyan-300">Guardar cuadrícula</button>
-        </form>
-        <div class="mb-2">
-            <span class="text-xs text-gray-400">Valores calculados (soportado: =SUM(rango), =AVG(rango); no soportadas: #ERROR):</span>
-            {values}
-            <span class="ml-3 text-xs text-gray-500">Columnas: {header}</span>
-        </div>
-        <script>
-            {grid_js}
-        </script>"#,
+        r#"<div class="nova-sheet-grid-head"><div><span>CUADRÍCULA EDITABLE</span><p>Haz clic en una celda para modificarla.</p></div><form hx-post="/office/sheets/{slug}/import" hx-on::before-request="serializeGrid()"><input type="hidden" name="csv_data" id="csv_data" value=""><button type="submit" class="nova-button nova-button-primary"><span class="material-symbols-outlined">save</span>Guardar cuadrícula</button></form></div><div class="nova-sheet-grid-wrap">{editable}</div><details class="nova-sheet-computed"><summary><span><span class="material-symbols-outlined">calculate</span>Valores calculados</span><span class="material-symbols-outlined">expand_more</span></summary><div>{values}<p>Columnas: {header}</p></div></details><script>{grid_js}</script>"#,
         slug = slug,
+        editable = editable,
         values = values,
         header = header,
         grid_js = templates::GRID_SERIALIZE_JS,
