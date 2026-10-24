@@ -901,7 +901,7 @@ const LOGIN_PAGE_HTML: &str = r##"<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Study Platform — Iniciar sesión</title>
+<title>NOVA — Iniciar sesión</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined&family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700&display=swap" rel="stylesheet">
@@ -913,38 +913,38 @@ const LOGIN_PAGE_HTML: &str = r##"<!DOCTYPE html>
             theme: {
                 extend: {
                     colors: {
-                        background: '#0b1016',
-                        'surface-container-lowest': '#080d12',
-                        'surface-container-low': '#101720',
-                        'surface-container': '#151e28',
-                        'surface-container-high': '#1b2733',
-                        'surface-container-highest': '#243240',
-                        'on-surface': '#edf3f6',
-                        'on-surface-variant': '#a8b7c2',
-                        outline: '#788b99',
-                        'outline-variant': '#2c3b48',
-                        primary: '#a7f3e5',
-                        'on-primary': '#07332d',
-                        'primary-container': '#72e4d0',
-                        'on-primary-container': '#075247',
-                        secondary: '#b8e986',
-                        'on-secondary': '#1d2d0d',
-                        'secondary-container': '#668f38',
-                        'on-secondary-container': '#172609',
-                        'surface-tint': '#72e4d0',
-                        'text-primary': '#f1f5f9',
-                        'text-secondary': '#94a3b8',
-                        'text-muted': '#64748b',
-                        canvas: '#0b0f14',
-                        'input-bg': '#111821',
+                        background: '#0b0e0b',
+                        'surface-container-lowest': '#080b09',
+                        'surface-container-low': '#0e130f',
+                        'surface-container': '#131914',
+                        'surface-container-high': '#19211b',
+                        'surface-container-highest': '#222c24',
+                        'on-surface': '#f1f3ec',
+                        'on-surface-variant': '#b7beb0',
+                        outline: '#818b7c',
+                        'outline-variant': '#303a31',
+                        primary: '#e1ffad',
+                        'on-primary': '#17210d',
+                        'primary-container': '#c4f27e',
+                        'on-primary-container': '#17210d',
+                        secondary: '#75d9ba',
+                        'on-secondary': '#17210d',
+                        'secondary-container': '#275542',
+                        'on-secondary-container': '#d8f5e7',
+                        'surface-tint': '#c4f27e',
+                        'text-primary': '#f1f3ec',
+                        'text-secondary': '#a3afa5',
+                        'text-muted': '#818b7c',
+                        canvas: '#080b09',
+                        'input-bg': '#0d110c',
                     },
                     fontFamily: {
                         manrope: ['"Manrope"', 'sans-serif'],
                         hanken: ['"Inter"', '"Hanken Grotesk"', 'sans-serif'],
                     },
                     boxShadow: {
-                        glow: '0 0 12px rgba(158, 215, 83, 0.25)',
-                        'glow-hover': '0 0 20px rgba(158, 215, 83, 0.45)',
+                        glow: '0 0 12px rgba(196, 242, 126, 0.25)',
+                        'glow-hover': '0 0 20px rgba(196, 242, 126, 0.45)',
                     },
                 },
             },
@@ -958,7 +958,7 @@ const LOGIN_PAGE_HTML: &str = r##"<!DOCTYPE html>
         <div class="text-center mb-8">
             <div class="flex items-center justify-center gap-2 mb-2">
                 <span class="material-symbols-outlined text-2xl text-surface-tint">psychology</span>
-                <h1 class="font-manrope text-2xl font-bold"><span class="text-secondary">Study</span> Platform</h1>
+                <h1 class="font-manrope text-2xl font-bold tracking-tight">NOVA <span class="ml-1 rounded border border-primary-container/25 px-1.5 py-0.5 align-middle font-mono text-[9px] font-normal text-primary-container">3.0</span></h1>
             </div>
             <p class="text-sm text-on-surface-variant">Tu espacio de productividad académica</p>
         </div>
@@ -983,12 +983,12 @@ const LOGIN_PAGE_HTML: &str = r##"<!DOCTYPE html>
             <form method="post" action="/login" hx-post="/login" hx-swap="outerHTML" hx-target="#login-container" class="mt-6 space-y-4">
                 <div>
                     <label for="username" class="block text-sm font-medium text-on-surface-variant mb-1">Usuario</label>
-                    <input id="username" type="text" name="username" required autocomplete="username" autofocus placeholder="usuario" class="w-full h-10 px-3 bg-surface-container border border-[#37485a] rounded text-on-surface placeholder:text-muted transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint focus:border-surface-tint focus:ring-offset-2 focus:ring-offset-background">
+                    <input id="username" type="text" name="username" required autocomplete="username" autofocus placeholder="usuario" class="w-full h-10 px-3 bg-surface-container border border-[#3a4638] rounded text-on-surface placeholder:text-muted transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint focus:border-surface-tint focus:ring-offset-2 focus:ring-offset-background">
                 </div>
                 <div>
                     <label for="password" class="block text-sm font-medium text-on-surface-variant mb-1">Contraseña</label>
                     <div class="relative">
-                        <input id="password" type="password" name="password" required autocomplete="current-password" placeholder="••••••••" class="w-full h-10 px-3 pr-11 bg-surface-container border border-[#37485a] rounded text-on-surface placeholder:text-muted transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint focus:border-surface-tint focus:ring-offset-2 focus:ring-offset-background">
+                        <input id="password" type="password" name="password" required autocomplete="current-password" placeholder="••••••••" class="w-full h-10 px-3 pr-11 bg-surface-container border border-[#3a4638] rounded text-on-surface placeholder:text-muted transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint focus:border-surface-tint focus:ring-offset-2 focus:ring-offset-background">
                         <button type="button" id="toggle-password" aria-label="Mostrar contraseña" aria-pressed="false" class="absolute right-0 top-0 h-10 w-11 flex items-center justify-center rounded text-on-surface-variant hover:text-on-surface transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint">
                             <span class="material-symbols-outlined text-[18px]" id="toggle-password-icon">visibility</span>
                         </button>
@@ -1106,10 +1106,10 @@ const LOGIN_PAGE_HTML: &str = r##"<!DOCTYPE html>
 </html>"##;
 
 /// Título de la página de login (se sustituye en la de contraseña).
-const LOGIN_TITLE: &str = "<title>Study Platform — Iniciar sesión</title>";
+const LOGIN_TITLE: &str = "<title>NOVA — Iniciar sesión</title>";
 
 /// Título de la página de cambio de contraseña.
-const PASSWORD_TITLE: &str = "<title>Study Platform — Cambiar contraseña</title>";
+const PASSWORD_TITLE: &str = "<title>NOVA — Cambiar contraseña</title>";
 
 /// Bloque `<head>…</head>` de la página de login, reutilizado tal cual en la
 /// página de contraseña.
@@ -1188,12 +1188,12 @@ fn password_page_html(
 
     let username_input = if username_editable {
         format!(
-            r##"<input id="username" type="text" name="username" value="{}" required autocomplete="username" placeholder="usuario" class="w-full h-10 px-3 bg-surface-container border border-[#37485a] rounded text-on-surface placeholder:text-muted transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint focus:border-surface-tint focus:ring-offset-2 focus:ring-offset-background">"##,
+            r##"<input id="username" type="text" name="username" value="{}" required autocomplete="username" placeholder="usuario" class="w-full h-10 px-3 bg-surface-container border border-[#3a4638] rounded text-on-surface placeholder:text-muted transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint focus:border-surface-tint focus:ring-offset-2 focus:ring-offset-background">"##,
             html_escape(username)
         )
     } else {
         format!(
-            r##"<input id="username" type="text" name="username" value="{}" readonly autocomplete="username" class="w-full h-10 px-3 bg-surface-container/60 border border-[#37485a] rounded text-on-surface-variant transition-colors">"##,
+            r##"<input id="username" type="text" name="username" value="{}" readonly autocomplete="username" class="w-full h-10 px-3 bg-surface-container/60 border border-[#3a4638] rounded text-on-surface-variant transition-colors">"##,
             html_escape(username)
         )
     };
@@ -1210,7 +1210,7 @@ fn password_page_html(
         <div class="text-center mb-8">
             <div class="flex items-center justify-center gap-2 mb-2">
                 <span class="material-symbols-outlined text-2xl text-surface-tint">psychology</span>
-                <h1 class="font-manrope text-2xl font-bold"><span class="text-secondary">Study</span> Platform</h1>
+                <h1 class="font-manrope text-2xl font-bold tracking-tight">NOVA <span class="ml-1 rounded border border-primary-container/25 px-1.5 py-0.5 align-middle font-mono text-[9px] font-normal text-primary-container">3.0</span></h1>
             </div>
             <p class="text-sm text-on-surface-variant">Tu espacio de productividad académica</p>
         </div>
@@ -1235,7 +1235,7 @@ fn password_page_html(
                 <div>
                     <label for="current_password" class="block text-sm font-medium text-on-surface-variant mb-1">Contraseña actual</label>
                     <div class="relative">
-                        <input id="current_password" type="password" name="current_password" required autocomplete="current-password" placeholder="••••••••" class="w-full h-10 px-3 pr-11 bg-surface-container border border-[#37485a] rounded text-on-surface placeholder:text-muted transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint focus:border-surface-tint focus:ring-offset-2 focus:ring-offset-background">
+                        <input id="current_password" type="password" name="current_password" required autocomplete="current-password" placeholder="••••••••" class="w-full h-10 px-3 pr-11 bg-surface-container border border-[#3a4638] rounded text-on-surface placeholder:text-muted transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint focus:border-surface-tint focus:ring-offset-2 focus:ring-offset-background">
                         <button type="button" id="toggle-current_password" aria-label="Mostrar contraseña" aria-pressed="false" class="absolute right-0 top-0 h-10 w-11 flex items-center justify-center rounded text-on-surface-variant hover:text-on-surface transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint">
                             <span class="material-symbols-outlined text-[18px]">visibility</span>
                         </button>
@@ -1244,7 +1244,7 @@ fn password_page_html(
                 <div>
                     <label for="new_password" class="block text-sm font-medium text-on-surface-variant mb-1">Nueva contraseña</label>
                     <div class="relative">
-                        <input id="new_password" type="password" name="new_password" required minlength="{min_len}" autocomplete="new-password" placeholder="••••••••" class="w-full h-10 px-3 pr-11 bg-surface-container border border-[#37485a] rounded text-on-surface placeholder:text-muted transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint focus:border-surface-tint focus:ring-offset-2 focus:ring-offset-background">
+                        <input id="new_password" type="password" name="new_password" required minlength="{min_len}" autocomplete="new-password" placeholder="••••••••" class="w-full h-10 px-3 pr-11 bg-surface-container border border-[#3a4638] rounded text-on-surface placeholder:text-muted transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint focus:border-surface-tint focus:ring-offset-2 focus:ring-offset-background">
                         <button type="button" id="toggle-new_password" aria-label="Mostrar contraseña" aria-pressed="false" class="absolute right-0 top-0 h-10 w-11 flex items-center justify-center rounded text-on-surface-variant hover:text-on-surface transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint">
                             <span class="material-symbols-outlined text-[18px]">visibility</span>
                         </button>
@@ -1254,7 +1254,7 @@ fn password_page_html(
                 <div>
                     <label for="confirm_password" class="block text-sm font-medium text-on-surface-variant mb-1">Repetir nueva contraseña</label>
                     <div class="relative">
-                        <input id="confirm_password" type="password" name="confirm_password" required minlength="{min_len}" autocomplete="new-password" placeholder="••••••••" class="w-full h-10 px-3 pr-11 bg-surface-container border border-[#37485a] rounded text-on-surface placeholder:text-muted transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint focus:border-surface-tint focus:ring-offset-2 focus:ring-offset-background">
+                        <input id="confirm_password" type="password" name="confirm_password" required minlength="{min_len}" autocomplete="new-password" placeholder="••••••••" class="w-full h-10 px-3 pr-11 bg-surface-container border border-[#3a4638] rounded text-on-surface placeholder:text-muted transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint focus:border-surface-tint focus:ring-offset-2 focus:ring-offset-background">
                         <button type="button" id="toggle-confirm_password" aria-label="Mostrar contraseña" aria-pressed="false" class="absolute right-0 top-0 h-10 w-11 flex items-center justify-center rounded text-on-surface-variant hover:text-on-surface transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint">
                             <span class="material-symbols-outlined text-[18px]">visibility</span>
                         </button>

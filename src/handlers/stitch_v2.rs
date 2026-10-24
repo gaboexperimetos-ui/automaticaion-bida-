@@ -63,10 +63,9 @@ const STITCH_V2_MAIN_CLOSE: &str = "</main>";
 
 // ── Shell responsive y accesibilidad ──────────────────────────────────────
 //
-// La navegación lateral se comporta como cajón "off-canvas" en todos los
-// anchos. El contenido y la cabecera ocupan todo el viewport; el menú se
-// abre bajo demanda con el botón hamburguesa y se cierra con Escape o al
-// pulsar el fondo.
+// La navegación lateral queda visible desde 1200 px y puede plegarse. Por
+// debajo de ese ancho se comporta como cajón "off-canvas": se abre con el
+// botón hamburguesa y se cierra con Escape, al navegar o al pulsar el fondo.
 //
 // Las plantillas del kit (`static/stitch-v2/shell/aside.html` y
 // `topbar.html`) definen la presentación; aquí se inyectan los controles y
@@ -237,13 +236,13 @@ fn main_open() -> String {
 const SHELL_CSS: &str = r##"
 /* --- Shell v2: rail lateral plegable + skip-link + foco visible --- */
 .skip-link{position:absolute;left:0;top:0;z-index:100;transform:translateY(-160%);
-  padding:.5rem .875rem;border-radius:0 0 .5rem 0;background:#075247;color:#edf3f6;
+  padding:.5rem .875rem;border-radius:0 0 .5rem 0;background:#d2f794;color:#18210f;
   font-family:'Inter',sans-serif;font-size:.75rem;font-weight:600;line-height:1rem;
   text-decoration:none;transition:transform .15s ease}
 .skip-link:focus{transform:translateY(0)}
 #app-rail{transition:transform .22s ease,visibility .22s ease}
 #rail-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:30}
-@media (max-width:1023.98px){
+@media (max-width:1199.98px){
   #app-rail{transform:translateX(-100%);visibility:hidden}
   body.rail-open #app-rail{transform:translateX(0);visibility:visible}
   body.rail-open #rail-backdrop{display:block}
@@ -253,11 +252,10 @@ const SHELL_CSS: &str = r##"
 body.rail-collapsed #app-rail{transform:translateX(-100%);visibility:hidden}
 body.rail-collapsed #app-rail-content{padding-left:0!important}
 body.rail-collapsed #app-topbar{left:0!important}
-@media (min-width:1024px){body:not(.rail-collapsed) #rail-backdrop{display:block}}
 a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible,[tabindex]:focus-visible{
-  outline:2px solid #72e4d0;outline-offset:2px;border-radius:4px}
-#app-topbar input:focus-visible{outline:2px solid #72e4d0;outline-offset:2px}
-#contenido:focus-visible{outline:2px solid #72e4d0;outline-offset:-6px}
+  outline:2px solid #d2f794;outline-offset:2px;border-radius:4px}
+#app-topbar input:focus-visible{outline:2px solid #d2f794;outline-offset:2px}
+#contenido:focus-visible{outline:2px solid #d2f794;outline-offset:-6px}
 /* Menú de usuario: el atributo `hidden` manda sobre cualquier utilidad
    de display que el CDN de Tailwind pueda aplicar. */
 #user-menu[hidden]{display:none!important}
@@ -267,10 +265,10 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 /// Script mínimo del shell: alterna la clase del rail y mantiene sincronizado
 /// el `aria-expanded` de los dos botones que lo controlan.
 ///
-/// La navegación es un cajón superpuesto en todos los anchos. En escritorio
-/// se usa `rail-collapsed` y en móvil `rail-open`; el contenido conserva
-/// siempre todo el ancho disponible. Ambas clases son excluyentes, así que
-/// un cambio de ancho no deja el shell en un estado imposible.
+/// En escritorio la navegación parte visible y `rail-collapsed` permite
+/// ocultarla; en pantallas estrechas se usa `rail-open`. El bloqueo de
+/// scroll y el fondo modal solo se aplican al cajón. Ambas clases son
+/// excluyentes, así que un cambio de ancho no deja un estado imposible.
 const SHELL_JS: &str = r##"
 (function(){
   var body=document.body;
@@ -281,7 +279,8 @@ const SHELL_JS: &str = r##"
   if(!rail||!toggle){return;}
   var current=rail.querySelector('a[aria-current="page"]');
   if(current){var currentGroup=current.closest('details');if(currentGroup){currentGroup.open=true;}}
-  var wide=function(){return window.matchMedia('(min-width:1024px)').matches;};
+  var wide=function(){return window.matchMedia('(min-width:1200px)').matches;};
+  if(current&&wide()){current.scrollIntoView({block:'nearest'});}
   var isOpen=function(){
     return wide()?!body.classList.contains('rail-collapsed'):body.classList.contains('rail-open');
   };
@@ -289,7 +288,7 @@ const SHELL_JS: &str = r##"
     if(wide()){body.classList.remove('rail-open');}
     else{body.classList.remove('rail-collapsed');}
     var open=isOpen();
-    body.style.overflow=open?'hidden':'';
+    body.style.overflow=!wide()&&open?'hidden':'';
     var label=open?'Ocultar el menú lateral':'Mostrar el menú lateral';
     var buttons=[toggle,asideToggle];
     for(var i=0;i<buttons.length;i++){
@@ -933,9 +932,9 @@ pub fn stitch_v2_page(active: &str, content: &str, authenticated: bool) -> Strin
     // botón que abre un desplegable con las acciones de la cuenta.
     topbar = inject_user_menu(&topbar, authenticated);
 
-    // La navegación es un cajón superpuesto también en escritorio: el
-    // contenido siempre usa todo el ancho y el menú se abre bajo demanda.
-    let body_classes = "rail-collapsed bg-background font-body-md text-body-md text-on-surface antialiased";
+    // En escritorio la navegación queda visible; bajo 1200 px se convierte
+    // en un cajón inicialmente cerrado controlado por `rail-open`.
+    let body_classes = "bg-background font-body-md text-body-md text-on-surface antialiased";
 
     format!(
         r###"<!DOCTYPE html>

@@ -705,12 +705,12 @@ fn subject_page_html(
 
                     format!(
                         r###"<tr class="border-b border-outline/40">
-                        <td class="py-space-xs font-body-sm text-body-sm text-on-surface">{}</td>
-                        <td class="py-space-xs font-body-sm text-body-sm text-on-surface-variant">{}</td>
-                        <td class="py-space-xs font-body-sm text-body-sm text-on-surface-variant">{}</td>
-                        <td class="py-space-xs font-headline-sm text-headline-sm font-bold {}">{}</td>
-                        <td class="py-space-xs">{}</td>
-                        <td class="py-space-xs">{}</td>
+                        <td data-label="Actividad" class="py-space-xs font-body-sm text-body-sm text-on-surface">{}</td>
+                        <td data-label="Fecha" class="py-space-xs font-body-sm text-body-sm text-on-surface-variant">{}</td>
+                        <td data-label="Descripción" class="py-space-xs font-body-sm text-body-sm text-on-surface-variant">{}</td>
+                        <td data-label="Nota" class="py-space-xs font-headline-sm text-headline-sm font-bold {}">{}</td>
+                        <td data-label="Estado" class="py-space-xs">{}</td>
+                        <td data-label="Nota de la app" class="py-space-xs">{}</td>
                     </tr>"###,
                         nombre_cell,
                         templates::html_escape(&a.fecha),

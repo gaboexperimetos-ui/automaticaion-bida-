@@ -776,6 +776,7 @@ const STREAM_SCRIPT: &str = r##"(function () {
   setSubject(SUBJECT);
   currentCount = chatContainer.querySelectorAll("[data-chat-turn]").length;
   updateContext(SUBJECT, currentCount);
+  scroll();
 })();"##;
 
 /// Una sesión de chat: agrupa los mensajes por `subject`.

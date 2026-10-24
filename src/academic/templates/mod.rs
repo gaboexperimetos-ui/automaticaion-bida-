@@ -14,49 +14,49 @@ const STITCH_TAILWIND_CONFIG: &str = r###"tailwind.config = {
     theme: {
         extend: {
             colors: {
-                "background": "#0b1016",
-                "on-background": "#edf3f6",
-                "surface": "#0b1016",
-                "surface-dim": "#080c11",
-                "surface-bright": "#263442",
-                "surface-container-lowest": "#080d12",
-                "surface-container-low": "#101720",
-                "surface-container": "#151e28",
-                "surface-container-high": "#1b2733",
-                "surface-container-highest": "#243240",
-                "surface-variant": "#243240",
-                "on-surface": "#edf3f6",
-                "on-surface-variant": "#a8b7c2",
-                "inverse-surface": "#edf3f6",
-                "inverse-on-surface": "#17222c",
-                "outline": "#788b99",
-                "outline-variant": "#2c3b48",
-                "surface-tint": "#72e4d0",
-                "primary": "#a7f3e5",
-                "on-primary": "#07332d",
-                "primary-container": "#72e4d0",
-                "on-primary-container": "#075247",
-                "inverse-primary": "#148f7d",
-                "primary-fixed": "#8df0de",
-                "primary-fixed-dim": "#72e4d0",
-                "on-primary-fixed": "#06251f",
-                "on-primary-fixed-variant": "#075247",
-                "secondary": "#b8e986",
-                "on-secondary": "#1d2d0d",
-                "secondary-container": "#668f38",
-                "on-secondary-container": "#172609",
-                "secondary-fixed": "#c9f39e",
-                "secondary-fixed-dim": "#b8e986",
-                "on-secondary-fixed": "#152307",
-                "on-secondary-fixed-variant": "#39571a",
-                "tertiary": "#d2c5f8",
-                "on-tertiary": "#382665",
-                "tertiary-container": "#b7a5ea",
-                "on-tertiary-container": "#493578",
-                "tertiary-fixed": "#ded3fb",
-                "tertiary-fixed-dim": "#b7a5ea",
-                "on-tertiary-fixed": "#241643",
-                "on-tertiary-fixed-variant": "#493578",
+                "background": "#090c0b",
+                "on-background": "#eef4ef",
+                "surface": "#090c0b",
+                "surface-dim": "#060908",
+                "surface-bright": "#29322c",
+                "surface-container-lowest": "#080b09",
+                "surface-container-low": "#0e130f",
+                "surface-container": "#131914",
+                "surface-container-high": "#19211b",
+                "surface-container-highest": "#222c24",
+                "surface-variant": "#222c24",
+                "on-surface": "#eef4ef",
+                "on-surface-variant": "#a3afa5",
+                "inverse-surface": "#eef4ef",
+                "inverse-on-surface": "#162018",
+                "outline": "#7e8b80",
+                "outline-variant": "#303a31",
+                "surface-tint": "#d2f794",
+                "primary": "#e1ffad",
+                "on-primary": "#18210f",
+                "primary-container": "#d2f794",
+                "on-primary-container": "#18210f",
+                "inverse-primary": "#9db96f",
+                "primary-fixed": "#e1ffad",
+                "primary-fixed-dim": "#d2f794",
+                "on-primary-fixed": "#18210f",
+                "on-primary-fixed-variant": "#18210f",
+                "secondary": "#82d9b5",
+                "on-secondary": "#0d2a1e",
+                "secondary-container": "#275542",
+                "on-secondary-container": "#d8f5e7",
+                "secondary-fixed": "#b4edd4",
+                "secondary-fixed-dim": "#82d9b5",
+                "on-secondary-fixed": "#0d2a1e",
+                "on-secondary-fixed-variant": "#275542",
+                "tertiary": "#d7c68f",
+                "on-tertiary": "#332b12",
+                "tertiary-container": "#b8a564",
+                "on-tertiary-container": "#2a230d",
+                "tertiary-fixed": "#ecdfba",
+                "tertiary-fixed-dim": "#b8a564",
+                "on-tertiary-fixed": "#332b12",
+                "on-tertiary-fixed-variant": "#2a230d",
                 "error": "#ffb4ab",
                 "on-error": "#690005",
                 "error-container": "#93000a",
@@ -113,8 +113,8 @@ const STITCH_TAILWIND_CONFIG: &str = r###"tailwind.config = {
 const STITCH_BASE_STYLE: &str = r###"@layer base {
     html, body { margin: 0; padding: 0; }
     body {
-        background: #0b1016;
-        color: #edf3f6;
+        background: #090c0b;
+        color: #eef4ef;
         font-family: "Inter", "Hanken Grotesk", sans-serif;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
@@ -125,8 +125,8 @@ const STITCH_BASE_STYLE: &str = r###"@layer base {
 }
 ::-webkit-scrollbar { display: none; }
 .card {
-    background: #151e28;
-    border: 1px solid #2c3b48;
+    background: #131914;
+    border: 1px solid #303a31;
     border-radius: 1rem;
 }
 .pulse-cyan { animation: pulse 2s infinite; }
@@ -149,7 +149,7 @@ pub fn head(title: &str) -> String {
         r###"<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#0b1016">
+    <meta name="theme-color" content="#090c0b">
     <title>{}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -182,7 +182,7 @@ pub fn page(title: &str, content: &str) -> String {
 /// puede ser una ruta canónica; el shell resuelve su entrada principal.
 pub fn page_ext(title: &str, _breadcrumb: &str, active_href: &str, content: &str) -> String {
     crate::handlers::stitch_v2::stitch_v2_page(active_href, content, true).replace(
-        "<title>Study Platform · Tu espacio académico</title>",
+        "<title>NOVA · Tu espacio académico</title>",
         &format!("<title>{}</title>", html_escape(title)),
     )
 }

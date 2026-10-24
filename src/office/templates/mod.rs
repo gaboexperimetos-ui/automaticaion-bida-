@@ -300,7 +300,7 @@ pub fn layout(title: &str, body: &str) -> String {
 /// Variante que marca la sección activa dentro del mapa Nova.
 pub fn layout_as(title: &str, active: &str, body: &str) -> String {
     crate::handlers::stitch_v2::stitch_v2_page(active, body, true).replace(
-        "<title>Study Platform · Tu espacio académico</title>",
+        "<title>NOVA · Tu espacio académico</title>",
         &format!("<title>{} — Nova Oficina</title>", html_escape(title)),
     )
 }

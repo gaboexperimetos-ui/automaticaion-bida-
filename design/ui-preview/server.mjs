@@ -94,7 +94,34 @@ topbar = topbar.replace(
 );
 
 const pages = createPages(dashboard);
-const shell = (content) => `<!DOCTYPE html><html class="dark" lang="es"><head>${head}<style>${shellCss}</style></head><body class="rail-collapsed bg-background font-body-md text-body-md text-on-surface antialiased"><a class="skip-link" href="#contenido">Saltar al contenido</a>${aside}<button id="rail-backdrop" type="button" aria-label="Cerrar menú"></button><div id="app-rail-content" class="pl-[250px]">${topbar}<main id="contenido" tabindex="-1" class="relative pt-16 w-full min-h-screen bg-background">${content}</main></div><script>${shellJs}${userMenuJs}</script><script src="/shell.js" defer></script></body></html>`;
+const navSource = rust.match(/pub const NAV_LINKS[\s\S]*?=\s*&\[([\s\S]*?)\];/)?.[1] || '';
+const navLinks = [...navSource.matchAll(/\("([^"]+)",\s*"([^"]+)"\)/g)].map((match) => [match[1], match[2]]);
+const stateTokens = ['bg-primary-container', 'text-on-primary-container', 'font-semibold', 'text-on-surface-variant', 'hover:text-on-surface', 'hover:bg-surface-container', 'hover:bg-primary-fixed-dim'];
+const activeClasses = ['text-on-primary-container', 'bg-primary-container', 'font-label-md', 'font-semibold', 'hover:bg-primary-fixed-dim'];
+const idleClasses = ['text-on-surface-variant', 'hover:text-on-surface', 'hover:bg-surface-container'];
+const asideFor = (route) => {
+  const section = [
+    ['/dashboard/calendar/', '/dashboard/calendar'],
+    ['/dashboard/subjects/', '/dashboard/subjects'],
+    ['/office/docs/', '/office/docs'],
+    ['/office/sheets/', '/office/sheets'],
+    ['/office/presentations/', '/office/presentations'],
+    ['/office/library/', '/office/library'],
+  ].find(([prefix]) => route.startsWith(prefix))?.[1] || route;
+  const active = navLinks.find(([, target]) => target === section)?.[0];
+  return aside.replace(/<a\b[^>]*data-path="([^"]+)"[^>]*>/g, (tag, key) => {
+    const link = navLinks.find(([pathKey]) => pathKey === key);
+    const isActive = key === active;
+    let out = link ? tag.replace(/href="[^"]*"/, `href="${link[1]}"`) : tag;
+    out = out.replace(/\s+aria-current="[^"]*"/g, '');
+    out = out.replace(/class="([^"]*)"/, (_, classes) => {
+      const base = classes.split(/\s+/).filter((name) => name && !stateTokens.includes(name));
+      return `class="${[...base, ...(isActive ? activeClasses : idleClasses)].join(' ')}"`;
+    });
+    return isActive ? out.replace(/>$/, ' aria-current="page">') : out;
+  });
+};
+const shell = (content, route) => `<!DOCTYPE html><html class="dark" lang="es"><head>${head}<style>${shellCss}</style></head><body class="bg-background font-body-md text-body-md text-on-surface antialiased"><a class="skip-link" href="#contenido">Saltar al contenido</a>${asideFor(route)}<button id="rail-backdrop" type="button" aria-label="Cerrar menú"></button><div id="app-rail-content" class="pl-[250px]">${topbar}<main id="contenido" tabindex="-1" class="relative pt-16 w-full min-h-screen bg-background">${content}</main></div><script>${shellJs}${userMenuJs}</script><script src="/shell.js" defer></script></body></html>`;
 const types = { '.css': 'text/css; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.woff': 'font/woff' };
 const json = (res, value) => {
   res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
@@ -168,7 +195,7 @@ const server = http.createServer((req, res) => {
   }
   if (pages.has(url.pathname)) {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
-    res.end(shell(pages.get(url.pathname)));
+    res.end(shell(pages.get(url.pathname), url.pathname));
     return;
   }
   const assets = {

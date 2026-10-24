@@ -1,25 +1,25 @@
-# Nova 3.0 — rediseño integral de Study Platform
+# NOVA Studio 3.0 — reconstrucción visual integral
 
 > Documento vivo. Actualizado: **2026-10-24**.
 
 ## Objetivo y alcance
 
-Nova 3.0 sustituye la composición anterior por un espacio académico personal, oscuro e inmersivo. No es una variación de la barra lateral clásica ni una capa visual limitada a la portada: el shell, el panel y las pantallas académicas, de IA, conocimiento, Oficina, integraciones, administración y configuración tienen composiciones propias.
+NOVA Studio 3.0 sustituye la composición anterior por un espacio académico personal, oscuro y orientado al trabajo. La etapa Studio reconstruye el shell con navegación persistente, una cabecera integrada y un sistema cromático/tipográfico nuevo; no es una capa limitada a la portada. El panel y las pantallas académicas, de IA, conocimiento, Oficina, integraciones, administración, configuración y acceso comparten la misma identidad sin perder sus composiciones propias.
 
 El requisito rígido es conservar las funcionalidades existentes. Se reorganiza la presentación, pero no se eliminan destinos, controles activos, endpoints ni contratos de datos. El backend Rust/Axum, SQLite, HTMX y el renderizado de HTML en servidor se mantienen; no se introduce React, Vite ni un segundo frontend de producción.
 
 ## Dirección visual y de interacción
 
-- **Cabecera flotante:** identidad `study / platform`, subtítulo `personal academic OS`, versión visible `v3.0`, buscador, creación, estado de conexiones, notificaciones y cuenta.
-- **Navegación inmersiva:** los 22 destinos aparecen en un menú superpuesto a pantalla completa. Estudios, Inteligencia artificial y Conocimiento se muestran como colecciones; Oficina e Integraciones conservan sus grupos plegables. Administración, Configuración y Vault siguen disponibles.
+- **Cabecera integrada:** identidad `NOVA`, subtítulo `academic system`, versión visible `3.0`, buscador, creación, estado de conexiones, notificaciones y cuenta. En móvil conserva las acciones esenciales sin ocupar una segunda barra.
+- **Navegación de trabajo:** sidebar grafito de 244 px visible desde 1200 px, con offset de 276 px y opción de plegado. Por debajo de ese ancho se convierte en cajón inicialmente cerrado. Los 22 destinos se conservan; Oficina e Integraciones son grupos plegables y el enlace activo queda abierto y visible.
 - **Panel editorial:** saludo de gran formato, estado de Mikareno, semana, jornada, copiloto, prioridades y tarjetas de apoyo para conocimiento, próximo examen y promedios.
 - **Académico:** tarjetas de asignaturas, detalle con promedio y hechos académicos, actividades en tabla, planificador semanal, calendario mensual/diario/semanal, evaluaciones, horario, vida escolar, perfil y búsqueda. El estado de asignatura no encontrada también tiene una composición Nova propia.
 - **IA y conocimiento:** generador de material, asistente con fuentes, historial de conversaciones, notas con editor/vista dividida/preview, grafo, backlinks y centro MCP.
 - **Oficina:** portada de aplicaciones, biblioteca, documentos Markdown, hojas editables con CSV y presentaciones con orden de diapositivas y modo de presentación.
 - **Sistema:** administración, ajustes, integraciones, estados vacíos y formularios comparten el lenguaje Nova sin convertir todas las pantallas en una única cuadrícula genérica.
-- **Sistema visual:** superficies oscuras translúcidas, bordes finos, tipografía Inter/Manrope, iconos Material Symbols, iluminación ambiental y acentos violeta/cian. `/nova.css` se carga después de `/polish.css`.
-- **Responsive:** una sola columna en móvil, tablas y rejillas con desplazamiento interno cuando lo necesitan, y menú con scroll propio. Vault queda después de todo el contenido desplazable, sin superponerse a los accesos.
-- **Accesibilidad:** skip-link, foco visible, `aria-expanded`, cierre con Escape, bloqueo del scroll del documento mientras el menú está abierto, etiquetas accesibles y controles con nombres explícitos. También hay estilos de movimiento reducido e impresión.
+- **Sistema visual:** grafito cálido/verdoso, marfil, lima, menta y arena; superficies mate con bordes finos, tipografía Inter/Manrope de mayor escala e iconos Material Symbols. Los tokens se actualizaron en `head.html`, `polish.css`, `nova.css`, `shell.js`, las configuraciones Tailwind y las pantallas de acceso; no quedan estados dinámicos con la antigua paleta violeta/cian.
+- **Responsive:** una sola columna en móvil y menú con scroll propio. Las rejillas temporales conservan desplazamiento interno cuando lo necesitan; las actividades de una asignatura se transforman en tarjetas etiquetadas para no perder Nota, Estado ni Descripción. Vault queda después de todo el contenido desplazable.
+- **Accesibilidad:** skip-link, foco visible, `aria-expanded`, cierre con Escape y controles con nombres explícitos. El bloqueo de scroll y el fondo modal se aplican solo al cajón estrecho; el sidebar desktop nunca bloquea el documento. También hay estilos de movimiento reducido e impresión.
 
 ## Contratos preservados
 
@@ -38,7 +38,7 @@ El requisito rígido es conservar las funcionalidades existentes. Se reorganiza 
 | Archivo | Responsabilidad |
 |---|---|
 | `static/stitch-v2/shell/head.html` | Tokens, fuentes, estilos base y carga ordenada de `/polish.css` y `/nova.css` |
-| `static/stitch-v2/shell/aside.html` | Mapa de navegación inmersivo, grupos, accesos de sistema y Vault |
+| `static/stitch-v2/shell/aside.html` | Sidebar persistente/cajón, grupos, accesos de sistema y Vault |
 | `static/stitch-v2/shell/topbar.html` | Cabecera flotante, buscador, acciones y estructura de cuenta |
 | `static/stitch-v2/_content/clean/` | Panel, Material, Asistente, Notas, MCP y Ajustes |
 | `static/app/nova.css` | Sistema visual integral, composiciones por área, responsive, impresión y movimiento reducido |
@@ -55,7 +55,7 @@ El requisito rígido es conservar las funcionalidades existentes. Se reorganiza 
 
 ## Preview local
 
-La preview compone las plantillas y los fragmentos Rust reales. `pages.mjs` resuelve slots y argumentos de `format!` con datos ficticios; `server.mjs` añade el shell, HTMX local, assets y respuestas API ficticias. No modifica la base de datos ni sustituye las pruebas contra Rust/SQLite.
+La preview compone las plantillas y los fragmentos Rust reales. `pages.mjs` resuelve slots y argumentos de `format!` con datos ficticios coherentes; `server.mjs` añade el shell, el estado activo derivado de `NAV_LINKS`, HTMX local, assets y respuestas API ficticias. No modifica la base de datos ni sustituye las pruebas contra Rust/SQLite.
 
 ```bash
 cd design/ui-preview
@@ -69,7 +69,7 @@ El servidor escucha en `0.0.0.0:3000`. En otra terminal, desde la raíz del repo
 node design/ui-preview/capture.mjs
 ```
 
-La auditoría recorre **34 rutas** en escritorio y móvil, más **18 interacciones**. Genera capturas seleccionadas y comprueba los 22 accesos, overflow del documento, slots, IDs duplicados, recursos externos, respuestas fallidas, versión y errores de consola. Debe reiniciarse la preview tras cambiar plantillas o Rust; `nova.css` se lee de nuevo en cada petición.
+La auditoría recorre **34 rutas** en escritorio y móvil, más **18 interacciones**. Genera capturas seleccionadas y comprueba los 22 accesos, un único `aria-current` correcto por ruta, visibilidad del menú según viewport, overflow del documento, slots, IDs duplicados, recursos externos, respuestas fallidas, versión y errores de consola. Debe reiniciarse la preview tras cambiar plantillas o Rust; `nova.css` se lee de nuevo en cada petición.
 
 Para revisar una sección concreta sin repetir toda la matriz:
 
@@ -103,7 +103,7 @@ Asistente (`/dashboard/ai`) y Conversaciones (`/ai`) comparten una superficie de
 - Sin cabecera hero ni tres tarjetas independientes: historial, mensajes y composer forman una sola superficie que aprovecha el viewport.
 - Fuentes como panel superpuesto; en móvil, el historial se abre como cajón y no desplaza la conversación hacia abajo.
 - Mensajes semánticos con avatar, autor, materia, hora y burbujas diferenciadas; el historial Rust y los turnos del streaming usan las mismas clases.
-- Texto de lectura a 14 px en desktop, composer con foco visible y acciones de estudio secundarias.
+- Texto de lectura a 15 px, composer con foco visible y acciones de estudio secundarias; al abrir una conversación se muestra el mensaje más reciente.
 - Estado vacío con sugerencias que rellenan el compositor sin enviar automáticamente.
 - Búsqueda funcional de conversaciones, sesión activa, cierre por Escape o al tocar fuera y composer completo dentro del viewport móvil.
 - El indicador de escritura se añade a la conversación en lugar de borrar el historial visible.
@@ -112,17 +112,18 @@ Asistente (`/dashboard/ai`) y Conversaciones (`/ai`) comparten una superficie de
 
 ## Validación realizada
 
-Resultado de la pasada integral del **2026-10-24**:
+Resultado de la pasada integral final del **2026-10-24**, ejecutada contra la preview con los fixtures y el código de esta etapa:
 
-- **86 comprobaciones y 0 fallos** en Chromium.
+- **86 comprobaciones y 0 fallos** en Chromium, tras verificar también el contrato real de reordenación de diapositivas (`POST` con `order=1,0,2,3,4`, codificado en el formulario).
 - **34 rutas en 1440 × 1000 y 34 en 390 × 844**, incluidos editores, presentación, búsqueda, detalle y estado de asignatura no encontrada.
+- Una pasada visual focalizada adicional de **14 comprobaciones y 0 fallos** sobre Búsqueda, detalle de Asignatura, Markdown, Presentaciones, Biblioteca y chat en ambos viewports; las capturas finales se revisaron después de completar los fixtures y la rejilla móvil de acciones del chat.
 - Ancho del documento igual al viewport, sin errores de JavaScript, respuestas 404, slots pendientes, IDs duplicados ni recursos externos en la preview.
 - 22 destinos y menú inicialmente cerrado en todas las cargas; versión `3.0` presente.
 - Apertura/cierre del menú en escritorio y móvil, Escape, `aria-expanded` y bloqueo/restauración del scroll.
 - Fuentes del Asistente, historial de Conversaciones, envío sin perder mensajes, copiar y generar cuestionario desde una respuesta.
 - Cajón móvil del chat, búsqueda de sesiones, sugerencias y composer visible; hidratación y modos de Notas; secreto/ping/playground de MCP.
 - Cuadrícula editable y CSV, toolbar Markdown, orden de diapositivas, tipo de importación en Biblioteca, partial HTMX de Calendario y acordeones de Vida escolar.
-- Navegación semanal separada, título de Notas y archivos móviles de Biblioteca con sus seis acciones dentro del viewport.
+- Navegación semanal separada, título de Notas y archivos móviles de Biblioteca con metadatos y acciones visibles dentro del viewport.
 - Revisión visual sección por sección de Panel, Académico, IA, Notas, MCP, Administración, Ajustes, Oficina y subpáginas de creación, preview y presentación.
 - `node --check` de la preview, la auditoría y `shell.js`, además de `git diff --check`, sin errores.
 

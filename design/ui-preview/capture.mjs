@@ -37,6 +37,25 @@ const screenshots = new Set([
 ]);
 const results = [];
 const failures = [];
+const activeByRoute = {
+  '/dashboard': 'panel-principal', '/dashboard/material': 'generador-de-material',
+  '/settings': 'configuracion', '/dashboard/ai': 'asistente-academico', '/ai': 'conversaciones',
+  '/dashboard/notes': 'mis-notas', '/dashboard/mcp': 'centro-mcp', '/admin': 'administracion',
+  '/dashboard/subjects': 'asignaturas', '/dashboard/planner': 'planificacion',
+  '/dashboard/calendar': 'mi-agenda', '/dashboard/examenes': 'examenes',
+  '/dashboard/horario': 'horarios', '/dashboard/vida-escolar': 'vida-escolar',
+  '/dashboard/search': 'busqueda-global', '/office/docs': 'documentos',
+  '/office/sheets': 'hojas-de-calculo', '/office/presentations': 'presentaciones',
+  '/office/library': 'biblioteca-de-archivos',
+};
+const activeForRoute = (route) => {
+  const section = [
+    ['/dashboard/calendar/', '/dashboard/calendar'], ['/dashboard/subjects/', '/dashboard/subjects'],
+    ['/office/docs/', '/office/docs'], ['/office/sheets/', '/office/sheets'],
+    ['/office/presentations/', '/office/presentations'], ['/office/library/', '/office/library'],
+  ].find(([prefix]) => route.startsWith(prefix))?.[1] || route;
+  return activeByRoute[section] || null;
+};
 
 const settle = async (page, ms = 100) => {
   await new Promise((resolve) => setTimeout(resolve, ms));
@@ -80,6 +99,8 @@ for (const viewport of viewports) {
         documentWidth: document.documentElement.scrollWidth,
         viewportWidth: innerWidth,
         navItems: document.querySelectorAll('#app-rail [data-path]').length,
+        activeNav: document.querySelector('#app-rail [aria-current="page"]')?.dataset.path || null,
+        activeNavCount: document.querySelectorAll('#app-rail [aria-current="page"]').length,
         menuVisibility: getComputedStyle(document.querySelector('#app-rail')).visibility,
         duplicateIds: ids.filter((id, index) => ids.indexOf(id) !== index),
         slotsLeft: document.documentElement.innerHTML.includes('<!--SLOT:'),
@@ -95,7 +116,10 @@ for (const viewport of viewports) {
     const problems = [];
     if (metrics.documentWidth !== metrics.viewportWidth) problems.push(`overflow ${metrics.documentWidth}/${metrics.viewportWidth}`);
     if (metrics.navItems !== 22) problems.push(`nav=${metrics.navItems}`);
-    if (metrics.menuVisibility !== 'hidden') problems.push(`menú=${metrics.menuVisibility}`);
+    const expectedActive = activeForRoute(route);
+    if (metrics.activeNav !== expectedActive || metrics.activeNavCount !== (expectedActive ? 1 : 0)) problems.push(`activo=${metrics.activeNav}/${expectedActive} (${metrics.activeNavCount})`);
+    const expectedMenuVisibility = viewport.name === 'desktop' ? 'visible' : 'hidden';
+    if (metrics.menuVisibility !== expectedMenuVisibility) problems.push(`menú=${metrics.menuVisibility}/${expectedMenuVisibility}`);
     if (metrics.duplicateIds.length) problems.push(`IDs=${metrics.duplicateIds.join(',')}`);
     if (metrics.slotsLeft) problems.push('slots pendientes');
     if (metrics.mainLength < 10) problems.push('contenido vacío');
@@ -140,11 +164,17 @@ async function interaction(name, route, callback, viewport = viewports[0]) {
 
 await interaction('shell y menús', '/dashboard', async (page) => {
   await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
+  assert.equal(await page.$eval('#app-rail', (el) => getComputedStyle(el).visibility), 'visible');
+  assert.equal(await page.$eval('body', (el) => el.style.overflow), '');
+  await page.click('#rail-toggle');
+  await settle(page);
+  assert.equal(await page.$eval('#app-rail', (el) => getComputedStyle(el).visibility), 'hidden');
+  assert.equal(await page.$eval('#rail-toggle', (el) => el.getAttribute('aria-expanded')), 'false');
   await page.click('#rail-toggle');
   await settle(page);
   assert.equal(await page.$eval('#app-rail', (el) => getComputedStyle(el).visibility), 'visible');
   assert.equal(await page.$eval('#rail-toggle', (el) => el.getAttribute('aria-expanded')), 'true');
-  assert.equal(await page.$eval('body', (el) => el.style.overflow), 'hidden');
+  assert.equal(await page.$eval('body', (el) => el.style.overflow), '');
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => getComputedStyle(document.querySelector('#app-rail')).visibility === 'hidden', { polling: 'raf', timeout: 2500 });
   assert.equal(await page.$eval('#app-rail', (el) => getComputedStyle(el).visibility), 'hidden');
@@ -256,8 +286,16 @@ await interaction('toolbar Markdown', '/office/docs/demo', async (page) => {
 });
 
 await interaction('orden de diapositivas', '/office/presentations/demo', async (page) => {
+  assert.equal(await page.$$eval('.nova-slide-card', (cards) => cards.length), 5);
   const order = await page.evaluate(() => { buildOrder(); return document.querySelector('#order').value; });
-  assert.equal(order, '0,1,2');
+  assert.equal(order, '0,1,2,3,4');
+  await page.setRequestInterception(true);
+  const reorderRequest = page.waitForRequest((request) => request.url().endsWith('/office/presentations/demo/slides/reorder') && request.method() === 'POST');
+  await page.click('#slide-0 button[aria-label="Mover diapositiva hacia abajo"]');
+  const request = await reorderRequest;
+  assert.equal(request.postData(), 'order=1%2C0%2C2%2C3%2C4');
+  await request.respond({ status: 200, contentType: 'text/plain', body: 'ok' });
+  await page.setRequestInterception(false);
 });
 
 await interaction('tipo de importación en biblioteca', '/office/library', async (page) => {
@@ -335,10 +373,10 @@ await interaction('archivos móviles de biblioteca', '/office/library', async (p
     };
   });
   assert.equal(layout.documentWidth, 390);
-  assert.equal(layout.rowCount, 3);
-  assert.equal(layout.actions, 6);
+  assert.equal(layout.rowCount, 4);
+  assert.equal(layout.actions, 8);
   assert.equal(layout.rowsInside, true);
-  assert.equal(layout.labels, 12);
+  assert.equal(layout.labels, 16);
 }, viewports[1]);
 
 fs.writeFileSync('/tmp/nova-full-audit.json', JSON.stringify({ generatedAt: new Date().toISOString(), results, failures }, null, 2));
