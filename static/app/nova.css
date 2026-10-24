@@ -476,3 +476,74 @@ html body.rail-collapsed #app-rail.nova-menu { transform: translateY(-103%); vis
   #contenido { padding-top: 0 !important; }
   .nova-dashboard { max-width: none; padding: 0; }
 }
+
+
+/* Conversación académica: distribución adaptable, sin comprimir el chat. */
+#contenido:has(#chat-messages-container) { min-width: 0; }
+body:has(#chat-messages-container) #contenido > div:first-child {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+body:has(#chat-messages-container) #chat-messages-container {
+  min-height: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  scrollbar-width: thin;
+}
+body:has(#chat-messages-container) #prompt-input {
+  min-width: 0;
+  max-width: 100%;
+  max-height: 24dvh;
+  overflow-y: auto;
+  line-height: 1.65;
+}
+body:has(#chat-messages-container) #chat-messages-container img {
+  max-width: 100%;
+  height: auto;
+}
+@media (max-width: 767px) {
+  body:has(#chat-messages-container) #contenido > div:first-child {
+    height: calc(100dvh - 88px);
+    min-height: 520px;
+  }
+  body:has(#chat-messages-container) #contenido > div:first-child > div.flex.w-full.h-full {
+    flex-direction: column;
+    gap: 0;
+    min-height: 0;
+    min-width: 0;
+  }
+  body:has(#chat-messages-container) #contenido > div:first-child > div.flex.w-full.h-full > aside {
+    width: 100%;
+    max-height: 29dvh;
+    min-height: 92px;
+    flex: 0 0 auto;
+    overflow-y: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--nova-line);
+  }
+  body:has(#chat-messages-container) #contenido > div:first-child > div.flex.w-full.h-full > section {
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+  body:has(#chat-messages-container) #chat-messages-container {
+    padding: 12px !important;
+  }
+  body:has(#chat-messages-container) #prompt-input {
+    min-height: 58px;
+    max-height: 20dvh;
+  }
+}
+@media (max-width: 420px) {
+  body:has(#chat-messages-container) #contenido > div:first-child {
+    min-height: 500px;
+  }
+  body:has(#chat-messages-container) #contenido > div:first-child > div.flex.w-full.h-full > aside {
+    max-height: 25dvh;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  body:has(#chat-messages-container) #chat-messages-container { scroll-behavior: auto; }
+}
