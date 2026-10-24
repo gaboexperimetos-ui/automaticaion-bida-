@@ -143,9 +143,7 @@ fn la_captura_de_tareas_y_la_importacion_conservan_sus_controles() {
 fn la_interfaz_principal_mantiene_la_identidad_en_espanol() {
     for texto in ["Tu espacio académico", "Panel principal", "Segundo cerebro"] {
         assert!(
-            PORTADA.contains(texto)
-                || NAVEGACION.contains(texto)
-                || BARRA_SUPERIOR.contains(texto),
+            PORTADA.contains(texto) || NAVEGACION.contains(texto) || BARRA_SUPERIOR.contains(texto),
             "falta una etiqueta española esperada: {texto}"
         );
     }
