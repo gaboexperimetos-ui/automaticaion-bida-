@@ -875,12 +875,12 @@
         }
         lines.push("", "- [ ] Pasa al planificador cuando lo revises", "");
         saveBtn.disabled = true;
-        SP.api("/api/notes", { method: "POST", json: { title: title, content: lines.join("\\n"), tags: "tarea" } })
+        SP.api("/api/notes", { method: "POST", json: { title: title, content: lines.join("\n"), tags: "tarea" } })
           .then(function () {
             var cancelButton = modal.querySelector("#cancel-modal-btn");
             if (cancelButton) { cancelButton.click(); }
             else { modal.classList.add("hidden"); }
-            SP.toast("Ficha de tarea guardada como nota \\u00ab" + title + "\\u00bb", "ok", 4200);
+            SP.toast("Ficha de tarea guardada como nota \u00ab" + title + "\u00bb", "ok", 4200);
           })
           .catch(function (err) {
             saveBtn.disabled = false;
