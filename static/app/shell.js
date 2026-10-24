@@ -809,10 +809,17 @@
     var selects = modal.querySelectorAll("select");
     var dateInput = modal.querySelector("input[type=date]");
     var timeInput = modal.querySelector("input[type=time]");
-    var saveBtn = null;
-    var btns = modal.querySelectorAll("button");
-    for (var i = 0; i < btns.length; i++) {
-      if (txt(btns[i]).toLowerCase().indexOf("guardar tarea") !== -1) { saveBtn = btns[i]; break; }
+    // El ID estable permite traducir el texto visible sin perder el enlace del botón.
+    var saveBtn = modal.querySelector("#save-task-as-note");
+    if (!saveBtn) {
+      var btns = modal.querySelectorAll("button");
+      for (var i = 0; i < btns.length; i++) {
+        var label = txt(btns[i]).toLowerCase();
+        if (label.indexOf("guardar tarea") !== -1 || label.indexOf("guardar como nota") !== -1) {
+          saveBtn = btns[i];
+          break;
+        }
+      }
     }
     if (saveBtn) {
       var row = saveBtn.parentNode;
