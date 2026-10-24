@@ -515,9 +515,9 @@ fn render_featured(f: impl Fn(&FeaturedNote) -> String, d: &NotesPanelData) -> S
 
 fn render_vault_path(d: &NotesPanelData) -> String {
     if d.vault_path.is_empty() {
-        "vault: local".to_string()
+        "bóveda: local".to_string()
     } else {
-        format!("vault: {}", esc(&d.vault_path))
+        format!("bóveda: {}", esc(&d.vault_path))
     }
 }
 
