@@ -900,13 +900,41 @@ fn swap_state_tokens(existing: &str, tokens: &[&str], state: &str) -> String {
 
 /// Construye la pagina completa: head + shell + contenido + script de auth.
 pub fn stitch_v2_page(active: &str, content: &str, authenticated: bool) -> String {
+    // Título por apartado: todas las páginas necesitan identificar su nombre
+    // en la pestaña y en el historial del navegador.
+    let page_title = match active {
+        "panel-principal" => "Panel principal",
+        "mi-agenda" => "Mi agenda",
+        "planificacion" => "Planificación",
+        "asignaturas" => "Asignaturas",
+        "tareas-y-actividades" => "Tareas y actividades",
+        "examenes" => "Exámenes",
+        "vida-escolar" => "Vida escolar",
+        "horarios" => "Horarios",
+        "asistente-academico" => "Asistente académico",
+        "conversaciones" => "Conversaciones",
+        "generador-de-material" => "Generador de material",
+        "segundo-cerebro" => "Segundo cerebro",
+        "mis-notas" => "Mis notas",
+        "busqueda-global" => "Búsqueda global",
+        "documentos" => "Documentos",
+        "hojas-de-calculo" => "Hojas de cálculo",
+        "presentaciones" => "Presentaciones",
+        "biblioteca-de-archivos" => "Biblioteca de archivos",
+        "centro-mcp" => "Centro de integraciones",
+        "estado-de-conexiones" => "Estado de conexiones",
+        "administracion" => "Administración",
+        "configuracion" => "Configuración",
+        _ => "Study Platform",
+    };
     // Real <head> (fonts, Tailwind CDN, design tokens) plus the early auth
     // flag; omitting STITCH_V2_HEAD here rendered every page unstyled.
     // El CSS del shell (rail plegable, skip-link, foco visible) va aquí:
-    // sin él, `:focus-visible` se queda sin anillo visible.
+    // sin él, :focus-visible se queda sin anillo visible.
     let head_with_auth = format!(
-        "<head>{head}<style>{css}</style><script>window.__STITCH_V2_AUTH__={{\"authenticated\":{authenticated}}}</script></head>",
+        "<head>{head}<title>{page_title} — Study Platform</title><style>{css}</style><script>window.__STITCH_V2_AUTH__={{\"authenticated\":{authenticated}}}</script></head>",
         head = STITCH_V2_HEAD,
+        page_title = page_title,
         css = SHELL_CSS,
         authenticated = authenticated,
     );
@@ -1121,6 +1149,13 @@ mod tests {
         );
         assert!(html.contains("href=\"#contenido\""));
         assert!(html.contains("<main id=\"contenido\" tabindex=\"-1\""));
+    }
+
+    #[test]
+    fn cada_pagina_tiene_titulo_y_lenguaje_espanol() {
+        let html = stitch_v2_page("panel-principal", "<p>Contenido</p>", false);
+        assert!(html.contains("<html class=\"dark\" lang=\"es\">"));
+        assert!(html.contains("<title>Panel principal — Study Platform</title>"));
     }
 
     #[test]
