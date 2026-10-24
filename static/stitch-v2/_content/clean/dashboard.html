@@ -8,9 +8,9 @@
 <div>
 <div class="flex items-center gap-space-xs">
 <span class="inline-block w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
-<span class="font-code-inline text-code-inline uppercase tracking-widest text-outline">Terminal de Mando Académico</span>
+<span class="font-code-inline text-code-inline uppercase tracking-widest text-outline">Panel de control académico</span>
 <span class="text-outline/40">/</span>
-<span class="font-code-inline text-[11px] text-primary-fixed-dim">WORKSPACE_DEV_V2</span>
+<span class="font-code-inline text-[11px] text-primary-fixed-dim">ESPACIO_DE_ESTUDIO</span>
 </div>
 <div class="flex items-baseline gap-space-sm mt-1">
 <!--SLOT:GREETING-->
@@ -40,11 +40,11 @@
 <div class="flex items-center bg-surface-container-low p-0.5 rounded-lg">
 <button class="px-2.5 py-1.5 rounded bg-surface-container-high text-on-surface font-label-sm text-label-sm font-medium shadow-sm flex items-center gap-1">
 <span class="material-symbols-outlined text-[14px]">grid_view</span>
-            Compacto
+            Vista compacta
           </button>
 <button class="px-2.5 py-1.5 rounded text-outline hover:text-on-surface font-label-sm text-label-sm font-medium transition-colors flex items-center gap-1">
 <span class="material-symbols-outlined text-[14px]">filter_list</span>
-            Materia
+            Por asignatura
           </button>
 </div>
 </div>
@@ -53,7 +53,7 @@
 <div class="flex items-center justify-between pb-space-sm">
 <div class="flex items-center gap-2">
 <span class="material-symbols-outlined text-primary-fixed-dim text-[20px]">add_box</span>
-<span class="font-headline-sm text-headline-sm text-on-surface">Centro de Creación</span>
+<span class="font-headline-sm text-headline-sm text-on-surface">Centro de creación</span>
 </div>
 <button class="text-outline hover:text-on-surface" id="close-create-menu">
 <span class="material-symbols-outlined text-[18px]">close</span>
@@ -76,7 +76,7 @@
 </button>
 <button class="flex items-center gap-2 p-1.5 rounded bg-surface-container text-left hover:bg-surface-bright transition-colors text-on-surface">
 <span class="material-symbols-outlined text-[16px] text-primary-container">event</span>
-<span class="truncate font-label-md text-label-sm">Nueva clase / ses.</span>
+<span class="truncate font-label-md text-label-sm">Nueva clase o sesión</span>
 </button>
 <button class="flex items-center gap-2 p-1.5 rounded bg-surface-container text-left hover:bg-surface-bright transition-colors text-on-surface">
 <span class="material-symbols-outlined text-[16px] text-tertiary-fixed-dim">menu_book</span>
@@ -87,12 +87,12 @@
 <!-- Categoría Conocimiento -->
 <div>
 <div class="font-label-sm text-[10px] uppercase text-outline tracking-wider mb-1 flex items-center gap-1">
-<span class="material-symbols-outlined text-[12px] text-tertiary-fixed-dim">neurology</span> Conocimiento & Vault
+<span class="material-symbols-outlined text-[12px] text-tertiary-fixed-dim">neurology</span> Conocimiento y bóveda
             </div>
 <div class="grid grid-cols-3 gap-1.5">
 <button class="flex items-center gap-1.5 p-1.5 rounded bg-surface-container hover:bg-surface-bright transition-colors text-on-surface">
 <span class="material-symbols-outlined text-[16px] text-tertiary">edit_note</span>
-<span class="font-label-sm text-label-sm">Nota MD</span>
+<span class="font-label-sm text-label-sm">Nota Markdown</span>
 </button>
 <button class="flex items-center gap-1.5 p-1.5 rounded bg-surface-container hover:bg-surface-bright transition-colors text-on-surface">
 <span class="material-symbols-outlined text-[16px] text-outline">folder</span>
@@ -131,14 +131,14 @@
 <!-- Oficina -->
 <div>
 <div class="font-label-sm text-[10px] uppercase text-outline tracking-wider mb-1 flex items-center gap-1">
-<span class="material-symbols-outlined text-[12px] text-outline">description</span> Documentos & Office
+<span class="material-symbols-outlined text-[12px] text-outline">description</span> Documentos y oficina
             </div>
 <div class="flex gap-1.5">
 <button class="flex-1 flex items-center justify-center gap-1 p-1 rounded bg-surface-container text-on-surface hover:bg-surface-bright text-[11px] font-label-sm">
 <span class="material-symbols-outlined text-[14px]">article</span> Documento
               </button>
 <button class="flex-1 flex items-center justify-center gap-1 p-1 rounded bg-surface-container text-on-surface hover:bg-surface-bright text-[11px] font-label-sm">
-<span class="material-symbols-outlined text-[14px]">table_chart</span> Hoja cálculo
+<span class="material-symbols-outlined text-[14px]">table_chart</span> Hoja de cálculo
               </button>
 <button class="flex-1 flex items-center justify-center gap-1 p-1 rounded bg-surface-container text-on-surface hover:bg-surface-bright text-[11px] font-label-sm">
 <span class="material-symbols-outlined text-[14px]">slideshow</span> Diapositiva
@@ -159,7 +159,7 @@
 <div class="flex items-center justify-between pb-space-sm mb-space-sm">
 <div class="flex items-center gap-2">
 <span class="material-symbols-outlined text-secondary text-[20px]">schedule</span>
-<h2 class="font-headline-sm text-headline-sm text-on-surface">Hoy & En Curso</h2>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Hoy y en curso</h2>
 </div>
 <span class="px-2 py-0.5 rounded-full bg-surface-container-highest text-[10px] font-code-inline text-outline flex items-center gap-1">
 <!--SLOT:CLASSCOUNT-->
@@ -179,21 +179,21 @@
 <div class="mt-space-md pt-space-sm">
 <div class="flex items-center justify-between mb-space-xs">
 <span class="font-label-sm text-label-sm uppercase tracking-wider text-outline flex items-center gap-1">
-<span class="material-symbols-outlined text-[14px] text-error">priority_high</span> Entregas Hoy
+<span class="material-symbols-outlined text-[14px] text-error">priority_high</span> Entregas de hoy
               </span>
 <!--SLOT:TASKCOUNT-->
 </div>
 <!--SLOT:TASKTODAY-->
 </div>
 </div>
-<!-- Segundo Cerebro & Notas Recientes (Col 1 Lower) -->
+<!-- Segundo cerebro & Notas Recientes (Col 1 Lower) -->
 <div class="rounded-xl bg-surface-container-low p-space-md shadow-md flex flex-col">
 <div class="flex items-center justify-between pb-space-xs mb-space-xs">
 <div class="flex items-center gap-2">
 <span class="material-symbols-outlined text-tertiary-fixed-dim text-[20px]">psychology</span>
-<h2 class="font-headline-sm text-headline-sm text-on-surface">Segundo Cerebro</h2>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Segundo cerebro</h2>
 </div>
-<a class="font-label-sm text-label-sm text-primary-container hover:underline" href="#">Ver vault</a>
+<a class="font-label-sm text-label-sm text-primary-container hover:underline" href="#">Ver bóveda</a>
 </div>
 <p class="font-body-sm text-body-sm text-outline mb-space-sm">Notas enlazadas y síntesis activa de conocimiento</p>
 <!--SLOT:NOTES-->
@@ -208,7 +208,7 @@
 <div class="flex items-center justify-between mb-space-sm">
 <div class="flex items-center gap-2">
 <span class="material-symbols-outlined text-primary-container text-[20px] animate-pulse">auto_awesome</span>
-<span class="font-headline-sm text-headline-sm text-on-surface font-semibold">Copiloto Académico</span>
+<span class="font-headline-sm text-headline-sm text-on-surface font-semibold">Asistente académico</span>
 </div>
 <span class="px-2 py-0.5 rounded-full bg-primary-container/10 text-primary-container font-code-inline text-[10px]"><!--SLOT:AI_MODEL--></span>
 </div>
@@ -234,7 +234,7 @@
 <div class="flex items-center justify-between pb-space-sm mb-space-sm">
 <div class="flex items-center gap-2">
 <span class="material-symbols-outlined text-primary-container text-[20px]">checklist</span>
-<h2 class="font-headline-sm text-headline-sm text-on-surface">Prioridades y Vencimientos</h2>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Prioridades y fechas límite</h2>
 </div>
 <div class="flex items-center gap-1">
 <button class="p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container transition-colors" title="Filtrar">
@@ -252,7 +252,7 @@
 <tr class="text-outline font-label-sm text-[10px] uppercase tracking-wider">
 <th class="pb-2 pl-1 font-medium">Estado</th>
 <th class="pb-2 font-medium">Actividad / Tarea</th>
-<th class="pb-2 font-medium">Materia</th>
+<th class="pb-2 font-medium">Por asignatura</th>
 <th class="pb-2 font-medium">Límite</th>
 <th class="pb-2 font-medium">Prioridad</th>
 <th class="pb-2 pr-1 font-medium text-right">Acción</th>
@@ -323,7 +323,7 @@
 <div>
 <label class="block font-label-sm text-label-sm text-on-surface-variant mb-1">Prioridad</label>
 <select class="w-full px-3 py-2 rounded-lg bg-surface-container text-on-surface font-body-md text-body-md outline-none focus:ring-1 focus:ring-primary-container">
-<option>Alta (Crítica)</option>
+<option>Alta (crítica)</option>
 <option selected="">Media</option>
 <option>Baja</option>
 </select>
@@ -331,7 +331,7 @@
 </div>
 <div class="grid grid-cols-2 gap-space-sm">
 <div>
-<label class="block font-label-sm text-label-sm text-on-surface-variant mb-1">Fecha Límite</label>
+<label class="block font-label-sm text-label-sm text-on-surface-variant mb-1">Fecha límite</label>
 <input class="w-full px-3 py-2 rounded-lg bg-surface-container text-on-surface font-body-md text-body-md outline-none focus:ring-1 focus:ring-primary-container" type="date" value="2024-10-25"/>
 </div>
 <div>
