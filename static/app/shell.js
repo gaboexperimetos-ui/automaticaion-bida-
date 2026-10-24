@@ -460,14 +460,14 @@
     portal(bell, function (menu) {
       fillMenu(menu, [
         { head: "Agenda" },
-        { label: "Proxima clase", icon: "schedule", href: "/dashboard/horario" },
-        { label: "Tareas y examenes", icon: "assignment", href: "/dashboard/planner" },
+        { label: "Próxima clase", icon: "schedule", href: "/dashboard/horario" },
+        { label: "Tareas y exámenes", icon: "assignment", href: "/dashboard/planner" },
         { label: "Notas recientes", icon: "description", href: "/dashboard/notes" },
         "-",
         { head: "Sistema" },
-        { label: "Administracion", icon: "admin_panel_settings", href: "/admin" },
+        { label: "Administración", icon: "admin_panel_settings", href: "/admin" },
         { label: "Copias de seguridad", icon: "backup", href: "/admin" },
-        { label: "Configuracion", icon: "settings", href: "/settings" }
+        { label: "Configuración", icon: "settings", href: "/settings" }
       ]);
     });
   }
@@ -481,17 +481,17 @@
     portal(btn, function (menu) {
       fillMenu(menu, [
         { head: "Crear" },
-        { label: "Nota", icon: "note_add", sub: "markdown local", fn: newNotePrompt },
-        { label: "Documento", icon: "article", sub: "suite oficina", fn: function () { newOffice("docs", "Documento"); } },
-        { label: "Hoja de calculo", icon: "table_chart", sub: "csv", fn: function () { newOffice("sheets", "Hoja de calculo"); } },
-        { label: "Presentacion", icon: "slideshow", fn: function () { newOffice("presentations", "Presentacion"); } },
-        { label: "Importar Obsidian", icon: "file_open", sub: "carpeta .md", fn: importObsidian },
+        { label: "Nota", icon: "note_add", sub: "Markdown local", fn: newNotePrompt },
+        { label: "Documento", icon: "article", sub: "programas de oficina", fn: function () { newOffice("docs", "Documento"); } },
+        { label: "Hoja de cálculo", icon: "table_chart", sub: "csv", fn: function () { newOffice("sheets", "Hoja de cálculo"); } },
+        { label: "Presentación", icon: "slideshow", fn: function () { newOffice("presentations", "Presentación"); } },
+        { label: "Importar desde Obsidian", icon: "file_open", sub: "carpeta de archivos Markdown", fn: importObsidian },
         "-",
-        { head: "Academico" },
-        { label: "Conversacion IA", icon: "auto_awesome", href: "/dashboard/ai" },
+        { head: "Académico" },
+        { label: "Conversación con IA", icon: "auto_awesome", href: "/dashboard/ai" },
         { label: "Generar material", icon: "model_training", href: "/dashboard/material" },
         { label: "Tarea del curso", icon: "task_alt", sub: "se gestiona en el planificador", href: "/dashboard/planner" },
-        { label: "Ir a examenes", icon: "assignment_late", href: "/dashboard/examenes" }
+        { label: "Ir a exámenes", icon: "assignment_late", href: "/dashboard/examenes" }
       ]);
     });
   }
@@ -500,7 +500,7 @@
     SP.dialog({
       title: "Nueva nota",
       text: "Se crea en tu boveda local; aparece como nota del panel.",
-      field: { label: "Titulo de la nota", placeholder: "Ej. Apuntes de redes - clase 5", max: 80 },
+      field: { label: "Título de la nota", placeholder: "Ej. Apuntes de redes - clase 5", max: 80 },
       ok: "Crear nota"
     }).then(function (title) {
       if (!title) { return; }
@@ -517,7 +517,7 @@
     SP.dialog({
       title: "Nueva " + label.toLowerCase(),
       text: "Se abre el editor correspondiente.",
-      field: { label: "Titulo", placeholder: "Ej. Proyecto binomios", max: 80 },
+      field: { label: "Título", placeholder: "Ej. Proyecto binomios", max: 80 },
       ok: "Crear"
     }).then(function (title) {
       if (!title) { return; }
@@ -534,7 +534,7 @@
         })
         .catch(function (err) {
           if (err.status === 409) {
-            SP.toast("Ya existia un elemento con ese titulo", "info");
+            SP.toast("Ya existía un elemento con ese título", "info");
             setTimeout(function () { window.location.href = path; }, 600);
             return;
           }
@@ -546,76 +546,176 @@
   /* =================================================================
    *  IMPORTADOR OBSIDIAN (cliente: lee la carpeta, no toca el disco)
    * ================================================================= */
+  /* =================================================================
+   *  IMPORTADOR OBSIDIAN: lectura local y guardado secuencial
+   * ================================================================= */
+  function readMarkdownFile(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () { resolve(String(reader.result || "")); };
+      reader.onerror = function () { reject(new Error("No se pudo leer " + file.name)); };
+      reader.readAsText(file);
+    });
+  }
+
+  function tagsFromFrontmatter(text) {
+    var m = /^---\r?\n([\s\S]{0,1200}?)\r?\n---(?:\s|\n|$)/.exec(text);
+    if (!m) { return []; }
+    var found = [];
+    var line = /^tags:\s*(.*)$/m.exec(m[1]);
+    if (line) {
+      var bracketed = /^\s*\[(.+)\]\s*$/.exec(line[1]);
+      if (bracketed) { found = found.concat(bracketed[1].split(/[,;]\s*/)); }
+      else if (line[1].trim()) { found.push(line[1].trim().replace(/^['"]|['"]$/g, "")); }
+    }
+    var inTags = false;
+    m[1].split(/\r?\n/).forEach(function (row) {
+      if (/^tags:\s*$/.test(row)) { inTags = true; return; }
+      if (inTags) {
+        var item = /^\s*-\s*(.+)$/.exec(row);
+        if (item) { found.push(item[1].trim().replace(/^['"]|['"]$/g, "")); }
+        else if (row.trim()) { inTags = false; }
+      }
+    });
+    return found.map(function (tag) {
+      return String(tag).replace(/^#/, "").trim();
+    }).filter(Boolean);
+  }
+
+  function pathTags(file) {
+    var parts = String(file.webkitRelativePath || file.name).split("/");
+    parts.pop(); // nombre del archivo
+    if (parts.length > 1) { parts.shift(); } // omitir la raíz de la bóveda
+    return parts.filter(Boolean);
+  }
+
+  function getNoteBySlug(slug) {
+    return SP.api("/api/notes/" + encodeURIComponent(slug)).then(function (data) {
+      return data && data.note ? data.note : null;
+    }).catch(function (err) {
+      if (err && err.status === 404) { return null; }
+      throw err;
+    });
+  }
+
+  function importedTitle(base, attempt) {
+    if (!attempt) { return base; }
+    return base + " (importado" + (attempt === 1 ? "" : " " + attempt) + ")";
+  }
+
+  function saveImportedNote(file, text, tags, baseTitle, policy, counts) {
+    var baseSlug = sluginator(baseTitle);
+    return getNoteBySlug(baseSlug).then(function (existing) {
+      if (existing && policy === "overwrite-newer") {
+        var oldTime = Date.parse(existing.updated_at || existing.updatedAt || "");
+        var newTime = Number(file.lastModified || 0);
+        if (Number.isFinite(oldTime) && newTime > oldTime) {
+          return SP.api("/api/notes/" + encodeURIComponent(existing.slug || baseSlug), {
+            method: "PUT",
+            json: { content: text, tags: tags.join(" ") }
+          }).then(function () {
+            counts.updated++;
+            return "updated";
+          });
+        }
+        counts.skipped++;
+        return "skipped";
+      }
+
+      function createUnique(attempt) {
+        var title = importedTitle(baseTitle, attempt);
+        var slug = sluginator(title);
+        return getNoteBySlug(slug).then(function (collision) {
+          if (collision) {
+            if (policy === "overwrite-newer" && attempt === 0) {
+              counts.skipped++;
+              return "skipped";
+            }
+            if (attempt >= 99) { throw new Error("No se pudo generar un título único para " + baseTitle); }
+            return createUnique(attempt + 1);
+          }
+          return SP.api("/api/notes", {
+            method: "POST",
+            json: { title: title, content: text, tags: tags.join(" ") }
+          }).then(function () {
+            counts.created++;
+            return "created";
+          }).catch(function (err) {
+            if (err && err.status === 409 && attempt < 99) {
+              return createUnique(attempt + 1);
+            }
+            throw err;
+          });
+        });
+      }
+
+      return createUnique(existing ? 1 : 0);
+    });
+  }
+
+  SP.importObsidianFiles = function (files, policy) {
+    files = Array.from(files || []).filter(function (file) {
+      return file && /\.(md|markdown)$/i.test(file.name || "");
+    });
+    if (!files.length) {
+      SP.toast("No se encontraron archivos Markdown para importar.", "info");
+      return Promise.resolve({ created: 0, updated: 0, skipped: 0, failed: [] });
+    }
+
+    policy = policy === "overwrite-newer" ? "overwrite-newer" : "keep-both";
+    var counts = { created: 0, updated: 0, skipped: 0, failed: [] };
+    var chain = Promise.resolve();
+
+    files.forEach(function (file, index) {
+      chain = chain.then(function () {
+        SP.toast("Importando archivo " + (index + 1) + " de " + files.length + "…", "info", 1600);
+        return readMarkdownFile(file).then(function (text) {
+          var baseTitle = String(file.name || "Nota importada").replace(/\.(md|markdown)$/i, "").trim() || "Nota importada";
+          var tags = pathTags(file).concat(tagsFromFrontmatter(text));
+          tags = tags.filter(function (tag, i) { return tags.indexOf(tag) === i; });
+          return saveImportedNote(file, text, tags, baseTitle, policy, counts);
+        }).catch(function (err) {
+          counts.failed.push(String(file.name || "Archivo") + ": " + msgErr(err));
+        });
+      });
+    });
+
+    return chain.then(function () {
+      var parts = [counts.created + " notas nuevas", counts.updated + " actualizadas", counts.skipped + " omitidas"];
+      if (counts.failed.length) { parts.push(counts.failed.length + " con error"); }
+      SP.toast("Importación de Obsidian terminada: " + parts.join(", ") + ".", counts.failed.length ? "err" : "ok", 9000);
+      if (counts.failed.length) {
+        SP.dialog({
+          title: "Importación finalizada con avisos",
+          text: counts.failed.slice(0, 8).join("\n") + (counts.failed.length > 8 ? "\nY " + (counts.failed.length - 8) + " más." : ""),
+          ok: "Entendido"
+        });
+      }
+      if (location.pathname.indexOf("/dashboard/notes") === 0) {
+        setTimeout(function () { window.location.reload(); }, 900);
+      } else if (counts.created || counts.updated) {
+        setTimeout(function () { window.location.href = "/dashboard/notes"; }, 900);
+      }
+      return counts;
+    });
+  };
+
   function importObsidian() {
     var input = document.createElement("input");
     input.type = "file";
     input.multiple = true;
-    input.setAttribute("accept", ".md,.markdown");
+    input.accept = ".md,.markdown";
     input.setAttribute("webkitdirectory", "");
-    input.style.cssText = "position:absolute;width:1px;height:1px;opacity:0";
+    input.hidden = true;
+    input.setAttribute("aria-label", "Seleccionar una carpeta de Obsidian");
     document.body.appendChild(input);
-    SP.toast("Elige la carpeta de tu b\u00f3veda Obsidian", "info", 7000);
+    SP.toast("Selecciona la carpeta de tu bóveda de Obsidian.", "info", 6000);
     input.addEventListener("change", function () {
-      var files = Array.prototype.filter.call(input.files || [], function (f) {
-        return /\.(md|markdown)$/i.test(f.name);
-      });
-      document.body.removeChild(input);
-      if (!files.length) {
-        SP.toast("No hay archivos .md en la carpeta elegida", "info");
-        return;
-      }
-      var i = 0, ok = 0;
-      var fallados = [];
-      function tagsDeFrontmatter(texto) {
-        var m = /^---\n([\s\S]{0,1200}?)\n---( |\n|$)/.exec(texto);
-        if (!m) { return ""; }
-        var found = [];
-        var linea = /^tags:\s*(.*)$/m.exec(m[1]);
-        if (linea) {
-          var corchetes = /^\s*\[(.+)\]\s*$/.exec(linea[1]);
-          if (corchetes) { found = found.concat(corchetes[1].split(/[,;]\s*/)); }
-          else if (linea[1].trim()) { found.push(linea[1].trim()); }
-        }
-        var zona = false;
-        m[1].split("\n").forEach(function (l) {
-          if (/^tags:\s*$/.test(l)) { zona = true; return; }
-          if (zona) {
-            var guion = /^-\s*(.+)$/.exec(l);
-            if (guion) { found.push(guion[1].trim()); } else { zona = false; }
-          }
-        });
-        return found.filter(Boolean).map(function (t) { return String(t).replace(/^#/, "").trim(); }).filter(Boolean).join(" ");
-      }
-      function siguiente() {
-        if (i >= files.length) {
-          var msg = "Obsidian: " + ok + " notas importadas" + (fallados.length ? " (" + fallados.length + " falladas: " + fallados.slice(0, 3).join(", ") + ")" : "");
-          SP.toast(msg, fallados.length ? "err" : "ok", 8000);
-          if (location.pathname.indexOf("/dashboard/notes") === 0) { setTimeout(function () { window.location.reload(); }, 1400); }
-          else { setTimeout(function () { window.location.href = "/dashboard/notes"; }, 1400); }
-          return;
-        }
-        var f = files[i++];
-        var partes = (f.webkitRelativePath || f.name).split("/");
-        partes.pop(); // el nombre del archivo
-        var carpeta = partes.length > 1 ? partes[1] : "";
-        var titulo = f.name.replace(/\.(md|markdown)$/i, "");
-        var lector = new FileReader();
-        lector.onload = function () {
-          var texto = String(lector.result || "");
-          var tags = carpeta;
-          var ft = tagsDeFrontmatter(texto);
-          if (ft) { tags = tags ? tags + " " + ft : ft; }
-          SP.api("/api/notes", { method: "POST", json: { title: titulo, content: texto, tags: tags } })
-            .then(function () { ok++; })
-            .catch(function () { fallados.push(titulo); });
-          SP.toast("Importando " + i + "/" + files.length + ": " + titulo, "info", 1800);
-          setTimeout(siguiente, 120);
-        };
-        lector.onerror = function () { fallados.push(titulo); siguiente(); };
-        lector.readAsText(f);
-      }
-      siguiente();
-    });
+      var files = Array.from(input.files || []);
+      input.remove();
+      SP.importObsidianFiles(files, "keep-both");
+    }, { once: true });
+    input.addEventListener("cancel", function () { input.remove(); }, { once: true });
     input.click();
   }
 
@@ -627,7 +727,7 @@
     if (!form) { return; }
     form.addEventListener("submit", function (e) {
       e.preventDefault();
-      SP.toast("La config de IA vive en .env: edita el archivo y reinicia el servicio. Desde aquí nada se guarda.", "info", 8000);
+      SP.toast("La configuración de IA se define en .env. Edita el archivo en el servidor y reinicia el servicio; estos cambios no se guardan desde aquí.", "info", 8000);
     });
   }
 
@@ -665,7 +765,7 @@
       { t: "nueva clase", href: "/dashboard/horario" },
       { t: "nueva asignatura", href: "/dashboard/subjects" },
       { t: "nota md", fn: newNotePrompt },
-      { t: "carpeta", fn: function () { SP.toast("Las carpetas llegan con la importacion de bovedas (pendiente en backend)", "info"); } },
+      { t: "carpeta", fn: function () { SP.toast("La importación de carpetas aún no está disponible; las notas Markdown sí se pueden importar.", "info"); } },
       { t: "grafo", href: "/dashboard/notes" },
       { t: "nuevo chat", href: "/dashboard/ai" },
       { t: "generar resumen", fn: aiCatchPrompt("Resumeme el material adjunto en puntos clave.") },
@@ -699,7 +799,7 @@
     }
 
     function toastVaultPending() {
-      SP.toast("Las carpetas llegan con la importacion de bovedas", "info");
+      SP.toast("La importación de carpetas aún no está disponible; las notas Markdown sí se pueden importar.", "info");
     }
 
     /* Modal "Nueva tarea academica": captura honesta → nota o planificador */
@@ -727,7 +827,7 @@
         e.preventDefault();
         var title = ((titleInput && titleInput.value) || "").trim();
         if (!title) {
-          SP.toast("Escribe un titulo o usa el planificador", "info");
+          SP.toast("Escribe un título o usa el planificador", "info");
           if (titleInput) { titleInput.focus(); }
           return;
         }
@@ -735,13 +835,13 @@
         if (selects.length > 0 && selText(selects[0])) { lines.push("- Materia: " + selText(selects[0])); }
         if (selects.length > 1 && selText(selects[1])) { lines.push("- Prioridad: " + selText(selects[1])); }
         if (dateInput && dateInput.value) {
-          lines.push("- Fecha limite: " + dateInput.value + (timeInput && timeInput.value ? " " + timeInput.value : ""));
+          lines.push("- Fecha límite: " + dateInput.value + (timeInput && timeInput.value ? " " + timeInput.value : ""));
         }
         lines.push("", "- [ ] Pasa al planificador cuando lo revises", "");
         SP.api("/api/notes", { method: "POST", json: { title: title, content: lines.join("\n"), tags: "tarea" } })
           .then(function () {
             modal.classList.add("hidden");
-            SP.toast("Tarea guardada como nota \u00ab" + title + "\u00bb", "ok", 4200);
+            SP.toast("Ficha de tarea guardada como nota \u00ab" + title + "\u00bb", "ok", 4200);
           })
           .catch(function (err) { SP.toast(msgErr(err), "err"); });
       });
@@ -773,7 +873,7 @@
     if (!etiquetas.length) { return; }
     var sel = document.createElement("select");
     sel.id = "sp-coleccion";
-    sel.title = "Coleccion: filtra la lista por etiqueta";
+    sel.title = "Colección: filtra la lista por etiqueta";
     var opts = '<option value="">Todas las notas (' + anclas.length + ")</option>";
     etiquetas.forEach(function (t) {
       opts += '<option value="' + t.replace(/"/g, "&quot;") + '">' + t + " (" + porTag[t] + ")</option>";
@@ -847,7 +947,7 @@
       }
       if (!found && allNotes.length) { found = allNotes[0]; }
       if (!found) {
-        SP.toast("La boveda esta vacia: crea la primera nota con \"Nota\" en + Crear", "info", 5000);
+        SP.toast("La bóveda está vacía: crea la primera nota con \"Nota\" en + Crear", "info", 5000);
         return;
       }
       hydrate(found.slug);
@@ -904,8 +1004,8 @@
     modes.preview.addEventListener("click", function (e) { e.preventDefault(); setMode("preview"); });
 
     var fmtMap = {
-      "Titulo H1": function () { linePrefix("# "); },
-      "Titulo H2": function () { linePrefix("## "); },
+      "Título H1": function () { linePrefix("# "); },
+      "Título H2": function () { linePrefix("## "); },
       "Negrita": function () { surround("**", "**"); },
       "Cursiva": function () { surround("*", "*"); },
       "Codigo Inline": function () { surround("`", "`"); },
@@ -1017,7 +1117,7 @@
       if (b) { b.disabled = !dirty; }
     }
     function save(extra) {
-      if (!current.slug) { SP.toast("Nada que guardar", "info"); return; }
+      if (!current.slug) { SP.toast("No hay cambios que guardar", "info"); return; }
       var body = {};
       var ex = extra || {};
       if (ex.tags !== undefined) { body.tags = ex.tags; }
@@ -1063,17 +1163,17 @@
           btn.addEventListener("click", function (e) {
             e.preventDefault();
             var content = editor.value || current.content;
-            if (!content || !content.trim()) { SP.toast("La nota esta vacia", "info"); return; }
+            if (!content || !content.trim()) { SP.toast("La nota está vacía", "info"); return; }
             var name = current.title || (titleInput && titleInput.value) || "nota";
             track(btn, true);
             SP.api("/office/docs", { form: { title: name, content: content } })
               .then(function () {
-                SP.toast("Documento creado en Office Docs", "ok");
+                SP.toast("Documento creado en Documentos", "ok");
                 setTimeout(function () { window.location.href = "/office/docs/" + sluginator(name); }, 700);
               })
               .catch(function (err) {
                 if (err.status === 409) {
-                  SP.toast("Ya existia: abriendolo en Office Docs", "info");
+                  SP.toast("Ya existía; abriendo en Documentos", "info");
                   setTimeout(function () { window.location.href = "/office/docs/" + sluginator(name); }, 500);
                   return;
                 }
@@ -1085,9 +1185,9 @@
           btn.addEventListener("click", function (e) {
             e.preventDefault();
             var c = editor.value || current.content;
-            if (!c || !c.trim()) { SP.toast("La nota esta vacia", "info"); return; }
+            if (!c || !c.trim()) { SP.toast("La nota está vacía", "info"); return; }
             sessionStorage.setItem("sp:ai-ctx", JSON.stringify({ t: current.title, c: c.slice(0, 6000) }));
-            SP.toast("Contexto adjuntado: abriendo el asistente...", "ok");
+            SP.toast("Contexto adjuntado: abriendo el asistente…", "ok");
             setTimeout(function () { window.location.href = "/dashboard/ai"; }, 600);
           });
         } else if (t === "+ Nota") {
@@ -1109,8 +1209,8 @@
           ["Planificador", "timeline", "/dashboard/planner"],
           ["Asistente IA", "auto_awesome", "/dashboard/ai"],
           ["Documentos", "article", "/office/docs"],
-          ["Configuracion", "settings", "/settings"],
-          ["Administracion", "admin_panel_settings", "/admin"]
+          ["Configuración", "settings", "/settings"],
+          ["Administración", "admin_panel_settings", "/admin"]
         ].forEach(function (x) { items.push({ label: x[0], icon: x[1], value: x[2] }); });
         SP.dialog({ title: "Comandos", text: "Notas y pantallas", items: items }).then(function (v) {
           if (v && typeof v === "string") { window.location.href = v; }
@@ -1142,7 +1242,7 @@
     function dialogoAnotacion(fecha, anotacion) {
       var cuerpo = document.createElement("div");
       cuerpo.innerHTML =
-        '<label class="sp-field"><span class="sp-field-label">Titulo</span>' +
+        '<label class="sp-field"><span class="sp-field-label">Título</span>' +
         '<input class="sp-input" id="sp-anot-titulo" maxlength="120" placeholder="Ej. Examen de matematicas"></label>' +
         '<label class="sp-field"><span class="sp-field-label">Nota</span>' +
         '<textarea class="sp-input" id="sp-anot-cuerpo" rows="4" maxlength="4000" placeholder="Detalles, material que llevar, recordatorios..."></textarea></label>' +
@@ -1163,7 +1263,7 @@
           ? SP.api("/api/calendar/annotations/" + anotacion.id, { method: "PUT", json: json })
           : SP.api("/api/calendar/annotations", { method: "POST", json: { date: fecha, title: json.title, body: json.body } });
         p.then(function () {
-          SP.toast(anotacion ? "Anotacion actualizada" : "Anotacion guardada", "ok");
+          SP.toast(anotacion ? "Anotación actualizada" : "Anotación guardada", "ok");
           setTimeout(function () { window.location.reload(); }, 500);
         }).catch(function (err) { SP.toast(msgErr(err), "err"); });
       });
@@ -1176,7 +1276,7 @@
         var items = lista.map(function (a) {
           return { label: a.title || a.body.slice(0, 40) || "Anotacion", sub: a.body ? a.body.slice(0, 60) : "", icon: "sticky_note_2", value: a };
         });
-        items.push({ label: "Anadir otra anotacion", icon: "add", value: "new" });
+        items.push({ label: "Añadir otra anotación", icon: "add", value: "new" });
         SP.dialog({ title: "Anotaciones del " + fecha, items: items }).then(function (v) {
           if (!v) { return; }
           if (v === "new") { dialogoAnotacion(fecha, null); return; }
@@ -1206,7 +1306,7 @@
         var lista = (d && d.annotations) || [];
         if (!lista.length) { return; }
         SP.api("/api/calendar/annotations/" + lista[0].id, { method: "DELETE" }).then(function () {
-          SP.toast("Anotacion borrada", "ok");
+          SP.toast("Anotación borrada", "ok");
           setTimeout(function () { window.location.reload(); }, 400);
         }).catch(function (err) { SP.toast(msgErr(err), "err"); });
       }).catch(function () { });
@@ -1322,9 +1422,9 @@
       promptInput.value = buildPrompt(pending);
       sessionStorage.removeItem("sp:ai-prompt");
       promptInput.focus();
-      SP.toast("Prompt listo: pulsa Enviar", "info");
+      SP.toast("Mensaje listo: pulsa Enviar", "info");
     } else if (ctx()) {
-      SP.toast("Material adjuntado: usa un chip o escribe tu pregunta", "info", 5200);
+      SP.toast("Material adjuntado: usa una sugerencia o escribe tu pregunta", "info", 5200);
     }
 
     ["attach_file", "mic"].forEach(function (needle) {
@@ -1340,7 +1440,7 @@
           btn.addEventListener("click", function () {
             SP.api("/api/notes").then(function (data) {
               var notes = data.notes || [];
-              if (!notes.length) { SP.toast("No hay notas todavia", "info"); return; }
+              if (!notes.length) { SP.toast("Todavía no hay notas", "info"); return; }
               var items = notes.slice(0, 20).map(function (n) {
                 return { label: n.title, icon: "description", sub: "nota", value: n.slug };
               });
@@ -1349,11 +1449,11 @@
                 SP.api("/api/notes/" + slug).then(function (d) {
                   var c = String(d.content || "");
                   var n = d.note || {};
-                  if (!c.trim()) { SP.toast("Esa nota esta vacia", "info"); return; }
+                  if (!c.trim()) { SP.toast("Esa nota está vacía", "info"); return; }
                   sessionStorage.setItem("sp:ai-ctx", JSON.stringify({ t: n.title || slug, c: c }));
                   promptInput.value = buildPrompt("Basandote en el material adjunto:");
                   promptInput.focus();
-                  SP.toast("Nota adjuntada: pulsa Enviar o un chip", "ok");
+                  SP.toast("Nota adjuntada: pulsa Enviar o una sugerencia", "ok");
                 }).catch(function (err) { SP.toast(msgErr(err), "err"); });
               });
             }).catch(function (err) { SP.toast(msgErr(err), "err"); });
@@ -1361,11 +1461,11 @@
           return;
         }
         var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SR) { SP.toast("Tu navegador no soporta dictado", "err"); return; }
+        if (!SR) { SP.toast("Tu navegador no admite el dictado", "err"); return; }
         btn.addEventListener("click", function () {
           if (btn.dataset.rec === "1") { return; }
           var rec;
-          try { rec = new SR(); } catch (e2) { SP.toast("No se pudo iniciar el microfono", "err"); return; }
+          try { rec = new SR(); } catch (e2) { SP.toast("No se pudo iniciar el micrófono", "err"); return; }
           rec.lang = document.documentElement.lang || "es";
           rec.interimResults = false;
           rec.maxAlternatives = 1;
@@ -1380,7 +1480,7 @@
           rec.onend = stop2;
           try {
             rec.start();
-            SP.toast("Escuchando...", "info");
+            SP.toast("Escuchando…", "info");
           } catch (e3) { stop2(); }
         });
       });
