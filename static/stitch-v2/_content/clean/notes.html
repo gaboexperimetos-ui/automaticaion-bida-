@@ -328,6 +328,21 @@
     modal?.addEventListener('click', (event) => {
       if (event.target === modal) closeModal();
     });
+    modal?.addEventListener('keydown', (event) => {
+      if (event.key !== 'Tab') return;
+      const items = Array.from(modal.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'))
+        .filter((item) => !item.hidden);
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    });
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape' && modal && !modal.classList.contains('hidden')) closeModal();
     });
