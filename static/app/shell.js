@@ -126,7 +126,25 @@
     if (on) { btn.setAttribute("data-sp-loading", "1"); btn.setAttribute("aria-busy", "true"); }
     else { btn.removeAttribute("data-sp-loading"); btn.removeAttribute("aria-busy"); }
   }
-  function msgErr(err) { return (err && err.message) || "Error inesperado"; }
+  function msgErr(err) {
+    var message = String((err && err.message) || "Error inesperado");
+    var normalized = message.trim().toLowerCase();
+    var common = {
+      "title is required": "El título es obligatorio.",
+      "invalid title": "El título no es válido.",
+      "not found": "No se encontró el elemento solicitado.",
+      "unauthorized": "La sesión ha caducado. Inicia sesión de nuevo.",
+      "forbidden": "No tienes permiso para realizar esta acción.",
+      "failed to fetch": "No se pudo conectar con el servidor.",
+      "internal server error": "El servidor encontró un error interno.",
+      "bad request": "La solicitud no es válida."
+    };
+    if (common[normalized]) { return common[normalized]; }
+    if (/^5\\d{2}\\b/.test(normalized)) {
+      return "El servidor devolvió un error (" + message + ").";
+    }
+    return message;
+  }
   function selText(sel) {
     var o = sel && sel.options && sel.options[sel.selectedIndex];
     return o ? txt(o) : "";
