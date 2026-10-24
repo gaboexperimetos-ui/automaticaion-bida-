@@ -43,7 +43,7 @@
         <section class="nova-create-group">
           <h3><span class="material-symbols-outlined" aria-hidden="true">neurology</span>Conocimiento</h3>
           <div class="nova-create-grid three">
-            <button type="button"><span class="material-symbols-outlined" aria-hidden="true">edit_note</span><span>Nota MD</span></button>
+            <button type="button"><span class="material-symbols-outlined" aria-hidden="true">edit_note</span><span>Nota Markdown</span></button>
             <button type="button"><span class="material-symbols-outlined" aria-hidden="true">folder</span><span>Carpeta</span></button>
             <button type="button"><span class="material-symbols-outlined" aria-hidden="true">polyline</span><span>Grafo</span></button>
           </div>
@@ -61,7 +61,7 @@
           <h3><span class="material-symbols-outlined" aria-hidden="true">description</span>Oficina</h3>
           <div class="nova-create-grid three">
             <button type="button"><span class="material-symbols-outlined" aria-hidden="true">article</span><span>Documento</span></button>
-            <button type="button"><span class="material-symbols-outlined" aria-hidden="true">table_chart</span><span>Hoja cálculo</span></button>
+            <button type="button"><span class="material-symbols-outlined" aria-hidden="true">table_chart</span><span>Hoja de cálculo</span></button>
             <button type="button"><span class="material-symbols-outlined" aria-hidden="true">slideshow</span><span>Diapositiva</span></button>
           </div>
         </section>
@@ -127,7 +127,7 @@
     <section class="nova-panel nova-notes" aria-labelledby="notes-card-title">
       <header class="nova-panel-header">
         <div><span class="nova-section-number">05</span><span class="nova-label">Tu memoria viva</span><h2 id="notes-card-title">Segundo cerebro</h2></div>
-        <a class="nova-link" href="/dashboard/notes">Ver vault<span class="material-symbols-outlined" aria-hidden="true">arrow_outward</span></a>
+        <a class="nova-link" href="/dashboard/notes">Abrir bóveda<span class="material-symbols-outlined" aria-hidden="true">arrow_outward</span></a>
       </header>
       <p class="nova-panel-intro">Ideas, apuntes y conexiones que vuelven cuando las necesitas.</p>
       <div class="nova-notes-list"><!--SLOT:NOTES--></div>
@@ -145,10 +145,10 @@
       <form class="nova-task-form" onsubmit="event.preventDefault();">
         <div class="nova-field full"><label for="quick-task-title">Título de la tarea o entrega</label><input id="quick-task-title" type="text" placeholder="Ej. Informe de laboratorio 5" autocomplete="off"/></div>
         <div class="nova-field"><label for="quick-task-subject">Asignatura</label><select id="quick-task-subject"><!--SLOT:SUBJECT_OPTIONS--></select></div>
-        <div class="nova-field"><label for="quick-task-priority">Prioridad</label><select id="quick-task-priority"><option>Alta (Crítica)</option><option selected>Media</option><option>Baja</option></select></div>
+        <div class="nova-field"><label for="quick-task-priority">Prioridad</label><select id="quick-task-priority"><option>Alta (crítica)</option><option selected>Media</option><option>Baja</option></select></div>
         <div class="nova-field"><label for="quick-task-date">Fecha límite</label><input id="quick-task-date" type="date"/></div>
         <div class="nova-field"><label for="quick-task-time">Hora</label><input id="quick-task-time" type="time" value="23:59"/></div>
-        <div class="nova-task-actions"><button class="nova-button nova-button-quiet" id="cancel-modal-btn" type="button">Cancelar</button><button class="nova-button nova-button-primary" type="submit"><span class="material-symbols-outlined" aria-hidden="true">check</span>Guardar Tarea</button></div>
+        <div class="nova-task-actions"><button class="nova-button nova-button-quiet" id="cancel-modal-btn" type="button">Cancelar</button><button class="nova-button nova-button-primary" id="save-task-as-note" type="submit"><span class="material-symbols-outlined" aria-hidden="true">check</span>Guardar como nota</button></div>
       </form>
     </div>
   </div>
