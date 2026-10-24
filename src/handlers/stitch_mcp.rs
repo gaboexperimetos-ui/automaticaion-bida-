@@ -659,7 +659,7 @@ fn scrub_secrets(html: &str, secrets: &[Secret]) -> String {
 
 // Anclas del template del kit Stitch (`static/stitch-v2/_content/clean/mcp.html`).
 const ANCHOR_KEY_LABEL: &str = r#"<label class="font-label-md text-label-md text-on-surface-variant flex items-center gap-1.5" for="openrouter-key">
-<span>API Key Secreta</span>
+<span>Clave de API secreta</span>
 <span class="material-symbols-outlined text-[15px] text-outline cursor-help" title="Tu clave comienza habitualmente con sk-or-v1-...">info</span>
 </label>"#;
 const KEY_LABEL_HTML: &str = r#"<div class="font-label-md text-label-md text-on-surface-variant flex items-center gap-1.5">
@@ -674,7 +674,7 @@ const ANCHOR_KEY_INPUT: &str = r#"id="openrouter-key" placeholder="sk-or-v1-"#;
 /// Botón "Mostrar": sin clave que mostrar, se sustituye por el aviso.
 const ANCHOR_KEY_TOGGLE: &str = r#"<button class="absolute right-3 px-2 py-1 rounded text-outline hover:text-on-surface hover:bg-surface-container-highest transition-colors flex items-center gap-1 font-label-sm text-label-sm" id="toggle-key-visibility" type="button">
 <span class="material-symbols-outlined text-[16px]" id="eye-icon">visibility</span>
-<span id="eye-text">Mostrar</span>
+<span id="eye-text">Mostrar clave</span>
 </button>"#;
 const KEY_TOGGLE_HTML: &str = r#"<span class="absolute right-3 font-code-inline text-[11px] text-outline">no se muestra aquí</span>"#;
 
@@ -708,12 +708,12 @@ const ANCHOR_BUDGET_JS: &str = "budgetValue.textContent = `$${e.target.value}.00
 
 /// Estado real de la configuración, junto a los botones.
 const ANCHOR_ACTION_NOTE: &str =
-    "<span>Gestionado por variables de entorno (.env) en el servidor</span>";
+    "<span>Gestionado mediante variables de entorno (.env) en el servidor</span>";
 
 /// El botón que fingía guardar: pasa a ser un `submit` real.
 const ANCHOR_SAVE_BUTTON: &str = r#"<button class="px-space-lg py-2 rounded-lg bg-secondary text-on-secondary font-label-md text-label-md font-semibold hover:bg-secondary-fixed transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(158,215,83,0.25)]" id="btn-save-key" type="button">
 <span class="material-symbols-outlined text-[18px]">check_circle</span>
-<span>Guardar Parámetros</span>
+<span>Guardar configuración</span>
 </button>"#;
 const SAVE_BUTTON_HTML: &str = r#"<button class="px-space-lg py-2 rounded-lg bg-secondary text-on-secondary font-label-md text-label-md font-semibold hover:bg-secondary-fixed transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(158,215,83,0.25)]" id="btn-generate-env" type="submit" title="No guarda en caliente: la configuración se lee del .env al arrancar. Genera el bloque .env con estos valores para copiarlo y reiniciar el servicio.">
 <span class="material-symbols-outlined text-[18px]">code</span>
@@ -727,7 +727,7 @@ const ANCHOR_FAKE_SAVE_JS: &str = r#"    // Save Feedback
     if (saveBtn) {
       saveBtn.addEventListener('click', () => {
         const origText = saveBtn.innerHTML;
-        saveBtn.innerHTML = `<span class="material-symbols-outlined text-[18px]">info</span><span>Config fija en .env</span>`;
+        saveBtn.innerHTML = `<span class="material-symbols-outlined text-[18px]">info</span><span>Configuración definida en .env</span>`;
         setTimeout(() => {
           saveBtn.innerHTML = origText;
         }, 2000);
