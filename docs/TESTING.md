@@ -171,3 +171,27 @@ curl -s http://127.0.0.1:8090/api/mcp/status   # → {"connected":true, "tools":
 | MCP fetch latency | < 5s (cached), < 30s (scrape) | `time curl ...` |
 | Build time | < 60s (incremental) | `cargo build` |
 | Binary size | < 20 MB | `ls -la target/release/study-platform` |
+
+
+## Interfaz principal: regresiones de navegación y accesibilidad
+
+La suite `tests/ui_regressions.rs` comprueba que el menú conserva sus 22 destinos,
+que las vistas parciales no anidan otro elemento `<main>`, que los controles
+principales de captura e importación siguen presentes y que el importador no
+avanza al siguiente archivo antes de finalizar el guardado actual.
+
+```bash
+cargo test --test ui_regressions
+cargo test --test shell_integrity
+cargo test --test pages_smoke
+cargo fmt --check
+cargo check
+cargo test
+cargo clippy --all-targets -- -D warnings
+```
+
+La validación estática no sustituye la prueba manual: abrir las páginas en el
+navegador, probar el menú en escritorio y móvil, importar una bóveda pequeña
+de prueba, comprobar los avisos de conflicto, editar y guardar una nota, y
+probar los flujos del asistente y del generador. No ejecutar importaciones sobre
+la bóveda personal real como prueba destructiva.
