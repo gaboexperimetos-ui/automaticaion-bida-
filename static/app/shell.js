@@ -140,7 +140,7 @@
       "bad request": "La solicitud no es válida."
     };
     if (common[normalized]) { return common[normalized]; }
-    if (/^5\\d{2}\\b/.test(normalized)) {
+    if (/^5\d{2}\b/.test(normalized)) {
       return "El servidor devolvió un error (" + message + ").";
     }
     return message;
