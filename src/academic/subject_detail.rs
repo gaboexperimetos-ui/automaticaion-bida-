@@ -601,16 +601,7 @@ fn subject_page_html(
     };
 
     let header = format!(
-        r###"<div class="flex items-center justify-between mb-space-sm">
-        <div class="flex items-center gap-space-sm">
-            <a href="/dashboard/subjects" class="font-label-sm text-label-sm text-on-surface-variant hover:text-on-surface">
-                <span class="material-symbols-outlined text-[16px]">arrow_back</span> Asignaturas
-            </a>
-        </div>
-    </div>
-    <h1 class="font-headline-lg text-headline-lg text-on-surface">{}</h1>
-    <p class="font-body-sm text-body-sm text-on-surface-variant">Código: {} · Trimestre: {}</p>
-    {}"###,
+        r###"<header class="nova-subject-detail-hero"><a href="/dashboard/subjects" class="nova-back-link"><span class="material-symbols-outlined">arrow_back</span>Todas las asignaturas</a><p class="nova-eyebrow"><span>03.1</span> Detalle académico</p><h1>{}</h1><p>Código {} · Trimestre {}</p>{}</header>"###,
         templates::html_escape(materia),
         templates::html_escape(codigo),
         trimestre,
@@ -618,32 +609,13 @@ fn subject_page_html(
     );
 
     let summary_card = format!(
-        r###"<div class="bg-surface-container border border-outline rounded-xl p-space-md mb-space-md">
-        <div class="flex items-center justify-between">
-            <h2 class="font-headline-md text-headline-md text-primary-container">{}</h2>
-            <span class="font-label-sm text-[10px] text-primary-container bg-primary-container/10 px-space-sm py-0.5 rounded-full">{}</span>
-        </div>
-        <div class="mt-space-sm flex items-baseline justify-between">
-            <span class="font-headline-xl text-headline-lg font-bold {}">{}</span>
-            <span class="font-label-sm text-[11px] text-on-surface-variant">promedio / {}</span>
-        </div>
-        <div class="mt-space-xs h-2 bg-surface-container-highest rounded-full overflow-hidden">
-            <div class="h-full {} transition-all" style="width: {}%"></div>
-        </div>
-        <div class="mt-space-sm grid grid-cols-2 md:grid-cols-4 gap-space-sm font-body-sm">
-            <div><span class="text-on-surface-variant">Código:</span> {}</div>
-            <div><span class="text-on-surface-variant">Máximo:</span> {}</div>
-            <div><span class="text-on-surface-variant">Bloqueada:</span> {}</div>
-            <div><span class="text-on-surface-variant">Tipo:</span> {}</div>
-        </div>
-    </div>"###,
-        templates::html_escape(materia),
-        templates::html_escape(&avg_fmt),
+        r###"<section class="nova-subject-summary"><div class="nova-subject-summary-grade"><span>PROMEDIO ACTUAL</span><strong class="{}">{}</strong><p>sobre {}</p><div class="nova-subject-progress"><div class="{}" style="width: {}%"></div></div></div><div class="nova-subject-summary-facts"><div><span>Calificación</span><strong>{}</strong></div><div><span>Código</span><strong>{}</strong></div><div><span>Máximo</span><strong>{}</strong></div><div><span>Bloqueada</span><strong>{}</strong></div><div><span>Tipo</span><strong>{}</strong></div></div></section>"###,
         color,
         avg_fmt,
         maximo_fmt,
         color,
         bar_width,
+        templates::html_escape(&avg_fmt),
         templates::html_escape(codigo),
         maximo_fmt,
         bloqueada_txt,
@@ -658,10 +630,7 @@ fn subject_page_html(
         String::new()
     } else {
         format!(
-            r###"<div class="bg-surface-container border border-outline rounded-xl p-space-md mb-space-md">
-            <h3 class="font-headline-sm text-headline-sm text-primary-container mb-space-sm">Observación</h3>
-            <p class="font-body-sm text-body-sm text-on-surface-variant">{}</p>
-        </div>"###,
+            r###"<aside class="nova-subject-observation"><span class="material-symbols-outlined">sticky_note_2</span><div><h2>Observación</h2><p>{}</p></div></aside>"###,
             templates::html_escape(&observacion),
         )
     };
@@ -763,13 +732,13 @@ fn subject_page_html(
             };
 
             let section = format!(
-                r###"<div class="bg-surface-container border border-outline rounded-xl p-space-md mb-space-md">
-                    <div class="flex items-center justify-between mb-space-sm">
+                r###"<section class="nova-subject-activities">
+                    <div class="nova-activity-head">
                         <h3 class="font-headline-sm text-headline-sm text-primary-container">{}</h3>
                         <span class="font-label-sm text-[10px] text-on-surface-variant">{} actividades · {} calificadas · subtotal: {} · {}</span>
                     </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full font-label-sm">
+                    <div class="nova-table-scroll">
+                        <table class="nova-activity-table">
                             <thead>
                                 <tr class="border-b border-outline/40">
                                     <th class="text-left py-2 font-label-sm text-label-sm text-on-surface-variant">Actividad</th>
@@ -783,7 +752,7 @@ fn subject_page_html(
                             <tbody>{}</tbody>
                         </table>
                     </div>
-                </div>"###,
+                </section>"###,
                 templates::html_escape(&sm.nombre),
                 sm.total_actividades,
                 sm.actividades_calificadas,
@@ -797,7 +766,7 @@ fn subject_page_html(
     };
 
     let content = format!(
-        r###"{}{}{}{}{}"###,
+        r###"<div class="nova-page nova-subject-detail-page">{}{}{}{}{}</div>"###,
         status, header, summary_card, observacion_card, activities_html
     );
 
@@ -814,23 +783,23 @@ fn subject_page_html(
 fn not_found_page(code: &str, connected: bool) -> String {
     let status = templates::mcp_status_banner(connected);
     let content = format!(
-        r###"{status}
-        <div class="flex items-center gap-space-sm mb-space-md">
-            <a href="/dashboard/subjects" class="font-label-sm text-label-sm text-on-surface-variant hover:text-on-surface">
-                <span class="material-symbols-outlined text-[16px]">arrow_back</span> Asignaturas
-            </a>
-        </div>
-        <div class="bg-surface-container border border-outline rounded-xl p-space-md text-center">
-            <span class="material-symbols-outlined text-[32px] text-outline mb-2">error_outline</span>
-            <h1 class="font-headline-md text-headline-md text-on-surface mb-space-sm">Asignatura no encontrada</h1>
-            <p class="font-body-sm text-body-sm text-on-surface-variant mb-space-md">
-                No se encontró ninguna asignatura con código <strong class="font-semibold text-on-surface">{code}</strong>
-                en los datos de Mikareno.
-            </p>
-            <a href="/dashboard/subjects"
-                class="inline-flex items-center gap-1.5 px-space-md py-2 rounded-lg bg-primary-container text-on-primary-container font-label-md font-semibold hover:bg-primary-fixed-dim transition-colors">
-                <span class="material-symbols-outlined text-[16px]">arrow_back</span> Volver a asignaturas
-            </a>
+        r###"<div class="nova-page nova-subject-detail-page nova-subject-missing">
+            {status}
+            <header class="nova-subject-detail-hero">
+                <a href="/dashboard/subjects" class="nova-back-link"><span class="material-symbols-outlined">arrow_back</span>Todas las asignaturas</a>
+                <p class="nova-eyebrow"><span>03.1</span> Detalle académico</p>
+                <h1>Asignatura no encontrada.<br><em>Revisa el código.</em></h1>
+                <p>No hay ninguna asignatura con código <strong>{code}</strong> en los datos de Mikareno.</p>
+            </header>
+            <section class="nova-subject-missing-card">
+                <span class="nova-subject-missing-icon material-symbols-outlined">search_off</span>
+                <div>
+                    <p class="nova-eyebrow"><span>Sin coincidencias</span> Mikareno</p>
+                    <h2>El curso sigue donde lo dejaste.</h2>
+                    <p>Comprueba el identificador o regresa al listado para abrir una de las asignaturas disponibles.</p>
+                    <a href="/dashboard/subjects" class="nova-button nova-button-primary"><span class="material-symbols-outlined">arrow_back</span>Explorar asignaturas</a>
+                </div>
+            </section>
         </div>"###,
         status = status,
         code = templates::html_escape(code),

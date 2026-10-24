@@ -1,406 +1,197 @@
-<div class="flex flex-col w-full">
-<div class="relative w-full p-gutter-desktop space-y-gutter-desktop">
-<!-- Ambient technical background glow accents (contained) -->
-<div class="absolute top-10 right-20 w-96 h-96 bg-primary-container/5 rounded-full blur-3xl pointer-events-none -z-10"></div>
-<div class="absolute top-96 left-12 w-80 h-80 bg-secondary/5 rounded-full blur-3xl pointer-events-none -z-10"></div>
-<!-- Top Action / Modal Quick Launcher Bar (Dropdown Showcase) -->
-<div class="relative flex flex-col md:flex-row md:items-center justify-between gap-space-md pb-space-xs">
-<div>
-<div class="flex items-center gap-space-xs">
-<span class="inline-block w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
-<span class="font-code-inline text-code-inline uppercase tracking-widest text-outline">Terminal de Mando Académico</span>
-<span class="text-outline/40">/</span>
-<span class="font-code-inline text-[11px] text-primary-fixed-dim">WORKSPACE_DEV_V2</span>
+<div class="nova-dashboard">
+  <div class="nova-ambient" aria-hidden="true"><i></i><i></i><i></i></div>
+
+  <section class="nova-hero" aria-labelledby="dashboard-greeting">
+    <div class="nova-hero-copy">
+      <p class="nova-kicker"><span aria-hidden="true"></span>Personal academic OS <b>3.0</b></p>
+      <h1 id="dashboard-greeting"><!--SLOT:GREETING--></h1>
+      <p class="nova-date"><!--SLOT:TODAYLINE--></p>
+      <p class="nova-intro">Un lugar tranquilo para organizar tu día, pensar mejor y convertir cada pequeño avance en algo grande.</p>
+    </div>
+
+    <div class="nova-hero-actions">
+      <a class="nova-sync" href="/dashboard/mcp" title="Ver sincronización y conexiones">
+        <span class="nova-sync-orbit" aria-hidden="true"><i></i></span>
+        <span><strong><!--SLOT:SYNC--></strong><small>Sincronización académica · solo lectura</small></span>
+        <span class="material-symbols-outlined" aria-hidden="true">north_east</span>
+      </a>
+      <div class="nova-hero-buttons">
+        <button class="nova-button nova-button-primary" id="quick-create-btn" type="button">
+          <span class="material-symbols-outlined" aria-hidden="true">add_task</span><span>Nueva tarea</span>
+        </button>
+        <button class="nova-button nova-button-quiet" id="toggle-create-menu" type="button" aria-controls="create-modal-popover" aria-expanded="false">
+          <span class="material-symbols-outlined" aria-hidden="true">add</span><span>Crear</span><span class="material-symbols-outlined nova-button-small" aria-hidden="true">expand_more</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="nova-create-menu hidden" id="create-modal-popover" aria-label="Centro de creación">
+      <header class="nova-create-header">
+        <div><span>Tu lienzo</span><h2>¿Qué vamos a crear?</h2></div>
+        <button class="nova-icon-button" id="close-create-menu" type="button" aria-label="Cerrar centro de creación"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+      </header>
+      <div class="nova-create-columns">
+        <section class="nova-create-group">
+          <h3><span class="material-symbols-outlined" aria-hidden="true">school</span>Académico</h3>
+          <div class="nova-create-grid two">
+            <button type="button"><span class="material-symbols-outlined" aria-hidden="true">task_alt</span><span>Nueva tarea</span></button>
+            <button type="button"><span class="material-symbols-outlined" aria-hidden="true">assignment_late</span><span>Nuevo examen</span></button>
+            <button type="button"><span class="material-symbols-outlined" aria-hidden="true">event</span><span>Nueva clase / sesión</span></button>
+            <button type="button"><span class="material-symbols-outlined" aria-hidden="true">menu_book</span><span>Nueva asignatura</span></button>
+          </div>
+        </section>
+        <section class="nova-create-group">
+          <h3><span class="material-symbols-outlined" aria-hidden="true">neurology</span>Conocimiento</h3>
+          <div class="nova-create-grid three">
+            <button type="button"><span class="material-symbols-outlined" aria-hidden="true">edit_note</span><span>Nota MD</span></button>
+            <button type="button"><span class="material-symbols-outlined" aria-hidden="true">folder</span><span>Carpeta</span></button>
+            <button type="button"><span class="material-symbols-outlined" aria-hidden="true">polyline</span><span>Grafo</span></button>
+          </div>
+        </section>
+        <section class="nova-create-group">
+          <h3><span class="material-symbols-outlined" aria-hidden="true">auto_awesome</span>Inteligencia artificial</h3>
+          <div class="nova-create-grid two">
+            <button type="button"><span class="material-symbols-outlined" aria-hidden="true">forum</span><span>Nuevo chat analítico</span></button>
+            <button type="button"><span class="material-symbols-outlined" aria-hidden="true">summarize</span><span>Generar resumen</span></button>
+            <button type="button"><span class="material-symbols-outlined" aria-hidden="true">quiz</span><span>Crear cuestionario</span></button>
+            <button type="button"><span class="material-symbols-outlined" aria-hidden="true">model_training</span><span>Plan de estudio</span></button>
+          </div>
+        </section>
+        <section class="nova-create-group">
+          <h3><span class="material-symbols-outlined" aria-hidden="true">description</span>Oficina</h3>
+          <div class="nova-create-grid three">
+            <button type="button"><span class="material-symbols-outlined" aria-hidden="true">article</span><span>Documento</span></button>
+            <button type="button"><span class="material-symbols-outlined" aria-hidden="true">table_chart</span><span>Hoja cálculo</span></button>
+            <button type="button"><span class="material-symbols-outlined" aria-hidden="true">slideshow</span><span>Diapositiva</span></button>
+          </div>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <section class="nova-week" aria-labelledby="week-card-title">
+    <header class="nova-week-header">
+      <div><span class="nova-section-number">01</span><span class="nova-label">Tu ritmo semanal</span><h2 id="week-card-title"><!--SLOT:WEEKTITLE--></h2></div>
+      <a class="nova-link" href="/dashboard/calendar">Abrir calendario<span class="material-symbols-outlined" aria-hidden="true">arrow_outward</span></a>
+    </header>
+    <div class="nova-week-days"><!--SLOT:WEEKCAL--></div>
+    <footer class="nova-week-footer">
+      <span><i class="nova-dot error"></i>Entregas</span><span><i class="nova-dot violet"></i>Clases</span><span><i class="nova-dot cyan"></i>Hoy</span>
+    </footer>
+  </section>
+
+  <div class="nova-pair">
+    <section class="nova-panel nova-agenda" aria-labelledby="today-card-title">
+      <header class="nova-panel-header">
+        <div><span class="nova-section-number">02</span><span class="nova-label">Aquí y ahora</span><h2 id="today-card-title">Hoy y próximas clases</h2></div>
+        <span class="nova-pill"><!--SLOT:CLASSCOUNT--></span>
+      </header>
+      <div class="nova-source"><span class="material-symbols-outlined" aria-hidden="true">lock</span>Mikareno · lectura en vivo</div>
+      <div class="nova-class-list"><!--SLOT:CLASSES--></div>
+      <div class="nova-deliveries">
+        <div class="nova-subhead"><span>Entregas de hoy</span><small><!--SLOT:TASKCOUNT--></small></div>
+        <div class="nova-delivery-list"><!--SLOT:TASKTODAY--></div>
+      </div>
+    </section>
+
+    <section class="nova-panel nova-copilot" aria-labelledby="ai-card-title">
+      <div class="nova-copilot-glow" aria-hidden="true"></div>
+      <header class="nova-panel-header">
+        <div><span class="nova-section-number">03</span><span class="nova-label">Piensa con apoyo</span><h2 id="ai-card-title">Copiloto académico</h2></div>
+        <span class="nova-pill cyan"><!--SLOT:AI_MODEL--></span>
+      </header>
+      <div class="nova-ai-resume"><!--SLOT:AI_RESUME--></div>
+      <div class="nova-ai-actions">
+        <button type="button"><span class="material-symbols-outlined" aria-hidden="true">summarize</span><strong>Generar resumen</strong><small>Destila lo esencial de tus apuntes.</small><span class="material-symbols-outlined arrow" aria-hidden="true">arrow_forward</span></button>
+        <button type="button"><span class="material-symbols-outlined" aria-hidden="true">quiz</span><strong>Crear cuestionario</strong><small>Comprueba lo que ya sabes.</small><span class="material-symbols-outlined arrow" aria-hidden="true">arrow_forward</span></button>
+        <button type="button"><span class="material-symbols-outlined" aria-hidden="true">calendar_clock</span><strong>Plan de estudio</strong><small>Dale espacio a tu próxima meta.</small><span class="material-symbols-outlined arrow" aria-hidden="true">arrow_forward</span></button>
+      </div>
+    </section>
+  </div>
+
+  <section class="nova-panel nova-tasks" aria-labelledby="tasks-card-title">
+    <header class="nova-panel-header">
+      <div><span class="nova-section-number">04</span><span class="nova-label">Lo importante primero</span><h2 id="tasks-card-title">Prioridades y vencimientos</h2></div>
+      <a class="nova-link" href="/dashboard/planner">Abrir planificador<span class="material-symbols-outlined" aria-hidden="true">arrow_outward</span></a>
+    </header>
+    <div class="nova-table-wrap">
+      <table class="nova-table">
+        <thead><tr><th scope="col">Estado</th><th scope="col">Actividad / tarea</th><th scope="col">Materia</th><th scope="col">Límite</th><th scope="col">Prioridad</th><th scope="col" aria-label="Acciones"></th></tr></thead>
+        <tbody><!--SLOT:TASKTABLE--></tbody>
+      </table>
+    </div>
+    <footer class="nova-panel-footer"><span><!--SLOT:TASKFOOTER--></span><a class="nova-link" href="/dashboard/planner">Ver todas las tareas<span class="material-symbols-outlined" aria-hidden="true">chevron_right</span></a></footer>
+  </section>
+
+  <div class="nova-bottom-grid">
+    <section class="nova-panel nova-notes" aria-labelledby="notes-card-title">
+      <header class="nova-panel-header">
+        <div><span class="nova-section-number">05</span><span class="nova-label">Tu memoria viva</span><h2 id="notes-card-title">Segundo cerebro</h2></div>
+        <a class="nova-link" href="/dashboard/notes">Ver vault<span class="material-symbols-outlined" aria-hidden="true">arrow_outward</span></a>
+      </header>
+      <p class="nova-panel-intro">Ideas, apuntes y conexiones que vuelven cuando las necesitas.</p>
+      <div class="nova-notes-list"><!--SLOT:NOTES--></div>
+    </section>
+    <div class="nova-exam"><!--SLOT:EXAM--></div>
+    <div class="nova-focus"><!--SLOT:FOCUS--></div>
+  </div>
+
+  <div class="nova-task-modal hidden" id="quick-task-modal" role="dialog" aria-modal="true" aria-labelledby="quick-task-title-heading">
+    <div class="nova-task-dialog">
+      <header class="nova-task-header">
+        <div><span class="nova-label">Una idea menos en tu cabeza</span><h2 id="quick-task-title-heading">Nueva tarea académica</h2></div>
+        <button class="nova-icon-button" id="close-modal-btn" type="button" aria-label="Cerrar ventana"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>
+      </header>
+      <form class="nova-task-form" onsubmit="event.preventDefault();">
+        <div class="nova-field full"><label for="quick-task-title">Título de la tarea o entrega</label><input id="quick-task-title" type="text" placeholder="Ej. Informe de laboratorio 5" autocomplete="off"/></div>
+        <div class="nova-field"><label for="quick-task-subject">Asignatura</label><select id="quick-task-subject"><!--SLOT:SUBJECT_OPTIONS--></select></div>
+        <div class="nova-field"><label for="quick-task-priority">Prioridad</label><select id="quick-task-priority"><option>Alta (Crítica)</option><option selected>Media</option><option>Baja</option></select></div>
+        <div class="nova-field"><label for="quick-task-date">Fecha límite</label><input id="quick-task-date" type="date"/></div>
+        <div class="nova-field"><label for="quick-task-time">Hora</label><input id="quick-task-time" type="time" value="23:59"/></div>
+        <div class="nova-task-actions"><button class="nova-button nova-button-quiet" id="cancel-modal-btn" type="button">Cancelar</button><button class="nova-button nova-button-primary" type="submit"><span class="material-symbols-outlined" aria-hidden="true">check</span>Guardar Tarea</button></div>
+      </form>
+    </div>
+  </div>
 </div>
-<div class="flex items-baseline gap-space-sm mt-1">
-<!--SLOT:GREETING-->
-<!--SLOT:TODAYLINE-->
-</div>
-</div>
-<!-- Sync telemetry pill & Quick Action toggles -->
-<div class="flex flex-wrap items-center gap-space-sm">
-<div class="flex items-center gap-2 px-space-sm py-1.5 rounded-lg bg-surface-container-low shadow-sm">
-<span class="material-symbols-outlined text-[16px] text-primary-container">sync_saved_locally</span>
-<div class="flex flex-col">
-<!--SLOT:SYNC-->
-<span class="font-code-inline text-[9px] text-outline uppercase tracking-wider">Acceso solo lectura</span>
-</div>
-<span class="w-1.5 h-1.5 rounded-full bg-secondary-fixed"></span>
-</div>
-<button class="flex items-center gap-1.5 px-space-md py-2 rounded-lg bg-secondary text-on-secondary font-label-md text-label-md font-semibold hover:bg-secondary-fixed transition-all shadow-md" id="quick-create-btn">
-<span class="material-symbols-outlined text-[18px]">add_circle</span>
-<span>+ Nueva Tarea</span>
-</button>
-<button class="flex items-center gap-1 px-space-sm py-2 rounded-lg bg-surface-container-high text-on-surface font-label-md text-label-md hover:bg-surface-bright transition-all" id="toggle-create-menu">
-<span class="material-symbols-outlined text-[18px] text-primary-container">hub</span>
-<span>Menú Crear</span>
-<span class="material-symbols-outlined text-[16px]">unfold_more</span>
-</button>
-<!-- View switches -->
-<div class="flex items-center bg-surface-container-low p-0.5 rounded-lg">
-<button class="px-2.5 py-1.5 rounded bg-surface-container-high text-on-surface font-label-sm text-label-sm font-medium shadow-sm flex items-center gap-1">
-<span class="material-symbols-outlined text-[14px]">grid_view</span>
-            Compacto
-          </button>
-<button class="px-2.5 py-1.5 rounded text-outline hover:text-on-surface font-label-sm text-label-sm font-medium transition-colors flex items-center gap-1">
-<span class="material-symbols-outlined text-[14px]">filter_list</span>
-            Materia
-          </button>
-</div>
-</div>
-<!-- Popover / Flyout menu "+ Crear" (Rich Categorized Panel) -->
-<div class="hidden absolute right-0 top-16 w-80 md:w-96 rounded-xl bg-surface-container-high/95 backdrop-blur-xl p-space-md shadow-2xl z-50" id="create-modal-popover">
-<div class="flex items-center justify-between pb-space-sm">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-primary-fixed-dim text-[20px]">add_box</span>
-<span class="font-headline-sm text-headline-sm text-on-surface">Centro de Creación</span>
-</div>
-<button class="text-outline hover:text-on-surface" id="close-create-menu">
-<span class="material-symbols-outlined text-[18px]">close</span>
-</button>
-</div>
-<div class="space-y-space-sm text-body-sm">
-<!-- Categoría Académico -->
-<div>
-<div class="font-label-sm text-[10px] uppercase text-outline tracking-wider mb-1 flex items-center gap-1">
-<span class="material-symbols-outlined text-[12px] text-secondary">school</span> Académico
-            </div>
-<div class="grid grid-cols-2 gap-1.5">
-<button class="flex items-center gap-2 p-1.5 rounded bg-surface-container text-left hover:bg-surface-bright transition-colors text-on-surface">
-<span class="material-symbols-outlined text-[16px] text-secondary">task_alt</span>
-<span class="truncate font-label-md text-label-sm">Nueva tarea</span>
-</button>
-<button class="flex items-center gap-2 p-1.5 rounded bg-surface-container text-left hover:bg-surface-bright transition-colors text-on-surface">
-<span class="material-symbols-outlined text-[16px] text-error">assignment_late</span>
-<span class="truncate font-label-md text-label-sm">Nuevo examen</span>
-</button>
-<button class="flex items-center gap-2 p-1.5 rounded bg-surface-container text-left hover:bg-surface-bright transition-colors text-on-surface">
-<span class="material-symbols-outlined text-[16px] text-primary-container">event</span>
-<span class="truncate font-label-md text-label-sm">Nueva clase / ses.</span>
-</button>
-<button class="flex items-center gap-2 p-1.5 rounded bg-surface-container text-left hover:bg-surface-bright transition-colors text-on-surface">
-<span class="material-symbols-outlined text-[16px] text-tertiary-fixed-dim">menu_book</span>
-<span class="truncate font-label-md text-label-sm">Nueva asignatura</span>
-</button>
-</div>
-</div>
-<!-- Categoría Conocimiento -->
-<div>
-<div class="font-label-sm text-[10px] uppercase text-outline tracking-wider mb-1 flex items-center gap-1">
-<span class="material-symbols-outlined text-[12px] text-tertiary-fixed-dim">neurology</span> Conocimiento & Vault
-            </div>
-<div class="grid grid-cols-3 gap-1.5">
-<button class="flex items-center gap-1.5 p-1.5 rounded bg-surface-container hover:bg-surface-bright transition-colors text-on-surface">
-<span class="material-symbols-outlined text-[16px] text-tertiary">edit_note</span>
-<span class="font-label-sm text-label-sm">Nota MD</span>
-</button>
-<button class="flex items-center gap-1.5 p-1.5 rounded bg-surface-container hover:bg-surface-bright transition-colors text-on-surface">
-<span class="material-symbols-outlined text-[16px] text-outline">folder</span>
-<span class="font-label-sm text-label-sm">Carpeta</span>
-</button>
-<button class="flex items-center gap-1.5 p-1.5 rounded bg-surface-container hover:bg-surface-bright transition-colors text-on-surface">
-<span class="material-symbols-outlined text-[16px] text-primary-container">polyline</span>
-<span class="font-label-sm text-label-sm">Grafo</span>
-</button>
-</div>
-</div>
-<!-- Categoría IA Copilot -->
-<div>
-<div class="font-label-sm text-[10px] uppercase text-outline tracking-wider mb-1 flex items-center gap-1">
-<span class="material-symbols-outlined text-[12px] text-primary-container">auto_awesome</span> Inteligencia Artificial
-            </div>
-<div class="grid grid-cols-2 gap-1.5">
-<button class="flex items-center gap-2 p-1.5 rounded bg-surface-container text-left hover:bg-surface-bright transition-colors text-on-surface">
-<span class="material-symbols-outlined text-[16px] text-primary-container">forum</span>
-<span class="truncate font-label-md text-label-sm">Nuevo chat analítico</span>
-</button>
-<button class="flex items-center gap-2 p-1.5 rounded bg-surface-container text-left hover:bg-surface-bright transition-colors text-on-surface">
-<span class="material-symbols-outlined text-[16px] text-primary-container">summarize</span>
-<span class="truncate font-label-md text-label-sm">Generar resumen</span>
-</button>
-<button class="flex items-center gap-2 p-1.5 rounded bg-surface-container text-left hover:bg-surface-bright transition-colors text-on-surface">
-<span class="material-symbols-outlined text-[16px] text-primary-container">quiz</span>
-<span class="truncate font-label-md text-label-sm">Crear cuestionario</span>
-</button>
-<button class="flex items-center gap-2 p-1.5 rounded bg-surface-container text-left hover:bg-surface-bright transition-colors text-on-surface">
-<span class="material-symbols-outlined text-[16px] text-primary-container">model_training</span>
-<span class="truncate font-label-md text-label-sm">Plan de estudio</span>
-</button>
-</div>
-</div>
-<!-- Oficina -->
-<div>
-<div class="font-label-sm text-[10px] uppercase text-outline tracking-wider mb-1 flex items-center gap-1">
-<span class="material-symbols-outlined text-[12px] text-outline">description</span> Documentos & Office
-            </div>
-<div class="flex gap-1.5">
-<button class="flex-1 flex items-center justify-center gap-1 p-1 rounded bg-surface-container text-on-surface hover:bg-surface-bright text-[11px] font-label-sm">
-<span class="material-symbols-outlined text-[14px]">article</span> Documento
-              </button>
-<button class="flex-1 flex items-center justify-center gap-1 p-1 rounded bg-surface-container text-on-surface hover:bg-surface-bright text-[11px] font-label-sm">
-<span class="material-symbols-outlined text-[14px]">table_chart</span> Hoja cálculo
-              </button>
-<button class="flex-1 flex items-center justify-center gap-1 p-1 rounded bg-surface-container text-on-surface hover:bg-surface-bright text-[11px] font-label-sm">
-<span class="material-symbols-outlined text-[14px]">slideshow</span> Diapositiva
-              </button>
-</div>
-</div>
-</div>
-</div>
-</div>
-<!-- MAIN DENSE GRID -->
-<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter-desktop">
-<!-- ==============================================
-           COLUMNA 1: HOY & EN CURSO (Lg: 4 Cols)
-      =============================================== -->
-<section class="lg:col-span-4 flex flex-col space-y-gutter">
-<!-- Tarjeta de Bloque Horario Actual -->
-<div class="rounded-xl bg-surface-container-low p-space-md shadow-md flex flex-col">
-<div class="flex items-center justify-between pb-space-sm mb-space-sm">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-secondary text-[20px]">schedule</span>
-<h2 class="font-headline-sm text-headline-sm text-on-surface">Hoy & En Curso</h2>
-</div>
-<span class="px-2 py-0.5 rounded-full bg-surface-container-highest text-[10px] font-code-inline text-outline flex items-center gap-1">
-<!--SLOT:CLASSCOUNT-->
-            </span>
-</div>
-<!-- Mikareno sync source indicator -->
-<div class="mb-space-sm px-2.5 py-1 rounded bg-surface-container flex items-center justify-between">
-<div class="flex items-center gap-1.5">
-<span class="material-symbols-outlined text-[14px] text-primary-container">lock</span>
-<span class="font-body-sm text-[11px] text-on-surface-variant font-medium">Datos sincronizados de Mikareno</span>
-</div>
-<span class="font-code-inline text-[10px] text-outline">Solo lectura</span>
-</div>
-<!-- Lista de Próximas Clases -->
-<!--SLOT:CLASSES-->
-<!-- Tareas con Vencimiento Hoy -->
-<div class="mt-space-md pt-space-sm">
-<div class="flex items-center justify-between mb-space-xs">
-<span class="font-label-sm text-label-sm uppercase tracking-wider text-outline flex items-center gap-1">
-<span class="material-symbols-outlined text-[14px] text-error">priority_high</span> Entregas Hoy
-              </span>
-<!--SLOT:TASKCOUNT-->
-</div>
-<!--SLOT:TASKTODAY-->
-</div>
-</div>
-<!-- Segundo Cerebro & Notas Recientes (Col 1 Lower) -->
-<div class="rounded-xl bg-surface-container-low p-space-md shadow-md flex flex-col">
-<div class="flex items-center justify-between pb-space-xs mb-space-xs">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-tertiary-fixed-dim text-[20px]">psychology</span>
-<h2 class="font-headline-sm text-headline-sm text-on-surface">Segundo Cerebro</h2>
-</div>
-<a class="font-label-sm text-label-sm text-primary-container hover:underline" href="#">Ver vault</a>
-</div>
-<p class="font-body-sm text-body-sm text-outline mb-space-sm">Notas enlazadas y síntesis activa de conocimiento</p>
-<!--SLOT:NOTES-->
-</div>
-</section>
-<!-- ==============================================
-           COLUMNA 2: PRIORIDADES Y VENCIMIENTOS (Lg: 5 Cols)
-      =============================================== -->
-<section class="lg:col-span-5 flex flex-col space-y-gutter">
-<!-- AI Assistant Direct Action Card (Subtle Glowing Cyan) -->
-<div class="rounded-xl bg-surface-container-low p-space-md shadow-md relative overflow-hidden">
-<div class="flex items-center justify-between mb-space-sm">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-primary-container text-[20px] animate-pulse">auto_awesome</span>
-<span class="font-headline-sm text-headline-sm text-on-surface font-semibold">Copiloto Académico</span>
-</div>
-<span class="px-2 py-0.5 rounded-full bg-primary-container/10 text-primary-container font-code-inline text-[10px]"><!--SLOT:AI_MODEL--></span>
-</div>
-<!--SLOT:AI_RESUME-->
-<!-- Quick AI Action Badges -->
-<div class="grid grid-cols-3 gap-2">
-<button class="p-2 rounded-lg bg-surface-container hover:bg-surface-container-high transition-all text-left flex flex-col gap-1 group">
-<span class="material-symbols-outlined text-primary-container text-[18px] group-hover:scale-110 transition-transform">summarize</span>
-<span class="font-label-sm text-[11px] text-on-surface leading-tight font-medium">Resumir apuntes de ayer</span>
-</button>
-<button class="p-2 rounded-lg bg-surface-container hover:bg-surface-container-high transition-all text-left flex flex-col gap-1 group">
-<span class="material-symbols-outlined text-primary-container text-[18px] group-hover:scale-110 transition-transform">quiz</span>
-<span class="font-label-sm text-[11px] text-on-surface leading-tight font-medium">Cuestionario de Redes</span>
-</button>
-<button class="p-2 rounded-lg bg-surface-container hover:bg-surface-container-high transition-all text-left flex flex-col gap-1 group">
-<span class="material-symbols-outlined text-primary-container text-[18px] group-hover:scale-110 transition-transform">calendar_clock</span>
-<span class="font-label-sm text-[11px] text-on-surface leading-tight font-medium">Planificar examen</span>
-</button>
-</div>
-</div>
-<!-- Matriz de Tareas y Vencimientos (Dense Technical Table) -->
-<div class="rounded-xl bg-surface-container-low p-space-md shadow-md flex flex-col">
-<div class="flex items-center justify-between pb-space-sm mb-space-sm">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-primary-container text-[20px]">checklist</span>
-<h2 class="font-headline-sm text-headline-sm text-on-surface">Prioridades y Vencimientos</h2>
-</div>
-<div class="flex items-center gap-1">
-<button class="p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container transition-colors" title="Filtrar">
-<span class="material-symbols-outlined text-[18px]">filter_alt</span>
-</button>
-<button class="p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container transition-colors" title="Ordenar">
-<span class="material-symbols-outlined text-[18px]">sort</span>
-</button>
-</div>
-</div>
-<!-- Table Container -->
-<div class="overflow-x-auto">
-<table class="w-full text-left font-body-sm text-body-sm">
-<thead>
-<tr class="text-outline font-label-sm text-[10px] uppercase tracking-wider">
-<th class="pb-2 pl-1 font-medium">Estado</th>
-<th class="pb-2 font-medium">Actividad / Tarea</th>
-<th class="pb-2 font-medium">Materia</th>
-<th class="pb-2 font-medium">Límite</th>
-<th class="pb-2 font-medium">Prioridad</th>
-<th class="pb-2 pr-1 font-medium text-right">Acción</th>
-</tr>
-</thead>
-<tbody class="space-y-1">
-<!--SLOT:TASKTABLE-->
-</tbody>
-</table>
-</div>
-<div class="pt-space-sm mt-space-sm flex items-center justify-between text-outline font-label-sm text-[11px]">
-<!--SLOT:TASKFOOTER-->
-<button class="text-primary-container hover:underline flex items-center gap-1 font-medium">
-              Ver todas las tareas <span class="material-symbols-outlined text-[14px]">chevron_right</span>
-</button>
-</div>
-</div>
-</section>
-<!-- ==============================================
-           COLUMNA 3: CALENDARIO RESUMIDO & TELEMETRÍA (Lg: 4 Cols)
-      =============================================== -->
-<section class="lg:col-span-4 flex flex-col space-y-gutter">
-<!-- Mini-calendario de la semana con heat-dots de carga -->
-<div class="rounded-xl bg-surface-container-low p-space-md shadow-md flex flex-col">
-<div class="flex items-center justify-between pb-space-xs mb-space-xs">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-on-surface text-[20px]">calendar_month</span>
-<!--SLOT:WEEKTITLE-->
-</div>
-<a class="font-label-sm text-label-sm text-primary-container hover:underline" href="#">Ver mes</a>
-</div>
-<!-- Días de la semana interactivos -->
-<!--SLOT:WEEKCAL-->
-<div class="flex items-center justify-between pt-2 text-[10px] text-outline font-label-sm">
-<span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-error"></span> Alta carga</span>
-<span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-secondary"></span> Clases regulares</span>
-<span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span> Laboratorios</span>
-</div>
-</div>
-<!--SLOT:EXAM-->
-<!--SLOT:FOCUS-->
-</section>
-</div>
-<!-- Quick Slide-in / Drawer Demo Panel (Event inspector detail preview) -->
-<div class="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden" id="quick-task-modal">
-<div class="bg-surface-container-high w-full max-w-lg rounded-2xl p-space-lg shadow-2xl relative">
-<div class="flex items-center justify-between pb-space-sm mb-space-sm">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-secondary text-[22px]">add_task</span>
-<h3 class="font-headline-sm text-headline-sm text-on-surface font-semibold">Crear Nueva Tarea Académica</h3>
-</div>
-<button class="text-outline hover:text-on-surface" id="close-modal-btn">
-<span class="material-symbols-outlined text-[20px]">close</span>
-</button>
-</div>
-<form class="space-y-space-sm" onsubmit="event.preventDefault(); document.getElementById('quick-task-modal').classList.add('hidden');">
-<div>
-<label class="block font-label-sm text-label-sm text-on-surface-variant mb-1">Título de la tarea o entrega</label>
-<input class="w-full px-3 py-2 rounded-lg bg-surface-container text-on-surface font-body-md text-body-md outline-none focus:ring-1 focus:ring-primary-container placeholder:text-outline/60" placeholder="Ej. Informe de Laboratorio 5: Sockets UDP" type="text"/>
-</div>
-<div class="grid grid-cols-2 gap-space-sm">
-<div>
-<label class="block font-label-sm text-label-sm text-on-surface-variant mb-1">Asignatura</label>
-<select class="w-full px-3 py-2 rounded-lg bg-surface-container text-on-surface font-body-md text-body-md outline-none focus:ring-1 focus:ring-primary-container">
-<!--SLOT:SUBJECT_OPTIONS-->
-</select>
-</div>
-<div>
-<label class="block font-label-sm text-label-sm text-on-surface-variant mb-1">Prioridad</label>
-<select class="w-full px-3 py-2 rounded-lg bg-surface-container text-on-surface font-body-md text-body-md outline-none focus:ring-1 focus:ring-primary-container">
-<option>Alta (Crítica)</option>
-<option selected="">Media</option>
-<option>Baja</option>
-</select>
-</div>
-</div>
-<div class="grid grid-cols-2 gap-space-sm">
-<div>
-<label class="block font-label-sm text-label-sm text-on-surface-variant mb-1">Fecha Límite</label>
-<input class="w-full px-3 py-2 rounded-lg bg-surface-container text-on-surface font-body-md text-body-md outline-none focus:ring-1 focus:ring-primary-container" type="date" value="2024-10-25"/>
-</div>
-<div>
-<label class="block font-label-sm text-label-sm text-on-surface-variant mb-1">Hora</label>
-<input class="w-full px-3 py-2 rounded-lg bg-surface-container text-on-surface font-body-md text-body-md outline-none focus:ring-1 focus:ring-primary-container" type="time" value="23:59"/>
-</div>
-</div>
-<div class="pt-space-sm flex items-center justify-between">
-<label class="flex items-center gap-2 cursor-pointer">
-<input class="w-4 h-4 rounded bg-surface-container accent-secondary" type="checkbox"/>
-<span class="font-label-sm text-label-sm text-outline">Vincular con Mikareno si coincide</span>
-</label>
-<div class="flex items-center gap-2">
-<button class="px-space-md py-2 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md hover:bg-surface-bright transition-colors" id="cancel-modal-btn" type="button">
-                Cancelar
-              </button>
-<button class="px-space-md py-2 rounded-lg bg-secondary text-on-secondary font-label-md text-label-md font-semibold hover:bg-secondary-fixed transition-all shadow-md" type="submit">
-                Guardar Tarea
-              </button>
-</div>
-</div>
-</form>
-</div>
-</div>
-</div>
-<!-- Vanilla JS Interactive Wireup for Dropdown & Modal -->
+
 <script>
-    (function initDashboardInteractions() {
-      const toggleBtn = document.getElementById('toggle-create-menu');
-      const menuPopover = document.getElementById('create-modal-popover');
-      const closeMenuBtn = document.getElementById('close-create-menu');
+  (function initDashboardInteractions() {
+    var toggleBtn = document.getElementById('toggle-create-menu');
+    var menuPopover = document.getElementById('create-modal-popover');
+    var closeMenuBtn = document.getElementById('close-create-menu');
+    var quickTaskBtn = document.getElementById('quick-create-btn');
+    var taskModal = document.getElementById('quick-task-modal');
+    var closeModalBtn = document.getElementById('close-modal-btn');
+    var cancelModalBtn = document.getElementById('cancel-modal-btn');
+    var titleInput = document.getElementById('quick-task-title');
 
-      const quickTaskBtn = document.getElementById('quick-create-btn');
-      const taskModal = document.getElementById('quick-task-modal');
-      const closeModalBtn = document.getElementById('close-modal-btn');
-      const cancelModalBtn = document.getElementById('cancel-modal-btn');
+    function setMenu(open) {
+      if (!menuPopover || !toggleBtn) { return; }
+      menuPopover.classList.toggle('hidden', !open);
+      toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    function setModal(open) {
+      if (!taskModal) { return; }
+      taskModal.classList.toggle('hidden', !open);
+      if (open && titleInput) { setTimeout(function () { titleInput.focus(); }, 40); }
+    }
 
-      if (toggleBtn && menuPopover) {
-        toggleBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          menuPopover.classList.toggle('hidden');
-        });
-
-        if (closeMenuBtn) {
-          closeMenuBtn.addEventListener('click', () => {
-            menuPopover.classList.add('hidden');
-          });
-        }
-
-        document.addEventListener('click', (e) => {
-          if (!menuPopover.contains(e.target) && !toggleBtn.contains(e.target)) {
-            menuPopover.classList.add('hidden');
-          }
-        });
-      }
-
-      if (quickTaskBtn && taskModal) {
-        quickTaskBtn.addEventListener('click', () => {
-          taskModal.classList.remove('hidden');
-        });
-
-        const hideModal = () => taskModal.classList.add('hidden');
-        if (closeModalBtn) closeModalBtn.addEventListener('click', hideModal);
-        if (cancelModalBtn) cancelModalBtn.addEventListener('click', hideModal);
-
-        taskModal.addEventListener('click', (e) => {
-          if (e.target === taskModal) hideModal();
-        });
-      }
-    })();
-  </script>
-</div>
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', function (event) {
+        event.stopPropagation();
+        setMenu(menuPopover && menuPopover.classList.contains('hidden'));
+      });
+    }
+    if (closeMenuBtn) { closeMenuBtn.addEventListener('click', function () { setMenu(false); }); }
+    if (quickTaskBtn) { quickTaskBtn.addEventListener('click', function () { setMenu(false); setModal(true); }); }
+    if (closeModalBtn) { closeModalBtn.addEventListener('click', function () { setModal(false); }); }
+    if (cancelModalBtn) { cancelModalBtn.addEventListener('click', function () { setModal(false); }); }
+    if (taskModal) { taskModal.addEventListener('click', function (event) { if (event.target === taskModal) { setModal(false); } }); }
+    document.addEventListener('click', function (event) {
+      if (menuPopover && toggleBtn && !menuPopover.contains(event.target) && !toggleBtn.contains(event.target)) { setMenu(false); }
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') { setMenu(false); setModal(false); }
+    });
+  })();
+</script>

@@ -1,288 +1,54 @@
-<div class="flex flex-col w-full">
-<div class="px-gutter-desktop py-space-lg flex flex-col gap-space-lg">
-<!-- Header Section with Telemetry Overview -->
-<div class="flex flex-wrap items-end justify-between gap-space-md">
-<div class="space-y-space-xs">
-<div class="flex items-center gap-space-xs">
-<span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 text-primary-container text-body-sm font-code-inline font-bold">01</span>
-<span class="font-label-sm text-label-sm uppercase tracking-widest text-outline">Protocolo Model Context Protocol (MCP)</span>
-<span class="text-outline-variant font-code-inline text-body-sm">/</span>
-<span class="font-label-sm text-label-sm uppercase tracking-wider text-primary-fixed-dim">Gateway LLM Distribuido</span>
-</div>
-<h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Centro MCP &amp; Orquestador OpenRouter</h1>
-<p class="font-body-md text-body-md text-on-surface-variant max-w-2xl">
-          Estado real de los servidores MCP vinculados (Mikareno, GenOffice y el MCP nativo) y del enrutador OpenRouter. Los datos provienen de la configuración y la base local del servidor.
-        </p>
-</div>
-<!-- Quick Metrics Ribbon -->
-<div class="flex items-center gap-space-xs bg-surface-container-low p-1.5 rounded-lg">
-<div class="flex items-center gap-2 px-space-sm py-1 rounded bg-surface-container">
-<!--SLOT:MCP_ORCHESTRATOR-->
-</div>
-<div class="flex items-center gap-2 px-space-sm py-1 rounded bg-surface-container" title="Latencia del último chequeo MCP (Mikareno)">
-<span class="material-symbols-outlined text-primary-container text-[16px]">speed</span>
-<span class="font-code-inline text-code-inline text-primary-container" id="header-latency"><!--SLOT:MCP_LATENCY--></span>
-</div>
-<div class="flex items-center gap-2 px-space-sm py-1 rounded bg-surface-container" title="Gasto de IA del mes en curso registrado en la base local">
-<span class="material-symbols-outlined text-outline text-[16px]">account_balance_wallet</span>
-<span class="font-code-inline text-code-inline text-on-surface-variant"><!--SLOT:MCP_SPEND--></span>
-</div>
-</div>
-</div>
-<!-- Main Tri-Split / Workspace Grid -->
-<div class="grid grid-cols-1 xl:grid-cols-12 gap-gutter-desktop items-start">
-<!-- Center Main Configuration Pane (xl:col-span-8) -->
-<div class="xl:col-span-8 flex flex-col gap-space-lg">
-<!-- OpenRouter Primary Credentials Block -->
-<div class="relative bg-surface-container-low p-space-xl rounded-xl overflow-hidden shadow-lg">
-<!-- Subtle Glow Bar on top -->
-<div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary-container via-secondary to-primary-container opacity-60"></div>
-<div class="flex items-start justify-between mb-space-lg">
-<div class="flex items-center gap-space-sm">
-<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary-container shadow-inner">
-<span class="material-symbols-outlined text-[24px]">hub</span>
-</div>
-<div>
-<div class="flex items-center gap-2">
-<h2 class="font-headline-md text-headline-md text-on-surface">Credenciales OpenRouter</h2>
-<span class="px-2 py-0.5 rounded-full text-[10px] font-code-inline uppercase tracking-wider bg-primary-container/15 text-primary-container">v1/chat/completions</span>
-</div>
-<p class="font-body-sm text-body-sm text-outline">Enrutamiento multiproveedor con clave unificada y reintento conmutativo.</p>
-</div>
-</div>
-<!-- Health Badge -->
-<!--SLOT:MCP_STATUS_AI-->
-</div>
-<!-- Secret Key Form -->
-<div class="flex flex-col gap-space-md">
-<div>
-<div class="flex justify-between items-center mb-1.5">
-<label class="font-label-md text-label-md text-on-surface-variant flex items-center gap-1.5" for="openrouter-key">
-<span>API Key Secreta</span>
-<span class="material-symbols-outlined text-[15px] text-outline cursor-help" title="Tu clave comienza habitualmente con sk-or-v1-...">info</span>
-</label>
-<span class="font-code-inline text-[11px] text-primary-fixed-dim"><!--SLOT:MCP_KEY_STATE--></span>
-</div>
-<div class="relative flex items-center">
-<span class="absolute left-3.5 text-outline material-symbols-outlined text-[18px]">key</span>
-<input class="w-full h-11 bg-surface-container-high rounded-lg pl-11 pr-28 text-on-surface font-code-inline text-code-inline placeholder:text-outline focus:outline-none focus:bg-surface-container transition-all" aria-label="Clave de OpenRouter (OPENROUTER_API_KEY)" id="openrouter-key" placeholder="sk-or-v1-••••••••••••••••••••••••" type="password" autocomplete="off" aria-describedby="openrouter-key-note" title="Se define en el servidor (.env), no en el navegador"/>
-<button class="absolute right-3 px-2 py-1 rounded text-outline hover:text-on-surface hover:bg-surface-container-highest transition-colors flex items-center gap-1 font-label-sm text-label-sm" id="toggle-key-visibility" type="button">
-<span class="material-symbols-outlined text-[16px]" id="eye-icon">visibility</span>
-<span id="eye-text">Mostrar</span>
-</button>
-</div>
-</div>
-<!-- Model Selector & Parameters Sub-Grid -->
-<div class="grid grid-cols-1 md:grid-cols-2 gap-space-md pt-space-xs">
-<!-- Model Selection Dropdown -->
-<div class="flex flex-col gap-1.5">
-<label class="font-label-md text-label-md text-on-surface-variant flex items-center justify-between" for="default-model">
-<span>Modelo de Inferencia Primario</span>
-<span class="font-code-inline text-[10px] text-secondary" id="model-hint">Definido en .env</span>
-</label>
-<div class="relative">
-<select class="w-full h-10 bg-surface-container-high rounded-lg px-space-sm text-on-surface font-body-md text-body-md appearance-none focus:outline-none focus:bg-surface-container cursor-pointer transition-all" aria-describedby="model-hint" id="default-model">
-<!--SLOT:MCP_MODEL_OPTIONS-->
-</select>
-<span class="material-symbols-outlined absolute right-3 top-2.5 text-outline pointer-events-none text-[20px]">expand_more</span>
-</div>
-</div>
-<!-- Local Fallback Switch -->
-<div class="flex flex-col gap-1.5 justify-between">
-<div class="flex items-center justify-between">
-<span class="font-label-md text-label-md text-on-surface-variant">Conmutación Local (Fallback)</span>
-<span class="font-code-inline text-[10px] text-outline">Ollama / Native MCP</span>
-</div>
-<div class="flex items-center justify-between h-10 px-space-sm bg-surface-container-high rounded-lg">
-<span class="font-body-sm text-body-sm text-outline">Derivar a Ollama si HTTP &gt;= 500</span>
-<label for="fallback-toggle" class="relative inline-flex items-center cursor-pointer">
-<input checked="" class="sr-only peer" id="fallback-toggle" type="checkbox" aria-label="Derivar a Ollama si la API responde con HTTP 500 o superior"/>
-<div class="w-9 h-5 bg-surface-container rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-on-primary-container after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-container"></div>
-</label>
-</div>
-</div>
-</div>
-<!-- Inference Sliders & Safety Limits -->
-<div class="grid grid-cols-1 md:grid-cols-2 gap-space-md pt-space-xs">
-<!-- Temperature Slider -->
-<div class="p-space-sm bg-surface-container rounded-lg flex flex-col gap-space-xs">
-<div class="flex justify-between items-center">
-<label for="temperature-slider" class="font-label-md text-label-md text-on-surface">Temperatura Cognitiva</label>
-<span class="font-code-inline text-code-inline text-primary-container" id="temp-value">0.30 (Analítico)</span>
-</div>
-<input class="w-full accent-primary-container cursor-pointer h-1.5 bg-surface-container-highest rounded-lg appearance-none" id="temperature-slider" max="100" min="0" type="range" value="30" aria-describedby="temp-note" title="La temperatura la fija el cliente de OpenRouter (0.70): no se puede cambiar desde aquí."/>
-<div class="flex justify-between text-[10px] font-body-sm text-outline">
-<span>0.0 Precisión matemática</span>
-<span>1.0 Pensamiento divergente</span>
-</div>
-<p id="temp-note" class="text-[10px] font-body-sm text-outline">La fija el cliente de OpenRouter (0.70): no se puede cambiar desde el navegador.</p>
-</div>
-<!-- Monthly Hard Spend Limit -->
-<div class="p-space-sm bg-surface-container rounded-lg flex flex-col gap-space-xs">
-<div class="flex justify-between items-center">
-<label for="budget-slider" class="font-label-md text-label-md text-on-surface">Tope Presupuestario Mensual</label>
-<span class="font-code-inline text-code-inline text-secondary" id="budget-value"><!--SLOT:MCP_BUDGET--></span>
-</div>
-<input class="w-full accent-secondary cursor-pointer h-1.5 bg-surface-container-highest rounded-lg appearance-none" id="budget-slider" max="150" min="1" type="range" value="<!--SLOT:MCP_BUDGET_INT-->"/>
-<div class="flex justify-between text-[10px] font-body-sm text-outline">
-<span>$1 Límite base</span>
-<span>$150 Carga intensiva</span>
-</div>
-</div>
-</div>
-<!-- Privacy Guarantee Callout -->
-<div class="flex items-start gap-space-sm p-space-sm rounded-lg bg-surface-container/70">
-<span class="material-symbols-outlined text-secondary text-[20px] mt-0.5">verified_user</span>
-<div class="space-y-0.5">
-<p class="font-label-md text-label-md text-on-surface font-semibold">Garantía Criptográfica de Soberanía de Datos</p>
-<p id="openrouter-key-note" class="font-body-sm text-body-sm text-on-surface-variant">
-                  La clave de API se guarda únicamente en el servidor (variables de entorno .env) y nunca se envía al navegador. Las solicitudes de IA salen solo hacia OpenRouter cuando hay clave configurada.
-                </p>
-</div>
-</div>
-<!-- Primary Action Bar -->
-<div class="flex flex-wrap items-center justify-between gap-space-sm pt-space-xs">
-<div class="flex items-center gap-space-xs text-outline font-code-inline text-[11px]">
-<span class="material-symbols-outlined text-[15px] text-primary-fixed-dim">lock</span>
-<span>Gestionado por variables de entorno (.env) en el servidor</span>
-</div>
-<div class="flex items-center gap-space-xs">
-<button class="px-space-md py-2 rounded-lg bg-primary-container/10 text-primary-container hover:bg-primary-container/20 font-label-md text-label-md transition-all flex items-center gap-1.5" id="btn-test-ping" type="button" title="Consulta el estado del servidor y muestra la latencia; se deshabilita mientras comprueba.">
-<span class="material-symbols-outlined text-[16px]">wifi_tethering</span>
-<span>Probar Conexión</span>
-</button>
-<button class="px-space-lg py-2 rounded-lg bg-secondary text-on-secondary font-label-md text-label-md font-semibold hover:bg-secondary-fixed transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(158,215,83,0.25)]" id="btn-save-key" type="button">
-<span class="material-symbols-outlined text-[18px]">check_circle</span>
-<span>Guardar Parámetros</span>
-</button>
-</div>
-</div>
-</div>
-</div>
-<!-- Linked MCP Servers Grid -->
-<div class="flex flex-col gap-space-md">
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-space-xs">
-<span class="material-symbols-outlined text-secondary text-[20px]">share</span>
-<h3 class="font-headline-sm text-headline-sm text-on-surface">Servidores MCP Vinculados en el Entorno</h3>
-</div>
-<span class="font-label-sm text-label-sm text-outline"><!--SLOT:MCP_SERVERS_LINE--></span>
-</div>
-<div class="grid grid-cols-1 md:grid-cols-3 gap-space-md">
-<!-- Card 1: Mikareno MCP -->
-<div class="bg-surface-container-low p-space-md rounded-xl flex flex-col justify-between gap-space-sm hover:bg-surface-container transition-colors group">
-<div>
-<div class="flex items-center justify-between mb-space-xs">
-<div class="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center text-secondary">
-<span class="material-symbols-outlined text-[18px]">cloud_sync</span>
-</div>
-<span class="px-2 py-0.5 rounded text-[10px] font-code-inline bg-secondary-container/20 text-secondary"><!--SLOT:MCP_TOOLS--></span>
-</div>
-<h4 class="font-headline-sm text-headline-sm text-on-surface">Mikareno MCP</h4>
-<p class="font-body-sm text-body-sm text-outline mt-1 line-clamp-2">Sincronización de calificaciones, asistencia académica y circulares institucionales.</p>
-</div>
-<div class="pt-space-xs flex items-center justify-between text-body-sm font-code-inline text-on-surface-variant">
-<!--SLOT:MCP_STATUS_MIKARENO-->
-<span class="text-[11px] text-outline truncate max-w-[150px]" title="Endpoint del MCP de Mikareno"><!--SLOT:MCP_URL_MIKARENO--></span>
-</div>
-</div>
-<!-- Card 2: GenOffice MCP -->
-<div class="bg-surface-container-low p-space-md rounded-xl flex flex-col justify-between gap-space-sm hover:bg-surface-container transition-colors group">
-<div>
-<div class="flex items-center justify-between mb-space-xs">
-<div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-outline">
-<span class="material-symbols-outlined text-[18px]">description</span>
-</div>
-<span class="px-2 py-0.5 rounded text-[10px] font-code-inline bg-surface-container-high text-outline">Local</span>
-</div>
-<h4 class="font-headline-sm text-headline-sm text-on-surface">GenOffice MCP</h4>
-<p class="font-body-sm text-body-sm text-outline mt-1 line-clamp-2">Puente de automatización para Documentos, Hojas de Cálculo y exportación LaTeX.</p>
-</div>
-<div class="pt-space-xs flex items-center justify-between text-body-sm font-code-inline text-on-surface-variant">
-<!--SLOT:MCP_STATUS_GENOFFICE-->
-<span class="text-[11px] text-outline truncate max-w-[150px]" title="Endpoint del MCP de GenOffice"><!--SLOT:MCP_URL_GENOFFICE--></span>
-</div>
-</div>
-<!-- Card 3: Study Platform Native MCP -->
-<div class="bg-surface-container-low p-space-md rounded-xl flex flex-col justify-between gap-space-sm hover:bg-surface-container transition-colors group">
-<div>
-<div class="flex items-center justify-between mb-space-xs">
-<div class="w-8 h-8 rounded-lg bg-primary-container/10 flex items-center justify-center text-primary-container">
-<span class="material-symbols-outlined text-[18px]">memory</span>
-</div>
-<span class="px-2 py-0.5 rounded text-[10px] font-code-inline bg-primary-container/15 text-primary-container">Socket</span>
-</div>
-<h4 class="font-headline-sm text-headline-sm text-on-surface">Study Native MCP</h4>
-<p class="font-body-sm text-body-sm text-outline mt-1 line-clamp-2">Búsqueda, lectura y creación de notas y contexto académico, servidos por esta misma instancia en /mcp.</p>
-</div>
-<div class="pt-space-xs flex items-center justify-between text-body-sm font-code-inline text-on-surface-variant">
-<!--SLOT:MCP_NATIVE_LOCATION-->
-<span class="text-[11px] text-outline"><!--SLOT:MCP_NATIVE_TOOLS--></span>
-</div>
-</div>
-</div>
-</div>
-<!-- Rendimiento de IA: uso real (tabla usage_metrics) o estado vacio -->
-<div class="bg-surface-container-low p-space-lg rounded-xl flex flex-col gap-space-sm">
-<h3 class="font-headline-sm text-headline-sm text-on-surface">Rendimiento Histórico de Inferencia</h3>
-<!--SLOT:MCP_TELEMETRY-->
-</div>
-</div>
-<!-- Right Lateral Drawer: Embedded Copilot / Playground Test Area (xl:col-span-4) -->
-<div class="xl:col-span-4 flex flex-col gap-space-md">
-<div class="bg-surface-container-low rounded-xl flex flex-col h-[740px] shadow-xl overflow-hidden sticky top-20">
-<!-- Chat Header -->
-<div class="p-space-md bg-surface-container flex items-center justify-between">
-<div class="flex items-center gap-space-xs">
-<div class="w-8 h-8 rounded-lg bg-primary-container/15 flex items-center justify-center text-primary-container">
-<span class="material-symbols-outlined text-[18px]">terminal</span>
-</div>
-<div>
-<h3 class="font-headline-sm text-headline-sm text-on-surface">Copiloto MCP</h3>
-<div class="flex items-center gap-1.5 font-code-inline text-[10px] text-outline">
-<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
-<span class="truncate max-w-[150px]" id="active-chat-model"><!--SLOT:MCP_MODEL--></span>
-</div>
-</div>
-</div>
-<button class="p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container-high transition-colors" id="btn-clear-chat" title="Limpiar registro de depuración" aria-label="Limpiar registro de depuración" type="button">
-<span class="material-symbols-outlined text-[18px]">restart_alt</span>
-</button>
-</div>
-<!-- Quick Test Triggers Pills -->
-<div class="px-space-md py-space-xs bg-surface-container-lowest/80 flex items-center gap-1.5 overflow-x-auto whitespace-nowrap">
-<button class="quick-test-btn px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant hover:text-primary-container hover:bg-surface-container-high font-label-sm text-[11px] transition-colors" data-prompt="Ping check. Valida latencia de socket y retorna round-trip time.">
-              ⚡ Latencia
-            </button>
-<button class="quick-test-btn px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant hover:text-primary-container hover:bg-surface-container-high font-label-sm text-[11px] transition-colors" data-prompt="Calcula el consumo de tokens y ratio de compresión para un párrafo técnico estándar.">
-              📊 Tokens
-            </button>
-<button class="quick-test-btn px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant hover:text-primary-container hover:bg-surface-container-high font-label-sm text-[11px] transition-colors" data-prompt="Resume el último apunte del Segundo Cerebro sobre 'Sistemas Distribuidos y Tolerancia a Fallos'.">
-              🧠 Última Nota
-            </button>
-</div>
-<!-- Message Transcript Feed -->
-<div class="flex-1 overflow-y-auto p-space-md space-y-space-md" id="chat-messages">
-<!--SLOT:MCP_TRANSCRIPT-->
-</div>
-<!-- Chat Input Area -->
-<div class="p-space-sm bg-surface-container flex flex-col gap-2">
-<div class="relative flex items-end">
-<textarea class="w-full bg-surface-container-high rounded-lg p-2.5 pr-10 text-on-surface font-body-sm text-body-sm placeholder:text-outline focus:outline-none focus:bg-surface-container-highest resize-none transition-all" id="chat-input" aria-label="Mensaje de prueba para OpenRouter" placeholder="Escribe un mensaje de prueba para OpenRouter..." rows="2"></textarea>
-<button class="absolute right-2 bottom-2 p-1.5 rounded-md bg-primary-container text-on-primary-container hover:bg-primary-fixed font-bold transition-all shadow-sm" id="btn-send-message" type="button" aria-label="Enviar mensaje de prueba" title="Enviar mensaje de prueba">
-<span class="material-symbols-outlined text-[18px]">send</span>
-</button>
-</div>
-<div class="flex justify-between items-center px-1 text-[10px] font-body-sm text-outline">
-<span>Shift+Enter para salto de línea</span>
-<span class="font-code-inline text-primary-fixed-dim">Tokens de prueba: 0</span>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
+<div class="nova-page nova-mcp-page">
+  <header class="nova-page-head compact">
+    <div><p class="nova-eyebrow"><span>07</span> Integraciones</p><h1>Todo conectado.<br><em>Nada escondido.</em></h1><p class="nova-page-lead">Un mapa legible de tus servicios MCP y del enrutador de IA, con estado y telemetría procedentes del servidor.</p></div>
+    <div class="nova-mcp-head-metrics"><div><!--SLOT:MCP_ORCHESTRATOR--></div><div><span>Latencia</span><strong id="header-latency"><!--SLOT:MCP_LATENCY--></strong></div><div><span>Gasto del mes</span><strong><!--SLOT:MCP_SPEND--></strong></div></div>
+  </header>
+
+  <section class="nova-integration-map" aria-labelledby="integration-map-title">
+    <div class="nova-section-heading"><div><span>01 / TOPOLOGÍA</span><h2 id="integration-map-title">Tu ecosistema</h2></div><p><!--SLOT:MCP_SERVERS_LINE--></p></div>
+    <div class="nova-integration-grid">
+      <article class="nova-integration-node cyan"><div class="nova-node-icon"><span class="material-symbols-outlined">cloud_sync</span></div><div class="nova-node-title"><h3>Mikareno</h3><!--SLOT:MCP_STATUS_MIKARENO--></div><p>Vida académica, calificaciones, asistencia y calendario.</p><footer><code><!--SLOT:MCP_URL_MIKARENO--></code><span><!--SLOT:MCP_TOOLS--></span></footer></article>
+      <span class="nova-integration-link" aria-hidden="true"><i></i><span class="material-symbols-outlined">sync_alt</span><i></i></span>
+      <article class="nova-integration-node violet"><div class="nova-node-icon"><span class="material-symbols-outlined">description</span></div><div class="nova-node-title"><h3>GenOffice</h3><!--SLOT:MCP_STATUS_GENOFFICE--></div><p>Documentos, hojas de cálculo y exportación de archivos.</p><footer><code><!--SLOT:MCP_URL_GENOFFICE--></code><span>Local</span></footer></article>
+      <span class="nova-integration-link" aria-hidden="true"><i></i><span class="material-symbols-outlined">sync_alt</span><i></i></span>
+      <article class="nova-integration-node lime"><div class="nova-node-icon"><span class="material-symbols-outlined">memory</span></div><div class="nova-node-title"><h3>Study Native</h3><!--SLOT:MCP_NATIVE_LOCATION--></div><p>Notas, búsqueda y contexto servidos por esta instancia.</p><footer><code>/mcp</code><span><!--SLOT:MCP_NATIVE_TOOLS--></span></footer></article>
+    </div>
+  </section>
+
+  <div class="nova-mcp-workspace">
+    <section class="nova-router-card" aria-labelledby="router-title">
+      <div class="nova-section-heading"><div><span>02 / ENRUTADOR</span><h2 id="router-title">OpenRouter</h2></div><!--SLOT:MCP_STATUS_AI--></div>
+      <p class="nova-card-intro">Una sola configuración de servidor para llegar a múltiples modelos.</p>
+      <div class="nova-router-form">
+        <div class="nova-field full">
+          <div class="nova-field-label"><label for="openrouter-key">API key secreta</label><span><!--SLOT:MCP_KEY_STATE--></span></div>
+          <div class="nova-secret-input"><span class="material-symbols-outlined">key</span><input id="openrouter-key" type="password" placeholder="sk-or-v1-••••••••••••••••••••••••" autocomplete="off" aria-describedby="openrouter-key-note" title="Se define en el servidor (.env), no en el navegador"><button id="toggle-key-visibility" type="button"><span class="material-symbols-outlined" id="eye-icon">visibility</span><span id="eye-text">Mostrar</span></button></div>
+        </div>
+        <div class="nova-router-two">
+          <div class="nova-field"><div class="nova-field-label"><label for="default-model">Modelo primario</label><span id="model-hint">Definido en .env</span></div><select id="default-model" aria-describedby="model-hint"><!--SLOT:MCP_MODEL_OPTIONS--></select></div>
+          <div class="nova-fallback"><div><strong>Fallback local</strong><span>Ollama / Native MCP</span></div><label for="fallback-toggle"><input checked class="sr-only peer" id="fallback-toggle" type="checkbox" aria-label="Derivar a Ollama si la API responde con HTTP 500 o superior"><span></span></label></div>
+        </div>
+        <div class="nova-router-two">
+          <div class="nova-range-field"><div><label for="temperature-slider">Temperatura</label><output id="temp-value">0.30 (Analítico)</output></div><input id="temperature-slider" max="100" min="0" type="range" value="30" aria-describedby="temp-note"><div><span>Precisión</span><span>Divergencia</span></div><p id="temp-note">El cliente fija 0.70; este control no cambia el servidor.</p></div>
+          <div class="nova-range-field"><div><label for="budget-slider">Tope mensual</label><output id="budget-value"><!--SLOT:MCP_BUDGET--></output></div><input id="budget-slider" max="150" min="1" type="range" value="<!--SLOT:MCP_BUDGET_INT-->"><div><span>$1</span><span>$150</span></div><p>Referencia visual; la configuración efectiva vive en .env.</p></div>
+        </div>
+      </div>
+      <div class="nova-router-privacy"><span class="material-symbols-outlined">verified_user</span><p id="openrouter-key-note">La clave permanece en variables de entorno del servidor y nunca se entrega al navegador.</p></div>
+      <div class="nova-router-actions"><button class="nova-button nova-button-quiet" id="btn-test-ping" type="button"><span class="material-symbols-outlined">wifi_tethering</span><span>Probar Conexión</span></button><button class="nova-button nova-button-primary" id="btn-save-key" type="button"><span class="material-symbols-outlined">check_circle</span><span>Guardar Parámetros</span></button></div>
+    </section>
+
+    <aside class="nova-mcp-playground" aria-label="Playground MCP">
+      <div class="nova-panel-caption"><span>03</span><h2>Playground</h2><button class="nova-icon-button" id="btn-clear-chat" title="Limpiar registro de depuración" aria-label="Limpiar registro" type="button"><span class="material-symbols-outlined">restart_alt</span></button></div>
+      <div class="nova-playground-model"><span class="material-symbols-outlined">terminal</span><span id="active-chat-model"><!--SLOT:MCP_MODEL--></span></div>
+      <div class="nova-playground-prompts"><button class="quick-test-btn" data-prompt="Ping check. Valida latencia de socket y retorna round-trip time.">Latencia</button><button class="quick-test-btn" data-prompt="Calcula el consumo de tokens y ratio de compresión para un párrafo técnico estándar.">Tokens</button><button class="quick-test-btn" data-prompt="Resume el último apunte del Segundo Cerebro sobre 'Sistemas Distribuidos y Tolerancia a Fallos'.">Última nota</button></div>
+      <div id="chat-messages" class="nova-playground-messages"><!--SLOT:MCP_TRANSCRIPT--></div>
+      <div class="nova-playground-composer"><textarea id="chat-input" aria-label="Mensaje de prueba para OpenRouter" placeholder="Mensaje de prueba…" rows="2"></textarea><button id="btn-send-message" type="button" aria-label="Enviar mensaje de prueba"><span class="material-symbols-outlined">arrow_upward</span></button><p>Simulación local · no ejecuta inferencia real</p></div>
+    </aside>
+  </div>
+
+  <section class="nova-telemetry"><div class="nova-section-heading"><div><span>04 / TELEMETRÍA</span><h2>Rendimiento histórico</h2></div><p>Registro local de uso</p></div><!--SLOT:MCP_TELEMETRY--></section>
+</div>
+
 <script>
   (function initMcpPlayground() {
     // 1. Secret Key Visibility Toggle

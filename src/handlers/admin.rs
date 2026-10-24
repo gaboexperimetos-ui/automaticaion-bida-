@@ -386,114 +386,41 @@ fn format_uptime(secs: u64) -> String {
 /// Usa marcadores <!--SLOT:...--> que se reemplazan con datos reales.
 fn render_admin_content(d: &AdminData) -> String {
     let template = r##"
-<div class="flex items-center justify-between mb-space-md">
-    <div>
-        <h1 class="font-headline-lg text-headline-lg text-on-surface font-bold">Administración</h1>
-        <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">
-            Monitoreo del sistema y herramientas de administración
-        </p>
-    </div>
-    <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-surface-container-high text-primary-fixed-dim border border-outline-variant/60">
-        v<!--SLOT:ADMIN_VERSION-->
-    </span>
-</div>
+<div class="nova-page nova-admin-page">
+  <header class="nova-page-head compact">
+    <div><p class="nova-eyebrow"><span>09</span> Administración</p><h1>El sistema,<br><em>sin ruido.</em></h1><p class="nova-page-lead">Métricas esenciales, estado de servicios y respaldos locales en una sola vista operativa.</p></div>
+    <span class="nova-version-badge">Build <!--SLOT:ADMIN_VERSION--></span>
+  </header>
 
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-space-md mb-space-md">
-    <div class="bg-surface-container border border-outline rounded-xl p-space-md text-center">
-        <div class="font-code-inline text-[11px] text-on-surface-variant uppercase tracking-wider">Uptime</div>
-        <div class="font-headline-md text-headline-md text-primary-container font-bold mt-1"><!--SLOT:ADMIN_UPTIME--></div>
-        <div class="font-body-sm text-[10px] text-on-surface-variant mt-1"><!--SLOT:ADMIN_UPTIME_SECS-->s</div>
-    </div>
-    <div class="bg-surface-container border border-outline rounded-xl p-space-md text-center">
-        <div class="font-code-inline text-[11px] text-on-surface-variant uppercase tracking-wider">Notas</div>
-        <div class="font-headline-md text-headline-md text-primary-container font-bold mt-1"><!--SLOT:ADMIN_NOTES_COUNT--></div>
-        <div class="font-body-sm text-[10px] text-on-surface-variant mt-1">notas locales (BD)</div>
-    </div>
-    <div class="bg-surface-container border border-outline rounded-xl p-space-md text-center">
-        <div class="font-code-inline text-[11px] text-on-surface-variant uppercase tracking-wider">Chats</div>
-        <div class="font-headline-md text-headline-md text-primary-container font-bold mt-1"><!--SLOT:ADMIN_CHATS_COUNT--></div>
-        <div class="font-body-sm text-[10px] text-on-surface-variant mt-1">conversaciones IA</div>
-    </div>
-    <div class="bg-surface-container border border-outline rounded-xl p-space-md text-center">
-        <div class="font-code-inline text-[11px] text-on-surface-variant uppercase tracking-wider">Gasto IA (mes)</div>
-        <div class="font-headline-md text-headline-md text-primary-container font-bold mt-1"><!--SLOT:ADMIN_SPEND--> / <!--SLOT:ADMIN_BUDGET--></div>
-        <div class="font-body-sm text-[10px] text-on-surface-variant mt-1"><!--SLOT:ADMIN_REQUESTS--> solicitudes · <!--SLOT:ADMIN_BUDGET_PCT-->% del presupuesto</div>
-        <!--SLOT:ADMIN_BUDGET_BAR-->
-    </div>
-</div>
+  <section class="nova-admin-metrics" aria-label="Métricas principales">
+    <article><span class="material-symbols-outlined">uptime</span><div><small>Tiempo activo</small><strong><!--SLOT:ADMIN_UPTIME--></strong><p><!--SLOT:ADMIN_UPTIME_SECS--> segundos</p></div><i>01</i></article>
+    <article><span class="material-symbols-outlined">description</span><div><small>Conocimiento</small><strong><!--SLOT:ADMIN_NOTES_COUNT--></strong><p>notas locales</p></div><i>02</i></article>
+    <article><span class="material-symbols-outlined">forum</span><div><small>Conversaciones</small><strong><!--SLOT:ADMIN_CHATS_COUNT--></strong><p>chats de IA</p></div><i>03</i></article>
+    <article class="nova-admin-spend"><span class="material-symbols-outlined">toll</span><div><small>Gasto IA / presupuesto</small><strong><!--SLOT:ADMIN_SPEND--></strong><p>de <!--SLOT:ADMIN_BUDGET--> · <!--SLOT:ADMIN_REQUESTS--> solicitudes</p><!--SLOT:ADMIN_BUDGET_BAR--></div><i><!--SLOT:ADMIN_BUDGET_PCT-->%</i></article>
+  </section>
 
-<!-- Indicadores de integración -->
-<div class="grid grid-cols-1 md:grid-cols-2 gap-space-md mb-space-md">
-    <div class="bg-surface-container border border-outline rounded-xl p-space-md">
-        <div class="flex items-center gap-2">
-            <span class="material-symbols-outlined text-[20px]"><!--SLOT:ADMIN_MCP_ICON--></span>
-            <h2 class="font-headline-sm text-headline-sm text-on-surface">Mikareno MCP</h2>
-        </div>
-        <p class="font-body-sm text-body-sm text-on-surface-variant mt-2"><!--SLOT:ADMIN_MCP_STATUS--></p>
-        <!--SLOT:ADMIN_MCP_LATENCY-->
-    </div>
-    <div class="bg-surface-container border border-outline rounded-xl p-space-md">
-        <div class="flex items-center gap-2">
-            <span class="material-symbols-outlined text-[20px]"><!--SLOT:ADMIN_OR_ICON--></span>
-            <h2 class="font-headline-sm text-headline-sm text-on-surface">OpenRouter</h2>
-        </div>
-        <p class="font-body-sm text-body-sm text-on-surface-variant mt-2">
-            Estado: <span class="<!--SLOT:ADMIN_OR_STATUS_COLOR-->"><!--SLOT:ADMIN_OR_STATUS--></span>
-        </p>
-        <p class="font-body-sm text-[10px] text-on-surface-variant mt-1">Modelo: <!--SLOT:ADMIN_OR_MODEL--></p>
-        <p class="font-body-sm text-[10px] text-outline mt-1">El gasto real del mes (y el % del presupuesto) está en la tarjeta «Gasto IA (mes)».</p>
-    </div>
-</div>
+  <div class="nova-admin-main">
+    <section class="nova-backup-panel" id="admin-backup" aria-labelledby="backup-title">
+      <div class="nova-section-heading"><div><span>02 / CONTINUIDAD</span><h2 id="backup-title">Copias de seguridad</h2></div><button id="backup-btn" type="button" onclick="crearBackup()" class="nova-button nova-button-primary"><span class="material-symbols-outlined">save</span><span>Crear backup ahora</span></button></div>
+      <p class="nova-card-intro">Copia automática cada 24 horas y respaldos manuales de la base SQLite.</p>
+      <div class="nova-backup-status">
+        <div><span>Último backup</span><strong id="admin-last-backup"><!--SLOT:ADMIN_LAST_BACKUP_DATE--></strong><small id="admin-last-backup-name" title="<!--SLOT:ADMIN_LAST_BACKUP_PATH-->"><!--SLOT:ADMIN_LAST_BACKUP_NAME--></small></div>
+        <div><span>Próximo ciclo</span><strong id="admin-next-backup" data-last-backup-ms="<!--SLOT:ADMIN_LAST_BACKUP_MS-->"><!--SLOT:ADMIN_NEXT_BACKUP--></strong><small>Estimado a partir del último</small></div>
+        <div><span>Copias en disco</span><strong id="admin-backup-count"><!--SLOT:ADMIN_BACKUP_COUNT--></strong><small>data/backups</small></div>
+      </div>
+      <div id="admin-backup-msg" class="hidden"></div>
+      <div class="nova-backup-table"><table><thead><tr><th>Fichero</th><th>Fecha</th><th>Tamaño</th><th>Acciones</th></tr></thead><tbody id="admin-backups-body"><!--SLOT:ADMIN_BACKUP_ROWS--></tbody></table></div>
+      <p class="nova-backup-note">Restaurar sobrescribe la base activa. Si está bloqueada, la aplicación lo informa y no cambia nada.</p>
+    </section>
 
-<!-- Sección de backup -->
-<div class="bg-surface-container border border-outline rounded-xl p-space-md mb-space-md" id="admin-backup">
-    <div class="flex items-start justify-between gap-2 mb-space-sm flex-wrap">
-        <div>
-            <h2 class="font-headline-sm text-headline-sm text-on-surface">Copia de seguridad</h2>
-            <p class="font-body-sm text-[10px] text-on-surface-variant mt-0.5">Copia automática cada 24 h + copias bajo demanda de la base de datos</p>
-        </div>
-        <button id="backup-btn" type="button" onclick="crearBackup()" class="flex items-center gap-1.5 px-space-md py-2 rounded-lg bg-primary-container text-on-primary font-label-md font-semibold hover:bg-primary-fixed-dim transition-all shadow-md">
-            <span class="material-symbols-outlined text-[18px]">save</span>
-            <span>Crear backup ahora</span>
-        </button>
-    </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-space-sm mb-space-sm">
-        <div class="bg-surface-container-high/40 border border-outline rounded-lg p-space-sm">
-            <div class="font-code-inline text-[10px] text-on-surface-variant uppercase tracking-wider">Último backup</div>
-            <div class="font-headline-sm text-headline-sm text-on-surface mt-1" id="admin-last-backup"><!--SLOT:ADMIN_LAST_BACKUP_DATE--></div>
-            <div class="font-code-inline text-[10px] text-outline mt-1 truncate" id="admin-last-backup-name" title="<!--SLOT:ADMIN_LAST_BACKUP_PATH-->"><!--SLOT:ADMIN_LAST_BACKUP_NAME--></div>
-        </div>
-        <div class="bg-surface-container-high/40 border border-outline rounded-lg p-space-sm">
-            <div class="font-code-inline text-[10px] text-on-surface-variant uppercase tracking-wider">Próximo backup</div>
-            <div class="font-headline-sm text-headline-sm text-on-surface mt-1" id="admin-next-backup" data-last-backup-ms="<!--SLOT:ADMIN_LAST_BACKUP_MS-->"><!--SLOT:ADMIN_NEXT_BACKUP--></div>
-            <div class="font-code-inline text-[10px] text-outline mt-1">Estimado: 24 h tras el último</div>
-        </div>
-        <div class="bg-surface-container-high/40 border border-outline rounded-lg p-space-sm">
-            <div class="font-code-inline text-[10px] text-on-surface-variant uppercase tracking-wider">Copias en disco</div>
-            <div class="font-headline-sm text-headline-sm text-on-surface mt-1" id="admin-backup-count"><!--SLOT:ADMIN_BACKUP_COUNT--></div>
-            <div class="font-code-inline text-[10px] text-outline mt-1">data/backups</div>
-        </div>
-    </div>
-
-    <div id="admin-backup-msg" class="hidden mb-space-sm"></div>
-
-    <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
-            <thead>
-                <tr class="border-b border-outline">
-                    <th class="font-code-inline text-[10px] uppercase tracking-wider text-outline py-1.5 pr-2">Fichero</th>
-                    <th class="font-code-inline text-[10px] uppercase tracking-wider text-outline py-1.5 pr-2">Fecha</th>
-                    <th class="font-code-inline text-[10px] uppercase tracking-wider text-outline py-1.5 pr-2">Tamaño</th>
-                    <th class="font-code-inline text-[10px] uppercase tracking-wider text-outline py-1.5 text-right">Acciones</th>
-                </tr>
-            </thead>
-            <tbody id="admin-backups-body"><!--SLOT:ADMIN_BACKUP_ROWS--></tbody>
-        </table>
-    </div>
-    <p class="font-body-sm text-[10px] text-outline mt-2">
-        «Descargar» entrega el fichero SQLite del backup. «Restaurar» copia su contenido sobre la base en vivo: si la base está bloqueada, la app lo dice y no cambia nada.
-    </p>
+    <aside class="nova-admin-services" aria-label="Estado de servicios">
+      <div class="nova-card-index">01 / SERVICIOS</div>
+      <article><div class="nova-service-icon cyan"><span class="material-symbols-outlined"><!--SLOT:ADMIN_MCP_ICON--></span></div><div><h2>Mikareno MCP</h2><p><!--SLOT:ADMIN_MCP_STATUS--></p><!--SLOT:ADMIN_MCP_LATENCY--></div></article>
+      <article><div class="nova-service-icon violet"><span class="material-symbols-outlined"><!--SLOT:ADMIN_OR_ICON--></span></div><div><h2>OpenRouter</h2><p>Estado: <span class="<!--SLOT:ADMIN_OR_STATUS_COLOR-->"><!--SLOT:ADMIN_OR_STATUS--></span></p><code><!--SLOT:ADMIN_OR_MODEL--></code></div></article>
+      <a href="/dashboard/mcp" class="nova-link">Abrir centro de integraciones <span class="material-symbols-outlined">arrow_outward</span></a>
+      <div class="nova-admin-health"><span class="material-symbols-outlined">shield_locked</span><p>Los secretos se administran en el servidor. Esta vista solo expone métricas operativas.</p></div>
+    </aside>
+  </div>
 </div>
 
 <script>

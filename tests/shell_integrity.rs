@@ -17,7 +17,7 @@
 //! 3. `aria-current="page"` aparece **exactamente una vez** (el item activo
 //!    del nav-rail). `update_nav_rail` quita el atributo a todos los items y
 //!    se lo reinserta sólo al activo; dos marcas = dos items "página actual".
-//! 4. Los **21 items `data-path`** del nav-rail apuntan a rutas **reales**:
+//! 4. Los **22 items `data-path`** del nav-rail apuntan a rutas **reales**:
 //!    - lista estática `KNOWN_ROUTES` (grep de `src/handlers/mod.rs`,
 //!      `src/academic/mod.rs`, `src/office/mod.rs`, `src/ai/mod.rs`,
 //!      `src/handlers/admin.rs`, `src/mcp_server/mod.rs`);
@@ -153,7 +153,7 @@ const KNOWN_ROUTES: &[&str] = &[
     "/mcp/sse",
 ];
 
-/// Los 21 items `data-path` del nav-rail (kit Stitch v2, `shell/aside.html`).
+/// Los 22 items `data-path` del nav-rail (kit Stitch v2, `shell/aside.html`).
 const EXPECTED_NAV_PATHS: &[&str] = &[
     "administracion",
     "asignaturas",

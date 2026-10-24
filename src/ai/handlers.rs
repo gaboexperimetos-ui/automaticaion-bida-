@@ -699,7 +699,7 @@ pub async fn ai_page(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let html = crate::academic::templates::page_ext(
         "Asistente Académico — Study Platform",
         "Asistente",
-        "/dashboard/ai",
+        "/ai",
         &body_html,
     );
 
@@ -713,118 +713,22 @@ pub async fn ai_page(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 /// this const holds ONLY the main slot content so all screens share the same shell.
 
 const AI_PAGE_TEMPLATE: &str = r##"
-
-<!-- Three-panel chat workspace -->
-<div class="flex w-full h-[calc(100vh-7rem)] min-w-0 gap-space-sm">
-    <!-- ================= LEFT: Sessions panel ================= -->
-    <aside class="w-[280px] shrink-0 flex flex-col bg-surface-container-low select-none">
-        <div class="p-space-md">
-            <button id="btn-new-chat" class="w-full flex items-center justify-center gap-space-xs py-space-sm px-space-md rounded-lg bg-secondary text-on-secondary font-label-md font-semibold hover:bg-secondary-fixed transition-all shadow-md">
-                <span class="material-symbols-outlined text-[18px]">auto_awesome</span>
-                <span>Nueva conversación</span>
-            </button>
-        </div>
-        <div class="px-space-md mb-space-sm">
-            <div class="flex items-center gap-space-xs bg-surface-container px-space-sm py-1.5 rounded-lg text-outline focus-within:text-on-surface">
-                <span class="material-symbols-outlined text-[18px]">search</span>
-                <input id="session-search" class="bg-transparent border-none outline-none font-body-sm text-body-sm text-on-surface placeholder:text-outline w-full" placeholder="Filtrar sesiones..." type="text">
-            </div>
-        </div>
-        <div id="conversations-list" class="flex-1 overflow-y-auto px-space-sm space-y-space-xs" style="scrollbar-width: thin;">
-            <div class="font-body-sm text-body-sm text-outline text-center py-space-md">Cargando conversaciones...</div>
-        </div>
-        <div class="p-space-sm bg-surface-container-lowest text-on-surface-variant border-t border-outline-variant/40">
-            <div class="flex items-center justify-between mb-1">
-                <span class="font-label-sm text-[11px] text-on-surface font-semibold flex items-center gap-1">
-                    <span class="w-1.5 h-1.5 rounded-full __MODE_DOT__ animate-pulse"></span>
-                    <button type="button" id="modelo-chip" data-sp-modelo
-                        class="flex items-center gap-1 hover:underline hover:text-primary-container transition-colors"
-                        title="Cambiar de modelo de IA (solo modelos free de OpenRouter)">
-                        <span data-sp-modelo-nombre>__MODEL__</span>
-                        <span class="material-symbols-outlined text-[13px]">expand_more</span>
-                    </button>
-                </span>
-                <span id="mode-badge" class="px-2 py-0.5 rounded-full bg-surface-container font-label-sm text-[10px] __MODE_COLOR__">__MODE_LABEL__</span>
-            </div>
-            <div id="cost-display" class="font-code-inline text-[10px] text-outline flex flex-col gap-space-xs">
-                <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">schedule</span> Cargando...</span>
-            </div>
-        </div>
+<div class="nova-page nova-chat-page nova-conversations-page">
+  <header class="nova-workspace-head"><div class="nova-workspace-title"><span class="nova-workspace-symbol"><span class="material-symbols-outlined">forum</span></span><div><p>Conversaciones</p><h1>Retoma una idea donde la dejaste.</h1></div></div><div class="nova-workspace-actions"><button class="nova-button nova-button-quiet" id="toggle-sources-btn" type="button"><span class="material-symbols-outlined">source</span>Fuentes</button><button class="nova-button nova-button-primary" id="btn-new-chat" type="button"><span class="material-symbols-outlined">add</span>Nueva conversación</button></div></header>
+  <div class="nova-chat-layout">
+    <aside class="nova-chat-history" aria-label="Historial de conversaciones">
+      <div class="nova-panel-caption"><span>01</span><h2>Conversaciones</h2><span class="material-symbols-outlined">history</span></div>
+      <label class="nova-compact-search" for="session-search"><span class="material-symbols-outlined">search</span><input id="session-search" placeholder="Filtrar sesiones…" type="search"></label>
+      <div id="conversations-list" class="nova-chat-sessions"><div class="nova-loading-copy">Cargando conversaciones…</div></div>
+      <div class="nova-chat-quota"><div><span><i class="__MODE_DOT__"></i><button type="button" id="modelo-chip" data-sp-modelo title="Cambiar de modelo de IA"><span data-sp-modelo-nombre>__MODEL__</span><span class="material-symbols-outlined">expand_more</span></button></span><strong id="mode-badge" class="__MODE_COLOR__">__MODE_LABEL__</strong></div><div id="cost-display"><span>Cargando coste…</span></div></div>
     </aside>
-
-    <!-- ================= CENTER: Chat workspace ================= -->
-    <main class="flex-1 min-w-0 flex flex-col bg-surface relative">
-        <header class="h-14 px-space-md flex items-center justify-between bg-surface-container-low shrink-0 border-b border-outline-variant/40">
-            <div class="flex items-center gap-space-sm min-w-0">
-                <span class="material-symbols-outlined text-primary-container text-[20px] shrink-0">neurology</span>
-                <span class="font-label-sm text-label-sm uppercase tracking-wider text-outline shrink-0">Contexto:</span>
-                <span id="active-subject" class="font-label-md text-label-md text-on-surface-variant truncate">general</span>
-            </div>
-            <div class="flex items-center gap-space-xs shrink-0">
-                <button id="toggle-sources-btn" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-sm transition-all" title="Alternar panel de fuentes">
-                    <span class="material-symbols-outlined text-[16px] text-primary-container">source</span>
-                    <span>Fuentes</span>
-                </button>
-                <button id="btn-clear-chat" class="p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors" title="Limpiar pantalla">
-                    <span class="material-symbols-outlined text-[18px]">restart_alt</span>
-                </button>
-            </div>
-        </header>
-
-        <div id="chat-messages" class="flex-1 overflow-y-auto px-space-xl py-space-lg space-y-space-lg" style="scrollbar-width: thin;">
-            <div class="text-center py-8">
-                <p class="font-body-sm text-body-sm text-on-surface-variant">¡Hola! Soy tu asistente académico. Escribe un mensaje para empezar.</p>
-            </div>
-        </div>
-
-        <footer class="p-space-md bg-surface-container-low shrink-0 border-t border-outline-variant/40">
-            <div class="max-w-4xl mx-auto space-y-space-sm">
-                <div class="flex items-center gap-1.5 overflow-x-auto pb-1" style="scrollbar-width: none;">
-                    <button id="btn-summarize" class="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-surface-container text-primary-container hover:bg-surface-container-high font-label-sm text-label-md whitespace-nowrap transition-colors">
-                        <span class="material-symbols-outlined text-[14px]">summarize</span><span>Resumir</span>
-                    </button>
-                    <button id="btn-explain" class="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-surface-container text-primary-container hover:bg-surface-container-high font-label-sm text-label-md whitespace-nowrap transition-colors">
-                        <span class="material-symbols-outlined text-[14px]">search_insights</span><span>Explicar a fondo</span>
-                    </button>
-                    <button id="btn-quiz" class="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-surface-container text-secondary hover:bg-surface-container-high font-label-sm text-label-md whitespace-nowrap transition-colors">
-                        <span class="material-symbols-outlined text-[14px]">quiz</span><span>Cuestionario</span>
-                    </button>
-                    <button id="btn-study-sheet" class="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-surface-container text-secondary hover:bg-surface-container-high font-label-sm text-label-md whitespace-nowrap transition-colors">
-                        <span class="material-symbols-outlined text-[14px]">style</span><span>Ficha de estudio</span>
-                    </button>
-                </div>
-                <div class="bg-surface-container rounded-xl p-space-sm flex flex-col gap-space-xs shadow-inner">
-                    <textarea id="prompt-input" class="bg-transparent text-on-surface font-body-md text-body-md placeholder:text-outline resize-none outline-none w-full p-space-xs" placeholder="Pregunta algo sobre tus asignaturas... (Shift+Enter para nueva línea)" rows="3"></textarea>
-                    <div class="flex items-center justify-between pt-1">
-                        <input id="subject-input" type="text" class="w-1/3 px-3 py-1.5 bg-surface-container-high border border-outline-variant rounded font-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary-container" placeholder="Asignatura" value="general">
-                        <button id="send-btn" class="flex items-center justify-center gap-1.5 px-space-md py-2 rounded-lg bg-primary-container text-on-primary font-label-md font-semibold hover:bg-primary transition-all shadow-md">
-                            <span>Enviar</span>
-                            <span class="material-symbols-outlined text-[18px]">send</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </footer>
-    </main>
-
-    <!-- ================= RIGHT: Sources panel ================= -->
-    <aside id="sources-sidebar" class="w-[300px] shrink-0 flex-col bg-surface-container-low overflow-hidden hidden">
-        <div class="p-space-md flex items-center justify-between border-b border-outline-variant/40">
-            <div class="flex items-center gap-2">
-                <span class="material-symbols-outlined text-[18px] text-primary-container">source</span>
-                <h2 class="font-headline-sm text-headline-sm text-on-surface">Fuentes & Contexto</h2>
-            </div>
-            <button id="close-sources-btn" class="p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container transition-colors">
-                <span class="material-symbols-outlined text-[18px]">close</span>
-            </button>
-        </div>
-        <div class="flex-1 overflow-y-auto p-space-md">
-            <div class="text-center py-8">
-                <span class="material-symbols-outlined text-[32px] text-outline mb-2">info</span>
-                <p class="font-body-sm text-body-sm text-on-surface-variant">Las fuentes se mostrarán aquí cuando el backend las proporcione.</p>
-            </div>
-        </div>
-    </aside>
+    <section class="nova-conversation" aria-label="Conversación actual">
+      <header class="nova-conversation-head"><div><span>CONTEXTO ACTIVO</span><div id="active-subject">general</div></div><button id="btn-clear-chat" class="nova-icon-button" type="button" title="Limpiar pantalla" aria-label="Limpiar conversación"><span class="material-symbols-outlined">restart_alt</span></button></header>
+      <div id="chat-messages" class="nova-chat-messages"><div class="nova-chat-welcome"><span class="material-symbols-outlined">forum</span><h2>Continúa pensando.</h2><p>Elige una conversación o escribe un mensaje nuevo.</p></div></div>
+      <footer class="nova-composer"><div class="nova-prompt-actions"><button id="btn-summarize" type="button"><span class="material-symbols-outlined">summarize</span>Resumir</button><button id="btn-explain" type="button"><span class="material-symbols-outlined">search_insights</span>Explicar a fondo</button><button id="btn-quiz" type="button"><span class="material-symbols-outlined">quiz</span>Cuestionario</button><button id="btn-study-sheet" type="button"><span class="material-symbols-outlined">style</span>Ficha de estudio</button></div><div class="nova-composer-box"><textarea id="prompt-input" placeholder="Pregunta algo sobre tus asignaturas…" rows="3"></textarea><div class="nova-composer-toolbar"><div class="nova-subject-input"><label for="subject-input">Materia</label><input id="subject-input" type="text" value="general"></div><button id="send-btn" class="nova-button nova-button-primary" type="button"><span>Enviar</span><span class="material-symbols-outlined">arrow_upward</span></button></div></div><p>Shift+Enter añade una nueva línea.</p></footer>
+    </section>
+    <aside id="sources-sidebar" class="nova-chat-sources hidden" aria-label="Fuentes y contexto"><div class="nova-panel-caption"><span>03</span><h2>Fuentes</h2><button id="close-sources-btn" class="nova-icon-button" type="button" aria-label="Cerrar fuentes"><span class="material-symbols-outlined">close</span></button></div><div class="nova-sources-empty"><span class="material-symbols-outlined">info</span><p>Las fuentes aparecerán aquí cuando el backend las proporcione.</p></div></aside>
+  </div>
 </div>
 <script>
 (function() {

@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use crate::office::pres_dir;
 use crate::office::templates;
-use crate::office::templates::{hx_redirect, layout, md_to_html, slugify};
+use crate::office::templates::{hx_redirect, layout, layout_as, md_to_html, slugify};
 use crate::AppState;
 
 /// Input bounds (400 on violation).
@@ -74,74 +74,36 @@ pub async fn list(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let dir = pres_dir(&state);
     let files = templates::list_files(&dir, "json");
 
-    let rows = if files.is_empty() {
-        r#"<p class="text-gray-500">No hay presentaciones aún.</p>"#.to_string()
+    let cards = if files.is_empty() {
+        r#"<div class="nova-office-empty"><span class="material-symbols-outlined">present_to_all</span><h2>Tu próxima idea merece un escenario.</h2><p>Crea una presentación y construye sus diapositivas en Markdown.</p><a href="/office/presentations/new" class="nova-button nova-button-primary">Crear presentación</a></div>"#.to_string()
     } else {
-        files
-            .iter()
-            .map(|f| {
-                let p = Presentation::load_from(&dir.join(format!("{}.json", f.name)));
-                let slide_count = p.as_ref().map(|p| p.slides.len()).unwrap_or(0);
-                format!(
-                    r#"<tr class="border-t border-gray-800">
-                        <td class="py-2"><a href="/office/presentations/{slug}" class="text-accent hover:text-cyan-300">{display}</a></td>
-                        <td class="py-2 text-sm text-gray-500">{n} diapositiva(s)</td>
-                        <td class="py-2 text-sm text-gray-500">{size}</td>
-                        <td class="py-2 text-sm text-gray-500">{modified}</td>
-                        <td class="py-2 space-x-2">
-                            <a href="/office/presentations/{slug}/present" target="_blank"
-                                class="text-xs text-gray-400 hover:text-white">presentar</a>
-                            <form hx-delete="/office/presentations/{slug}" class="inline">
-                                <button type="submit" onclick="return confirm('¿Borrar?')"
-                                    class="text-xs text-red-400 hover:text-red-300">borrar</button>
-                            </form>
-                        </td>
-                    </tr>"#,
-                    slug = templates::html_escape(&f.name),
-                    display = templates::html_escape(&f.display),
-                    n = slide_count,
-                    size = templates::human_size(f.size),
-                    modified = &f.modified,
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("\n")
+        files.iter().map(|f| {
+            let p = Presentation::load_from(&dir.join(format!("{}.json", f.name)));
+            let slide_count = p.as_ref().map(|p| p.slides.len()).unwrap_or(0);
+            format!(
+                r#"<article class="nova-file-card presentation"><div class="nova-file-card-top"><span class="nova-file-type"><span class="material-symbols-outlined">present_to_all</span></span><span>{n} DIAPOSITIVA(S)</span></div><h2><a href="/office/presentations/{slug}">{display}</a></h2><p class="nova-file-meta">{modified} · {size}</p><footer><a href="/office/presentations/{slug}/present" target="_blank" class="nova-text-link">Presentar<span class="material-symbols-outlined">play_arrow</span></a><form hx-delete="/office/presentations/{slug}"><button type="submit" onclick="return confirm('¿Borrar?')" class="nova-icon-button danger" aria-label="Borrar {display}"><span class="material-symbols-outlined">delete</span></button></form></footer></article>"#,
+                slug = templates::html_escape(&f.name),
+                display = templates::html_escape(&f.display),
+                n = slide_count,
+                size = templates::human_size(f.size),
+                modified = &f.modified,
+            )
+        }).collect::<Vec<_>>().join("
+")
     };
 
     let body = format!(
-        r#"<div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-bold text-accent">Presentaciones</h2>
-            <a href="/office/presentations/new" class="px-4 py-2 bg-accent text-black font-bold rounded hover:bg-cyan-300">+ Nueva</a>
-        </div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm">
-                <thead class="border-b border-gray-800"><tr>
-                    <th class="py-2 text-gray-400">Nombre</th>
-                    <th class="py-2 text-gray-400">Diapositivas</th>
-                    <th class="py-2 text-gray-400">Tamaño</th>
-                    <th class="py-2 text-gray-400">Modificado</th>
-                    <th class="py-2 text-gray-400">Acciones</th>
-                </tr></thead>
-                <tbody>{rows}</tbody>
-            </table>
-        </div>"#,
-        rows = rows,
+        r#"<div class="nova-page nova-office-page"><header class="nova-page-head compact"><div><p class="nova-eyebrow"><span>07.3</span> Oficina</p><h1>Ideas que entran<br><em>en escena.</em></h1><p class="nova-page-lead">Construye, ordena y presenta tus diapositivas desde un mismo lugar.</p></div><a href="/office/presentations/new" class="nova-button nova-button-primary"><span class="material-symbols-outlined">add</span>Nueva presentación</a></header><nav class="nova-office-switch" aria-label="Aplicaciones de oficina"><a href="/office/docs">Documentos</a><a href="/office/sheets">Hojas</a><a href="/office/presentations" aria-current="page">Presentaciones</a><a href="/office/library">Biblioteca</a></nav><section class="nova-file-grid">{cards}</section></div>"#,
+        cards = cards,
     );
-    layout("Presentaciones", &body)
+
+    layout_as("Presentaciones", "presentaciones", &body)
 }
 
 /// New presentation form.
 pub async fn new_pres() -> impl IntoResponse {
-    let body = r#"<h2 class="text-xl font-bold text-accent mb-4">Nueva presentación</h2>
-<form hx-post="/office/presentations" hx-swap="outerHTML" class="space-y-4">
-    <div>
-        <label class="block text-sm text-gray-400 mb-1">Título</label>
-        <input type="text" name="title" required
-            class="w-full px-4 py-2 bg-card border border-gray-700 rounded text-white focus:border-accent focus:outline-none">
-    </div>
-    <button type="submit" class="px-6 py-2 bg-accent text-black font-bold rounded hover:bg-cyan-300">Crear</button>
-</form>"#;
-    layout("Nueva presentación", &body)
+    let body = r#"<div class="nova-page nova-editor-page"><header class="nova-page-head compact"><div><p class="nova-eyebrow"><span>07.3</span> Nueva presentación</p><h1>La primera diapositiva<br><em>empieza con un título.</em></h1><p class="nova-page-lead">Después podrás añadir contenido Markdown y ordenar cada escena.</p></div><a href="/office/presentations" class="nova-button nova-button-quiet">Volver</a></header><form hx-post="/office/presentations" hx-swap="outerHTML" class="nova-create-sheet-form"><span class="material-symbols-outlined">present_to_all</span><div><label for="new-pres-title">Título de la presentación</label><input id="new-pres-title" type="text" name="title" placeholder="Ej. El sistema circulatorio" required></div><button type="submit" class="nova-button nova-button-primary">Crear presentación<span class="material-symbols-outlined">arrow_forward</span></button></form></div>"#;
+    layout_as("Nueva presentación", "presentaciones", &body)
 }
 
 /// Create a presentation (empty slide deck).
@@ -219,32 +181,9 @@ pub async fn edit(
         let title_esc = templates::html_escape(&slide.title);
         let content_esc = templates::html_escape(&slide.content);
         cards.push_str(&format!(
-            r#"<div class="bg-card border border-gray-800 rounded-lg p-3 mb-3 slide" id="slide-{i}" data-idx="{i}">
-                <form hx-put="/office/presentations/{slug}/slides/{i}" class="space-y-2">
-                    <div class="flex justify-between items-center mb-2">
-                        <input name="title" value="{title}"
-                            class="text-sm bg-gray-900 border border-gray-700 rounded px-2 py-1 text-white flex-1 mr-2 focus:border-accent focus:outline-none"
-                            placeholder="Título de la diapositiva">
-                        <div class="flex gap-1">
-                            <button type="submit"
-                                class="px-2 py-1 bg-accent text-black font-bold rounded text-xs hover:bg-cyan-300">Guardar</button>
-                        </div>
-                    </div>
-                    <textarea name="content" rows="4"
-                        class="w-full px-2 py-1 bg-gray-900 border border-gray-700 rounded text-white font-mono text-xs focus:border-accent focus:outline-none">{content}</textarea>
-                </form>
-                <div class="flex gap-1 mt-2">
-                    <button type="button" onclick="moveSlide({i}, -1)"
-                        class="px-2 py-1 bg-gray-700 border border-gray-700 rounded text-xs hover:bg-gray-800">↑</button>
-                    <button type="button" onclick="moveSlide({i}, 1)"
-                        class="px-2 py-1 bg-gray-700 border border-gray-700 rounded text-xs hover:bg-gray-800">↓</button>
-                    <form hx-delete="/office/presentations/{slug}/slides/{i}" class="inline">
-                        <button type="submit" onclick="return confirm('¿Eliminar diapositiva?')"
-                            class="px-2 py-1 bg-red-700 border border-red-800 rounded text-xs hover:bg-red-600">✕</button>
-                    </form>
-                </div>
-            </div>"#,
+            r#"<article class="nova-slide-card slide" id="slide-{i}" data-idx="{i}"><header><span>DIAPOSITIVA {number}</span><div><button type="button" onclick="moveSlide({i}, -1)" class="nova-icon-button" aria-label="Mover diapositiva hacia arriba"><span class="material-symbols-outlined">arrow_upward</span></button><button type="button" onclick="moveSlide({i}, 1)" class="nova-icon-button" aria-label="Mover diapositiva hacia abajo"><span class="material-symbols-outlined">arrow_downward</span></button><form hx-delete="/office/presentations/{slug}/slides/{i}"><button type="submit" onclick="return confirm('¿Eliminar diapositiva?')" class="nova-icon-button danger" aria-label="Eliminar diapositiva"><span class="material-symbols-outlined">delete</span></button></form></div></header><form hx-put="/office/presentations/{slug}/slides/{i}"><label for="slide-title-{i}">Título</label><input id="slide-title-{i}" name="title" value="{title}" placeholder="Título de la diapositiva"><label for="slide-content-{i}">Contenido Markdown</label><textarea id="slide-content-{i}" name="content" rows="7">{content}</textarea><footer><span>Markdown</span><button type="submit" class="nova-button nova-button-quiet"><span class="material-symbols-outlined">save</span>Guardar</button></footer></form></article>"#,
             i = i,
+            number = i + 1,
             slug = templates::html_escape(&slug),
             title = title_esc,
             content = content_esc,
@@ -252,30 +191,7 @@ pub async fn edit(
     }
 
     let body = format!(
-        r#"<div class="flex justify-between items-center mb-3">
-            <h2 class="text-xl font-bold text-accent">Presentación: <span class="text-white">{title}</span></h2>
-            <div class="space-x-2">
-                <a href="/office/presentations/{slug}/present" target="_blank"
-                    class="px-3 py-1 bg-accent text-black font-bold rounded text-sm hover:bg-cyan-300">Presentar</a>
-                <form hx-delete="/office/presentations/{slug}" class="inline">
-                    <button type="submit" onclick="return confirm('¿Borrar presentación?')"
-                        class="px-3 py-1 bg-red-700 border border-red-800 rounded text-sm hover:bg-red-600">Borrar</button>
-                </form>
-            </div>
-        </div>
-        <div id="slides">{cards}</div>
-        <h3 class="text-sm font-bold text-accent mb-1 mt-4">Añadir diapositiva</h3>
-        <form hx-post="/office/presentations/{slug}/slides" class="space-y-2 mb-4">
-            <input name="title" placeholder="Título"
-                class="w-full px-3 py-1 bg-card border border-gray-700 rounded text-white focus:border-accent focus:outline-none">
-            <textarea name="content" rows="3" placeholder="Contenido (Markdown)"
-                class="w-full px-3 py-1 bg-card border border-gray-700 rounded text-white font-mono text-xs focus:border-accent focus:outline-none"></textarea>
-            <button type="submit" class="px-4 py-1 bg-accent text-black font-bold rounded text-sm hover:bg-cyan-300">Añadir</button>
-        </form>
-        <form hx-post="/office/presentations/{slug}/slides/reorder" hx-on::before-request="buildOrder()" class="mt-4">
-            <input type="hidden" name="order" id="order" value="">
-            <button type="submit" class="px-3 py-1 bg-gray-700 border border-gray-700 rounded text-xs hover:bg-gray-800">Aplicar reorden</button>
-        </form>
+        r#"<div class="nova-page nova-deck-page"><header class="nova-workspace-head"><div class="nova-workspace-title"><span class="nova-workspace-symbol"><span class="material-symbols-outlined">present_to_all</span></span><div><p>Presentación</p><h1>{title}</h1></div></div><div class="nova-workspace-actions"><a href="/office/presentations" class="nova-button nova-button-quiet">Volver</a><a href="/office/presentations/{slug}/present" target="_blank" class="nova-button nova-button-primary"><span class="material-symbols-outlined">play_arrow</span>Presentar</a><form hx-delete="/office/presentations/{slug}"><button type="submit" onclick="return confirm('¿Borrar presentación?')" class="nova-icon-button danger" aria-label="Borrar presentación"><span class="material-symbols-outlined">delete</span></button></form></div></header><div class="nova-deck-layout"><section class="nova-deck-slides"><div class="nova-panel-caption"><span>01</span><h2>Diapositivas</h2><span class="material-symbols-outlined">view_carousel</span></div><div id="slides" class="nova-slide-list">{cards}</div><form hx-post="/office/presentations/{slug}/slides/reorder" hx-on::before-request="buildOrder()" class="nova-reorder-form"><input type="hidden" name="order" id="order" value=""><button type="submit" class="nova-button nova-button-quiet"><span class="material-symbols-outlined">swap_vert</span>Aplicar orden</button></form></section><aside class="nova-new-slide"><div class="nova-panel-caption"><span>02</span><h2>Nueva escena</h2><span class="material-symbols-outlined">add</span></div><p>Añade una diapositiva al final del mazo.</p><form hx-post="/office/presentations/{slug}/slides"><label for="new-slide-title">Título</label><input id="new-slide-title" name="title" placeholder="Una idea clara"><label for="new-slide-content">Contenido Markdown</label><textarea id="new-slide-content" name="content" rows="9" placeholder="Añade un encabezado&#10;&#10;Escribe tu contenido…"></textarea><button type="submit" class="nova-button nova-button-primary">Añadir diapositiva</button></form></aside></div></div>
         <script>
             function buildOrder() {{
                 const order = Array.from(document.querySelectorAll('#slides [data-idx]'))
@@ -284,7 +200,6 @@ pub async fn edit(
             }}
             function moveSlide(idx, delta) {{
                 buildOrder();
-                // Delegate to a simple reorder by rebuilding order with the moved item.
                 const order = Array.from(document.querySelectorAll('#slides [data-idx]'))
                     .map(el => parseInt(el.getAttribute('data-idx'), 10));
                 const i = order.indexOf(idx);
@@ -305,7 +220,7 @@ pub async fn edit(
         slug = templates::html_escape(&slug),
         cards = cards,
     );
-    layout(&format!("Editar: {}", slug), &body).into_response()
+    layout_as(&format!("Editar: {}", slug), "presentaciones", &body).into_response()
 }
 
 /// Add a slide.
@@ -499,39 +414,23 @@ pub async fn present(
     };
 
     let mut slides_html = String::new();
-    for slide in &pres.slides {
+    for (index, slide) in pres.slides.iter().enumerate() {
         let title_esc = templates::html_escape(&slide.title);
         let body_html = md_to_html(&slide.content);
         slides_html.push_str(&format!(
-            r#"<section class="slide bg-card border border-gray-800 rounded-lg p-6 mb-4 min-h-[300px]">
-                <h2 class="text-2xl font-bold text-accent mb-4">{title}</h2>
-                <div class="prose prose-invert max-w-none">{body}</div>
-            </section>"#,
+            r#"<section class="nova-present-slide"><div class="nova-present-slide-number">{number}</div><div><h2>{title}</h2><div class="nova-present-slide-body">{body}</div></div></section>"#,
+            number = index + 1,
             title = title_esc,
             body = body_html,
         ));
     }
 
-    let head = format!(
-        r#"<div class="flex justify-between items-center mb-4">
-            <h2 class="text-2xl font-bold text-accent">{title}</h2>
-            <a href="/office/presentations/{slug}/edit" hidden></a>
-        </div>"#,
-        title = templates::html_escape(&pres.title),
-    );
-    let _ = head; // title bar kept minimal in presentation mode
     let body = format!(
-        r#"<div class="fixed inset-0 bg-dark overflow-y-auto py-8">
-            <div class="max-w-3xl mx-auto">
-                <div class="text-center mb-6 text-gray-500 text-sm">
-                    Presentación: {title} — {n} diapositiva(s)
-                </div>
-                {slides}
-            </div>
-        </div>"#,
+        r#"<div class="nova-page nova-present-mode"><header class="nova-workspace-head"><div class="nova-workspace-title"><span class="nova-workspace-symbol"><span class="material-symbols-outlined">present_to_all</span></span><div><p>Modo presentación · {n} diapositiva(s)</p><h1>{title}</h1></div></div><div class="nova-workspace-actions"><a href="/office/presentations/{slug}" class="nova-button nova-button-quiet"><span class="material-symbols-outlined">arrow_back</span>Volver al editor</a></div></header><main class="nova-present-deck">{slides}</main></div>"#,
         title = templates::html_escape(&pres.title),
+        slug = templates::html_escape(&slug),
         n = pres.slides.len(),
         slides = slides_html,
     );
-    layout("Presentar", &body).into_response()
+    layout_as("Presentar", "presentaciones", &body).into_response()
 }

@@ -102,7 +102,7 @@ fn progress_bars_html(subjects: &[templates::SubjectSummary]) -> String {
             let pct = promedio_pct(s.average);
             let avg = format_grade(s.average);
             format!(
-                r###"<div>
+                r###"<div class="nova-profile-progress-row">
                     <div class="flex items-baseline justify-between gap-space-sm">
                         <span class="font-label-md text-label-md text-on-surface">{}</span>
                         <span class="font-headline-sm text-headline-sm font-bold {}">{}</span>
@@ -152,19 +152,7 @@ fn progress_body_html(subjects: &[templates::SubjectSummary]) -> String {
 /// `innerHTML` del botón "Actualizar" no se lleve el botón consigo.
 fn progress_section_html(subjects: &[templates::SubjectSummary]) -> String {
     format!(
-        r###"<div class="bg-surface-container border border-outline rounded-xl p-space-md">
-            <div class="flex items-center justify-between gap-space-md mb-space-md">
-                <div>
-                    <h3 class="font-headline-sm text-headline-sm text-primary-container">Progreso por materia</h3>
-                    <p class="font-body-sm text-body-sm text-on-surface-variant">Promedios reales del parcial en curso (escala 0–10), ordenados de menor a mayor promedio (primero lo que hay que recuperar).</p>
-                </div>
-                <button hx-get="/dashboard/profile?partial=progress" hx-target="#profile-progress" hx-swap="innerHTML"
-                    class="inline-flex items-center gap-1.5 px-space-sm py-1.5 rounded-lg text-on-primary-container bg-primary-container font-label-sm font-semibold hover:bg-primary-fixed-dim transition-colors" title="Actualizar">
-                    <span class="material-symbols-outlined text-[16px]">refresh</span> Actualizar
-                </button>
-            </div>
-            <div id="profile-progress">{}</div>
-        </div>"###,
+        r###"<section class="nova-profile-progress"><div class="nova-panel-caption"><span>02</span><h2>Progreso por materia</h2><button hx-get="/dashboard/profile?partial=progress" hx-target="#profile-progress" hx-swap="innerHTML" class="nova-icon-button" title="Actualizar" aria-label="Actualizar promedios"><span class="material-symbols-outlined">refresh</span></button></div><p class="nova-profile-progress-intro">Promedios reales del parcial en curso, ordenados primero por lo que necesita más atención.</p><div id="profile-progress">{}</div></section>"###,
         progress_body_html(subjects)
     )
 }
@@ -265,24 +253,7 @@ pub async fn index(
     let status = templates::mcp_status_banner(connected);
 
     let details = format!(
-        r###"<div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
-            <div class="bg-surface-container border border-outline rounded-xl p-space-md">
-                <h3 class="font-label-sm text-label-sm text-outline mb-space-sm">Nombre completo</h3>
-                <p class="font-headline-md text-headline-md text-primary-container">{}</p>
-            </div>
-            <div class="bg-surface-container border border-outline rounded-xl p-space-md">
-                <h3 class="font-label-sm text-label-sm text-outline mb-space-sm">Institución</h3>
-                <p class="font-headline-md text-headline-md text-primary-container">{}</p>
-            </div>
-            <div class="bg-surface-container border border-outline rounded-xl p-space-md">
-                <h3 class="font-label-sm text-label-sm text-outline mb-space-sm">Curso actual</h3>
-                <p class="font-headline-md text-headline-md text-primary-container">{}</p>
-            </div>
-            <div class="bg-surface-container border border-outline rounded-xl p-space-md">
-                <h3 class="font-label-sm text-label-sm text-outline mb-space-sm">Estado del MCP</h3>
-                <p class="font-headline-md text-headline-md text-primary-container">{}</p>
-            </div>
-        </div>"###,
+        r###"<section class="nova-profile-facts" id="profile-details"><div class="nova-panel-caption"><span>01</span><h2>Datos académicos</h2><span class="material-symbols-outlined">badge</span></div><div class="nova-profile-fact-grid"><article><span>Nombre completo</span><strong>{}</strong></article><article><span>Institución</span><strong>{}</strong></article><article><span>Curso actual</span><strong>{}</strong></article><article><span>Estado del MCP</span><strong>{}</strong></article></div></section>"###,
         field_html(&perfil.nombre),
         field_html(&perfil.institucion),
         field_html(&perfil.curso),
@@ -294,9 +265,9 @@ pub async fn index(
     );
 
     let content = format!(
-        r###"{}{}<div id="profile-details">{}</div>{}"###,
-        status,
+        r###"<div class="nova-page nova-profile-page"><header class="nova-profile-hero"><div><p class="nova-eyebrow"><span>09</span> Perfil</p><h1>Tu recorrido.<br><em>Tus propios datos.</em></h1><p class="nova-page-lead">Identidad académica y progreso real, sin cifras inventadas.</p></div>{}</header>{}<div class="nova-profile-layout">{}{}</div></div>"###,
         templates::profile_card_html(&perfil),
+        status,
         details,
         progress_section_html(&subjects)
     );
