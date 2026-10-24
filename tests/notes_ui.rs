@@ -324,8 +324,6 @@ async fn listar_notas_muestra_el_titulo_creado() {
     );
 }
 
-
-
 // --- 5. Actualización por API: contador e historial coherentes con el Markdown ---
 
 #[tokio::test]
@@ -344,9 +342,7 @@ async fn api_update_actualiza_word_count_archivo_y_versiones() {
     assert_eq!(created.status(), StatusCode::SEE_OTHER);
 
     let new_content = "Uno dos tres cuatro";
-    let payload = format!(
-        r#"{{"content":"{new_content}","tags":"álgebra, prueba"}}"#
-    );
+    let payload = format!(r#"{{"content":"{new_content}","tags":"álgebra, prueba"}}"#);
     let response = app
         .oneshot(
             Request::builder()
@@ -362,26 +358,30 @@ async fn api_update_actualiza_word_count_archivo_y_versiones() {
         .expect("respuesta de actualización");
     assert_eq!(response.status(), StatusCode::OK);
 
-    let word_count: i64 =
-        sqlx::query_scalar("SELECT word_count FROM notes WHERE slug = ?")
-            .bind(SLUG)
-            .fetch_one(&t.state.db)
-            .await
-            .expect("leer contador de palabras");
-    assert_eq!(word_count, 4, "el contador debe corresponder al contenido nuevo");
+    let word_count: i64 = sqlx::query_scalar("SELECT word_count FROM notes WHERE slug = ?")
+        .bind(SLUG)
+        .fetch_one(&t.state.db)
+        .await
+        .expect("leer contador de palabras");
+    assert_eq!(
+        word_count, 4,
+        "el contador debe corresponder al contenido nuevo"
+    );
 
     let note_id: i64 = sqlx::query_scalar("SELECT id FROM notes WHERE slug = ?")
         .bind(SLUG)
         .fetch_one(&t.state.db)
         .await
         .expect("leer id de la nota");
-    let versions: i64 =
-        sqlx::query_scalar("SELECT COUNT(*) FROM note_versions WHERE note_id = ?")
-            .bind(note_id)
-            .fetch_one(&t.state.db)
-            .await
-            .expect("leer historial");
-    assert_eq!(versions, 2, "la actualización debe crear una instantánea nueva");
+    let versions: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM note_versions WHERE note_id = ?")
+        .bind(note_id)
+        .fetch_one(&t.state.db)
+        .await
+        .expect("leer historial");
+    assert_eq!(
+        versions, 2,
+        "la actualización debe crear una instantánea nueva"
+    );
 
     let file_path = t.state.config.notes_dir.join(format!("{SLUG}.md"));
     let saved_content = std::fs::read_to_string(file_path).expect("leer Markdown guardado");
