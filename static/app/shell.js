@@ -460,14 +460,14 @@
     portal(bell, function (menu) {
       fillMenu(menu, [
         { head: "Agenda" },
-        { label: "Proxima clase", icon: "schedule", href: "/dashboard/horario" },
-        { label: "Tareas y examenes", icon: "assignment", href: "/dashboard/planner" },
+        { label: "Próxima clase", icon: "schedule", href: "/dashboard/horario" },
+        { label: "Tareas y exámenes", icon: "assignment", href: "/dashboard/planner" },
         { label: "Notas recientes", icon: "description", href: "/dashboard/notes" },
         "-",
         { head: "Sistema" },
-        { label: "Administracion", icon: "admin_panel_settings", href: "/admin" },
+        { label: "Administración", icon: "admin_panel_settings", href: "/admin" },
         { label: "Copias de seguridad", icon: "backup", href: "/admin" },
-        { label: "Configuracion", icon: "settings", href: "/settings" }
+        { label: "Configuración", icon: "settings", href: "/settings" }
       ]);
     });
   }
@@ -483,15 +483,15 @@
         { head: "Crear" },
         { label: "Nota", icon: "note_add", sub: "markdown local", fn: newNotePrompt },
         { label: "Documento", icon: "article", sub: "suite oficina", fn: function () { newOffice("docs", "Documento"); } },
-        { label: "Hoja de calculo", icon: "table_chart", sub: "csv", fn: function () { newOffice("sheets", "Hoja de calculo"); } },
-        { label: "Presentacion", icon: "slideshow", fn: function () { newOffice("presentations", "Presentacion"); } },
-        { label: "Importar Obsidian", icon: "file_open", sub: "carpeta .md", fn: importObsidian },
+        { label: "Hoja de cálculo", icon: "table_chart", sub: "csv", fn: function () { newOffice("sheets", "Hoja de cálculo"); } },
+        { label: "Presentación", icon: "slideshow", fn: function () { newOffice("presentations", "Presentación"); } },
+        { label: "Importar desde Obsidian", icon: "file_open", sub: "carpeta de archivos .md", fn: importObsidian },
         "-",
-        { head: "Academico" },
-        { label: "Conversacion IA", icon: "auto_awesome", href: "/dashboard/ai" },
+        { head: "Académico" },
+        { label: "Conversación con IA", icon: "auto_awesome", href: "/dashboard/ai" },
         { label: "Generar material", icon: "model_training", href: "/dashboard/material" },
         { label: "Tarea del curso", icon: "task_alt", sub: "se gestiona en el planificador", href: "/dashboard/planner" },
-        { label: "Ir a examenes", icon: "assignment_late", href: "/dashboard/examenes" }
+        { label: "Ir a exámenes", icon: "assignment_late", href: "/dashboard/examenes" }
       ]);
     });
   }
@@ -499,8 +499,8 @@
   function newNotePrompt() {
     SP.dialog({
       title: "Nueva nota",
-      text: "Se crea en tu boveda local; aparece como nota del panel.",
-      field: { label: "Titulo de la nota", placeholder: "Ej. Apuntes de redes - clase 5", max: 80 },
+      text: "Se crea en tu bóveda local; aparece como nota del panel.",
+      field: { label: "Título de la nota", placeholder: "Ej. Apuntes de redes - clase 5", max: 80 },
       ok: "Crear nota"
     }).then(function (title) {
       if (!title) { return; }
@@ -517,7 +517,7 @@
     SP.dialog({
       title: "Nueva " + label.toLowerCase(),
       text: "Se abre el editor correspondiente.",
-      field: { label: "Titulo", placeholder: "Ej. Proyecto binomios", max: 80 },
+      field: { label: "Título", placeholder: "Ej. Proyecto binomios", max: 80 },
       ok: "Crear"
     }).then(function (title) {
       if (!title) { return; }
@@ -534,7 +534,7 @@
         })
         .catch(function (err) {
           if (err.status === 409) {
-            SP.toast("Ya existia un elemento con ese titulo", "info");
+            SP.toast("Ya existía un elemento con ese título", "info");
             setTimeout(function () { window.location.href = path; }, 600);
             return;
           }
@@ -561,7 +561,7 @@
       });
       document.body.removeChild(input);
       if (!files.length) {
-        SP.toast("No hay archivos .md en la carpeta elegida", "info");
+        SP.toast("No hay archivos .md en la carpeta seleccionada", "info");
         return;
       }
       var i = 0, ok = 0;
@@ -665,7 +665,7 @@
       { t: "nueva clase", href: "/dashboard/horario" },
       { t: "nueva asignatura", href: "/dashboard/subjects" },
       { t: "nota md", fn: newNotePrompt },
-      { t: "carpeta", fn: function () { SP.toast("Las carpetas llegan con la importacion de bovedas (pendiente en backend)", "info"); } },
+      { t: "carpeta", fn: function () { SP.toast("La importación de carpetas aún no está disponible.", "info"); } },
       { t: "grafo", href: "/dashboard/notes" },
       { t: "nuevo chat", href: "/dashboard/ai" },
       { t: "generar resumen", fn: aiCatchPrompt("Resumeme el material adjunto en puntos clave.") },
@@ -699,7 +699,7 @@
     }
 
     function toastVaultPending() {
-      SP.toast("Las carpetas llegan con la importacion de bovedas", "info");
+      SP.toast("La importación de carpetas aún no está disponible.", "info");
     }
 
     /* Modal "Nueva tarea academica": captura honesta → nota o planificador */
@@ -727,7 +727,7 @@
         e.preventDefault();
         var title = ((titleInput && titleInput.value) || "").trim();
         if (!title) {
-          SP.toast("Escribe un titulo o usa el planificador", "info");
+          SP.toast("Escribe un título o usa el planificador", "info");
           if (titleInput) { titleInput.focus(); }
           return;
         }
@@ -847,7 +847,7 @@
       }
       if (!found && allNotes.length) { found = allNotes[0]; }
       if (!found) {
-        SP.toast("La boveda esta vacia: crea la primera nota con \"Nota\" en + Crear", "info", 5000);
+        SP.toast("La bóveda está vacía: crea la primera nota con \"Nota\" en + Crear", "info", 5000);
         return;
       }
       hydrate(found.slug);
@@ -904,8 +904,8 @@
     modes.preview.addEventListener("click", function (e) { e.preventDefault(); setMode("preview"); });
 
     var fmtMap = {
-      "Titulo H1": function () { linePrefix("# "); },
-      "Titulo H2": function () { linePrefix("## "); },
+      "Título H1": function () { linePrefix("# "); },
+      "Título H2": function () { linePrefix("## "); },
       "Negrita": function () { surround("**", "**"); },
       "Cursiva": function () { surround("*", "*"); },
       "Codigo Inline": function () { surround("`", "`"); },
@@ -956,7 +956,7 @@
       if (sel) { insert("[[" + sel + "]]"); return; }
       SP.dialog({
         title: "WikiLink",
-        text: "Nombre de la nota destino (la puedes crear despues).",
+        text: "Nombre de la nota de destino (puedes crearla después).",
         field: { placeholder: "Ej. Apuntes de redes", max: 60 },
         ok: "Insertar"
       }).then(function (name) { if (name) { insert("[[" + name + "]]"); } });
@@ -1017,7 +1017,7 @@
       if (b) { b.disabled = !dirty; }
     }
     function save(extra) {
-      if (!current.slug) { SP.toast("Nada que guardar", "info"); return; }
+      if (!current.slug) { SP.toast("No hay cambios que guardar", "info"); return; }
       var body = {};
       var ex = extra || {};
       if (ex.tags !== undefined) { body.tags = ex.tags; }
@@ -1063,17 +1063,17 @@
           btn.addEventListener("click", function (e) {
             e.preventDefault();
             var content = editor.value || current.content;
-            if (!content || !content.trim()) { SP.toast("La nota esta vacia", "info"); return; }
+            if (!content || !content.trim()) { SP.toast("La nota está vacía", "info"); return; }
             var name = current.title || (titleInput && titleInput.value) || "nota";
             track(btn, true);
             SP.api("/office/docs", { form: { title: name, content: content } })
               .then(function () {
-                SP.toast("Documento creado en Office Docs", "ok");
+                SP.toast("Documento creado en Documentos", "ok");
                 setTimeout(function () { window.location.href = "/office/docs/" + sluginator(name); }, 700);
               })
               .catch(function (err) {
                 if (err.status === 409) {
-                  SP.toast("Ya existia: abriendolo en Office Docs", "info");
+                  SP.toast("Ya existía; abriendo en Documentos", "info");
                   setTimeout(function () { window.location.href = "/office/docs/" + sluginator(name); }, 500);
                   return;
                 }
@@ -1085,9 +1085,9 @@
           btn.addEventListener("click", function (e) {
             e.preventDefault();
             var c = editor.value || current.content;
-            if (!c || !c.trim()) { SP.toast("La nota esta vacia", "info"); return; }
+            if (!c || !c.trim()) { SP.toast("La nota está vacía", "info"); return; }
             sessionStorage.setItem("sp:ai-ctx", JSON.stringify({ t: current.title, c: c.slice(0, 6000) }));
-            SP.toast("Contexto adjuntado: abriendo el asistente...", "ok");
+            SP.toast("Contexto adjuntado: abriendo el asistente…", "ok");
             setTimeout(function () { window.location.href = "/dashboard/ai"; }, 600);
           });
         } else if (t === "+ Nota") {
@@ -1109,8 +1109,8 @@
           ["Planificador", "timeline", "/dashboard/planner"],
           ["Asistente IA", "auto_awesome", "/dashboard/ai"],
           ["Documentos", "article", "/office/docs"],
-          ["Configuracion", "settings", "/settings"],
-          ["Administracion", "admin_panel_settings", "/admin"]
+          ["Configuración", "settings", "/settings"],
+          ["Administración", "admin_panel_settings", "/admin"]
         ].forEach(function (x) { items.push({ label: x[0], icon: x[1], value: x[2] }); });
         SP.dialog({ title: "Comandos", text: "Notas y pantallas", items: items }).then(function (v) {
           if (v && typeof v === "string") { window.location.href = v; }
@@ -1142,7 +1142,7 @@
     function dialogoAnotacion(fecha, anotacion) {
       var cuerpo = document.createElement("div");
       cuerpo.innerHTML =
-        '<label class="sp-field"><span class="sp-field-label">Titulo</span>' +
+        '<label class="sp-field"><span class="sp-field-label">Título</span>' +
         '<input class="sp-input" id="sp-anot-titulo" maxlength="120" placeholder="Ej. Examen de matematicas"></label>' +
         '<label class="sp-field"><span class="sp-field-label">Nota</span>' +
         '<textarea class="sp-input" id="sp-anot-cuerpo" rows="4" maxlength="4000" placeholder="Detalles, material que llevar, recordatorios..."></textarea></label>' +
@@ -1322,9 +1322,9 @@
       promptInput.value = buildPrompt(pending);
       sessionStorage.removeItem("sp:ai-prompt");
       promptInput.focus();
-      SP.toast("Prompt listo: pulsa Enviar", "info");
+      SP.toast("Mensaje listo: pulsa Enviar", "info");
     } else if (ctx()) {
-      SP.toast("Material adjuntado: usa un chip o escribe tu pregunta", "info", 5200);
+      SP.toast("Material adjuntado: usa una sugerencia o escribe tu pregunta", "info", 5200);
     }
 
     ["attach_file", "mic"].forEach(function (needle) {
@@ -1340,7 +1340,7 @@
           btn.addEventListener("click", function () {
             SP.api("/api/notes").then(function (data) {
               var notes = data.notes || [];
-              if (!notes.length) { SP.toast("No hay notas todavia", "info"); return; }
+              if (!notes.length) { SP.toast("Todavía no hay notas", "info"); return; }
               var items = notes.slice(0, 20).map(function (n) {
                 return { label: n.title, icon: "description", sub: "nota", value: n.slug };
               });
@@ -1349,11 +1349,11 @@
                 SP.api("/api/notes/" + slug).then(function (d) {
                   var c = String(d.content || "");
                   var n = d.note || {};
-                  if (!c.trim()) { SP.toast("Esa nota esta vacia", "info"); return; }
+                  if (!c.trim()) { SP.toast("Esa nota está vacía", "info"); return; }
                   sessionStorage.setItem("sp:ai-ctx", JSON.stringify({ t: n.title || slug, c: c }));
                   promptInput.value = buildPrompt("Basandote en el material adjunto:");
                   promptInput.focus();
-                  SP.toast("Nota adjuntada: pulsa Enviar o un chip", "ok");
+                  SP.toast("Nota adjuntada: pulsa Enviar o una sugerencia", "ok");
                 }).catch(function (err) { SP.toast(msgErr(err), "err"); });
               });
             }).catch(function (err) { SP.toast(msgErr(err), "err"); });
@@ -1361,11 +1361,11 @@
           return;
         }
         var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SR) { SP.toast("Tu navegador no soporta dictado", "err"); return; }
+        if (!SR) { SP.toast("Tu navegador no admite el dictado", "err"); return; }
         btn.addEventListener("click", function () {
           if (btn.dataset.rec === "1") { return; }
           var rec;
-          try { rec = new SR(); } catch (e2) { SP.toast("No se pudo iniciar el microfono", "err"); return; }
+          try { rec = new SR(); } catch (e2) { SP.toast("No se pudo iniciar el micrófono", "err"); return; }
           rec.lang = document.documentElement.lang || "es";
           rec.interimResults = false;
           rec.maxAlternatives = 1;
@@ -1380,7 +1380,7 @@
           rec.onend = stop2;
           try {
             rec.start();
-            SP.toast("Escuchando...", "info");
+            SP.toast("Escuchando…", "info");
           } catch (e3) { stop2(); }
         });
       });
