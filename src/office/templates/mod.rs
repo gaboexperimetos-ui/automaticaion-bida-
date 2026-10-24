@@ -311,10 +311,10 @@ const LAYOUT_TEMPLATE: &str = r##"<!DOCTYPE html>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>__TITLE__ — Suite de oficina</title>
-    <!-- Google Fonts: Manrope (headings) + Hanken Grotesk (body) -->
+    <!-- Google Fonts: Manrope (headings) + Inter (body) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Material Symbols Outlined -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined">
     <!-- HTMX + Tailwind CDN -->
@@ -326,63 +326,63 @@ const LAYOUT_TEMPLATE: &str = r##"<!DOCTYPE html>
                 extend: {
                     colors: {
                         /* Surface stack */
-                        background: '#101419',
-                        surface: '#101419',
-                        'surface-dim': '#101419',
-                        'surface-bright': '#36393f',
-                        'surface-container-lowest': '#0a0e13',
-                        'surface-container-low': '#181c21',
-                        'surface-container': '#1c2025',
-                        'surface-container-high': '#262a30',
-                        'surface-container-highest': '#31353b',
-                        'surface-variant': '#31353b',
-                        'surface-tint': '#4ddcc6',
-                        'on-surface': '#e0e2ea',
-                        'on-surface-variant': '#bbcac5',
-                        'on-background': '#e0e2ea',
+                        background: '#0b1016',
+                        surface: '#0b1016',
+                        'surface-dim': '#080c11',
+                        'surface-bright': '#263442',
+                        'surface-container-lowest': '#080d12',
+                        'surface-container-low': '#101720',
+                        'surface-container': '#151e28',
+                        'surface-container-high': '#1b2733',
+                        'surface-container-highest': '#243240',
+                        'surface-variant': '#243240',
+                        'surface-tint': '#72e4d0',
+                        'on-surface': '#edf3f6',
+                        'on-surface-variant': '#a8b7c2',
+                        'on-background': '#edf3f6',
                         /* Outline */
-                        outline: '#859490',
-                        'outline-variant': '#3c4946',
+                        outline: '#788b99',
+                        'outline-variant': '#2c3b48',
                         /* Primary (luminescent cyan - AI telemetry) */
-                        primary: '#5eead4',
-                        'on-primary': '#003730',
-                        'primary-container': '#5eead4',
-                        'on-primary-container': '#00675b',
-                        'inverse-primary': '#006b5e',
-                        'primary-fixed': '#6ef9e2',
-                        'primary-fixed-dim': '#4ddcc6',
-                        'on-primary-fixed': '#00201b',
-                        'on-primary-fixed-variant': '#005047',
+                        primary: '#72e4d0',
+                        'on-primary': '#07332d',
+                        'primary-container': '#72e4d0',
+                        'on-primary-container': '#075247',
+                        'inverse-primary': '#148f7d',
+                        'primary-fixed': '#8df0de',
+                        'primary-fixed-dim': '#72e4d0',
+                        'on-primary-fixed': '#06251f',
+                        'on-primary-fixed-variant': '#075247',
                         /* Secondary (soft lime - user action) */
-                        secondary: '#9ed753',
-                        'on-secondary': '#203700',
-                        'secondary-container': '#6b9f1f',
-                        'on-secondary-container': '#1b2f00',
-                        'secondary-fixed': '#b9f46c',
-                        'secondary-fixed-dim': '#9ed753',
-                        'on-secondary-fixed': '#102000',
-                        'on-secondary-fixed-variant': '#304f00',
+                        secondary: '#b8e986',
+                        'on-secondary': '#1d2d0d',
+                        'secondary-container': '#668f38',
+                        'on-secondary-container': '#172609',
+                        'secondary-fixed': '#c9f39e',
+                        'secondary-fixed-dim': '#b8e986',
+                        'on-secondary-fixed': '#152307',
+                        'on-secondary-fixed-variant': '#39571a',
                         /* Tertiary (muted violet - taxonomy/metadata) */
-                        tertiary: '#a78bfa',
-                        'on-tertiary': '#381385',
-                        'tertiary-container': '#dbcdff',
-                        'on-tertiary-container': '#6448b2',
-                        'tertiary-fixed': '#e8ddff',
-                        'tertiary-fixed-dim': '#cebdff',
-                        'on-tertiary-fixed': '#21005e',
-                        'on-tertiary-fixed-variant': '#4f319c',
+                        tertiary: '#b7a5ea',
+                        'on-tertiary': '#382665',
+                        'tertiary-container': '#b7a5ea',
+                        'on-tertiary-container': '#493578',
+                        'tertiary-fixed': '#ded3fb',
+                        'tertiary-fixed-dim': '#b7a5ea',
+                        'on-tertiary-fixed': '#241643',
+                        'on-tertiary-fixed-variant': '#493578',
                         /* Error */
                         error: '#ffb4ab',
                         'on-error': '#690005',
                         'error-container': '#93000a',
                         'on-error-container': '#ffdad6',
                         /* Inverse */
-                        'inverse-surface': '#e0e2ea',
-                        'inverse-on-surface': '#2d3136',
+                        'inverse-surface': '#edf3f6',
+                        'inverse-on-surface': '#17222c',
                     },
                     fontFamily: {
                         manrope: ['Manrope', 'sans-serif'],
-                        hanken: ['Hanken Grotesk', 'sans-serif'],
+                        hanken: ['Inter', 'Hanken Grotesk', 'sans-serif'],
                     },
                 }
             },
@@ -398,7 +398,7 @@ const LAYOUT_TEMPLATE: &str = r##"<!DOCTYPE html>
             }
         }
         td[contenteditable]:focus {
-            outline: 2px solid #4ddcc6;
+            outline: 2px solid #72e4d0;
             @apply bg-surface-container;
         }
         th {
@@ -408,6 +408,7 @@ const LAYOUT_TEMPLATE: &str = r##"<!DOCTYPE html>
             @apply border border-outline-variant;
         }
     </style>
+    <link rel="stylesheet" href="/polish.css">
 </head>
 <body class="min-h-screen">
     <header class="fixed top-0 left-0 right-0 bg-surface-container-low/90 backdrop-blur-sm border-b border-outline z-50">

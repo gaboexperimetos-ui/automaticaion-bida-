@@ -1,0 +1,18 @@
+{
+  "name": "study-platform-ui-preview",
+  "private": true,
+  "type": "module",
+  "description": "Preview aislada del shell con datos ficticios; no forma parte de producción.",
+  "scripts": {
+    "start": "node server.mjs",
+    "capture": "node capture.mjs"
+  },
+  "dependencies": {
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/manrope": "^5.2.8",
+    "@fontsource/material-symbols-outlined": "^5.2.8",
+    "@sparticuz/chromium": "143.0.4",
+    "puppeteer-core": "24.37.5",
+    "tailwindcss-cdn": "3.4.10"
+  }
+}

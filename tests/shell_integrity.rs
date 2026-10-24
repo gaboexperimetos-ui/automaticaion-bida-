@@ -17,7 +17,7 @@
 //! 3. `aria-current="page"` aparece **exactamente una vez** (el item activo
 //!    del nav-rail). `update_nav_rail` quita el atributo a todos los items y
 //!    se lo reinserta sólo al activo; dos marcas = dos items "página actual".
-//! 4. Los **21 items `data-path`** del nav-rail apuntan a rutas **reales**:
+//! 4. Los **22 items `data-path`** del nav-rail apuntan a rutas **reales**:
 //!    - lista estática `KNOWN_ROUTES` (grep de `src/handlers/mod.rs`,
 //!      `src/academic/mod.rs`, `src/office/mod.rs`, `src/ai/mod.rs`,
 //!      `src/handlers/admin.rs`, `src/mcp_server/mod.rs`);
@@ -153,7 +153,7 @@ const KNOWN_ROUTES: &[&str] = &[
     "/mcp/sse",
 ];
 
-/// Los 21 items `data-path` del nav-rail (kit Stitch v2, `shell/aside.html`).
+/// Los 22 items `data-path` del nav-rail (kit Stitch v2, `shell/aside.html`).
 const EXPECTED_NAV_PATHS: &[&str] = &[
     "administracion",
     "asignaturas",
@@ -534,12 +534,35 @@ async fn dashboard_200_y_sin_slots_sin_rellenar() {
 
 // --- 2. `aria-current="page"` exactamente una vez ---
 
+/// Quita los `<script>...</script>` en línea del HTML servido.
+///
+/// El shell pinta novísimamente su script dentro de la página (el selector
+/// `a[aria-current="page"]` aparece como TEXTO JS). Los invariantes del
+/// shell miden el DOM, no los strings de los scripts: sin esto, un test que
+/// cuenta atributos cuenta también el texto del script y da falso positivo.
+fn strip_inline_scripts(html: &str) -> String {
+    let mut out = String::with_capacity(html.len());
+    let mut rest = html;
+    while let Some(pos) = rest.find("<script") {
+        out.push_str(&rest[..pos]);
+        match rest[pos..].find("</script>") {
+            Some(end) => rest = &rest[pos + end + "</script>".len()..],
+            None => {
+                out.push_str(&rest[pos..]);
+                rest = "";
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
 #[tokio::test]
 async fn dashboard_marca_un_solo_item_activo_con_aria_current() {
     let html = dashboard_html().await;
 
     let marca = "aria-current=\"page\"";
-    let veces = html.matches(marca).count();
+    let veces = strip_inline_scripts(&html).matches(marca).count();
 
     if veces != 1 {
         // Localiza los items marcados para que el fallo sea accionable.
