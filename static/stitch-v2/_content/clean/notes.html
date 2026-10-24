@@ -79,7 +79,7 @@
 <button class="w-full flex items-center justify-center gap-2 p-space-sm rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface transition-all text-left" id="btn-import-vault">
 <span class="material-symbols-outlined text-secondary text-[20px]">folder_zip</span>
 <div class="flex flex-col flex-1 min-w-0">
-<span class="font-label-sm text-label-sm text-on-surface font-semibold truncate">Importar Bóveda Obsidian</span>
+<span class="font-label-sm text-label-sm text-on-surface font-semibold truncate">Importar bóveda de Obsidian</span>
 <span class="font-body-sm text-[10px] text-outline truncate">Sincronización segura por lotes</span>
 </div>
 <span class="material-symbols-outlined text-[16px] text-outline">file_upload</span>
@@ -87,7 +87,7 @@
 </div>
 </aside>
 <!-- 2. PANEL CENTRAL: EDITOR MARKDOWN DUAL (col-span-12 lg:col-span-6 xl:col-span-6) -->
-<main class="col-span-12 lg:col-span-6 xl:col-span-6 flex flex-col bg-surface min-h-[700px]">
+<section class="col-span-12 lg:col-span-6 xl:col-span-6 flex flex-col bg-surface min-h-[700px]" aria-label="Editor de notas Markdown">
 <!-- Editor Top Toolbar -->
 <div class="px-space-md py-space-sm bg-surface-container-low flex flex-col gap-space-xs">
 <!-- Title & Status Row -->
@@ -108,7 +108,7 @@
 <div class="flex items-center rounded bg-surface-container p-0.5">
 <button class="px-2 py-1 rounded text-outline hover:text-on-surface font-label-sm text-label-sm" id="mode-edit">Editar</button>
 <button class="px-2 py-1 rounded bg-surface-container-high text-primary-container font-label-sm text-label-sm font-semibold shadow-sm" id="mode-split">Vista dividida</button>
-<button class="px-2 py-1 rounded text-outline hover:text-on-surface font-label-sm text-label-sm" id="mode-preview">Vista Previa</button>
+<button class="px-2 py-1 rounded text-outline hover:text-on-surface font-label-sm text-label-sm" id="mode-preview">Vista previa</button>
 </div>
 </div>
 <!-- Formatting Action Bar -->
@@ -120,7 +120,7 @@
 <button class="p-1 rounded hover:bg-surface-container hover:text-on-surface" title="Código Inline"><span class="material-symbols-outlined text-[18px]">code</span></button>
 <button class="flex items-center gap-0.5 px-2 py-1 rounded bg-surface-container text-primary-container hover:bg-surface-container-high font-code-inline text-code-inline" title="Enlace Interno Bidireccional">
 <span>[[ ]]</span>
-<span class="text-[10px]">WikiLink</span>
+<span class="text-[10px]">Enlace wiki</span>
 </button>
 <button class="p-1 rounded hover:bg-surface-container hover:text-on-surface" title="Lista de verificación"><span class="material-symbols-outlined text-[18px]">checklist</span></button>
 <button class="p-1 rounded hover:bg-surface-container hover:text-on-surface" title="Tabla"><span class="material-symbols-outlined text-[18px]">table_chart</span></button>
@@ -159,7 +159,7 @@
 <!--SLOT:BACKLINKS-->
 </div>
 </div>
-</main>
+</section>
 <!-- 3. PANEL DERECHO: GRAFO INTERACTIVO & ACCIONES (320px equiv desktop col-span-12 lg:col-span-3 xl:col-span-3) -->
 <aside class="col-span-12 lg:col-span-3 xl:col-span-3 flex flex-col bg-surface-container-low p-space-sm space-y-space-md overflow-y-auto">
 <!-- Graph Header & Local Controls -->
@@ -231,7 +231,7 @@
 </aside>
 </div>
 <!-- Safe Import Modal (Obsidian Vault Confirmation dialog) -->
-<div class="hidden fixed inset-0 z-50 bg-background/80 backdrop-blur-md flex items-center justify-center p-space-md" id="import-vault-modal">
+<div class="hidden fixed inset-0 z-50 bg-background/80 backdrop-blur-md flex items-center justify-center p-space-md" id="import-vault-modal" role="dialog" aria-modal="true" aria-labelledby="import-vault-title" tabindex="-1">
 <div class="w-full max-w-lg rounded-xl bg-surface-container p-space-lg shadow-2xl space-y-space-md">
 <div class="flex items-center justify-between">
 <div class="flex items-center gap-2">
@@ -239,7 +239,7 @@
 <span class="material-symbols-outlined text-[24px]">folder_managed</span>
 </div>
 <div>
-<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold">Importar bóveda de Obsidian</h3>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold" id="import-vault-title">Importar bóveda de Obsidian</h3>
 <p class="font-body-sm text-body-sm text-outline">Importación incremental sin eliminar archivos</p>
 </div>
 </div>
@@ -251,36 +251,36 @@
 <div class="p-space-sm rounded-lg bg-surface-container-lowest space-y-2">
 <span class="font-label-sm text-label-sm text-outline">Ruta de origen de los archivos:</span>
 <div class="flex items-center justify-between px-space-sm py-1.5 rounded bg-surface-container font-code-inline text-code-inline text-primary-fixed truncate">
-<span>Selecciona la carpeta de tu bóveda</span>
-<button class="px-2 py-0.5 rounded bg-surface-container-high text-on-surface hover:bg-surface-variant text-xs">Buscar carpeta</button>
+<span id="vault-folder-status" aria-live="polite">Selecciona la carpeta de tu bóveda</span>
+<button class="px-2 py-0.5 rounded bg-surface-container-high text-on-surface hover:bg-surface-variant text-xs" id="choose-vault-folder-btn" type="button">Examinar</button>
 </div>
 </div>
 <!-- Conflict Strategy Checklist -->
 <div class="space-y-space-xs">
 <span class="font-label-sm text-label-sm text-on-surface font-semibold">Cómo resolver conflictos:</span>
 <label class="flex items-center gap-space-xs p-2 rounded bg-surface-container-low hover:bg-surface-container-high cursor-pointer">
-<input checked="" class="text-primary focus:ring-0" name="conflict-rule" type="radio"/>
+<input checked="" class="text-primary focus:ring-0" name="conflict-rule" type="radio" value="keep-both"/>
 <div class="flex flex-col">
 <span class="font-label-sm text-label-sm text-on-surface">Conservar ambas versiones (crear una copia con sufijo)</span>
 <span class="font-body-sm text-[11px] text-outline">Evita sobrescrituras accidentales. Recomendado.</span>
 </div>
 </label>
 <label class="flex items-center gap-space-xs p-2 rounded bg-surface-container-low hover:bg-surface-container-high cursor-pointer">
-<input class="text-primary focus:ring-0" name="conflict-rule" type="radio"/>
+<input class="text-primary focus:ring-0" name="conflict-rule" type="radio" value="overwrite-newer"/>
 <div class="flex flex-col">
 <span class="font-label-sm text-label-sm text-on-surface">Sobrescribir solo las notas con fecha más reciente</span>
-<span class="font-body-sm text-[11px] text-outline">Solicita confirmación antes de modificar cada archivo.</span>
+<span class="font-body-sm text-[11px] text-outline">Antes de empezar, se confirmará la operación. Solo se actualizarán notas cuyo archivo de origen sea más reciente.</span>
 </div>
 </label>
 </div>
 <!-- Stats Summary -->
-<p class="font-body-sm text-body-sm text-outline text-center px-2 py-2 rounded-lg bg-surface-container-low">Vista simulada: la importación real de bóvedas se conectará en una fase posterior.</p>
+<p class="font-body-sm text-body-sm text-outline text-center px-2 py-2 rounded-lg bg-surface-container-low" id="vault-import-summary" aria-live="polite">Selecciona una carpeta para importar archivos Markdown. Las notas existentes no se sobrescriben por defecto.</p>
 <!-- Safe Actions Modal -->
 <div class="flex items-center justify-end gap-space-sm pt-space-xs">
 <button class="px-space-md py-2 rounded-lg bg-surface-container-high text-on-surface hover:bg-surface-variant font-label-md text-label-md transition-colors" id="cancel-modal-btn">
           Cancelar
         </button>
-<button class="flex items-center gap-2 px-space-md py-2 rounded-lg bg-secondary text-on-secondary font-label-md text-label-md font-bold hover:bg-secondary-fixed transition-all shadow-[0_0_12px_rgba(158,215,83,0.3)]" id="confirm-import-btn">
+<button class="flex items-center gap-2 px-space-md py-2 rounded-lg bg-secondary text-on-secondary font-label-md text-label-md font-bold hover:bg-secondary-fixed transition-all shadow-[0_0_12px_rgba(158,215,83,0.3)]" id="confirm-import-btn" type="button" disabled>
 <span class="material-symbols-outlined text-[18px]">verified</span>
 <span>Continuar con la importación segura</span>
 </button>
@@ -291,22 +291,78 @@
 <!-- Minimal Interactive Scripts for Tabs, Modes and Modal -->
 <script>
   (function initSecondBrain() {
-    // Modal toggle logic
+    // Importación real: selección local de archivos Markdown y confirmación antes de guardar.
     const importBtn = document.getElementById('btn-import-vault');
     const modal = document.getElementById('import-vault-modal');
     const closeBtn = document.getElementById('close-modal-btn');
     const cancelBtn = document.getElementById('cancel-modal-btn');
     const confirmBtn = document.getElementById('confirm-import-btn');
+    const chooseBtn = document.getElementById('choose-vault-folder-btn');
+    const folderStatus = document.getElementById('vault-folder-status');
+    const importSummary = document.getElementById('vault-import-summary');
+    let selectedFiles = [];
+    let previousFocus = null;
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.multiple = true;
+    fileInput.accept = '.md,.markdown';
+    fileInput.setAttribute('webkitdirectory', '');
+    fileInput.hidden = true;
+    fileInput.setAttribute('aria-label', 'Seleccionar una carpeta de Obsidian');
+    modal?.appendChild(fileInput);
 
-    function openModal() { modal?.classList.remove('hidden'); }
-    function closeModal() { modal?.classList.add('hidden'); }
-
+    function openModal() {
+      if (!modal) return;
+      previousFocus = document.activeElement;
+      modal.classList.remove('hidden');
+      chooseBtn?.focus();
+    }
+    function closeModal() {
+      if (!modal) return;
+      modal.classList.add('hidden');
+      if (previousFocus && typeof previousFocus.focus === 'function') previousFocus.focus();
+    }
     importBtn?.addEventListener('click', openModal);
     closeBtn?.addEventListener('click', closeModal);
     cancelBtn?.addEventListener('click', closeModal);
+    modal?.addEventListener('click', (event) => {
+      if (event.target === modal) closeModal();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && modal && !modal.classList.contains('hidden')) closeModal();
+    });
+    chooseBtn?.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+      selectedFiles = Array.from(fileInput.files || []).filter((file) => /\.(md|markdown)$/i.test(file.name));
+      const count = selectedFiles.length;
+      if (folderStatus) {
+        folderStatus.textContent = count
+          ? count + (count === 1 ? ' archivo Markdown seleccionado' : ' archivos Markdown seleccionados')
+          : 'No se encontraron archivos Markdown en la selección';
+      }
+      if (importSummary) {
+        importSummary.textContent = count
+          ? 'Se procesarán ' + count + ' archivos Markdown. La política elegida se aplicará solo a notas con el mismo título.'
+          : 'Selecciona una carpeta que contenga archivos .md o .markdown.';
+      }
+      if (confirmBtn) confirmBtn.disabled = count === 0;
+    });
     confirmBtn?.addEventListener('click', () => {
-      alert('Simulación: la importación de bóvedas aún no está conectada.');
+      if (!selectedFiles.length) {
+        if (importSummary) importSummary.textContent = 'Primero selecciona una carpeta de Obsidian.';
+        chooseBtn?.focus();
+        return;
+      }
+      const policy = modal?.querySelector('input[name="conflict-rule"]:checked')?.value || 'keep-both';
+      if (policy === 'overwrite-newer' && !window.confirm('Se actualizarán las notas existentes únicamente cuando el archivo seleccionado tenga una fecha de modificación más reciente. ¿Deseas continuar?')) return;
+      const importer = window.__SP__?.importObsidianFiles;
+      if (typeof importer !== 'function') {
+        if (importSummary) importSummary.textContent = 'El importador todavía se está iniciando. Vuelve a intentarlo.';
+        return;
+      }
+      const files = selectedFiles.slice();
       closeModal();
+      importer(files, policy);
     });
 
     // Editor View Mode Toggle micro-interactions
