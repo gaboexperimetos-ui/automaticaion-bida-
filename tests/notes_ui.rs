@@ -323,3 +323,93 @@ async fn listar_notas_muestra_el_titulo_creado() {
         "el listado debe enlazar a la nota por su slug"
     );
 }
+
+
+
+// --- 5. Actualización por API: contador e historial coherentes con el Markdown ---
+
+#[tokio::test]
+async fn api_update_actualiza_word_count_archivo_y_versiones() {
+    let t = setup_app().await;
+    let app = study_platform::handlers::router(t.state.clone());
+
+    let created = post_form(
+        app.clone(),
+        "/app/notes",
+        &t.cookie,
+        "192.0.2.35",
+        FORM_CREAR,
+    )
+    .await;
+    assert_eq!(created.status(), StatusCode::SEE_OTHER);
+
+    let new_content = "Uno dos tres cuatro";
+    let payload = format!(
+        r#"{{"content":"{new_content}","tags":"álgebra, prueba"}}"#
+    );
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri(format!("/api/notes/{SLUG}"))
+                .header("content-type", "application/json")
+                .header("cookie", &t.cookie)
+                .header("x-forwarded-for", "192.0.2.36")
+                .body(Body::from(payload))
+                .expect("construir petición de actualización"),
+        )
+        .await
+        .expect("respuesta de actualización");
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let word_count: i64 =
+        sqlx::query_scalar("SELECT word_count FROM notes WHERE slug = ?")
+            .bind(SLUG)
+            .fetch_one(&t.state.db)
+            .await
+            .expect("leer contador de palabras");
+    assert_eq!(word_count, 4, "el contador debe corresponder al contenido nuevo");
+
+    let note_id: i64 = sqlx::query_scalar("SELECT id FROM notes WHERE slug = ?")
+        .bind(SLUG)
+        .fetch_one(&t.state.db)
+        .await
+        .expect("leer id de la nota");
+    let versions: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM note_versions WHERE note_id = ?")
+            .bind(note_id)
+            .fetch_one(&t.state.db)
+            .await
+            .expect("leer historial");
+    assert_eq!(versions, 2, "la actualización debe crear una instantánea nueva");
+
+    let file_path = t.state.config.notes_dir.join(format!("{SLUG}.md"));
+    let saved_content = std::fs::read_to_string(file_path).expect("leer Markdown guardado");
+    assert_eq!(saved_content, new_content);
+}
+
+// Una petición de actualización a un slug inexistente no debe crear un .md huérfano.
+#[tokio::test]
+async fn api_update_no_crea_archivos_para_notas_inexistentes() {
+    let t = setup_app().await;
+    let app = study_platform::handlers::router(t.state.clone());
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri("/api/notes/no-existe")
+                .header("content-type", "application/json")
+                .header("cookie", &t.cookie)
+                .header("x-forwarded-for", "192.0.2.37")
+                .body(Body::from(r#"{"content":"no crear archivo"}"#))
+                .expect("construir petición de nota inexistente"),
+        )
+        .await
+        .expect("respuesta de nota inexistente");
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    assert!(
+        !t.state.config.notes_dir.join("no-existe.md").exists(),
+        "una actualización fallida no debe dejar un archivo huérfano"
+    );
+}
