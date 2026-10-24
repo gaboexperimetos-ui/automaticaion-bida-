@@ -611,7 +611,7 @@
         var newTime = Number(file.lastModified || 0);
         if (Number.isFinite(oldTime) && newTime > oldTime) {
           // Conserva etiquetas añadidas en la app; la importación solo suma las del archivo y de la carpeta.
-          var mergedTags = String(existing.tags || "").split(/[\\s,]+/).filter(Boolean).concat(tags);
+          var mergedTags = String(existing.tags || "").split(/[\s,]+/).filter(Boolean).concat(tags);
           mergedTags = mergedTags.filter(function (tag, index, all) { return all.indexOf(tag) === index; });
           return SP.api("/api/notes/" + encodeURIComponent(existing.slug || baseSlug), {
             method: "PUT",
