@@ -63,15 +63,15 @@ const STITCH_V2_MAIN_CLOSE: &str = "</main>";
 
 // ── Shell responsive y accesibilidad ──────────────────────────────────────
 //
-// El rail lateral (`<aside>`) del kit es fijo de 250px: por debajo de
-// 1024px tapaba el contenido y no había forma de apartarlo. Aquí el rail
-// se comporta como cajón "off-canvas" en móvil y además se pliega en
-// escritorio, con un botón hamburguesa en el topbar.
+// La navegación lateral se comporta como cajón "off-canvas" en todos los
+// anchos. El contenido y la cabecera ocupan todo el viewport; el menú se
+// abre bajo demanda con el botón hamburguesa y se cierra con Escape o al
+// pulsar el fondo.
 //
-// El HTML del kit (`static/stitch-v2/shell/aside.html` y `topbar.html`) NO
-// se modifica: todo se inyecta desde aquí, para no romper los 21
-// `data-path` del nav ni los marcadores `<!--SLOT:SHELL_*-->` que rellena
-// `stitch_panel::fill_shell`.
+// Las plantillas del kit (`static/stitch-v2/shell/aside.html` y
+// `topbar.html`) definen la presentación; aquí se inyectan los controles y
+// el estado interactivo sin romper los 22 `data-path` del nav ni los
+// marcadores `<!--SLOT:SHELL_*-->` que rellena `stitch_panel::fill_shell`.
 
 /// `id` del rail lateral (`<aside>`).
 const RAIL_ID: &str = "app-rail";
@@ -129,7 +129,7 @@ const USER_MENU_ID: &str = "user-menu";
 /// + `aria-controls` dejan el estado del desplegable anunciado.
 fn user_menu_button() -> String {
     format!(
-        r##"<button id="{USER_MENU_BUTTON_ID}" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="{USER_MENU_ID}" aria-label="Abrir el menú de usuario" title="Menú de usuario" class="flex items-center gap-space-xs pl-space-xs border-l border-outline-variant/40 rounded-lg py-1 pr-1.5 hover:bg-surface-container transition-colors"><span class="relative shrink-0"><!--SLOT:SHELL_AVATAR--><span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-secondary ring-2 ring-surface-container-low"></span></span><span class="flex flex-col text-left"><span class="font-label-sm text-label-sm text-on-surface font-semibold leading-tight"><!--SLOT:SHELL_NAME--></span><span class="font-body-sm text-[10px] text-outline leading-tight"><!--SLOT:SHELL_ROLE--></span></span><span class="material-symbols-outlined text-[16px] text-outline" aria-hidden="true">expand_more</span></button>"##
+        r##"<button id="{USER_MENU_BUTTON_ID}" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="{USER_MENU_ID}" aria-label="Abrir el menú de usuario" title="Menú de usuario" class="topbar-user flex items-center gap-space-xs pl-space-xs border-l border-outline-variant/40 rounded-lg py-1 pr-1.5 hover:bg-surface-container transition-colors"><span class="relative shrink-0"><!--SLOT:SHELL_AVATAR--><span class="topbar-user-presence absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-secondary ring-2 ring-surface-container-low"></span></span><span class="topbar-user-copy flex flex-col text-left"><span class="topbar-user-name font-label-sm text-label-sm text-on-surface font-semibold leading-tight"><!--SLOT:SHELL_NAME--></span><span class="topbar-user-role font-body-sm text-[10px] text-outline leading-tight"><!--SLOT:SHELL_ROLE--></span></span><span class="topbar-user-chevron material-symbols-outlined text-[16px] text-outline" aria-hidden="true">expand_more</span></button>"##
     )
 }
 
@@ -157,7 +157,7 @@ fn user_menu_panel(authenticated: bool) -> String {
         )
     };
     format!(
-        r##"<div id="{USER_MENU_ID}" hidden class="absolute right-0 top-full mt-2 w-72 z-50 rounded-xl border border-outline-variant/40 bg-surface-container shadow-2xl p-1.5"><div class="flex items-center gap-3 px-2.5 py-2 border-b border-outline-variant/30"><span class="relative shrink-0"><!--SLOT:SHELL_AVATAR--><span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-secondary ring-2 ring-surface-container"></span></span><span class="flex min-w-0 flex-col text-left"><span class="truncate font-label-sm text-label-sm text-on-surface font-semibold leading-tight"><!--SLOT:SHELL_NAME--></span><span class="truncate font-body-sm text-[10px] text-outline leading-tight"><!--SLOT:SHELL_ROLE--></span></span></div><div role="menu" aria-label="Menú de usuario" class="pt-1"><a role="menuitem" href="/settings" class="{ITEM}"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">settings</span>Configuración</a><a role="menuitem" href="/settings/password" class="{ITEM}"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">key</span>Cambiar contraseña</a>{action}</div></div>"##,
+        r##"<div id="{USER_MENU_ID}" hidden class="absolute right-0 top-full mt-2 w-72 z-50 rounded-xl border border-outline-variant/40 bg-surface-container shadow-2xl p-1.5"><div class="flex items-center gap-3 px-2.5 py-2 border-b border-outline-variant/30"><span class="relative shrink-0"><!--SLOT:SHELL_AVATAR--><span class="topbar-user-presence absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-secondary ring-2 ring-surface-container"></span></span><span class="topbar-user-copy flex min-w-0 flex-col text-left"><span class="topbar-user-name truncate font-label-sm text-label-sm text-on-surface font-semibold leading-tight"><!--SLOT:SHELL_NAME--></span><span class="topbar-user-role truncate font-body-sm text-[10px] text-outline leading-tight"><!--SLOT:SHELL_ROLE--></span></span></div><div role="menu" aria-label="Menú de usuario" class="pt-1"><a role="menuitem" href="/settings" class="{ITEM}"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">settings</span>Configuración</a><a role="menuitem" href="/settings/password" class="{ITEM}"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">key</span>Cambiar contraseña</a>{action}</div></div>"##,
         ITEM = ITEM,
         action = action
     )
@@ -237,8 +237,8 @@ fn main_open() -> String {
 const SHELL_CSS: &str = r##"
 /* --- Shell v2: rail lateral plegable + skip-link + foco visible --- */
 .skip-link{position:absolute;left:0;top:0;z-index:100;transform:translateY(-160%);
-  padding:.5rem .875rem;border-radius:0 0 .5rem 0;background:#00675b;color:#e0e2ea;
-  font-family:'Hanken Grotesk',sans-serif;font-size:.75rem;font-weight:600;line-height:1rem;
+  padding:.5rem .875rem;border-radius:0 0 .5rem 0;background:#075247;color:#edf3f6;
+  font-family:'Inter',sans-serif;font-size:.75rem;font-weight:600;line-height:1rem;
   text-decoration:none;transition:transform .15s ease}
 .skip-link:focus{transform:translateY(0)}
 #app-rail{transition:transform .22s ease,visibility .22s ease}
@@ -253,10 +253,11 @@ const SHELL_CSS: &str = r##"
 body.rail-collapsed #app-rail{transform:translateX(-100%);visibility:hidden}
 body.rail-collapsed #app-rail-content{padding-left:0!important}
 body.rail-collapsed #app-topbar{left:0!important}
+@media (min-width:1024px){body:not(.rail-collapsed) #rail-backdrop{display:block}}
 a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible,[tabindex]:focus-visible{
-  outline:2px solid #5eead4;outline-offset:2px;border-radius:4px}
-#app-topbar input:focus-visible{outline:2px solid #5eead4;outline-offset:2px}
-#contenido:focus-visible{outline:2px solid #5eead4;outline-offset:-6px}
+  outline:2px solid #72e4d0;outline-offset:2px;border-radius:4px}
+#app-topbar input:focus-visible{outline:2px solid #72e4d0;outline-offset:2px}
+#contenido:focus-visible{outline:2px solid #72e4d0;outline-offset:-6px}
 /* Menú de usuario: el atributo `hidden` manda sobre cualquier utilidad
    de display que el CDN de Tailwind pueda aplicar. */
 #user-menu[hidden]{display:none!important}
@@ -266,11 +267,10 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 /// Script mínimo del shell: alterna la clase del rail y mantiene sincronizado
 /// el `aria-expanded` de los dos botones que lo controlan.
 ///
-/// Un único estado por ancho de pantalla: en escritorio se usa
-/// `rail-collapsed` (el rail se pliega dejando el hueco libre) y en móvil
-/// `rail-open` (el rail sale como cajón sobre el contenido). Ambas clases
-/// son excluyentes, así que un cambio de ancho no deja el shell en un
-/// estado imposible.
+/// La navegación es un cajón superpuesto en todos los anchos. En escritorio
+/// se usa `rail-collapsed` y en móvil `rail-open`; el contenido conserva
+/// siempre todo el ancho disponible. Ambas clases son excluyentes, así que
+/// un cambio de ancho no deja el shell en un estado imposible.
 const SHELL_JS: &str = r##"
 (function(){
   var body=document.body;
@@ -279,6 +279,8 @@ const SHELL_JS: &str = r##"
   var asideToggle=document.getElementById('rail-toggle-aside');
   var backdrop=document.getElementById('rail-backdrop');
   if(!rail||!toggle){return;}
+  var current=rail.querySelector('a[aria-current="page"]');
+  if(current){var currentGroup=current.closest('details');if(currentGroup){currentGroup.open=true;}}
   var wide=function(){return window.matchMedia('(min-width:1024px)').matches;};
   var isOpen=function(){
     return wide()?!body.classList.contains('rail-collapsed'):body.classList.contains('rail-open');
@@ -287,6 +289,7 @@ const SHELL_JS: &str = r##"
     if(wide()){body.classList.remove('rail-open');}
     else{body.classList.remove('rail-collapsed');}
     var open=isOpen();
+    body.style.overflow=open?'hidden':'';
     var label=open?'Ocultar el menú lateral':'Mostrar el menú lateral';
     var buttons=[toggle,asideToggle];
     for(var i=0;i<buttons.length;i++){
@@ -314,19 +317,15 @@ const SHELL_JS: &str = r##"
   };
   toggle.addEventListener('click',flip);
   if(asideToggle){asideToggle.addEventListener('click',flip);}
-  if(backdrop){
-    backdrop.addEventListener('click',function(){
-      body.classList.remove('rail-open');
-      sync();
-      toggle.focus();
-    });
-  }
+  var closeMenu=function(){
+    if(wide()){body.classList.add('rail-collapsed');}
+    else{body.classList.remove('rail-open');}
+    sync();
+    toggle.focus();
+  };
+  if(backdrop){backdrop.addEventListener('click',closeMenu);}
   document.addEventListener('keydown',function(e){
-    if(e.key==='Escape'&&body.classList.contains('rail-open')){
-      body.classList.remove('rail-open');
-      sync();
-      toggle.focus();
-    }
+    if(e.key==='Escape'&&isOpen()){closeMenu();}
   });
   window.addEventListener('resize',sync);
   sync();
@@ -931,7 +930,9 @@ pub fn stitch_v2_page(active: &str, content: &str, authenticated: bool) -> Strin
     // botón que abre un desplegable con las acciones de la cuenta.
     topbar = inject_user_menu(&topbar, authenticated);
 
-    let body_classes = "bg-background font-body-md text-body-md text-on-surface antialiased";
+    // La navegación es un cajón superpuesto también en escritorio: el
+    // contenido siempre usa todo el ancho y el menú se abre bajo demanda.
+    let body_classes = "rail-collapsed bg-background font-body-md text-body-md text-on-surface antialiased";
 
     format!(
         r###"<!DOCTYPE html>

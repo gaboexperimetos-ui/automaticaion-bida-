@@ -904,7 +904,7 @@ const LOGIN_PAGE_HTML: &str = r##"<!DOCTYPE html>
     <title>Study Platform — Iniciar sesión</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined&family=Hanken+Grotesk:wght@400;500;600;700&family=Manrope:wght@600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined&family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -913,25 +913,25 @@ const LOGIN_PAGE_HTML: &str = r##"<!DOCTYPE html>
             theme: {
                 extend: {
                     colors: {
-                        background: '#101419',
-                        'surface-container-lowest': '#0a0e13',
-                        'surface-container-low': '#181c21',
-                        'surface-container': '#1c2025',
-                        'surface-container-high': '#262a30',
-                        'surface-container-highest': '#31353b',
-                        'on-surface': '#e0e2ea',
-                        'on-surface-variant': '#bbcac5',
-                        outline: '#859490',
-                        'outline-variant': '#3c4946',
-                        primary: '#b5fff0',
-                        'on-primary': '#003730',
-                        'primary-container': '#5eead4',
-                        'on-primary-container': '#00675b',
-                        secondary: '#9ed753',
-                        'on-secondary': '#203700',
-                        'secondary-container': '#6b9f1f',
-                        'on-secondary-container': '#1b2f00',
-                        'surface-tint': '#4ddcc6',
+                        background: '#0b1016',
+                        'surface-container-lowest': '#080d12',
+                        'surface-container-low': '#101720',
+                        'surface-container': '#151e28',
+                        'surface-container-high': '#1b2733',
+                        'surface-container-highest': '#243240',
+                        'on-surface': '#edf3f6',
+                        'on-surface-variant': '#a8b7c2',
+                        outline: '#788b99',
+                        'outline-variant': '#2c3b48',
+                        primary: '#a7f3e5',
+                        'on-primary': '#07332d',
+                        'primary-container': '#72e4d0',
+                        'on-primary-container': '#075247',
+                        secondary: '#b8e986',
+                        'on-secondary': '#1d2d0d',
+                        'secondary-container': '#668f38',
+                        'on-secondary-container': '#172609',
+                        'surface-tint': '#72e4d0',
                         'text-primary': '#f1f5f9',
                         'text-secondary': '#94a3b8',
                         'text-muted': '#64748b',
@@ -940,7 +940,7 @@ const LOGIN_PAGE_HTML: &str = r##"<!DOCTYPE html>
                     },
                     fontFamily: {
                         manrope: ['"Manrope"', 'sans-serif'],
-                        hanken: ['"Hanken Grotesk"', 'sans-serif'],
+                        hanken: ['"Inter"', '"Hanken Grotesk"', 'sans-serif'],
                     },
                     boxShadow: {
                         glow: '0 0 12px rgba(158, 215, 83, 0.25)',
@@ -950,6 +950,7 @@ const LOGIN_PAGE_HTML: &str = r##"<!DOCTYPE html>
             },
         };
     </script>
+    <link rel="stylesheet" href="/polish.css">
 </head>
 <body class="bg-background font-hanken text-on-surface antialiased min-h-screen flex items-center justify-center">
     <div class="w-full max-w-sm px-6" id="login-container">

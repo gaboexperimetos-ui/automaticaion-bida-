@@ -14,49 +14,49 @@ const STITCH_TAILWIND_CONFIG: &str = r###"tailwind.config = {
     theme: {
         extend: {
             colors: {
-                "background": "#101419",
-                "on-background": "#e0e2ea",
-                "surface": "#101419",
-                "surface-dim": "#101419",
-                "surface-bright": "#36393f",
-                "surface-container-lowest": "#0a0e13",
-                "surface-container-low": "#181c21",
-                "surface-container": "#1c2025",
-                "surface-container-high": "#262a30",
-                "surface-container-highest": "#31353b",
-                "surface-variant": "#31353b",
-                "on-surface": "#e0e2ea",
-                "on-surface-variant": "#bbcac5",
-                "inverse-surface": "#e0e2ea",
-                "inverse-on-surface": "#2d3136",
-                "outline": "#859490",
-                "outline-variant": "#3c4946",
-                "surface-tint": "#4ddcc6",
-                "primary": "#b5fff0",
-                "on-primary": "#003730",
-                "primary-container": "#5eead4",
-                "on-primary-container": "#00675b",
-                "inverse-primary": "#006b5e",
-                "primary-fixed": "#6ef9e2",
-                "primary-fixed-dim": "#4ddcc6",
-                "on-primary-fixed": "#00201b",
-                "on-primary-fixed-variant": "#005047",
-                "secondary": "#9ed753",
-                "on-secondary": "#203700",
-                "secondary-container": "#6b9f1f",
-                "on-secondary-container": "#1b2f00",
-                "secondary-fixed": "#b9f46c",
-                "secondary-fixed-dim": "#9ed753",
-                "on-secondary-fixed": "#102000",
-                "on-secondary-fixed-variant": "#304f00",
-                "tertiary": "#f5eeff",
-                "on-tertiary": "#381385",
-                "tertiary-container": "#dbcdff",
-                "on-tertiary-container": "#6448b2",
-                "tertiary-fixed": "#e8ddff",
-                "tertiary-fixed-dim": "#cebdff",
-                "on-tertiary-fixed": "#21005e",
-                "on-tertiary-fixed-variant": "#4f319c",
+                "background": "#0b1016",
+                "on-background": "#edf3f6",
+                "surface": "#0b1016",
+                "surface-dim": "#080c11",
+                "surface-bright": "#263442",
+                "surface-container-lowest": "#080d12",
+                "surface-container-low": "#101720",
+                "surface-container": "#151e28",
+                "surface-container-high": "#1b2733",
+                "surface-container-highest": "#243240",
+                "surface-variant": "#243240",
+                "on-surface": "#edf3f6",
+                "on-surface-variant": "#a8b7c2",
+                "inverse-surface": "#edf3f6",
+                "inverse-on-surface": "#17222c",
+                "outline": "#788b99",
+                "outline-variant": "#2c3b48",
+                "surface-tint": "#72e4d0",
+                "primary": "#a7f3e5",
+                "on-primary": "#07332d",
+                "primary-container": "#72e4d0",
+                "on-primary-container": "#075247",
+                "inverse-primary": "#148f7d",
+                "primary-fixed": "#8df0de",
+                "primary-fixed-dim": "#72e4d0",
+                "on-primary-fixed": "#06251f",
+                "on-primary-fixed-variant": "#075247",
+                "secondary": "#b8e986",
+                "on-secondary": "#1d2d0d",
+                "secondary-container": "#668f38",
+                "on-secondary-container": "#172609",
+                "secondary-fixed": "#c9f39e",
+                "secondary-fixed-dim": "#b8e986",
+                "on-secondary-fixed": "#152307",
+                "on-secondary-fixed-variant": "#39571a",
+                "tertiary": "#d2c5f8",
+                "on-tertiary": "#382665",
+                "tertiary-container": "#b7a5ea",
+                "on-tertiary-container": "#493578",
+                "tertiary-fixed": "#ded3fb",
+                "tertiary-fixed-dim": "#b7a5ea",
+                "on-tertiary-fixed": "#241643",
+                "on-tertiary-fixed-variant": "#493578",
                 "error": "#ffb4ab",
                 "on-error": "#690005",
                 "error-container": "#93000a",
@@ -66,11 +66,11 @@ const STITCH_TAILWIND_CONFIG: &str = r###"tailwind.config = {
                 "headline-sm": ["Manrope", "sans-serif"],
                 "headline-md": ["Manrope", "sans-serif"],
                 "headline-lg": ["Manrope", "sans-serif"],
-                "body-sm": ["Hanken Grotesk", "Inter", "sans-serif"],
-                "body-md": ["Hanken Grotesk", "Inter", "sans-serif"],
-                "body-lg": ["Hanken Grotesk", "Inter", "sans-serif"],
-                "label-sm": ["Hanken Grotesk", "Inter", "sans-serif"],
-                "label-md": ["Hanken Grotesk", "Inter", "sans-serif"],
+                "body-sm": ["Inter", "Hanken Grotesk", "sans-serif"],
+                "body-md": ["Inter", "Hanken Grotesk", "sans-serif"],
+                "body-lg": ["Inter", "Hanken Grotesk", "sans-serif"],
+                "label-sm": ["Inter", "Hanken Grotesk", "sans-serif"],
+                "label-md": ["Inter", "Hanken Grotesk", "sans-serif"],
                 "code-inline": ["monospace", "monospace"]
             },
             fontSize: {
@@ -113,9 +113,9 @@ const STITCH_TAILWIND_CONFIG: &str = r###"tailwind.config = {
 const STITCH_BASE_STYLE: &str = r###"@layer base {
     html, body { margin: 0; padding: 0; }
     body {
-        background: #101419;
-        color: #e0e2ea;
-        font-family: "Hanken Grotesk", "Inter", sans-serif;
+        background: #0b1016;
+        color: #edf3f6;
+        font-family: "Inter", "Hanken Grotesk", sans-serif;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
         overscroll-behavior: none;
@@ -125,8 +125,8 @@ const STITCH_BASE_STYLE: &str = r###"@layer base {
 }
 ::-webkit-scrollbar { display: none; }
 .card {
-    background: #1c2025;
-    border: 1px solid #3c4946;
+    background: #151e28;
+    border: 1px solid #2c3b48;
     border-radius: 1rem;
 }
 .pulse-cyan { animation: pulse 2s infinite; }
@@ -293,7 +293,7 @@ pub fn head(title: &str) -> String {
         r###"<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#101419">
+    <meta name="theme-color" content="#0b1016">
     <title>{}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
