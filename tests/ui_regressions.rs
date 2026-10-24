@@ -67,6 +67,8 @@ fn la_captura_de_tareas_y_la_importacion_conservan_sus_controles() {
     assert!(NOTAS.contains("value=\"keep-both\""), "la política segura de conservar ambas versiones debe seguir disponible");
     assert!(NOTAS.contains("value=\"overwrite-newer\""), "la política de actualización controlada debe seguir disponible");
     assert!(SHELL_JS.contains("SP.importObsidianFiles = function"), "el importador real debe estar conectado al shell");
+    assert!(SHELL_JS.contains("t: \"nota markdown\""), "el botón de nota traducido debe conservar su acción");
+    assert!(SHELL_JS.contains("t: \"hoja de cálculo\""), "el botón de hoja de cálculo traducido debe conservar su acción");
     assert!(!SHELL_JS.contains("setTimeout(siguiente, 120)"), "la importación no debe avanzar antes de que termine cada guardado");
 }
 
