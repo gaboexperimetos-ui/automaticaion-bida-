@@ -687,19 +687,23 @@
       var parts = [counts.created + " notas nuevas", counts.updated + " actualizadas", counts.skipped + " omitidas"];
       if (counts.failed.length) { parts.push(counts.failed.length + " con error"); }
       SP.toast("Importación de Obsidian terminada: " + parts.join(", ") + ".", counts.failed.length ? "err" : "ok", 9000);
+      var report = Promise.resolve();
       if (counts.failed.length) {
-        SP.dialog({
+        report = SP.dialog({
           title: "Importación finalizada con avisos",
           text: counts.failed.slice(0, 8).join("\n") + (counts.failed.length > 8 ? "\nY " + (counts.failed.length - 8) + " más." : ""),
           ok: "Entendido"
         });
       }
-      if (location.pathname.indexOf("/dashboard/notes") === 0) {
-        setTimeout(function () { window.location.reload(); }, 900);
-      } else if (counts.created || counts.updated) {
-        setTimeout(function () { window.location.href = "/dashboard/notes"; }, 900);
-      }
-      return counts;
+      // No recargar la página hasta que la persona haya podido leer los errores.
+      return report.catch(function () { return null; }).then(function () {
+        if (location.pathname.indexOf("/dashboard/notes") === 0) {
+          setTimeout(function () { window.location.reload(); }, 900);
+        } else if (counts.created || counts.updated) {
+          setTimeout(function () { window.location.href = "/dashboard/notes"; }, 900);
+        }
+        return counts;
+      });
     });
   };
 
