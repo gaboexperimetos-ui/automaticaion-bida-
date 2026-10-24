@@ -14,6 +14,7 @@
 | [`API.md`](API.md) | es | Referencia HTTP completa de endpoints | 2026-10-19 |
 | [`USER_GUIDE.md`](USER_GUIDE.md) | es | Guía de uso por pantallas | 2026-10-19 |
 | [`DEVELOPER_SETUP.md`](DEVELOPER_SETUP.md) | es | Setup de desarrollo local (toolchain, BD, arranque) | 2026-10-19 |
+| [`PORTS.md`](PORTS.md) | es | Mapa de puertos por máquina y función (app prod/dev, MCP, debug) y reglas fijas | 2026-10-23 |
 | [`DEPLOY.md`](DEPLOY.md) | es | Runbook de despliegue a la homelab Dell (procedimiento verificado) | 2026-10-19 |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | es | Diagrama de componentes y flujos | 2026-10-19 |
 | [`ROADMAP.md`](ROADMAP.md) | es | Fases de desarrollo y plan pendiente | 2026-10-19 |
