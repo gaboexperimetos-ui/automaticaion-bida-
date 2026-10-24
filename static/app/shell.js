@@ -877,6 +877,7 @@
         saveBtn.disabled = true;
         SP.api("/api/notes", { method: "POST", json: { title: title, content: lines.join("\n"), tags: "tarea" } })
           .then(function () {
+            saveBtn.disabled = false;
             var cancelButton = modal.querySelector("#cancel-modal-btn");
             if (cancelButton) { cancelButton.click(); }
             else { modal.classList.add("hidden"); }
