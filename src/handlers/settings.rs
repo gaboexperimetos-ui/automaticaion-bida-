@@ -312,52 +312,6 @@ const COPY_ENV_SCRIPT: &str = r####"<script>
 
 const CONTENT_SETTINGS: &str = include_str!("../../static/stitch-v2/_content/clean/settings.html");
 
-/// Bloque antiguo de la sección IA en el template estático (`include_str!` es
-/// de sólo lectura): se reemplaza en runtime por la tarjeta "IA / OpenRouter".
-const AI_SECTION_OLD: &str = r####"  <!-- Grupo: IA -->
-  <section class="bg-surface-container-low rounded-xl p-space-md space-y-space-sm">
-    <div class="flex items-center gap-space-xs">
-      <!--SLOT:AI_DOT-->
-      <h2 class="font-label-md text-label-md text-on-surface">Asistente de IA</h2>
-    </div>
-    <div class="grid grid-cols-[140px_1fr] gap-space-sm text-[13px]">
-      <span class="font-label-sm text-label-sm text-on-surface-variant">Modelo</span>
-      <span class="font-code-inline text-on-surface"><!--SLOT:AI_MODEL--></span>
-
-      <span class="font-label-sm text-label-sm text-on-surface-variant">Clave OpenRouter</span>
-      <span><!--SLOT:AI_KEY_STATUS--></span>
-
-      <span class="font-label-sm text-label-sm text-on-surface-variant">Presupuesto mensual</span>
-      <span class="font-code-inline text-on-surface"><!--SLOT:AI_BUDGET--></span>
-    </div>
-  </section>"####;
-
-/// Tarjeta "IA / OpenRouter": banner de estado (estética `mcp_status_banner`)
-/// + modelo, presupuesto y límite de tokens reales, y debajo el formulario
-/// de edición (campos editables + botón "Generar .env"). La clave nunca
-/// se muestra.
-const AI_SECTION_NEW: &str = r####"  <!-- Grupo: IA / OpenRouter (estado real; nunca muestra la clave) -->
-  <section class="bg-surface-container-low rounded-xl p-space-md space-y-space-sm">
-    <div class="flex items-center gap-space-xs">
-      <!--SLOT:AI_DOT-->
-      <h2 class="font-label-md text-label-md text-on-surface">IA / OpenRouter</h2>
-    </div>
-    <!--SLOT:AI_STATUS-->
-    <div class="grid grid-cols-[140px_1fr] gap-space-sm text-[13px]">
-      <span class="font-label-sm text-label-sm text-on-surface-variant">Modelo</span>
-      <span class="font-code-inline text-on-surface"><!--SLOT:AI_MODEL--></span>
-
-      <span class="font-label-sm text-label-sm text-on-surface-variant">Presupuesto mensual</span>
-      <span class="font-code-inline text-on-surface"><!--SLOT:AI_BUDGET--></span>
-
-      <span class="font-label-sm text-label-sm text-on-surface-variant">Máx tokens / respuesta</span>
-      <span class="font-code-inline text-on-surface"><!--SLOT:AI_MAX_TOKENS--></span>
-    </div>
-    <!--SLOT:AI_FORM-->
-    <!--SLOT:AI_ENV-->
-    <p class="text-[10px] text-outline">La clave de API no se muestra en ninguna página (sólo su estado).</p>
-  </section>"####;
-
 /// Datos reales para la página de configuración.
 pub struct SettingsData {
     /// Estado del MCP de Mikareno tras el sondeo corto (con caché de 30 s).
@@ -540,7 +494,6 @@ fn render_ai_env_details(d: &SettingsData) -> String {
 /// Reemplaza los marcadores `<!--SLOT:...-->` con datos reales.
 fn fill_settings(content: &str, d: &SettingsData) -> String {
     content
-        .replace(AI_SECTION_OLD, AI_SECTION_NEW)
         .replace("<!--SLOT:MCP_DOT-->", &render_mcp_dot(d))
         .replace("<!--SLOT:MCP_STATUS-->", &render_mcp_status(d))
         .replace("<!--SLOT:MCP_URL-->", &templates::html_escape(&d.mcp_url))

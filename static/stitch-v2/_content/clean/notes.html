@@ -1,292 +1,105 @@
-<div class="flex flex-col w-full text-on-surface">
-<!-- Top Command Context Bar -->
-<div class="flex flex-wrap items-center justify-between px-space-md py-space-xs bg-surface-container-low/70 backdrop-blur-md">
-<div class="flex items-center gap-space-sm">
-<div class="flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-container-high text-primary-fixed-dim font-label-sm text-label-sm">
-<span class="material-symbols-outlined text-[15px]">neurology</span>
-<span>Segundo Cerebro</span>
-</div>
-<span class="text-outline text-body-sm">/</span>
-<span class="font-code-inline text-code-inline text-on-surface-variant"><!--SLOT:VAULT_PATH--></span>
-<span class="px-2 py-0.5 rounded-full bg-secondary-container/20 text-secondary font-label-sm text-[10px]">Almacenamiento Local</span>
-</div>
-<div class="flex items-center gap-space-sm">
-<div class="flex items-center gap-1 text-on-surface-variant font-label-sm text-label-sm">
-<span class="material-symbols-outlined text-[16px] text-secondary">sync</span>
-<span>Obsidian compatible</span>
-</div>
-<button class="flex items-center gap-1.5 px-space-sm py-1 rounded bg-surface-container hover:bg-surface-container-high transition-colors font-label-sm text-label-sm text-on-surface" id="quick-palette-trigger">
-<span class="material-symbols-outlined text-[16px] text-primary-container">terminal</span>
-<span>Comandos</span>
-<span class="font-code-inline text-[10px] px-1 bg-surface-container-lowest text-outline rounded">⌘P</span>
-</button>
-</div>
-</div>
-<!-- Tri-Panel Workspace Layout -->
-<div class="grid grid-cols-12 w-full min-h-[calc(100vh-7rem)]">
-<!-- 1. PANEL IZQUIERDO: BÓVEDA / EXPLORADOR (260px equiv desktop col-span-12 lg:col-span-3 xl:col-span-2) -->
-<aside class="col-span-12 lg:col-span-3 xl:col-span-3 flex flex-col bg-surface-container-low p-space-sm select-none">
-<!-- Vault Header Card -->
-<div class="p-space-sm rounded-lg bg-surface-container mb-space-sm">
-<div class="flex items-center justify-between mb-space-xs">
-<div class="flex items-center gap-1.5">
-<span class="material-symbols-outlined text-primary-container text-[20px]">folder_special</span>
-<h2 class="font-headline-sm text-headline-sm text-on-surface truncate">Mi Bóveda Personal</h2>
-</div>
-<span class="px-1.5 py-0.5 rounded text-[10px] font-code-inline bg-surface-container-highest text-primary-fixed"><!--SLOT:NOTES_COUNT--></span>
-</div>
-<p class="font-body-sm text-body-sm text-outline truncate mb-space-sm">Local / Obsidian Compatible (.md format)</p>
-<!-- Action Buttons -->
-<div class="grid grid-cols-2 gap-space-xs">
-<button class="flex items-center justify-center gap-1 px-space-xs py-1.5 rounded bg-primary-container/10 hover:bg-primary-container/20 text-primary-container font-label-sm text-label-sm transition-colors" id="btn-new-note">
-<span class="material-symbols-outlined text-[16px]">note_add</span>
-<span>+ Nota</span>
-</button>
-<button class="flex items-center justify-center gap-1 px-space-xs py-1.5 rounded bg-surface-container-high hover:bg-surface-variant text-on-surface font-label-sm text-label-sm transition-colors" id="btn-new-folder">
-<span class="material-symbols-outlined text-[16px]">create_new_folder</span>
-<span>+ Carpeta</span>
-</button>
-</div>
-</div>
-<!-- Navigation Tabs -->
-<div class="grid grid-cols-4 gap-1 p-1 rounded-lg bg-surface-container mb-space-sm text-center">
-<button class="py-1 rounded bg-surface-container-high text-primary font-label-sm text-label-sm shadow-sm" title="Explorador de Archivos">
-<span class="material-symbols-outlined text-[18px]">folder</span>
-</button>
-<button class="py-1 rounded text-outline hover:text-on-surface font-label-sm text-label-sm transition-colors" title="Búsqueda en Contenido">
-<span class="material-symbols-outlined text-[18px]">search</span>
-</button>
-<button class="py-1 rounded text-outline hover:text-on-surface font-label-sm text-label-sm transition-colors" title="Etiquetas (#)">
-<span class="material-symbols-outlined text-[18px]">tag</span>
-</button>
-<button class="py-1 rounded text-outline hover:text-on-surface font-label-sm text-label-sm transition-colors" title="Marcadores">
-<span class="material-symbols-outlined text-[18px]">bookmark</span>
-</button>
-</div>
-<!-- Search Vault Inline Filter -->
-<div class="relative mb-space-sm">
-<span class="material-symbols-outlined absolute left-2 top-2 text-[16px] text-outline">filter_list</span>
-<input class="w-full pl-7 pr-space-sm py-1 bg-surface-container rounded font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary-container" placeholder="Filtrar árbol..." type="text"/>
-</div>
-<!-- Hierarchical Tree Navigation -->
-<div class="flex-1 overflow-y-auto space-y-1 pr-1 font-body-sm text-body-sm">
-<!--SLOT:NOTES_LIST-->
-</div>
-<!--SLOT:NOTES_RECENT-->
-<!--SLOT:TAGS-->
-<!-- Import Vault Obsidian Safe Trigger Button -->
-<div class="pt-space-sm mt-auto">
-<button class="w-full flex items-center justify-center gap-2 p-space-sm rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface transition-all text-left" id="btn-import-vault">
-<span class="material-symbols-outlined text-secondary text-[20px]">folder_zip</span>
-<div class="flex flex-col flex-1 min-w-0">
-<span class="font-label-sm text-label-sm text-on-surface font-semibold truncate">Importar Bóveda Obsidian</span>
-<span class="font-body-sm text-[10px] text-outline truncate">Sincronización segura por lotes</span>
-</div>
-<span class="material-symbols-outlined text-[16px] text-outline">file_upload</span>
-</button>
-</div>
-</aside>
-<!-- 2. PANEL CENTRAL: EDITOR MARKDOWN DUAL (col-span-12 lg:col-span-6 xl:col-span-6) -->
-<main class="col-span-12 lg:col-span-6 xl:col-span-6 flex flex-col bg-surface min-h-[700px]">
-<!-- Editor Top Toolbar -->
-<div class="px-space-md py-space-sm bg-surface-container-low flex flex-col gap-space-xs">
-<!-- Title & Status Row -->
-<div class="flex items-center justify-between gap-space-sm">
-<div class="flex items-center gap-2 flex-1 min-w-0">
-<span class="material-symbols-outlined text-primary-container text-[20px]">edit_note</span>
-<input class="w-full bg-transparent font-headline-md text-headline-md text-on-surface font-bold focus:outline-none focus:bg-surface-container px-1 py-0.5 rounded truncate" type="text" value="<!--SLOT:NOTE_TITLE-->" readonly placeholder="Sin notas todavía"/>
-</div>
-<!--SLOT:NOTE_STATUS-->
-</div>
-<!-- Meta row: Course & Tags -->
-<div class="flex flex-wrap items-center justify-between gap-space-xs font-label-sm text-label-sm text-outline">
-<div class="flex items-center gap-space-xs flex-wrap">
-<!--SLOT:NOTE_TAGS-->
-<button class="px-1.5 py-0.5 rounded bg-surface-container text-outline hover:text-on-surface text-[11px]">+ tag</button>
-</div>
-<!-- View Mode Toggles -->
-<div class="flex items-center rounded bg-surface-container p-0.5">
-<button class="px-2 py-1 rounded text-outline hover:text-on-surface font-label-sm text-label-sm" id="mode-edit">Editar</button>
-<button class="px-2 py-1 rounded bg-surface-container-high text-primary-container font-label-sm text-label-sm font-semibold shadow-sm" id="mode-split">Dividido</button>
-<button class="px-2 py-1 rounded text-outline hover:text-on-surface font-label-sm text-label-sm" id="mode-preview">Vista Previa</button>
-</div>
-</div>
-<!-- Formatting Action Bar -->
-<div class="flex flex-wrap items-center gap-1 pt-space-xs text-on-surface-variant font-label-sm">
-<button class="p-1 rounded hover:bg-surface-container hover:text-on-surface font-bold text-xs" title="Título H1">H1</button>
-<button class="p-1 rounded hover:bg-surface-container hover:text-on-surface font-bold text-xs" title="Título H2">H2</button>
-<button class="p-1 rounded hover:bg-surface-container hover:text-on-surface" title="Negrita"><span class="material-symbols-outlined text-[18px]">format_bold</span></button>
-<button class="p-1 rounded hover:bg-surface-container hover:text-on-surface" title="Cursiva"><span class="material-symbols-outlined text-[18px]">format_italic</span></button>
-<button class="p-1 rounded hover:bg-surface-container hover:text-on-surface" title="Código Inline"><span class="material-symbols-outlined text-[18px]">code</span></button>
-<button class="flex items-center gap-0.5 px-2 py-1 rounded bg-surface-container text-primary-container hover:bg-surface-container-high font-code-inline text-code-inline" title="Enlace Interno Bidireccional">
-<span>[[ ]]</span>
-<span class="text-[10px]">WikiLink</span>
-</button>
-<button class="p-1 rounded hover:bg-surface-container hover:text-on-surface" title="Lista de verificación"><span class="material-symbols-outlined text-[18px]">checklist</span></button>
-<button class="p-1 rounded hover:bg-surface-container hover:text-on-surface" title="Tabla"><span class="material-symbols-outlined text-[18px]">table_chart</span></button>
-<button class="p-1 rounded hover:bg-surface-container hover:text-on-surface" title="Bloque Matemático"><span class="material-symbols-outlined text-[18px]">functions</span></button>
-<div class="ml-auto flex items-center gap-2 text-outline font-body-sm text-[11px]">
-<!--SLOT:NOTE_STATS-->
-</div>
-</div>
-</div>
-<!-- Split Dual Workspace (Markdown Code vs Live Rendered Preview) -->
-<div class="flex-1 grid grid-cols-1 md:grid-cols-2 overflow-y-auto">
-<!-- Left Pane: Raw Markdown Editor -->
-<div class="p-space-md bg-surface font-code-inline text-code-inline leading-relaxed text-on-surface-variant focus:outline-none overflow-y-auto space-y-4">
-<!--SLOT:NOTE_RAW-->
-</div>
-<!-- Right Pane: Live Rich Typographic Rendering -->
-<div class="p-space-md bg-surface-container-lowest/60 overflow-y-auto font-body-lg text-body-lg leading-relaxed space-y-space-md">
-<div class="flex items-center justify-between pb-space-xs">
-<span class="font-label-sm text-label-sm text-outline tracking-wider uppercase">VISTA PREVIA RENDERIZADA</span>
-<span class="px-2 py-0.5 rounded text-[11px] font-code-inline bg-secondary/10 text-secondary">Vista simplificada</span>
-</div>
-<!--SLOT:NOTE_PREVIEW-->
-</div>
-</div>
-<!-- Footer: Backlinks & Linked References Section -->
-<div class="p-space-md bg-surface-container-low">
-<div class="flex items-center justify-between mb-space-xs">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-secondary text-[18px]">account_tree</span>
-<h3 class="font-headline-sm text-headline-sm text-on-surface font-semibold">Menciones Vinculadas (Backlinks)</h3>
-<span class="px-2 py-0.5 rounded-full bg-surface-container-high text-primary font-code-inline text-[11px]"><!--SLOT:BACKLINKS_COUNT--></span>
-</div>
-<span class="font-label-sm text-label-sm text-outline">Escaneado de los .md en cada carga</span>
-</div>
-<div class="grid grid-cols-1 md:grid-cols-2 gap-space-sm pt-space-xs">
-<!--SLOT:BACKLINKS-->
-</div>
-</div>
-</main>
-<!-- 3. PANEL DERECHO: GRAFO INTERACTIVO & ACCIONES (320px equiv desktop col-span-12 lg:col-span-3 xl:col-span-3) -->
-<aside class="col-span-12 lg:col-span-3 xl:col-span-3 flex flex-col bg-surface-container-low p-space-sm space-y-space-md overflow-y-auto">
-<!-- Graph Header & Local Controls -->
-<div class="p-space-sm rounded-lg bg-surface-container">
-<div class="flex items-center justify-between mb-space-xs">
-<div class="flex items-center gap-1.5">
-<span class="material-symbols-outlined text-primary-container text-[20px]">hub</span>
-<h2 class="font-headline-sm text-headline-sm text-on-surface font-semibold">Grafo Local</h2>
-</div>
-<div class="flex items-center gap-1">
-<button class="p-1 rounded bg-surface-container-high hover:text-primary text-outline" title="Zoom In"><span class="material-symbols-outlined text-[16px]">add</span></button>
-<button class="p-1 rounded bg-surface-container-high hover:text-primary text-outline" title="Zoom Out"><span class="material-symbols-outlined text-[16px]">remove</span></button>
-<button class="p-1 rounded bg-surface-container-high hover:text-primary text-outline" title="Centrar"><span class="material-symbols-outlined text-[16px]">center_focus_strong</span></button>
-</div>
-</div>
-<!--SLOT:GRAPH_META-->
-</div>
-<!-- Interactive Knowledge Graph Visualizer (SVG Canvas) -->
-<div class="relative w-full h-72 rounded-xl bg-surface-container-lowest overflow-hidden shadow-inner flex items-center justify-center">
-<!--SLOT:GRAPH-->
-</div>
-<!-- Outbound Links (Enlaces Salientes) -->
-<div class="p-space-sm rounded-lg bg-surface-container space-y-space-xs">
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-1.5 font-label-md text-label-md text-on-surface font-semibold">
-<span class="material-symbols-outlined text-primary text-[18px]">call_made</span>
-<span>Enlaces Salientes</span>
-</div>
-<span class="font-code-inline text-[11px] text-outline"><!--SLOT:OUTLINKS_COUNT--></span>
-</div>
-<div class="space-y-1 font-body-sm text-body-sm">
-<!--SLOT:OUTLINKS-->
-</div>
-</div>
-<!-- Export & AI Hand-off Actions -->
-<div class="p-space-sm rounded-lg bg-surface-container space-y-space-xs">
-<h3 class="font-label-md text-label-md text-on-surface font-semibold mb-space-xs flex items-center gap-1.5">
-<span class="material-symbols-outlined text-secondary text-[18px]">output</span>
-<span>Interoperabilidad & Salida</span>
-</h3>
-<div class="space-y-1.5">
-<button class="w-full flex items-center justify-between px-space-sm py-2 rounded bg-surface-container-high hover:bg-surface-variant text-on-surface font-label-sm text-label-sm transition-colors">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-[18px] text-error">picture_as_pdf</span>
-<span>Exportar a PDF</span>
-</div>
-<span class="text-outline text-[11px]">A4 render</span>
-</button>
-<button class="w-full flex items-center justify-between px-space-sm py-2 rounded bg-surface-container-high hover:bg-surface-variant text-on-surface font-label-sm text-label-sm transition-colors">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-[18px] text-primary">edit_document</span>
-<span>Exportar a Suite Oficina</span>
-</div>
-<span class="text-outline text-[11px]">.docx / .odt</span>
-</button>
-<button class="w-full flex items-center justify-between px-space-sm py-2 rounded bg-primary-container/10 hover:bg-primary-container/20 text-primary-container font-label-sm text-label-sm transition-all shadow-[0_0_10px_rgba(94,234,212,0.15)]">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-[18px]">auto_awesome</span>
-<span class="font-semibold">Inyectar a Asistente IA</span>
-</div>
-<span class="px-1.5 py-0.5 rounded text-[10px] bg-primary-container text-on-primary-container font-bold">RAG</span>
-</button>
-</div>
-</div>
-<!-- Quick Knowledge Node Stats -->
-<div class="p-space-sm rounded-lg bg-surface-container-highest/40 flex items-center justify-between text-outline font-body-sm text-[11px]">
-<!--SLOT:GRAPH_STATS-->
-</div>
-</aside>
-</div>
-<!-- Safe Import Modal (Obsidian Vault Confirmation dialog) -->
-<div class="hidden fixed inset-0 z-50 bg-background/80 backdrop-blur-md flex items-center justify-center p-space-md" id="import-vault-modal">
-<div class="w-full max-w-lg rounded-xl bg-surface-container p-space-lg shadow-2xl space-y-space-md">
-<div class="flex items-center justify-between">
-<div class="flex items-center gap-2">
-<div class="w-9 h-9 rounded-lg bg-secondary/10 flex items-center justify-center text-secondary">
-<span class="material-symbols-outlined text-[24px]">folder_managed</span>
-</div>
-<div>
-<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold">Importar Bóveda de Obsidian</h3>
-<p class="font-body-sm text-body-sm text-outline">Sincronización incremental no destructiva</p>
-</div>
-</div>
-<button class="p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container-high" id="close-modal-btn">
-<span class="material-symbols-outlined text-[20px]">close</span>
-</button>
-</div>
-<!-- Folder Selector Mock -->
-<div class="p-space-sm rounded-lg bg-surface-container-lowest space-y-2">
-<span class="font-label-sm text-label-sm text-outline">Ruta origen de archivos:</span>
-<div class="flex items-center justify-between px-space-sm py-1.5 rounded bg-surface-container font-code-inline text-code-inline text-primary-fixed truncate">
-<span>Próximamente: elige la carpeta de tu bóveda</span>
-<button class="px-2 py-0.5 rounded bg-surface-container-high text-on-surface hover:bg-surface-variant text-xs">Examinar</button>
-</div>
-</div>
-<!-- Conflict Strategy Checklist -->
-<div class="space-y-space-xs">
-<span class="font-label-sm text-label-sm text-on-surface font-semibold">Política de resolución de conflictos:</span>
-<label class="flex items-center gap-space-xs p-2 rounded bg-surface-container-low hover:bg-surface-container-high cursor-pointer">
-<input checked="" class="text-primary focus:ring-0" name="conflict-rule" type="radio"/>
-<div class="flex flex-col">
-<span class="font-label-sm text-label-sm text-on-surface">Conservar ambas versiones (Crear copia con sufijo)</span>
-<span class="font-body-sm text-[11px] text-outline">Previene sobrescrituras accidentales. Recomendado.</span>
-</div>
-</label>
-<label class="flex items-center gap-space-xs p-2 rounded bg-surface-container-low hover:bg-surface-container-high cursor-pointer">
-<input class="text-primary focus:ring-0" name="conflict-rule" type="radio"/>
-<div class="flex flex-col">
-<span class="font-label-sm text-label-sm text-on-surface">Sobrescribir únicamente notas con timestamp más reciente</span>
-<span class="font-body-sm text-[11px] text-outline">Requiere confirmación previa para cada archivo modificado.</span>
-</div>
-</label>
-</div>
-<!-- Stats Summary -->
-<p class="font-body-sm text-body-sm text-outline text-center px-2 py-2 rounded-lg bg-surface-container-low">Vista simulada: la importación real de bóvedas se conectará en una fase posterior.</p>
-<!-- Safe Actions Modal -->
-<div class="flex items-center justify-end gap-space-sm pt-space-xs">
-<button class="px-space-md py-2 rounded-lg bg-surface-container-high text-on-surface hover:bg-surface-variant font-label-md text-label-md transition-colors" id="cancel-modal-btn">
-          Cancelar
-        </button>
-<button class="flex items-center gap-2 px-space-md py-2 rounded-lg bg-secondary text-on-secondary font-label-md text-label-md font-bold hover:bg-secondary-fixed transition-all shadow-[0_0_12px_rgba(158,215,83,0.3)]" id="confirm-import-btn">
-<span class="material-symbols-outlined text-[18px]">verified</span>
-<span>Proceder con Importación Segura</span>
-</button>
-</div>
-</div>
-</div>
+<div class="nova-page nova-notes-page">
+  <header class="nova-workspace-head">
+    <div class="nova-workspace-title">
+      <span class="nova-workspace-symbol"><span class="material-symbols-outlined">neurology</span></span>
+      <div><p>Segundo cerebro · <!--SLOT:VAULT_PATH--></p><h1>Ideas que vuelven cuando las necesitas.</h1></div>
+    </div>
+    <div class="nova-workspace-actions">
+      <button class="nova-button nova-button-quiet" id="quick-palette-trigger" type="button"><span class="material-symbols-outlined">terminal</span><span>Comandos</span><kbd>⌘P</kbd></button>
+      <button class="nova-button nova-button-primary" id="btn-new-note" type="button"><span class="material-symbols-outlined">note_add</span><span>+ Nota</span></button>
+    </div>
+  </header>
+
+  <div class="nova-notes-layout">
+    <aside class="nova-library" aria-label="Biblioteca de notas">
+      <div class="nova-panel-caption"><span>01</span><h2>Biblioteca</h2><b><!--SLOT:NOTES_COUNT--></b></div>
+      <label class="nova-compact-search"><span class="material-symbols-outlined">filter_list</span><input placeholder="Filtrar tu biblioteca…" type="search" aria-label="Filtrar notas"></label>
+      <div class="nova-library-tree"><!--SLOT:NOTES_LIST--></div>
+      <details class="nova-library-details">
+        <summary>Actividad reciente <span class="material-symbols-outlined">expand_more</span></summary>
+        <div><!--SLOT:NOTES_RECENT--></div>
+      </details>
+      <details class="nova-library-details">
+        <summary>Etiquetas <span class="material-symbols-outlined">expand_more</span></summary>
+        <div class="nova-library-tags"><!--SLOT:TAGS--></div>
+      </details>
+      <div class="nova-library-bottom">
+        <button id="btn-new-folder" type="button"><span class="material-symbols-outlined">create_new_folder</span><span>Nueva carpeta</span></button>
+        <button id="btn-import-vault" type="button"><span class="material-symbols-outlined">folder_zip</span><span>Importar bóveda</span><small>Obsidian</small></button>
+      </div>
+    </aside>
+
+    <section class="nova-writer" aria-label="Editor de nota">
+      <header class="nova-writer-head">
+        <div class="nova-note-title-row">
+          <span class="material-symbols-outlined">edit_note</span>
+          <input type="text" value="<!--SLOT:NOTE_TITLE-->" readonly placeholder="Sin notas todavía" aria-label="Título de la nota">
+          <!--SLOT:NOTE_STATUS-->
+        </div>
+        <div class="nova-note-meta-row">
+          <div class="nova-note-tags"><!--SLOT:NOTE_TAGS--><button type="button">+ tag</button></div>
+          <div class="nova-view-modes" aria-label="Modo del editor">
+            <button type="button" id="mode-edit" aria-pressed="false">Editar</button>
+            <button type="button" id="mode-split" aria-pressed="true">Dividido</button>
+            <button type="button" id="mode-preview" aria-pressed="false">Lectura</button>
+          </div>
+        </div>
+        <div class="nova-format-bar" aria-label="Formato Markdown">
+          <button type="button" title="Titulo H1">H1</button><button type="button" title="Titulo H2">H2</button>
+          <button type="button" title="Negrita" aria-label="Negrita"><span class="material-symbols-outlined">format_bold</span></button>
+          <button type="button" title="Cursiva" aria-label="Cursiva"><span class="material-symbols-outlined">format_italic</span></button>
+          <button type="button" title="Codigo Inline" aria-label="Código inline"><span class="material-symbols-outlined">code</span></button>
+          <button type="button" title="Enlace Interno Bidireccional" aria-label="WikiLink">[[ ]]</button>
+          <button type="button" title="Lista de verificacion" aria-label="Lista de verificación"><span class="material-symbols-outlined">checklist</span></button>
+          <button type="button" title="Tabla" aria-label="Insertar tabla"><span class="material-symbols-outlined">table_chart</span></button>
+          <button type="button" title="Bloque Matematico" aria-label="Bloque matemático"><span class="material-symbols-outlined">functions</span></button>
+          <div class="ml-auto nova-note-stats"><!--SLOT:NOTE_STATS--></div>
+        </div>
+      </header>
+
+      <div class="flex-1 grid grid-cols-1 nova-editor-panes">
+        <div class="nova-raw-pane"><div class="nova-pane-label">MARKDOWN</div><!--SLOT:NOTE_RAW--></div>
+        <div class="nova-preview-pane"><div class="nova-pane-label">LECTURA <span>Vista simplificada</span></div><!--SLOT:NOTE_PREVIEW--></div>
+      </div>
+
+      <footer class="nova-backlinks">
+        <div class="nova-subsection-head"><div><span>CONEXIONES DE ESTA NOTA</span><h3>Menciones vinculadas <b><!--SLOT:BACKLINKS_COUNT--></b></h3></div><span class="material-symbols-outlined">account_tree</span></div>
+        <div class="nova-backlinks-grid"><!--SLOT:BACKLINKS--></div>
+      </footer>
+    </section>
+
+    <aside class="nova-knowledge" aria-label="Conexiones y acciones de la nota">
+      <div class="nova-panel-caption"><span>03</span><h2>Conexiones</h2><span class="material-symbols-outlined">hub</span></div>
+      <div class="nova-graph-meta"><!--SLOT:GRAPH_META--></div>
+      <div class="nova-graph"><!--SLOT:GRAPH--></div>
+      <div class="nova-graph-controls">
+        <button type="button" title="Zoom In" aria-label="Ampliar"><span class="material-symbols-outlined">add</span></button>
+        <button type="button" title="Zoom Out" aria-label="Reducir"><span class="material-symbols-outlined">remove</span></button>
+        <button type="button" title="Centrar" aria-label="Centrar"><span class="material-symbols-outlined">center_focus_strong</span></button>
+      </div>
+      <section class="nova-outlinks">
+        <div><h3>Enlaces salientes</h3><span><!--SLOT:OUTLINKS_COUNT--></span></div>
+        <!--SLOT:OUTLINKS-->
+      </section>
+      <section class="nova-note-export">
+        <span>LLEVA ESTA IDEA CONTIGO</span>
+        <button type="button" data-note-action="pdf"><span class="material-symbols-outlined">picture_as_pdf</span><strong>Exportar a PDF</strong><span class="material-symbols-outlined">arrow_outward</span></button>
+        <button type="button" data-note-action="office"><span class="material-symbols-outlined">edit_document</span><strong>Exportar a Suite Oficina</strong><span class="material-symbols-outlined">arrow_outward</span></button>
+        <button type="button" data-note-action="ai"><span class="material-symbols-outlined">auto_awesome</span><strong>Inyectar a Asistente IA</strong><span class="material-symbols-outlined">arrow_outward</span></button>
+      </section>
+      <div class="nova-graph-stats"><!--SLOT:GRAPH_STATS--></div>
+    </aside>
+  </div>
+
+  <div class="hidden fixed inset-0 z-50 bg-background/80 backdrop-blur-md flex items-center justify-center p-space-md" id="import-vault-modal">
+    <div class="nova-import-dialog" role="dialog" aria-modal="true" aria-labelledby="import-title">
+      <div class="nova-task-header"><div><span class="nova-label">IMPORTACIÓN LOCAL</span><h2 id="import-title">Traer una bóveda de Obsidian</h2></div><button class="nova-icon-button" type="button" id="close-modal-btn" aria-label="Cerrar"><span class="material-symbols-outlined">close</span></button></div>
+      <p class="nova-card-intro">Vista preparada para una sincronización incremental y no destructiva. La importación real todavía no está conectada.</p>
+      <div class="nova-import-path"><span class="material-symbols-outlined">folder_managed</span><div><strong>Origen de archivos</strong><span>La selección de carpeta se habilitará con el backend de importación.</span></div></div>
+      <fieldset class="nova-import-rules"><legend>Política de conflictos</legend><label><input checked name="conflict-rule" type="radio"><span><strong>Conservar ambas versiones</strong><small>Crea una copia con sufijo y evita sobrescrituras.</small></span></label><label><input name="conflict-rule" type="radio"><span><strong>Usar la versión más reciente</strong><small>Requerirá confirmación para cada archivo.</small></span></label></fieldset>
+      <div class="nova-task-actions"><button class="nova-button nova-button-quiet" type="button" id="cancel-modal-btn">Cancelar</button><button class="nova-button nova-button-primary" type="button" id="confirm-import-btn"><span class="material-symbols-outlined">verified</span>Proceder con importación segura</button></div>
+    </div>
+  </div>
 </div>
 <!-- Minimal Interactive Scripts for Tabs, Modes and Modal -->
 <script>

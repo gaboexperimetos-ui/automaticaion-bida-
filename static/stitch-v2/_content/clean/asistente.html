@@ -1,133 +1,60 @@
-<div class="flex flex-col w-full h-[calc(100vh-4rem)] overflow-hidden bg-background">
-<div class="flex w-full h-full min-w-0">
-<aside class="w-[280px] shrink-0 h-full flex flex-col bg-surface-container-low select-none">
-<div class="p-space-md">
-<button class="w-full flex items-center justify-center gap-space-xs py-space-sm px-space-md rounded-lg bg-secondary text-on-secondary font-label-md text-label-md font-semibold hover:bg-secondary-fixed transition-all shadow-md group" id="btn-new-chat">
-<span class="material-symbols-outlined text-[18px] transition-transform group-hover:rotate-12">auto_awesome</span>
-<span>Nueva Conversacion</span>
-</button>
+<div class="nova-page nova-chat-page">
+  <div class="nova-chat-layout">
+    <button class="nova-chat-scrim" type="button" aria-label="Cerrar paneles laterales"></button>
+    <aside class="nova-chat-history" id="chat-history" aria-label="Historial de conversaciones">
+      <div class="nova-chat-sidebar-head"><div><span>TU ESPACIO</span><h2>Conversaciones</h2></div><button class="nova-icon-button" id="close-history-btn" type="button" aria-label="Cerrar historial"><span class="material-symbols-outlined">close</span></button></div>
+      <label class="nova-compact-search" for="session-search"><span class="material-symbols-outlined">search</span><input id="session-search" placeholder="Buscar conversación…" type="search"></label>
+      <div class="nova-chat-filters" aria-label="Filtrar por materia"><button type="button">Todas</button><!--SLOT:CHAT_FILTERS--></div>
+      <div class="nova-chat-sessions"><!--SLOT:CHAT_SESSIONS--></div>
+      <div class="nova-chat-quota">
+        <div><span><!--SLOT:CHAT_MODE_DOT--> <!--SLOT:CHAT_MODEL--></span><strong><!--SLOT:CHAT_QUOTA_PCT--></strong></div>
+        <div class="nova-quota-track"><!--SLOT:CHAT_QUOTA_BAR--></div>
+        <footer><span><!--SLOT:CHAT_COSTS--></span><!--SLOT:CHAT_MODE--></footer>
+      </div>
+    </aside>
+
+    <section class="nova-conversation" aria-label="Conversación actual">
+      <header class="nova-conversation-head">
+        <div class="nova-conversation-context">
+          <button class="nova-icon-button nova-chat-history-toggle" id="toggle-history-btn" type="button" aria-label="Abrir historial" aria-controls="chat-history" aria-expanded="false"><span class="material-symbols-outlined">menu</span></button>
+          <span class="nova-conversation-mark"><span class="material-symbols-outlined">auto_awesome</span></span>
+          <div><span>ASISTENTE ACADÉMICO</span><div data-context><!--SLOT:CHAT_CONTEXT--></div></div>
+        </div>
+        <div class="nova-conversation-actions">
+          <button class="nova-button nova-button-quiet" id="toggle-sources-btn" type="button" title="Alternar panel de fuentes"><span class="material-symbols-outlined">menu_book</span><span class="nova-action-label">Fuentes <b><!--SLOT:CHAT_FCOUNT--></b></span></button>
+          <button class="nova-button nova-button-primary" id="btn-new-chat" type="button" title="Nueva conversación"><span class="material-symbols-outlined">add</span><span class="nova-action-label">Nueva</span></button>
+          <button id="btn-clear-chat" class="nova-icon-button" type="button" title="Limpiar pantalla" aria-label="Limpiar conversación"><span class="material-symbols-outlined">restart_alt</span></button>
+        </div>
+      </header>
+      <div class="nova-chat-messages" id="chat-messages-container"><!--SLOT:CHAT_MESSAGES--></div>
+      <footer class="nova-composer">
+        <div class="nova-composer-box">
+          <label for="prompt-input" class="sr-only">Mensaje para el asistente</label>
+          <textarea id="prompt-input" placeholder="Escribe tu pregunta…" rows="2"></textarea>
+          <div class="nova-composer-toolbar">
+            <div><button type="button" title="Adjuntar archivo o nota" aria-label="Adjuntar archivo o nota"><span class="material-symbols-outlined">attach_file</span></button><button type="button" title="Vincular apunte del Segundo Cerebro" aria-label="Vincular apunte"><span class="material-symbols-outlined">add_link</span></button><button type="button" title="Dictado por voz" aria-label="Dictado por voz"><span class="material-symbols-outlined">mic</span></button><span>Modo: <!--SLOT:CHAT_COMPOSER_MODE--></span></div>
+            <button class="nova-button nova-button-primary" id="send-btn" type="button"><span>Enviar</span><span class="material-symbols-outlined">arrow_upward</span></button>
+          </div>
+        </div>
+        <div class="nova-prompt-actions" aria-label="Acciones de estudio">
+          <button id="btn-summarize" type="button"><span class="material-symbols-outlined">summarize</span>Resumir</button>
+          <button id="btn-explain" type="button"><span class="material-symbols-outlined">search_insights</span>Explicar</button>
+          <button id="btn-quiz" type="button"><span class="material-symbols-outlined">quiz</span>Cuestionario</button>
+          <button id="btn-flashcards" type="button"><span class="material-symbols-outlined">style</span>Flashcards</button>
+          <button id="btn-plan" type="button"><span class="material-symbols-outlined">calendar_month</span>Plan de estudio</button>
+        </div>
+        <p><span>La IA puede equivocarse. Contrasta lo importante.</span><span><kbd>Enter</kbd> enviar · <kbd>Shift</kbd> + <kbd>Enter</kbd> nueva línea</span></p>
+      </footer>
+    </section>
+
+    <aside class="nova-chat-sources hidden" id="sources-sidebar" aria-label="Fuentes y contexto">
+      <div class="nova-panel-caption"><span>03</span><h2>Fuentes y contexto</h2><button class="nova-icon-button" id="close-sources-btn" type="button" title="Ocultar panel" aria-label="Cerrar fuentes"><span class="material-symbols-outlined">close</span></button></div>
+      <p class="nova-card-intro">Material relacionado con esta conversación.</p>
+      <div class="nova-sources-list"><!--SLOT:CHAT_SOURCES--></div>
+    </aside>
+  </div>
 </div>
-<div class="px-space-md mb-space-sm">
-<div class="flex items-center gap-space-xs bg-surface-container px-space-sm py-1.5 rounded-lg text-outline focus-within:text-on-surface">
-<span class="material-symbols-outlined text-[18px]">search</span>
-<input class="bg-transparent border-none outline-none font-body-sm text-body-sm text-on-surface placeholder:text-outline w-full" id="session-search" placeholder="Filtrar sesiones..." type="text"/>
-</div>
-</div>
-<div class="px-space-md pb-space-sm">
-<span class="font-label-sm text-[10px] tracking-wider uppercase text-outline block mb-1">Materia</span>
-<div class="flex items-center gap-1 overflow-x-auto pb-1" style="scrollbar-width: none;">
-<button class="px-2 py-0.5 rounded-full font-label-sm text-label-sm bg-primary-container text-on-primary-container font-semibold whitespace-nowrap">Todas</button>
-<!--SLOT:CHAT_FILTERS-->
-</div>
-</div>
-<div class="flex-1 overflow-y-auto px-space-sm space-y-space-xs" style="scrollbar-width: thin;">
-<!--SLOT:CHAT_SESSIONS-->
-</div>
-<div class="p-space-sm bg-surface-container-lowest text-on-surface-variant">
-<div class="flex items-center justify-between mb-1">
-<span class="font-label-sm text-[11px] text-on-surface font-semibold flex items-center gap-1">
-<!--SLOT:CHAT_MODE_DOT--> <!--SLOT:CHAT_MODEL-->
-</span>
-<span class="font-code-inline text-[10px] text-primary-fixed-dim"><!--SLOT:CHAT_QUOTA_PCT--></span>
-</div>
-<div class="w-full bg-surface-container h-1.5 rounded-full overflow-hidden mb-1.5">
-<!--SLOT:CHAT_QUOTA_BAR-->
-</div>
-<div class="flex items-center justify-between font-code-inline text-[10px] text-outline">
-<span><!--SLOT:CHAT_COSTS--></span>
-<!--SLOT:CHAT_MODE-->
-</div>
-</div>
-</aside>
-<main class="flex-1 min-w-0 h-full flex flex-col bg-surface relative">
-<header class="h-14 px-space-md flex items-center justify-between bg-surface-container-low shrink-0 shadow-sm z-10">
-<div class="flex items-center gap-space-sm min-w-0">
-<span class="material-symbols-outlined text-primary-container text-[20px] shrink-0">neurology</span>
-<div class="flex items-center gap-1.5 min-w-0">
-<span class="font-label-sm text-label-sm uppercase tracking-wider text-outline shrink-0">Contexto:</span>
-<div class="flex items-center gap-1.5 truncate" data-context>
-<!--SLOT:CHAT_CONTEXT-->
-</div>
-</div>
-</div>
-<div class="flex items-center gap-space-xs shrink-0">
-<button class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-sm text-label-sm transition-all" id="toggle-sources-btn" title="Alternar panel de fuentes">
-<span class="material-symbols-outlined text-[16px] text-primary-container">menu_book</span>
-<span>Fuentes (<!--SLOT:CHAT_FCOUNT-->)</span>
-</button>
-<button id="btn-clear-chat" class="p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors" title="Limpiar pantalla">
-<span class="material-symbols-outlined text-[18px]">restart_alt</span>
-</button>
-</div>
-</header>
-<div class="flex-1 overflow-y-auto px-space-xl py-space-lg space-y-space-lg" id="chat-messages-container" style="scrollbar-width: thin;">
-<!--SLOT:CHAT_MESSAGES-->
-</div>
-<footer class="p-space-md bg-surface-container-low shrink-0 shadow-lg">
-<div class="max-w-4xl mx-auto space-y-space-sm">
-<div class="flex items-center gap-1.5 overflow-x-auto pb-1" style="scrollbar-width: none;">
-<button id="btn-summarize" class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-sm text-label-sm whitespace-nowrap transition-colors">
-<span class="material-symbols-outlined text-[14px] text-primary-container">summarize</span>
-<span>Resumir apunte</span>
-</button>
-<button id="btn-explain" class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-sm text-label-sm whitespace-nowrap transition-colors">
-<span class="material-symbols-outlined text-[14px] text-primary-container">search_insights</span>
-<span>Explicar a fondo</span>
-</button>
-<button id="btn-quiz" class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-sm text-label-sm whitespace-nowrap transition-colors">
-<span class="material-symbols-outlined text-[14px] text-secondary">psychology</span>
-<span>Crear cuestionario (5 preguntas)</span>
-</button>
-<button id="btn-flashcards" class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-sm text-label-sm whitespace-nowrap transition-colors">
-<span class="material-symbols-outlined text-[14px] text-secondary">style</span>
-<span>Generar flashcards</span>
-</button>
-<button id="btn-plan" class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-sm text-label-sm whitespace-nowrap transition-colors">
-<span class="material-symbols-outlined text-[14px] text-primary-fixed">calendar_month</span>
-<span>Planificar examen</span>
-</button>
-</div>
-<div class="bg-surface-container rounded-xl p-space-sm flex flex-col gap-space-xs shadow-inner">
-<textarea class="bg-transparent text-on-surface font-body-md text-body-md placeholder:text-outline resize-none outline-none w-full p-space-xs" id="prompt-input" placeholder="Pregunta algo sobre tus asignaturas... (Shift+Enter para nueva linea)" rows="3"></textarea>
-<div class="flex items-center justify-between pt-1">
-<div class="flex items-center gap-1">
-<button class="flex items-center gap-1 p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high transition-colors" title="Adjuntar archivo o nota">
-<span class="material-symbols-outlined text-[18px]">attach_file</span>
-</button>
-<button class="flex items-center gap-1 p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high transition-colors" title="Vincular apunte del Segundo Cerebro">
-<span class="material-symbols-outlined text-[18px]">add_link</span>
-</button>
-<button class="flex items-center gap-1 p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high transition-colors" title="Dictado por voz">
-<span class="material-symbols-outlined text-[18px]">mic</span>
-</button>
-<span class="text-outline/40 mx-1">|</span>
-<span class="font-code-inline text-[11px] text-outline">Modo: <!--SLOT:CHAT_COMPOSER_MODE--></span>
-</div>
-<button class="flex items-center justify-center gap-1.5 px-space-md py-2 rounded-lg bg-primary-container text-on-primary font-label-md text-label-md font-semibold hover:bg-primary transition-all shadow-md" id="send-btn">
-<span>Enviar</span>
-<span class="material-symbols-outlined text-[18px]">send</span>
-</button>
-</div>
-</div>
-</div>
-</footer>
-</main>
-<aside class="w-[300px] shrink-0 h-full flex flex-col bg-surface-container-low transition-all duration-200" id="sources-sidebar">
-<div class="p-space-md flex items-center justify-between shadow-sm">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-[18px] text-primary-container">source</span>
-<span class="font-headline-sm text-headline-sm text-on-surface">Fuentes y Contexto</span>
-</div>
-<button class="p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container transition-colors" id="close-sources-btn" title="Ocultar panel">
-<span class="material-symbols-outlined text-[18px]">close</span>
-</button>
-</div>
-<div class="flex-1 overflow-y-auto p-space-md space-y-space-md" style="scrollbar-width: thin;">
-<!--SLOT:CHAT_SOURCES-->
-</div>
-</aside>
-</div>
-</div>
+
 <script>
 (function () {
   "use strict";
@@ -148,27 +75,27 @@
 
   function renderMessage(role, content) {
     const div = document.createElement("div");
-    div.className = "flex items-start gap-3 max-w-4xl mx-auto w-full";
-    if (role === "user") {
-      div.innerHTML = '<div class="w-9 h-9 rounded-full bg-surface-container-high flex items-center justify-center shrink-0 font-label-md text-on-surface font-bold">TU</div><div class="flex-1 min-w-0"><div class="flex items-center gap-2 mb-1"><span class="font-label-md text-label-md font-semibold text-on-surface">Estudiante</span><span class="font-code-inline text-[10px] text-outline">Ahora</span></div><div class="bg-surface-container-high text-on-surface rounded-xl p-3 shadow-sm"><p class="font-body-md text-body-md leading-relaxed whitespace-pre-wrap">' + esc(content) + '</p></div></div>';
+    const isUser = role === "user";
+    div.className = isUser ? "nova-message nova-message-user flex-row-reverse" : "nova-message nova-message-assistant";
+    div.setAttribute("data-chat-turn", isUser ? "user" : "assistant");
+    if (isUser) {
+      div.innerHTML = '<div class="nova-message-avatar nova-message-avatar-user">TÚ</div><div class="nova-message-content"><div class="nova-message-meta"><span class="nova-message-author">Tú</span><span class="nova-message-time">Ahora</span></div><div class="nova-message-bubble"><p class="nova-message-text">' + esc(content) + '</p></div></div>';
     } else {
-      div.innerHTML = '<div class="w-9 h-9 rounded-full bg-primary-container/15 flex items-center justify-center shrink-0 text-primary-container"><span class="material-symbols-outlined text-[20px]">smart_toy</span></div><div class="flex-1 min-w-0"><div class="flex items-center gap-2 mb-1"><span class="font-label-md text-label-md font-semibold text-primary-fixed-dim">Asistente IA</span></div><div class="bg-surface-container-low rounded-xl p-3 text-on-surface shadow-md"><p class="font-body-md text-body-md leading-relaxed text-on-surface-variant whitespace-pre-wrap">' + esc(content) + '</p></div></div>';
+      div.innerHTML = '<div class="nova-message-avatar nova-message-avatar-assistant"><span class="material-symbols-outlined">auto_awesome</span></div><div class="nova-message-content"><div class="nova-message-meta"><span class="nova-message-author">Asistente</span><span class="nova-message-time">Ahora</span></div><div class="nova-message-bubble"><p class="nova-message-text">' + esc(content) + '</p></div></div>';
     }
     chatContainer.appendChild(div);
     chatContainer.scrollTop = chatContainer.scrollHeight;
   }
 
   function lastAIMessage() {
-    const msgs = chatContainer.querySelectorAll(".flex-1.min-w-0");
-    if (msgs.length === 0) return "";
-    const p = msgs[msgs.length - 1].querySelector("p");
-    return p ? p.textContent : "";
+    const msgs = chatContainer.querySelectorAll('[data-chat-turn="assistant"] .nova-message-text');
+    return msgs.length ? msgs[msgs.length - 1].textContent : "";
   }
 
   function showError(msg) {
     const d = document.createElement("div");
-    d.className = "flex items-center gap-2 max-w-4xl mx-auto";
-    d.innerHTML = '<span class="material-symbols-outlined text-[20px] text-error">error</span><span class="font-body-sm text-on-error-container">' + esc(msg) + '</span>';
+    d.className = "nova-chat-state is-error";
+    d.innerHTML = '<span class="material-symbols-outlined">error</span><div><strong>No se pudo completar</strong><p>' + esc(msg) + '</p></div>';
     chatContainer.appendChild(d);
     chatContainer.scrollTop = chatContainer.scrollHeight;
   }
@@ -176,7 +103,7 @@
   function setLoading(flag) {
     if (!sendBtn) return;
     sendBtn.disabled = flag;
-    sendBtn.innerHTML = flag ? '<span class="material-symbols-outlined text-[18px] animate-spin">autorenew</span><span class="ml-2">Enviando...</span>' : '<span>Enviar</span><span class="material-symbols-outlined text-[18px]">send</span>';
+    sendBtn.innerHTML = flag ? '<span class="material-symbols-outlined text-[18px] animate-spin">autorenew</span><span class="ml-2">Enviando...</span>' : '<span>Enviar</span><span class="material-symbols-outlined text-[18px]">arrow_upward</span>';
   }
 
   async function sendMessage() {
@@ -215,7 +142,7 @@
   function explain()     { const c = promptInput.value.trim(); if (!c) { showError("Escribe algo."); return; } renderMessage("user", "Explicar a fondo: " + c); promptInput.value = ""; setLoading(true); fetch("/api/ai/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: "Explica esto a fondo y con detalle: " + c, subject: "general" }) }).then(r => r.text()).then(t => { renderMessage("assistant", t); setLoading(false); }).catch(e => { setLoading(false); showError("Error: " + esc(e.message)); }); }
   function quiz()        { const c = lastAIMessage(); if (!c) { showError("Genera un mensaje primero."); return; } callJSON("/api/ai/quiz", { content: c, num_questions: 5 }, d => { let o = "## Cuestionario\n\n"; (d.questions || []).forEach((q,i) => { o += (i+1) + ". " + (q.question||q.text||"") + "\n"; if (q.options) q.options.forEach(op => o += " - " + op + "\n"); o += " Respuesta: " + (q.answer||q.correct_answer||"") + "\n\n"; }); renderMessage("assistant", o); }); }
   function flashcards()  { const c = lastAIMessage(); if (!c) { showError("Genera un mensaje primero."); return; } callJSON("/api/ai/study-sheet", { content: c }, d => renderMessage("assistant", d.study_sheet || JSON.stringify(d))); }
-  function clearChat()   { chatContainer.innerHTML = '<div class="text-center py-8"><p class="font-body-sm text-body-sm text-on-surface-variant">Hola! Soy tu asistente academico. Escribe un mensaje para empezar.</p></div>'; }
+  function clearChat()   { chatContainer.innerHTML = '<div class="nova-chat-welcome" data-chat-empty="1"><div class="nova-chat-welcome-badge"><span class="material-symbols-outlined">auto_awesome</span>Sin conversaciones</div><h2>¿Qué quieres aprender hoy?</h2><p>Envía un mensaje para empezar o elige una forma de trabajar.</p><div class="nova-chat-starters"><button type="button" data-chat-prompt="Explícame este tema paso a paso y con un ejemplo: "><span class="material-symbols-outlined">lightbulb</span><span><strong>Entender un tema</strong><small>Explicación clara y con ejemplos</small></span><span class="material-symbols-outlined">north_east</span></button><button type="button" data-chat-prompt="Resume estos apuntes en ideas clave: "><span class="material-symbols-outlined">summarize</span><span><strong>Resumir apuntes</strong><small>Lo esencial, sin rodeos</small></span><span class="material-symbols-outlined">north_east</span></button><button type="button" data-chat-prompt="Crea un cuestionario de 5 preguntas sobre: "><span class="material-symbols-outlined">quiz</span><span><strong>Practicar</strong><small>Un cuestionario para repasar</small></span><span class="material-symbols-outlined">north_east</span></button></div></div>'; }
 
   if (toggleSourcesBtn && sourcesSidebar) toggleSourcesBtn.addEventListener("click", () => sourcesSidebar.classList.toggle("hidden"));
   if (closeSourcesBtn && sourcesSidebar) closeSourcesBtn.addEventListener("click", () => sourcesSidebar.classList.add("hidden"));

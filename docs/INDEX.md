@@ -16,6 +16,7 @@
 | [`DEVELOPER_SETUP.md`](DEVELOPER_SETUP.md) | es | Setup de desarrollo local (toolchain, BD, arranque) | 2026-10-19 |
 | [`DEPLOY.md`](DEPLOY.md) | es | Runbook de despliegue a la homelab Dell (procedimiento verificado) | 2026-10-19 |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | es | Diagrama de componentes y flujos | 2026-10-19 |
+| [`UI_REDESIGN.md`](UI_REDESIGN.md) | es | Rediseño oscuro, contratos preservados y validación de la interfaz | 2026-10-23 |
 | [`ROADMAP.md`](ROADMAP.md) | es | Fases de desarrollo y plan pendiente | 2026-10-19 |
 
 ## Históricos (leer con su fecha en mente)

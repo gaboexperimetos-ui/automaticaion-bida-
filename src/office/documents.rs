@@ -12,7 +12,7 @@ use axum::{
 use serde::Deserialize;
 use std::sync::Arc;
 
-use crate::office::templates::{layout, md_to_html, slugify};
+use crate::office::templates::{layout, layout_as, md_to_html, slugify};
 use crate::office::{docs_dir, templates};
 use crate::AppState;
 
@@ -55,40 +55,14 @@ pub async fn office_home(State(state): State<Arc<AppState>>) -> impl IntoRespons
         templates::genoffice_status_banner(&state.config.genoffice_mcp_url, genoffice_ms);
 
     let body = format!(
-        r#"<div class="space-y-4">
-            <div class="flex justify-between items-center">
-                <h2 class="text-xl font-bold text-accent">Suite de oficina</h2>
-                {mcp}
-            </div>
-            <p class="text-gray-400">Documentos, hojas de cálculo y presentaciones.</p>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                <a href="/office/docs" class="block bg-card border border-gray-800 rounded-lg p-5 hover:border-accent">
-                    <span class="text-2xl">📄</span>
-                    <div class="font-semibold text-white mt-2">Documentos ({docs})</div>
-                    <div class="text-sm text-gray-500">Editor Markdown con vista previa.</div>
-                </a>
-                <a href="/office/sheets" class="block bg-card border border-gray-800 rounded-lg p-5 hover:border-accent">
-                    <span class="text-2xl">📊</span>
-                    <div class="font-semibold text-white mt-2">Hojas ({sheets})</div>
-                    <div class="text-sm text-gray-500">Rejilla editable, CSV y fórmulas.</div>
-                </a>
-                <a href="/office/presentations" class="block bg-card border border-gray-800 rounded-lg p-5 hover:border-accent">
-                    <span class="text-2xl">🎠</span>
-                    <div class="font-semibold text-white mt-2">Presentaciones ({pres})</div>
-                    <div class="text-sm text-gray-500">Diapositivas en Markdown.</div>
-                </a>
-            </div>
-            <div class="mt-6">
-                <a href="/office/library" class="text-accent hover:text-cyan-300">Ir a la biblioteca de archivos</a>
-            </div>
-        </div>"#,
+        r#"<div class="nova-page nova-office-home"><header class="nova-office-hero"><p class="nova-eyebrow"><span>07</span> Oficina</p><h1>Haz el trabajo.<br><em>Nosotros lo guardamos.</em></h1><p>Un espacio local para escribir, calcular y presentar sin cambiar de aplicación.</p>{mcp}</header><div class="nova-office-app-grid"><a href="/office/docs" class="nova-office-app-card documents"><span class="nova-office-app-icon"><span class="material-symbols-outlined">edit_note</span></span><span class="nova-office-app-number">01</span><h2>Documentos</h2><p>Editor Markdown con vista previa y exportación HTML.</p><footer><strong>{docs}</strong> archivos<span class="material-symbols-outlined">arrow_forward</span></footer></a><a href="/office/sheets" class="nova-office-app-card sheets"><span class="nova-office-app-icon"><span class="material-symbols-outlined">table_chart</span></span><span class="nova-office-app-number">02</span><h2>Hojas de cálculo</h2><p>Cuadrícula editable, CSV y fórmulas SUM y AVG.</p><footer><strong>{sheets}</strong> archivos<span class="material-symbols-outlined">arrow_forward</span></footer></a><a href="/office/presentations" class="nova-office-app-card presentations"><span class="nova-office-app-icon"><span class="material-symbols-outlined">present_to_all</span></span><span class="nova-office-app-number">03</span><h2>Presentaciones</h2><p>Diapositivas Markdown listas para ordenar y presentar.</p><footer><strong>{pres}</strong> archivos<span class="material-symbols-outlined">arrow_forward</span></footer></a></div><a href="/office/library" class="nova-office-library-link"><span class="material-symbols-outlined">folder_open</span><div><h2>Biblioteca de archivos</h2><p>Busca, importa, descarga y organiza todo tu trabajo desde un solo lugar.</p></div><span class="material-symbols-outlined">arrow_outward</span></a></div>"#,
         docs = docs,
         sheets = sheets,
         pres = pres,
         mcp = mcp_banner,
     );
 
-    layout("Suite de oficina", &body)
+    layout_as("Suite de oficina", "", &body)
 }
 
 /// List all documents.
@@ -110,85 +84,39 @@ pub async fn list(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let mcp_banner =
         templates::genoffice_status_banner(&state.config.genoffice_mcp_url, genoffice_ms);
 
-    let rows = if files.is_empty() {
-        r#"<p class="text-gray-500">No hay documentos aún.</p>"#.to_string()
+    let cards = if files.is_empty() {
+        r#"<div class="nova-office-empty"><span class="material-symbols-outlined">edit_note</span><h2>Tu próximo documento empieza aquí.</h2><p>Crea un archivo Markdown y edítalo desde el navegador.</p><a href="/office/docs/new" class="nova-button nova-button-primary">Crear documento</a></div>"#.to_string()
     } else {
-        files
-            .iter()
-            .map(|f| {
-                format!(
-                    r#"<tr class="border-t border-gray-800">
-                        <td class="py-2"><a href="/office/docs/{slug}" class="text-accent hover:text-cyan-300">{display}</a></td>
-                        <td class="py-2 text-sm text-gray-500">{size}</td>
-                        <td class="py-2 text-sm text-gray-500">{modified}</td>
-                        <td class="py-2 space-x-2">
-                            <a href="/office/docs/{slug}/export?fmt=html" class="text-xs text-gray-400 hover:text-white">html</a>
-                            <a href="/office/docs/{slug}/export?fmt=md" class="text-xs text-gray-400 hover:text-white">md</a>
-                            <form hx-delete="/office/docs/{slug}" class="inline">
-                                <button type="submit" onclick="return confirm('¿Borrar?')"
-                                    class="text-xs text-red-400 hover:text-red-300">borrar</button>
-                            </form>
-                        </td>
-                    </tr>"#,
-                    slug = templates::html_escape(&f.name),
-                    display = templates::html_escape(&f.display),
-                    size = templates::human_size(f.size),
-                    modified = &f.modified,
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("\n")
+        files.iter().map(|f| {
+            format!(
+                r#"<article class="nova-file-card"><div class="nova-file-card-top"><span class="nova-file-type"><span class="material-symbols-outlined">description</span></span><span>MARKDOWN</span></div><h2><a href="/office/docs/{slug}">{display}</a></h2><p class="nova-file-meta">{modified} · {size}</p><footer><div><a href="/office/docs/{slug}/export?fmt=html">HTML</a><a href="/office/docs/{slug}/export?fmt=md">MD</a></div><form hx-delete="/office/docs/{slug}"><button type="submit" onclick="return confirm('¿Borrar?')" class="nova-icon-button danger" aria-label="Borrar {display}"><span class="material-symbols-outlined">delete</span></button></form></footer></article>"#,
+                slug = templates::html_escape(&f.name),
+                display = templates::html_escape(&f.display),
+                size = templates::human_size(f.size),
+                modified = &f.modified,
+            )
+        }).collect::<Vec<_>>().join("
+")
     };
 
     let body = format!(
-        r#"<div class="flex justify-between items-center mb-4">
-            <div>
-                <h2 class="text-xl font-bold text-accent">Documentos</h2>
-                <p class="text-sm text-gray-500">{count} documento(s)</p>
-            </div>
-            <a href="/office/docs/new" class="px-4 py-2 bg-accent text-black font-bold rounded hover:bg-cyan-300">+ Nuevo</a>
-        </div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm">
-                <thead class="border-b border-gray-800"><tr>
-                    <th class="py-2 text-gray-400">Nombre</th>
-                    <th class="py-2 text-gray-400">Tamaño</th>
-                    <th class="py-2 text-gray-500">Modificado</th>
-                    <th class="py-2 text-gray-400">Acciones</th>
-                </tr></thead>
-                <tbody>{rows}</tbody>
-            </table>
-        </div>
-        {mcp}"#,
+        r#"<div class="nova-page nova-office-page"><header class="nova-page-head compact"><div><p class="nova-eyebrow"><span>07.1</span> Oficina</p><h1>Documentos que<br><em>siguen tu ritmo.</em></h1><p class="nova-page-lead">{count} documento(s) en Markdown, guardados en tu espacio local.</p></div><a href="/office/docs/new" class="nova-button nova-button-primary"><span class="material-symbols-outlined">add</span>Nuevo documento</a></header><nav class="nova-office-switch" aria-label="Aplicaciones de oficina"><a href="/office/docs" aria-current="page">Documentos</a><a href="/office/sheets">Hojas</a><a href="/office/presentations">Presentaciones</a><a href="/office/library">Biblioteca</a></nav>{mcp}<section class="nova-file-grid">{cards}</section></div>"#,
         count = files.len(),
-        rows = rows,
+        cards = cards,
         mcp = mcp_banner,
     );
 
-    layout("Documentos", &body)
+    layout_as("Documentos", "documentos", &body)
 }
 
 /// New document form.
 pub async fn new_doc() -> impl IntoResponse {
-    let body = r#"<h2 class="text-xl font-bold text-accent mb-4">Nuevo documento</h2>
-<form hx-post="/office/docs" hx-swap="outerHTML" class="space-y-4">
-    <div>
-        <label class="block text-sm text-gray-400 mb-1">Título</label>
-        <input type="text" name="title" required
-            class="w-full px-4 py-2 bg-card border border-gray-700 rounded text-white focus:border-accent focus:outline-none">
-    </div>
-    <div>
-        <label class="block text-sm text-gray-400 mb-1">Contenido (Markdown)</label>
-        <textarea name="content" id="editor" rows="20"
-            class="w-full px-4 py-2 bg-card border border-gray-700 rounded text-white focus:border-accent focus:outline-none font-mono text-sm"></textarea>
-    </div>
-    <button type="submit" class="px-6 py-2 bg-accent text-black font-bold rounded hover:bg-cyan-300">Crear</button>
-</form>
+    let body = r#"<div class="nova-page nova-editor-page"><header class="nova-page-head compact"><div><p class="nova-eyebrow"><span>07.1</span> Nuevo documento</p><h1>Una página en blanco.<br><em>Muchas posibilidades.</em></h1></div><a href="/office/docs" class="nova-button nova-button-quiet">Volver</a></header><form hx-post="/office/docs" hx-swap="outerHTML" class="nova-editor-form"><div class="nova-editor-meta"><label for="new-doc-title">Título del documento</label><input id="new-doc-title" type="text" name="title" placeholder="Ej. Apuntes de anatomía" required></div><div class="nova-editor-canvas"><label for="editor">Contenido Markdown</label><textarea name="content" id="editor" rows="24" placeholder="Empieza a escribir en Markdown…"></textarea></div><div class="nova-editor-submit"><span>Se guardará como archivo .md</span><button type="submit" class="nova-button nova-button-primary">Crear documento<span class="material-symbols-outlined">arrow_forward</span></button></div></form></div>
 <script>"#;
     let mut out = body.to_string();
     out.push_str(templates::MARKDOWN_TOOLBAR_JS);
     out.push_str("</script>");
-    layout("Nuevo documento", &out)
+    layout_as("Nuevo documento", "documentos", &out)
 }
 
 /// Render the editor page (view + edit) for a document.
@@ -229,17 +157,7 @@ pub async fn edit(
 
     let editor = doc_editor(&slug, &content);
     let body = format!(
-        r#"{saved}
-        <div class="flex justify-between items-center mb-3">
-            <h2 class="text-xl font-bold text-accent">Editar: <span class="text-white">{title}</span></h2>
-            <div class="space-x-2">
-                <a href="/office/docs/{slug}/preview" target="_blank" class="px-3 py-1 bg-card border border-gray-700 rounded text-sm hover:bg-gray-800">Vista previa</a>
-                <a href="/office/docs/{slug}/export?fmt=md" class="px-3 py-1 bg-card border border-gray-700 rounded text-sm hover:bg-gray-800">Exportar .md</a>
-                <a href="/office/docs/{slug}/export?fmt=html" class="px-3 py-1 bg-card border border-gray-700 rounded text-sm hover:bg-gray-800">Exportar .html</a>
-            </div>
-        </div>
-        {mcp}
-        {editor}"#,
+        r#"<div class="nova-page nova-editor-page"><header class="nova-workspace-head"><div class="nova-workspace-title"><span class="nova-workspace-symbol"><span class="material-symbols-outlined">edit_note</span></span><div><p>Documento Markdown</p><h1>{title}</h1></div></div><div class="nova-workspace-actions"><a href="/office/docs/{slug}/preview" target="_blank" class="nova-button nova-button-quiet">Vista previa</a><a href="/office/docs/{slug}/export?fmt=md" class="nova-button nova-button-quiet">Exportar .md</a><a href="/office/docs/{slug}/export?fmt=html" class="nova-button nova-button-primary">Exportar .html</a></div></header>{saved}{mcp}<section class="nova-document-workspace">{editor}</section></div>"#,
         saved = saved_banner,
         mcp = mcp_banner,
         title = templates::html_escape(&slug.replace('-', " ")),
@@ -247,28 +165,29 @@ pub async fn edit(
         editor = editor,
     );
 
-    layout(&format!("Editar: {}", slug), &body).into_response()
+    layout_as(&format!("Editar: {}", slug), "documentos", &body).into_response()
 }
 
 /// The editor widget (toolbar + textarea + save).
 fn doc_editor(slug: &str, content: &str) -> String {
     format!(
-        r#"<div class="mb-2 flex flex-wrap gap-1 items-center">
-            <button type="button" onclick="insertMd('**','**')" class="px-2 py-1 bg-card border border-gray-700 rounded text-xs hover:border-accent">Bold</button>
-            <button type="button" onclick="insertMd('*','*')" class="px-2 py-1 bg-card border border-gray-700 rounded text-xs hover:border-accent">Italic</button>
-            <button type="button" onclick="appendMd('## ')" class="px-2 py-1 bg-card border border-gray-700 rounded text-xs hover:border-accent">Heading</button>
-            <button type="button" onclick="appendMd('- ')" class="px-2 py-1 bg-card border border-gray-700 rounded text-xs hover:border-accent">List</button>
-            <button type="button" onclick="appendMd('1. ')" class="px-2 py-1 bg-card border border-gray-700 rounded text-xs hover:border-accent">Num list</button>
-            <button type="button" onclick="insertMd('`','`')" class="px-2 py-1 bg-card border border-gray-700 rounded text-xs hover:border-accent">Code</button>
-            <button type="button" onclick="appendMd('```\n\n```')" class="px-2 py-1 bg-card border border-gray-700 rounded text-xs hover:border-accent">Block</button>
-            <button type="button" onclick="insertMd('[', '](url)')" class="px-2 py-1 bg-card border border-gray-700 rounded text-xs hover:border-accent">Link</button>
+        r#"<div class="nova-markdown-toolbar" role="toolbar" aria-label="Formato Markdown">
+            <button type="button" onclick="insertMd('**','**')" title="Negrita"><span class="material-symbols-outlined">format_bold</span></button>
+            <button type="button" onclick="insertMd('*','*')" title="Cursiva"><span class="material-symbols-outlined">format_italic</span></button>
+            <button type="button" onclick="appendMd('## ')" title="Encabezado"><span class="material-symbols-outlined">title</span></button>
+            <button type="button" onclick="appendMd('- ')" title="Lista"><span class="material-symbols-outlined">format_list_bulleted</span></button>
+            <button type="button" onclick="appendMd('1. ')" title="Lista numerada"><span class="material-symbols-outlined">format_list_numbered</span></button>
+            <button type="button" onclick="insertMd('`','`')" title="Código"><span class="material-symbols-outlined">code</span></button>
+            <button type="button" onclick="appendMd('```
+
+```')" title="Bloque de código"><span class="material-symbols-outlined">data_object</span></button>
+            <button type="button" onclick="insertMd('[', '](url)')" title="Enlace"><span class="material-symbols-outlined">link</span></button>
+            <span class="nova-toolbar-hint">Markdown</span>
         </div>
-        <form hx-put="/office/docs/{slug}" hx-swap="outerHTML" class="space-y-3">
-            <textarea name="content" id="editor" rows="28"
-                class="w-full px-4 py-2 bg-card border border-gray-700 rounded text-white focus:border-accent focus:outline-none font-mono text-sm">{content}</textarea>
-            <div class="flex gap-2">
-                <button type="submit" class="px-6 py-2 bg-accent text-black font-bold rounded hover:bg-cyan-300">Guardar</button>
-            </div>
+        <form hx-put="/office/docs/{slug}" hx-swap="outerHTML" class="nova-document-edit-form">
+            <label class="sr-only" for="editor">Contenido del documento</label>
+            <textarea name="content" id="editor" rows="30" spellcheck="true">{content}</textarea>
+            <div class="nova-editor-submit"><span>Los cambios se guardan en el archivo local.</span><button type="submit" class="nova-button nova-button-primary"><span class="material-symbols-outlined">save</span>Guardar cambios</button></div>
         </form>
         <script>{js}</script>"#,
         slug = slug,
@@ -463,18 +382,13 @@ pub async fn preview(
         templates::genoffice_status_banner(&state.config.genoffice_mcp_url, genoffice_ms);
 
     let body = format!(
-        r#"{mcp}
-        <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-bold text-accent">Vista previa: {title}</h2>
-            <a href="/office/docs/{slug}/export?fmt=html" class="px-3 py-1 bg-accent text-black rounded text-sm font-bold hover:bg-cyan-300">Exportar HTML</a>
-        </div>
-        <div class="prose prose-invert max-w-none bg-card border border-gray-800 rounded-lg p-6">{html}</div>"#,
+        r#"<div class="nova-page nova-preview-page"><header class="nova-workspace-head"><div class="nova-workspace-title"><span class="nova-workspace-symbol"><span class="material-symbols-outlined">visibility</span></span><div><p>Vista previa</p><h1>{title}</h1></div></div><div class="nova-workspace-actions"><a href="/office/docs/{slug}" class="nova-button nova-button-quiet">Volver al editor</a><a href="/office/docs/{slug}/export?fmt=html" class="nova-button nova-button-primary">Exportar HTML</a></div></header>{mcp}<article class="nova-document-preview">{html}</article></div>"#,
         mcp = mcp_banner,
         title = templates::html_escape(&slug.replace('-', " ")),
         slug = templates::html_escape(&slug),
         html = html,
     );
-    layout(&format!("Vista: {}", slug), &body).into_response()
+    layout_as(&format!("Vista: {}", slug), "documentos", &body).into_response()
 }
 
 /// Export a document as `.md` or `.html`.

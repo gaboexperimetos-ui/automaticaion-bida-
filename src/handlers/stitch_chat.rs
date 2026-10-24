@@ -322,12 +322,16 @@ const STREAM_SCRIPT: &str = r##"(function () {
 
   // Estado vacío honesto: no hay nada guardado para esta materia.
   function renderEmpty() {
-    var wrap = el("div", "max-w-4xl mx-auto w-full text-center py-space-lg");
-    var icon = el("div", "w-9 h-9 rounded-xl bg-primary-container/15 flex items-center justify-center mx-auto text-primary-container");
-    icon.appendChild(el("span", "material-symbols-outlined text-[20px]", "smart_toy"));
-    wrap.appendChild(icon);
-    wrap.appendChild(el("p", "font-label-md text-label-md font-semibold text-on-surface mt-2", "Sin conversaciones"));
-    wrap.appendChild(el("p", "font-body-sm text-body-sm text-outline mt-1", "Envía un mensaje para empezar: el historial de esta materia aparecerá aquí."));
+    var wrap = el("div", "nova-chat-welcome");
+    wrap.setAttribute("data-chat-empty", "1");
+    wrap.innerHTML = '<div class="nova-chat-welcome-badge"><span class="material-symbols-outlined">auto_awesome</span>Sin conversaciones</div>' +
+      '<h2>¿Qué quieres aprender hoy?</h2>' +
+      '<p>Envía un mensaje para empezar o elige una forma de trabajar.</p>' +
+      '<div class="nova-chat-starters">' +
+      '<button type="button" data-chat-prompt="Explícame este tema paso a paso y con un ejemplo: "><span class="material-symbols-outlined">lightbulb</span><span><strong>Entender un tema</strong><small>Explicación clara y con ejemplos</small></span><span class="material-symbols-outlined">north_east</span></button>' +
+      '<button type="button" data-chat-prompt="Resume estos apuntes en ideas clave: "><span class="material-symbols-outlined">summarize</span><span><strong>Resumir apuntes</strong><small>Lo esencial, sin rodeos</small></span><span class="material-symbols-outlined">north_east</span></button>' +
+      '<button type="button" data-chat-prompt="Crea un cuestionario de 5 preguntas sobre: "><span class="material-symbols-outlined">quiz</span><span><strong>Practicar</strong><small>Un cuestionario para repasar</small></span><span class="material-symbols-outlined">north_east</span></button>' +
+      '</div>';
     chatContainer.appendChild(wrap);
     scroll();
   }
@@ -511,19 +515,19 @@ const STREAM_SCRIPT: &str = r##"(function () {
   function renderAssistant() {
     var b = buildAssistant("Ahora");
 
-    var details = el("details", "mb-2");
+    var details = el("details", "nova-message-reasoning");
     details.hidden = true;
-    details.appendChild(el("summary", "font-label-sm text-[10px] uppercase tracking-wider text-outline cursor-pointer select-none", "Pensando…"));
-    var rbox = el("div", "mt-1 rounded-lg bg-surface-container/60 px-3 py-2");
-    var rtext = el("span", "font-body-sm text-body-sm text-outline italic whitespace-pre-wrap");
+    details.appendChild(el("summary", "", "Pensando…"));
+    var rbox = el("div", "nova-message-reasoning-box");
+    var rtext = el("span", "");
     rbox.appendChild(rtext);
     details.appendChild(rbox);
     b.col.insertBefore(details, b.bubble);
 
-    var caret = el("span", "font-body-md text-body-md text-primary-container", "▍");
+    var caret = el("span", "nova-message-caret", "▍");
     b.bubble.appendChild(caret);
 
-    var usage = el("div", "mt-1 font-code-inline text-[10px] text-outline");
+    var usage = el("div", "nova-message-usage");
     b.col.appendChild(usage);
 
     b.details = details;
@@ -534,11 +538,12 @@ const STREAM_SCRIPT: &str = r##"(function () {
   }
 
   function showError(msg) {
-    var wrap = el("div", "max-w-4xl mx-auto w-full");
-    var banner = el("div", "rounded-xl bg-error-container/20 border border-error/40 px-4 py-3 flex items-start gap-2");
-    banner.appendChild(el("span", "material-symbols-outlined text-[18px] text-error", "error"));
-    banner.appendChild(el("span", "font-body-sm text-body-sm text-error", msg));
-    wrap.appendChild(banner);
+    var wrap = el("div", "nova-chat-state is-error");
+    wrap.appendChild(el("span", "material-symbols-outlined", "error"));
+    var copy = el("div");
+    copy.appendChild(el("strong", "", "No se pudo completar"));
+    copy.appendChild(el("p", "", msg));
+    wrap.appendChild(copy);
     chatContainer.appendChild(wrap);
     scroll();
   }
@@ -761,9 +766,8 @@ const STREAM_SCRIPT: &str = r##"(function () {
     e.preventDefault();
     e.stopPropagation();
     clearMessages();
-    var wrap = el("div", "max-w-4xl mx-auto w-full text-center py-space-lg");
-    wrap.appendChild(el("p", "font-label-md text-label-md font-semibold text-on-surface", "Pantalla limpia"));
-    wrap.appendChild(el("p", "font-body-sm text-body-sm text-outline mt-1", "El historial guardado de esta materia sigue en la base de datos."));
+    var wrap = el("div", "nova-chat-welcome");
+    wrap.innerHTML = '<div class="nova-chat-welcome-badge"><span class="material-symbols-outlined">restart_alt</span>Pantalla limpia</div><h2>Empieza una nueva idea.</h2><p>El historial guardado de esta materia sigue en la base de datos.</p>';
     chatContainer.appendChild(wrap);
     scroll();
   }, true);
@@ -876,24 +880,24 @@ struct UiClasses {
 /// Clases de la interfaz del panel de chat.
 fn ui_classes() -> UiClasses {
     UiClasses {
-        user_row: "flex items-start gap-space-md max-w-4xl mx-auto w-full flex-row-reverse",
-        user_avatar: "w-9 h-9 rounded-full bg-surface-container-high flex items-center justify-center shrink-0 shadow-sm font-label-md font-bold text-[11px] text-on-surface",
-        user_col: "flex-1 min-w-0 flex flex-col items-end",
-        user_head: "flex items-center gap-space-xs mb-1 flex-row-reverse",
-        user_name: "font-label-md text-label-md font-semibold text-on-surface",
-        user_bubble: "bg-surface-container-high text-on-surface rounded-xl p-space-md shadow-sm max-w-[85%]",
-        user_text: "font-body-md text-body-md leading-relaxed whitespace-pre-wrap",
-        assistant_row: "flex items-start gap-space-md max-w-4xl mx-auto w-full",
-        assistant_avatar: "w-9 h-9 rounded-full bg-primary-container/15 flex items-center justify-center shrink-0 shadow-sm text-primary-container",
-        assistant_col: "flex-1 min-w-0",
-        assistant_head: "flex flex-wrap items-center gap-space-xs mb-1",
-        assistant_name: "font-label-md text-label-md font-semibold text-primary-fixed",
-        assistant_bubble: "bg-surface-container-low rounded-xl p-space-lg text-on-surface shadow-md",
-        assistant_text: "font-body-md text-body-md leading-relaxed text-on-surface-variant whitespace-pre-wrap",
-        subject_chip: "px-1.5 py-0.5 rounded-full font-label-sm text-[10px] bg-primary-container/10 text-primary-container font-medium",
-        time: "font-code-inline text-[10px] text-outline",
-        context_subject: "px-2 py-0.5 rounded font-label-sm text-label-sm bg-surface-container-high text-primary-fixed font-semibold",
-        context_count: "px-1.5 py-0.5 rounded-full font-code-inline text-[10px] bg-secondary-container/20 text-secondary",
+        user_row: "nova-message nova-message-user flex-row-reverse",
+        user_avatar: "nova-message-avatar nova-message-avatar-user",
+        user_col: "nova-message-content",
+        user_head: "nova-message-meta",
+        user_name: "nova-message-author",
+        user_bubble: "nova-message-bubble",
+        user_text: "nova-message-text",
+        assistant_row: "nova-message nova-message-assistant",
+        assistant_avatar: "nova-message-avatar nova-message-avatar-assistant",
+        assistant_col: "nova-message-content",
+        assistant_head: "nova-message-meta",
+        assistant_name: "nova-message-author",
+        assistant_bubble: "nova-message-bubble",
+        assistant_text: "nova-message-text",
+        subject_chip: "nova-message-subject",
+        time: "nova-message-time",
+        context_subject: "nova-context-subject",
+        context_count: "nova-context-count",
     }
 }
 
@@ -1227,11 +1231,11 @@ fn render_filters(d: &ChatPanelData) -> String {
     }
 
     format!(
-        r#"<select id="chat-subject-select" title="Materia de la conversación" class="px-2 py-1 rounded-lg bg-surface-container text-on-surface font-label-sm text-label-sm outline-none focus:ring-1 focus:ring-primary-container max-w-[150px]">
+        r#"<select id="chat-subject-select" title="Materia de la conversación" class="nova-chat-subject-select">
 {opts}
 <option value="__new__" data-new="1">+ Nueva materia…</option>
 </select>
-<input id="chat-subject-new" type="text" maxlength="60" placeholder="Nombre de la materia" style="display: none;" class="px-2 py-1 rounded-lg bg-surface-container text-on-surface font-label-sm text-label-sm outline-none focus:ring-1 focus:ring-primary-container w-[130px]"/>"#,
+<input id="chat-subject-new" type="text" maxlength="60" placeholder="Nombre de la materia" style="display: none;" class="nova-chat-subject-new"/>"#,
         opts = opts,
     )
 }
@@ -1252,7 +1256,7 @@ fn subject_option(value: &str, selected: bool) -> String {
 /// (el script la usa para cambiar de conversación sin recargar).
 fn render_sessions(d: &ChatPanelData) -> String {
     if d.sessions.is_empty() {
-        return r#"<div class="p-space-sm rounded-lg bg-surface-container font-body-sm text-body-sm text-outline">Sin conversaciones. Envía un mensaje para empezar.</div>"#.to_string();
+        return r#"<div class="nova-chat-history-empty">Sin conversaciones.<br>Envía un mensaje para empezar.</div>"#.to_string();
     }
 
     let today_iso = chrono::Utc::now().date_naive().to_string();
@@ -1268,7 +1272,7 @@ fn render_sessions(d: &ChatPanelData) -> String {
                 "pt-space-sm"
             };
             out.push_str(&format!(
-                r#"<div class="px-space-sm {pad} pb-1 font-label-sm text-[10px] tracking-wider uppercase text-outline">{label}</div>"#,
+                r#"<div class="nova-session-group {pad}">{label}</div>"#,
                 pad = pad,
                 label = label,
             ));
@@ -1322,52 +1326,20 @@ fn session_card(active: bool, s: &SessionRow) -> String {
         s.msgs.max(0),
     );
 
-    if active {
-        format!(
-            r##"<div class="relative p-space-sm rounded-lg bg-surface-container-high text-on-surface cursor-pointer group shadow-sm" data-chat-subject="{subject_attr}">
-<div class="absolute left-0 top-2 bottom-2 w-1 bg-primary-container rounded-r-full"></div>
-<div class="flex items-start justify-between gap-1 mb-1">
-<span class="font-label-md text-label-md font-semibold truncate text-primary-fixed">{title}</span>
-<span class="font-code-inline text-[10px] text-outline shrink-0">{time}</span>
-</div>
-<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-1 mb-1.5">{preview}</p>
-<div class="flex items-center justify-between">
-<span class="px-1.5 py-0.5 rounded text-[10px] font-label-sm bg-surface-container text-secondary truncate max-w-[120px]">{subject}</span>
-<span class="font-code-inline text-[10px] text-outline flex items-center gap-0.5">
-<span class="material-symbols-outlined text-[12px]">chat_bubble</span> {n}
-</span>
-</div>
+    format!(
+        r##"<div class="{class}" data-chat-subject="{subject_attr}">
+<div class="nova-session-top"><strong>{title}</strong><time>{time}</time></div>
+<p>{preview}</p>
+<footer><span>{subject}</span><span><span class="material-symbols-outlined">chat_bubble</span>{n}</span></footer>
 </div>"##,
-            subject_attr = args.3,
-            title = args.0,
-            time = args.1,
-            preview = args.2,
-            subject = args.3,
-            n = args.4,
-        )
-    } else {
-        format!(
-            r##"<div class="p-space-sm rounded-lg bg-surface-container/50 hover:bg-surface-container text-on-surface-variant hover:text-on-surface cursor-pointer transition-colors group" data-chat-subject="{subject_attr}">
-<div class="flex items-start justify-between gap-1 mb-1">
-<span class="font-label-md text-label-md font-medium truncate">{title}</span>
-<span class="font-code-inline text-[10px] text-outline shrink-0">{time}</span>
-</div>
-<p class="font-body-sm text-body-sm text-outline line-clamp-1 mb-1.5">{preview}</p>
-<div class="flex items-center justify-between">
-<span class="px-1.5 py-0.5 rounded text-[10px] font-label-sm bg-surface-container-low text-on-surface-variant truncate max-w-[120px]">{subject}</span>
-<span class="font-code-inline text-[10px] text-outline flex items-center gap-0.5">
-<span class="material-symbols-outlined text-[12px]">chat_bubble</span> {n}
-</span>
-</div>
-</div>"##,
-            subject_attr = args.3,
-            title = args.0,
-            time = args.1,
-            preview = args.2,
-            subject = args.3,
-            n = args.4,
-        )
-    }
+        class = if active { "nova-session-card is-active" } else { "nova-session-card" },
+        subject_attr = args.3,
+        title = args.0,
+        time = args.1,
+        preview = args.2,
+        subject = args.3,
+        n = args.4,
+    )
 }
 
 /// Panel central: el historial real de la materia activa (últimos turnos) o
@@ -1446,12 +1418,15 @@ fn render_messages(d: &ChatPanelData) -> String {
 
 /// Estado vacío honesto del panel central: no hay nada guardado todavía.
 fn empty_state() -> String {
-    r#"<div class="max-w-4xl mx-auto w-full text-center py-space-lg" data-chat-empty="1">
-<div class="w-9 h-9 rounded-xl bg-primary-container/15 flex items-center justify-center mx-auto text-primary-container">
-<span class="material-symbols-outlined text-[20px]">smart_toy</span>
+    r#"<div class="nova-chat-welcome" data-chat-empty="1">
+<div class="nova-chat-welcome-badge"><span class="material-symbols-outlined">auto_awesome</span>Sin conversaciones</div>
+<h2>¿Qué quieres aprender hoy?</h2>
+<p>Envía un mensaje para empezar o elige una forma de trabajar.</p>
+<div class="nova-chat-starters">
+<button type="button" data-chat-prompt="Explícame este tema paso a paso y con un ejemplo: "><span class="material-symbols-outlined">lightbulb</span><span><strong>Entender un tema</strong><small>Explicación clara y con ejemplos</small></span><span class="material-symbols-outlined">north_east</span></button>
+<button type="button" data-chat-prompt="Resume estos apuntes en ideas clave: "><span class="material-symbols-outlined">summarize</span><span><strong>Resumir apuntes</strong><small>Lo esencial, sin rodeos</small></span><span class="material-symbols-outlined">north_east</span></button>
+<button type="button" data-chat-prompt="Crea un cuestionario de 5 preguntas sobre: "><span class="material-symbols-outlined">quiz</span><span><strong>Practicar</strong><small>Un cuestionario para repasar</small></span><span class="material-symbols-outlined">north_east</span></button>
 </div>
-<p class="font-label-md text-label-md font-semibold text-on-surface mt-2">Sin conversaciones</p>
-<p class="font-body-sm text-body-sm text-outline mt-1">Envía un mensaje para empezar: el historial de esta materia aparecerá aquí.</p>
 </div>"#
         .to_string()
 }

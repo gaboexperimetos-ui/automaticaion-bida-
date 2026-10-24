@@ -75,6 +75,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         // Capa de interactividad del shell Stitch v2 (toasts, menús, editor).
         .route("/shell.js", get(static_ui::serve_shell_js))
         .route("/polish.css", get(static_ui::serve_polish_css))
+        .route("/nova.css", get(static_ui::serve_nova_css))
         .route("/favicon.ico", get(static_ui::serve_favicon))
         .route("/favicon.svg", get(static_ui::serve_favicon));
 
