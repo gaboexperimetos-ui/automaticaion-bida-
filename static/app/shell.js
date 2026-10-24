@@ -629,11 +629,11 @@
         var newTime = Number(file.lastModified || 0);
         if (Number.isFinite(oldTime) && newTime > oldTime) {
           // Conserva etiquetas añadidas en la app; la importación solo suma las del archivo y de la carpeta.
-          var mergedTags = String(existing.tags || "").split(/[\s,]+/).filter(Boolean).concat(tags);
+          var mergedTags = String(existing.tags || "").split(/\s*,\s*/).filter(Boolean).concat(tags);
           mergedTags = mergedTags.filter(function (tag, index, all) { return all.indexOf(tag) === index; });
           return SP.api("/api/notes/" + encodeURIComponent(existing.slug || baseSlug), {
             method: "PUT",
-            json: { content: text, tags: mergedTags.join(" ") }
+            json: { content: text, tags: mergedTags.join(", ") }
           }).then(function () {
             counts.updated++;
             return "updated";
@@ -657,7 +657,7 @@
           }
           return SP.api("/api/notes", {
             method: "POST",
-            json: { title: title, content: text, tags: tags.join(" ") }
+            json: { title: title, content: text, tags: tags.join(", ") }
           }).then(function () {
             counts.created++;
             return "created";
