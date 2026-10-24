@@ -285,9 +285,28 @@ const SHELL_JS: &str = r##"
   var isOpen=function(){
     return wide()?!body.classList.contains('rail-collapsed'):body.classList.contains('rail-open');
   };
+  var lastWide=wide();
+  var firstSync=true;
   var sync=function(){
-    if(wide()){body.classList.remove('rail-open');}
-    else{body.classList.remove('rail-collapsed');}
+    var nowWide=wide();
+    if(firstSync){
+      // El HTML inicia con el rail plegado en escritorio y cerrado en móvil.
+      if(nowWide){body.classList.remove('rail-open');}
+      else{body.classList.remove('rail-collapsed');}
+      firstSync=false;
+    } else if(nowWide!==lastWide){
+      // Conserva el estado real del menú al cruzar el punto de ruptura.
+      var wasOpen=lastWide
+        ? !body.classList.contains('rail-collapsed')
+        : body.classList.contains('rail-open');
+      body.classList.remove('rail-open','rail-collapsed');
+      if(nowWide){
+        if(!wasOpen){body.classList.add('rail-collapsed');}
+      } else if(wasOpen){
+        body.classList.add('rail-open');
+      }
+    }
+    lastWide=nowWide;
     var open=isOpen();
     body.style.overflow=open?'hidden':'';
     var label=open?'Ocultar el menú lateral':'Mostrar el menú lateral';
@@ -966,6 +985,14 @@ pub fn stitch_v2_page(active: &str, content: &str, authenticated: bool) -> Strin
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn el_menu_conserva_su_estado_al_cambiar_el_ancho() {
+        assert!(SHELL_JS.contains("var lastWide=wide();"));
+        assert!(SHELL_JS.contains("var wasOpen=lastWide"));
+        assert!(SHELL_JS.contains("body.classList.remove('rail-open','rail-collapsed');"));
+        assert!(SHELL_JS.contains("lastWide=nowWide;"));
+    }
 
     /// Aperturas de una etiqueta (`<div` seguido de delimitador).
     fn count_open(html: &str, tag: &str) -> usize {
