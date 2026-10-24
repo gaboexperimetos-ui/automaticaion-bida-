@@ -372,7 +372,7 @@
     var panel = el("div", "sp-search-panel");
     panel.hidden = true;
     panel.setAttribute("role", "listbox");
-    panel.setAttribute("aria-label", "Resultados de busqueda");
+    panel.setAttribute("aria-label", "Resultados de búsqueda");
     box.appendChild(panel);
     var hits = [];
     var last = "";
@@ -828,7 +828,7 @@
     }
     if (saveBtn) {
       var row = saveBtn.parentNode;
-      var hint = el("p", null, "Las tareas del curso viven en el planificador (Mikareno): la app las lee, no las crea. Guarda esta ficha como nota rapida o abre el planificador.");
+      var hint = el("p", null, "Las tareas del curso viven en el planificador (Mikareno): la app las lee, no las crea. Guarda esta ficha como nota rápida o abre el planificador.");
       hint.style.marginTop = ".7rem";
       row.parentNode.insertBefore(hint, row);
       var planner = el("a", saveBtn.className + " justify-center", "Abrir el planificador");
@@ -1102,7 +1102,7 @@
           SP.dialog({
             title: "Etiquetas de la nota",
             text: "Separa con comas.",
-            field: { placeholder: "matematicas, redes", max: 200, value: current.tags || "" },
+            field: { placeholder: "matemáticas, redes", max: 200, value: current.tags || "" },
             ok: "Guardar etiquetas"
           }).then(function (v) {
             if (v === null) { return; }
@@ -1260,7 +1260,7 @@
         '<textarea class="sp-input" id="sp-anot-cuerpo" rows="4" maxlength="4000" placeholder="Detalles, material que llevar, recordatorios..."></textarea></label>' +
         '<div class="sp-anot-lista" id="sp-anot-lista"></div>';
       SP.dialog({
-        title: anotacion ? "Editar anotacion" : "Anotar el " + fecha,
+        title: anotacion ? "Editar anotación" : "Anotar el " + fecha,
         html: cuerpo,
         ok: anotacion ? "Guardar" : "Anotar",
         onOk: function (box) {
@@ -1286,7 +1286,7 @@
         var lista = (d && d.annotations) || [];
         if (!lista.length) { dialogoAnotacion(fecha, null); return; }
         var items = lista.map(function (a) {
-          return { label: a.title || a.body.slice(0, 40) || "Anotacion", sub: a.body ? a.body.slice(0, 60) : "", icon: "sticky_note_2", value: a };
+          return { label: a.title || a.body.slice(0, 40) || "Anotación", sub: a.body ? a.body.slice(0, 60) : "", icon: "sticky_note_2", value: a };
         });
         items.push({ label: "Añadir otra anotación", icon: "add", value: "new" });
         SP.dialog({ title: "Anotaciones del " + fecha, items: items }).then(function (v) {
