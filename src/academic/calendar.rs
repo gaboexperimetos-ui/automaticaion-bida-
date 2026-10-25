@@ -1010,7 +1010,7 @@ mod tests {
     /// Cell markup as rendered by the shared month-grid template.
     fn cell_html(day: u32) -> String {
         format!(
-            r#"<div class="calendar-cell relative h-28 border border-outline/40 rounded-lg p-space-xs"><span class="block font-label-sm text-[10px] text-on-surface-variant mb-space-xs">{}</span><div class="mt-space-xs space-y-0.5 overflow-hidden"></div></div>"#,
+            r#"<div class="calendar-cell relative h-32 border border-outline/20 rounded-lg p-space-xs bg-surface-container/30"><span class="block font-label-sm text-[10px] text-on-surface-variant mb-space-xs">{}</span><div class="mt-space-xs space-y-0.5 overflow-hidden"></div></div>"#,
             day
         )
     }
