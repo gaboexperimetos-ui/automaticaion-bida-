@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 concurrency:
   group: validacion-rust-${{ github.ref }}
@@ -38,10 +39,37 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Compilar todas las plataformas
-        run: cargo check --all-targets
+        run: |
+          set -o pipefail
+          cargo check --all-targets 2>&1 | tee /tmp/nova-cargo-check.log
 
       - name: Ejecutar pruebas
-        run: cargo test --no-fail-fast
+        run: |
+          set -o pipefail
+          cargo test --no-fail-fast 2>&1 | tee /tmp/nova-cargo-test.log
 
       - name: Revisar lint de Rust
-        run: cargo clippy --all-targets
+        run: |
+          set -o pipefail
+          cargo clippy --all-targets 2>&1 | tee /tmp/nova-cargo-clippy.log
+
+      - name: Reportar errores en el PR de validación
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            echo "### Diagnóstico de la validación Rust"
+            echo
+            for file in /tmp/nova-cargo-*.log; do
+              [ -f "$file" ] || continue
+              echo "#### $(basename "$file")"
+              echo '```text'
+              tail -n 120 "$file"
+              echo '```'
+            done
+          } > /tmp/nova-validation-comment.md
+          pr_number=$(gh pr list --head "$GITHUB_REF_NAME" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$pr_number" ]; then
+            gh pr comment "$pr_number" --body-file /tmp/nova-validation-comment.md
+          fi
