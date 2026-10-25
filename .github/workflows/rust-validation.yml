@@ -1,0 +1,46 @@
+name: Validación del proyecto Rust
+
+on:
+  push:
+    branches:
+      - main
+      - "quality/**"
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validacion-rust-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validar:
+    name: Formato, compilación y pruebas
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar Rust estable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Guardar caché de compilación
+        uses: Swatinem/rust-cache@v2
+
+      - name: Comprobar formato
+        run: cargo fmt --all -- --check
+
+      - name: Compilar todas las plataformas
+        run: cargo check --all-targets
+
+      - name: Ejecutar pruebas
+        run: cargo test --no-fail-fast
+
+      - name: Revisar lint de Rust
+        run: cargo clippy --all-targets
