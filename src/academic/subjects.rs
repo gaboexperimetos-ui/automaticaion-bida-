@@ -778,7 +778,7 @@ fn subject_card_html(
             <div class="nx-subject-top"><span class="nx-subject-mark"><span class="material-symbols-outlined">menu_book</span></span>{chip}<span class="material-symbols-outlined nx-subject-arrow">arrow_outward</span></div>
             <h3>{name}</h3>
             <div class="nx-subject-grade"><strong class="{color}">{avg_txt}</strong><span>{avg_label}</span></div>
-            <div class="nx-subject-progress"><div class="{fill}" style="width: {bar_pct}%"></div></div>
+            <div class="nx-subject-progress"><div class="h-full {fill} transition-all" style="width: {bar_pct}%"></div></div>
             <footer><span title="{acts_title}">{acts_txt}</span><span>Abrir materia<span class="material-symbols-outlined">arrow_forward</span></span></footer>
         </a>"###,
         href = href,

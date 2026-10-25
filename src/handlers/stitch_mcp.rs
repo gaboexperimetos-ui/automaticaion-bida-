@@ -534,11 +534,7 @@ fn patch_ai_form(html: &str, d: &McpPanelData) -> String {
     h = patch(&h, ANCHOR_KEY_LABEL, KEY_LABEL_HTML);
 
     // 3. El campo de la clave: deshabilitado y sin `name` (no se envía).
-    h = patch(
-        &h,
-        ANCHOR_KEY_INPUT,
-        r#"id="openrouter-key" disabled placeholder="sk-or-v1-"#,
-    );
+    h = patch(&h, ANCHOR_KEY_INPUT, r#"id="openrouter-key" disabled"#);
 
     // 4. El botón "Mostrar" no tiene sentido sin una clave que mostrar.
     h = patch(&h, ANCHOR_KEY_TOGGLE, KEY_TOGGLE_HTML);
@@ -547,7 +543,7 @@ fn patch_ai_form(html: &str, d: &McpPanelData) -> String {
     h = patch(
         &h,
         ANCHOR_MODEL_SELECT,
-        r#"id="default-model" name="model">"#,
+        r#"id="default-model" name="model""#,
     );
 
     // 6. La temperatura está fija en el cliente de OpenRouter (0.7): no es
@@ -555,7 +551,7 @@ fn patch_ai_form(html: &str, d: &McpPanelData) -> String {
     h = patch(
         &h,
         ANCHOR_TEMP_LABEL,
-        r#"<span class="font-code-inline text-code-inline text-primary-container" id="temp-value">0.70 (fija en el código)</span>"#,
+        r#"<output id="temp-value">0.70 (fija en el código)</output>"#,
     );
     h = patch(
         &h,
@@ -584,7 +580,7 @@ fn patch_ai_form(html: &str, d: &McpPanelData) -> String {
         &h,
         ANCHOR_ACTION_NOTE,
         &format!(
-            "<span>Real: {model} · tope {budget} · {key}. No se guarda en caliente: el bloque .env se copia al servidor y se reinicia el servicio.</span>",
+            "<p class=\"nx-panel-intro\">Real: {model} · tope {budget} · {key}. No se guarda en caliente: el bloque .env se copia al servidor y se reinicia el servicio.</p>",
             model = esc(&d.model),
             budget = format!("${:.2}", d.budget_usd),
             key = if d.api_configured {
@@ -654,67 +650,41 @@ fn scrub_secrets(html: &str, secrets: &[Secret]) -> String {
 }
 
 // Anclas del template del kit Stitch (`static/stitch-v2/_content/clean/mcp.html`).
-const ANCHOR_KEY_LABEL: &str = r#"<label class="font-label-md text-label-md text-on-surface-variant flex items-center gap-1.5" for="openrouter-key">
-<span>API Key Secreta</span>
-<span class="material-symbols-outlined text-[15px] text-outline cursor-help" title="Tu clave comienza habitualmente con sk-or-v1-...">info</span>
-</label>"#;
-const KEY_LABEL_HTML: &str = r#"<div class="font-label-md text-label-md text-on-surface-variant flex items-center gap-1.5">
-<span>Clave de OpenRouter (OPENROUTER_API_KEY)</span>
-<span class="material-symbols-outlined text-[15px] text-outline cursor-help" title="La app lee OPENROUTER_API_KEY del .env del servidor al arrancar: no se puede cambiar en caliente desde aquí.">info</span>
-</div>"#;
+const ANCHOR_KEY_LABEL: &str = r#"<label for="openrouter-key">API key secreta</label>"#;
+const KEY_LABEL_HTML: &str = r#"<label for="openrouter-key" title="La app lee OPENROUTER_API_KEY del .env del servidor al arrancar">Clave de OpenRouter (OPENROUTER_API_KEY)</label>"#;
 
 /// El campo de la clave: se deshabilita (y no lleva `name`, así que el
 /// navegador no lo envía nunca).
-const ANCHOR_KEY_INPUT: &str = r#"id="openrouter-key" placeholder="sk-or-v1-"#;
+const ANCHOR_KEY_INPUT: &str = r#"id="openrouter-key""#;
 
 /// Botón "Mostrar": sin clave que mostrar, se sustituye por el aviso.
-const ANCHOR_KEY_TOGGLE: &str = r#"<button class="absolute right-3 px-2 py-1 rounded text-outline hover:text-on-surface hover:bg-surface-container-highest transition-colors flex items-center gap-1 font-label-sm text-label-sm" id="toggle-key-visibility" type="button">
-<span class="material-symbols-outlined text-[16px]" id="eye-icon">visibility</span>
-<span id="eye-text">Mostrar</span>
-</button>"#;
-const KEY_TOGGLE_HTML: &str = r#"<span class="absolute right-3 font-code-inline text-[11px] text-outline">no se muestra aquí</span>"#;
+const ANCHOR_KEY_TOGGLE: &str = r#"<button id="toggle-key-visibility" type="button"><span class="material-symbols-outlined" id="eye-icon">visibility</span><span id="eye-text">Mostrar</span></button>"#;
+const KEY_TOGGLE_HTML: &str = r#"<span class="nx-field-note">no se muestra aquí</span>"#;
 
 /// Nota bajo el campo de la clave: cómo se aplica de verdad.
-const ANCHOR_KEY_NOTE: &str = r#"</button>
-</div>
-</div>
-<!-- Model Selector & Parameters Sub-Grid -->"#;
-const KEY_NOTE_HTML: &str = r#"</button>
-</div>
-<div class="flex flex-col gap-1">
-<pre class="w-full font-code-inline text-[11px] bg-surface-container/70 rounded-lg px-2 py-1.5 text-on-surface-variant overflow-x-auto">OPENROUTER_API_KEY=sk-or-v1-&lt;pega-aqui-tu-clave&gt;</pre>
-<span class="font-code-inline text-[11px] text-outline">La clave no se envía al navegador ni se guarda desde aquí: edítala en el .env del servidor y reinicia el servicio.</span>
-</div>
-</div>
-<!-- Model Selector & Parameters Sub-Grid -->"#;
+const ANCHOR_KEY_NOTE: &str = "La clave permanece en variables de entorno del servidor.";
+const KEY_NOTE_HTML: &str = "La clave no se envía al navegador ni se guarda desde aquí: edita OPENROUTER_API_KEY en el .env del servidor y reinicia el servicio.";
 
 /// Selector de modelo: el único modelo real es el que hay en `.env`.
-const ANCHOR_MODEL_SELECT: &str = r#"id="default-model">"#;
+const ANCHOR_MODEL_SELECT: &str = r#"id="default-model""#;
 
 /// Temperatura: fija en el cliente de OpenRouter, no es configurable.
-const ANCHOR_TEMP_LABEL: &str = r#"<span class="font-code-inline text-code-inline text-primary-container" id="temp-value">0.30 (Analítico)</span>"#;
+const ANCHOR_TEMP_LABEL: &str = r#"<output id="temp-value">0.30 (Analítico)</output>"#;
 const ANCHOR_TEMP_SLIDER: &str =
     r#"id="temperature-slider" max="100" min="0" type="range" value="30""#;
 
 /// Presupuesto: valor real y tope máximo accepted por el handler.
 const ANCHOR_BUDGET_SLIDER: &str = r#"id="budget-slider" max="150" min="1" type="range""#;
-const ANCHOR_BUDGET_MIN: &str = "<span>$1 Límite base</span>";
-const ANCHOR_BUDGET_MAX: &str = "<span>$150 Carga intensiva</span>";
+const ANCHOR_BUDGET_MIN: &str = "<span>$1</span>";
+const ANCHOR_BUDGET_MAX: &str = "<span>$150</span>";
 const ANCHOR_BUDGET_JS: &str = "budgetValue.textContent = `$${e.target.value}.00 USD`;";
 
 /// Estado real de la configuración, junto a los botones.
-const ANCHOR_ACTION_NOTE: &str =
-    "<span>Gestionado por variables de entorno (.env) en el servidor</span>";
+const ANCHOR_ACTION_NOTE: &str = r#"<p class="nx-panel-intro">Una configuración de servidor para llegar a múltiples modelos.</p>"#;
 
 /// El botón que fingía guardar: pasa a ser un `submit` real.
-const ANCHOR_SAVE_BUTTON: &str = r#"<button class="px-space-lg py-2 rounded-lg bg-secondary text-on-secondary font-label-md text-label-md font-semibold hover:bg-secondary-fixed transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(158,215,83,0.25)]" id="btn-save-key" type="button">
-<span class="material-symbols-outlined text-[18px]">check_circle</span>
-<span>Guardar Parámetros</span>
-</button>"#;
-const SAVE_BUTTON_HTML: &str = r#"<button class="px-space-lg py-2 rounded-lg bg-secondary text-on-secondary font-label-md text-label-md font-semibold hover:bg-secondary-fixed transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(158,215,83,0.25)]" id="btn-generate-env" type="submit" title="No guarda en caliente: la configuración se lee del .env al arrancar. Genera el bloque .env con estos valores para copiarlo y reiniciar el servicio.">
-<span class="material-symbols-outlined text-[18px]">code</span>
-<span>Generar .env</span>
-</button>"#;
+const ANCHOR_SAVE_BUTTON: &str = r#"<button class="nx-button nx-button-primary" id="btn-save-key" type="button"><span class="material-symbols-outlined">check_circle</span><span>Guardar parámetros</span></button>"#;
+const SAVE_BUTTON_HTML: &str = r#"<button class="nx-button nx-button-primary" id="btn-generate-env" type="submit" title="No guarda en caliente: genera el bloque .env para copiarlo y reiniciar el servicio."><span class="material-symbols-outlined">code</span><span>Generar .env</span></button>"#;
 
 /// Handler en el cliente que simulaba el guardado: se elimina (el submit
 /// es real).

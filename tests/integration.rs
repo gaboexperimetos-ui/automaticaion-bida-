@@ -188,7 +188,8 @@ async fn test_login_page_served() {
         .unwrap();
     let html = String::from_utf8(body.to_vec()).unwrap();
 
-    assert!(html.contains("Study Platform"));
+    assert!(html.contains("NOVA"));
+    assert!(html.contains("3.0"));
     assert!(html.contains("password"));
     assert!(html.contains("htmx"));
     assert!(html.contains("tailwind"));

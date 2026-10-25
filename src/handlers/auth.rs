@@ -1358,8 +1358,8 @@ mod tests {
         let html = password_page_html("<script>alert(1)</script>", false, None);
 
         assert!(
-            html.contains("bg-surface-container/85"),
-            "debe reutilizar las clases de la tarjeta del login"
+            html.contains(r#"class="auth-card" id="login-container""#),
+            "debe reutilizar la tarjeta NOVA del login"
         );
         assert!(
             html.contains("tailwind.config"),

@@ -587,7 +587,8 @@ async fn test_presentation_create_add_slide_present_delete() {
     assert!(html.contains("<h1>Slide Content</h1>"));
     assert!(html.contains("<li>Bullet 1</li>"));
     assert!(html.contains("<li>Bullet 2</li>"));
-    assert!(html.contains("1 diapositiva(s)"));
+    assert!(html.contains(r#"id="presentation-position">1 / 1</span>"#));
+    assert!(html.contains("genPresentationTotal = 1;"));
 
     // Edit page should show slide controls
     let response = app
@@ -1103,7 +1104,10 @@ async fn test_slide_validation_and_missing_deletes() {
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
     let response = app
         .clone()
-        .oneshot(authed_delete("/office/library/unknown/missing/delete"))
+        .oneshot(authed_post_form(
+            "/office/library/unknown/missing/delete",
+            "",
+        ))
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::NOT_FOUND);

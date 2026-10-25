@@ -231,8 +231,9 @@ async fn backup_now_crea_backup_y_exige_sesion() {
     // POST /api/admin/backup con sesión de admin → 200 con el payload del
     // sistema unificado: `{success, name, bytes}`.
     let resp = post_empty(app.clone(), "/api/admin/backup", Some(&cookie)).await;
-    assert_eq!(resp.status(), StatusCode::OK);
+    let status = resp.status();
     let json = body_json(resp).await;
+    assert_eq!(status, StatusCode::OK, "respuesta del backup: {json}");
     assert_eq!(json["success"], serde_json::json!(true));
     let nombre = json["name"]
         .as_str()
@@ -251,8 +252,13 @@ async fn backup_now_crea_backup_y_exige_sesion() {
     // GET /api/admin/backup (ruta legacy) → 200; ya delega en `backup_now`,
     // así que también devuelve `name`.
     let resp = get(app.clone(), "/api/admin/backup", Some(&cookie)).await;
-    assert_eq!(resp.status(), StatusCode::OK);
+    let status = resp.status();
     let json = body_json(resp).await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "respuesta del backup legacy: {json}"
+    );
     assert_eq!(json["success"], serde_json::json!(true));
     let nombre_get = json["name"]
         .as_str()

@@ -288,7 +288,7 @@ const SHELL_JS: &str = r##"
   };
   var revealActive=function(){
     var nav=rail.querySelector('.nx-nav');
-    var active=nav?nav.querySelector('[aria-current="page"]'):null;
+    var active=nav&&nav.querySelector('[aria-current]');
     if(!nav||!active){return;}
     var navRect=nav.getBoundingClientRect();
     var activeRect=active.getBoundingClientRect();
@@ -1050,9 +1050,9 @@ mod tests {
     fn los_enlaces_del_nav_tienen_nombre_accesible() {
         let html = stitch_v2_page("panel-principal", "<p>x</p>", false);
         // El icono no es el nombre: cada enlace nombra su destino.
-        assert!(html.contains("aria-label=\"Panel principal\""));
+        assert!(html.contains("aria-label=\"Inicio\""));
         assert!(html.contains("aria-label=\"Hojas de cálculo\""));
-        assert!(html.contains("aria-label=\"Asistente académico\""));
+        assert!(html.contains("aria-label=\"NOVA AI\""));
         // El icono de Material Symbols queda como decorativo.
         assert!(html.contains("aria-hidden=\"true\""));
     }
@@ -1086,7 +1086,7 @@ mod tests {
             );
         }
         // El rail se pliega en móvil y en escritorio.
-        assert!(SHELL_CSS.contains("@media (max-width:1023.98px)"));
+        assert!(SHELL_CSS.contains("@media (max-width:1099px)"));
         assert!(SHELL_CSS.contains("body.rail-open #app-rail"));
         assert!(SHELL_CSS.contains("body.rail-collapsed #app-rail"));
         // El foco visible no se elimina: se refuerza.
