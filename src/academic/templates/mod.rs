@@ -892,13 +892,13 @@ pub fn calendar_grid_html(
             )
         } else {
             (
-                "border border-outline/40 rounded-lg p-space-xs",
+                "border border-outline/20 rounded-lg p-space-xs bg-surface-container/30",
                 "block font-label-sm text-[10px] text-on-surface-variant",
             )
         };
 
         cells.push(format!(
-            r#"<div class="calendar-cell relative h-28 {}{}"><span class="{} mb-space-xs">{}</span><div class="mt-space-xs space-y-0.5 overflow-hidden">{}</div></div>"#,
+            r#"<div class="calendar-cell relative h-32 {}{}"><span class="{} mb-space-xs">{}</span><div class="mt-space-xs space-y-0.5 overflow-hidden">{}</div></div>"#,
             cell_cls, atributos_celda, num_cls, d, contenido
         ));
     }

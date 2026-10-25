@@ -399,7 +399,7 @@ fn inject_event_badges(
 fn outside_cell_html(day: u32, bucket: Option<&DayBucket>) -> String {
     let badge = bucket.map(badge_html).unwrap_or_default();
     format!(
-        r###"<div class="{} relative h-28 border border-outline/20 rounded-lg p-space-xs opacity-50">{badge}<span class="block font-label-sm text-[10px] text-on-surface-variant">{}</span></div>"###,
+        r###"<div class="{} relative h-32 border border-outline/20 rounded-lg p-space-xs bg-surface-container/30 opacity-50">{badge}<span class="block font-label-sm text-[10px] text-on-surface-variant">{}</span></div>"###,
         OUTSIDE_CELL_CLASS, day
     )
 }

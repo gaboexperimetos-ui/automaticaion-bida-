@@ -1396,8 +1396,8 @@
                 value: x.id
               };
             });
-            // Cualquier id `:free` nuevo que el catálogo cacheado aún no liste.
-            items.push({ label: "Escribir otro modelo gratuito", icon: "edit", value: "custom" });
+            // Opción para escribir cualquier modelo de OpenRouter (gratuito o de pago).
+            items.push({ label: "Escribir otro modelo de OpenRouter", icon: "edit", value: "custom" });
             function aplicar(id) {
               if (!id || id === activo) { return; }
               SP.api("/api/ai/model", { method: "PUT", json: { model: id } }).then(function () {
@@ -1406,21 +1406,20 @@
                 pintar(id);
               }).catch(function (err) { SP.toast(msgErr(err), "err"); });
             }
-            SP.dialog({ title: "Modelo de IA (solo modelos gratuitos de OpenRouter)", items: items }).then(function (id) {
+            SP.dialog({ title: "Modelo de IA (OpenRouter - gratuito y de pago)", items: items }).then(function (id) {
               if (!id || id === activo) { return; }
               if (id === "custom") {
                 SP.dialog({
                   title: "Escribe el identificador del modelo",
                   field: {
-                    label: "ID de modelo de OpenRouter (termina en :free)",
-                    placeholder: "Por ejemplo: google/gemma-4-31b-it:free",
+                    label: "ID de modelo de OpenRouter",
+                    placeholder: "Por ejemplo: google/gemma-4-31b-it:free o anthropic/claude-opus-4.5",
                     value: activo,
                     max: 200
                   }
                 }).then(function (txt) {
                   if (!txt) { return; }
                   txt = txt.trim();
-                  if (!/:free$/.test(txt)) { SP.toast("Solo se aceptan modelos gratuitos (terminados en ':free')", "err"); return; }
                   aplicar(txt);
                 });
                 return;

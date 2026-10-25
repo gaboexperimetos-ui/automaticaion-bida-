@@ -29,6 +29,7 @@ use axum::{
     extract::{Path, Request, State},
     http::{header, HeaderValue, StatusCode},
     response::{Html, IntoResponse, Json, Response},
+    routing::post,
 };
 
 use crate::AppState;
@@ -62,6 +63,7 @@ struct AdminData {
     recent_backups: Vec<BackupEntry>,
     /// Número total de backups en el directorio (no sólo los de la tabla).
     backup_count: usize,
+    openrouter_catalog_state: String,
 }
 
 /// Entrada de backup listada en el panel.
@@ -277,6 +279,12 @@ async fn fetch_admin_data(state: &Arc<AppState>) -> AdminData {
     // Backups recientes (y el total del directorio).
     let (recent_backups, backup_count) = list_backups_for_panel().await;
 
+    // Estado del catálogo de modelos de IA
+    let openrouter_catalog_state = state
+        .cache_catalogo
+        .get()
+        .map_or_else(|| "expired".to_string(), |_| "fresh".to_string());
+
     AdminData {
         version,
         uptime_secs,
@@ -293,6 +301,7 @@ async fn fetch_admin_data(state: &Arc<AppState>) -> AdminData {
         budget_alert,
         recent_backups,
         backup_count,
+        openrouter_catalog_state,
     }
 }
 
@@ -441,6 +450,12 @@ fn render_admin_content(d: &AdminData) -> String {
             Estado: <span class="<!--SLOT:ADMIN_OR_STATUS_COLOR-->"><!--SLOT:ADMIN_OR_STATUS--></span>
         </p>
         <p class="font-body-sm text-[10px] text-on-surface-variant mt-1">Modelo: <!--SLOT:ADMIN_OR_MODEL--></p>
+        <p class="font-body-sm text-[10px] text-on-surface-variant mt-1">Catálogo de IA: <!--SLOT:ADMIN_OR_CATALOG_STATE--></p>
+        <button id="refresh-catalog-btn" type="button" onclick="refreshCatalog()" class="flex items-center gap-1.5 px-space-sm py-1.5 rounded-lg bg-secondary text-on-secondary font-label-sm font-medium hover:bg-secondary-fixed-dim transition-colors">
+            <span class="material-symbols-outlined text-[16px]">refresh</span>
+            <span>Refrescar catálogo IA</span>
+        </button>
+        <div id="refresh-catalog-msg" class="hidden mt-1 p-space-sm rounded-lg text-[10px]"></div>
         <p class="font-body-sm text-[10px] text-outline mt-1">El gasto real del mes (y el % del presupuesto) está en la tarjeta «Gasto IA (mes)».</p>
     </div>
 </div>
@@ -716,6 +731,45 @@ fn render_admin_content(d: &AdminData) -> String {
   // La acción vive en `window` porque el botón la invoca con `onclick`.
   window.crearBackup = crearBackup;
 
+  function refreshCatalog() {
+    var btn = document.getElementById('refresh-catalog-btn');
+    var msg = document.getElementById('refresh-catalog-msg');
+    if (!btn) { return; }
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-symbols-outlined text-[16px]">hourglass_empty</span><span>Refrescando…</span>';
+    msg.className = 'hidden';
+    fetch('/admin/openrouter/refresh-catalog', { method: 'POST', credentials: 'same-origin' })
+      .then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (data) {
+          return { status: res.status, data: data || {} };
+        });
+      })
+      .then(function (r) {
+        if (r.status === 200 && r.data.success) {
+          msg.className = 'font-body-sm text-[10px] mb-space-sm p-space-sm rounded-lg border-secondary/40 bg-secondary-container/10';
+          msg.innerHTML = '<span class="material-symbols-outlined text-[14px] text-secondary">check_circle</span> <strong>Catálogo refrescado:</strong> ' + (r.data.count || 0) + ' modelos free disponibles.';
+          msg.classList.remove('hidden');
+          // Recargar la página para mostrar el nuevo estado del catálogo
+          window.setTimeout(function () { window.location.reload(); }, 1500);
+        } else {
+          msg.className = 'font-body-sm text-[10px] mb-space-sm p-space-sm rounded-lg border-error/40 bg-error-container/10';
+          msg.innerHTML = '<span class="material-symbols-outlined text-[14px] text-error">error</span> No se pudo refrescar: ' + ((r.data && r.data.error) || ('HTTP ' + r.status));
+          msg.classList.remove('hidden');
+        }
+      })
+      .catch(function (e) {
+        msg.className = 'font-body-sm text-[10px] mb-space-sm p-space-sm rounded-lg border-error/40 bg-error-container/10';
+        msg.innerHTML = '<span class="material-symbols-outlined text-[14px] text-error">error</span> Error de conexión: ' + e.message;
+        msg.classList.remove('hidden');
+      })
+      .then(function () {
+        btn.disabled = false;
+        btn.innerHTML = '<span class="material-symbols-outlined text-[16px]">refresh</span><span>Refrescar catálogo IA</span>';
+      });
+  }
+
+  window.refreshCatalog = refreshCatalog;
+
   cuentaAtras();
   window.setInterval(cuentaAtras, 30000);
 })();
@@ -761,6 +815,13 @@ fn render_admin_content(d: &AdminData) -> String {
         "text-secondary"
     } else {
         "text-outline"
+    };
+
+    // Estado del catálogo de modelos de IA
+    let or_catalog_state = if d.openrouter_catalog_state == "fresh" {
+        "Actualizado"
+    } else {
+        "Desactualizado"
     };
 
     // Gasto de IA del mes: el % del presupuesto (el filtro mensual ya está
@@ -838,6 +899,7 @@ fn render_admin_content(d: &AdminData) -> String {
         .replace("<!--SLOT:ADMIN_OR_STATUS-->", or_status)
         .replace("<!--SLOT:ADMIN_OR_STATUS_COLOR-->", or_status_color)
         .replace("<!--SLOT:ADMIN_OR_MODEL-->", &esc(&d.openrouter_model))
+        .replace("<!--SLOT:ADMIN_OR_CATALOG_STATE-->", or_catalog_state)
         .replace("<!--SLOT:ADMIN_BUDGET_BAR-->", &budget_bar)
         .replace("<!--SLOT:ADMIN_LAST_BACKUP_DATE-->", &esc(&last_date))
         .replace("<!--SLOT:ADMIN_LAST_BACKUP_NAME-->", &esc(&last_name))
@@ -1010,6 +1072,10 @@ pub fn register_routes(
         .route("/admin", get(dashboard))
         .route("/admin/metrics", get(system_metrics))
         .route("/admin/openrouter/budget", get(openrouter_budget))
+        .route(
+            "/admin/openrouter/refresh-catalog",
+            post(openrouter_refresh_catalog),
+        )
         .route("/admin/backup/list", get(backup_list))
         .route_layer(from_fn_with_state(state.clone(), require_auth_state));
 
@@ -1035,6 +1101,36 @@ pub async fn dashboard(State(state): State<Arc<AppState>>) -> (StatusCode, Html<
         &content,
     );
     (StatusCode::OK, Html(html))
+}
+
+/// POST /admin/openrouter/refresh-catalog — fuerza el refresh del catálogo de modelos.
+///
+/// Utiliza el método privado `CacheCatalogo::refresh` para invalidar el cache
+/// actual y descargar un nuevo catálogo desde OpenRouter (o volver al respaldo
+/// si el proveedor no responde). El admin puede usar este endpoint para hacer
+/// que los nuevos modelos free aparezcan más rápido que el TTL habitual (30 min).
+#[allow(dead_code)]
+pub async fn openrouter_refresh_catalog(
+    State(state): State<Arc<AppState>>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let key = state.config.openrouter_api_key.as_deref();
+    match state.cache_catalogo.refresh(key).await {
+        Some(modelos) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "success": true,
+                "count": modelos.len(),
+                "message": "Catálogo refrescado exitosamente",
+            })),
+        ),
+        None => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "success": false,
+                "error": "No se pudo refrescar el catálogo (proveedor no disponible)",
+            })),
+        ),
+    }
 }
 
 /// GET /admin/metrics — métricas del sistema en JSON.
