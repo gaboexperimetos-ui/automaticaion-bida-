@@ -1005,7 +1005,7 @@ pub async fn daily(
 pub async fn weekly(State(state): State<Arc<AppState>>) -> Html<String> {
     let carga = cargar_calendario(&state).await;
     let events = &carga.eventos;
-    let status = banner_mcp_datos(&carga);
+    let status = banner_mcp(&carga);
 
     let days = [
         "Lunes",
