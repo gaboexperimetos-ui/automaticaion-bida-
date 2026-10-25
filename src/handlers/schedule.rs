@@ -8,8 +8,10 @@
 //! El helper `horario_html_detalles` es puro (sin I/O) y queda disponible para
 //! delegados y tests.
 //!
-//! Datos: se reusa el mismo client-call y el mismo adapter del módulo
-//! académico (`MikarenoClient::horario` → `adapters::parse_horario`, día en
+//! Datos: la fuente predeterminada es el horario personal 2026–2027 que el
+//! usuario proporcionó en una imagen. `?fuente=mikareno` conserva el origen
+//! anterior, reutilizando el mismo client-call y adapter del módulo académico
+//! (`MikarenoClient::horario` → `adapters::parse_horario`, día en
 //! español minúscula `lunes`/`martes`/`miércoles`… con la etiqueta
 //! `"07:35 - 08:15 — Materia [CÓD]"`). La página pide el horario con un
 //! presupuesto acotado y **cache-first**: el cliente Mikareno tiene caché
@@ -21,9 +23,12 @@
 //! las 7 columnas quedaban en "Sin clases" aunque el MCP sí tuviera el
 //! horario.
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
-use axum::{extract::State, response::Html};
+use axum::{
+    extract::{Query, State},
+    response::Html,
+};
 use chrono::{Datelike, Local, NaiveDate, Weekday};
 use tokio::time::{self, Duration, Instant};
 
@@ -33,6 +38,103 @@ use crate::AppState;
 
 /// Texto honesto para las columnas sin clases.
 const SIN_CLASES: &str = "Sin clases";
+
+const HORAS_PERSONALES: [&str; 10] = [
+    "07:35 - 08:15",
+    "08:15 - 08:35",
+    "08:35 - 09:15",
+    "09:15 - 09:55",
+    "09:55 - 10:35",
+    "10:35 - 11:05",
+    "11:05 - 11:45",
+    "11:45 - 12:25",
+    "12:25 - 13:05",
+    "13:05 - 13:45",
+];
+
+/// Horario personal transcrito de la imagen proporcionada por el usuario.
+///
+/// Unidad Educativa Álamos, año lectivo 2026–2027, 10.º. Incluye los bloques
+/// de tutoría, club y recreo para que la semana no pierda información al
+/// adaptarse a las tarjetas de NOVA. Se mantiene separado del horario MCP:
+/// `/dashboard/horario` usa esta fuente y `?fuente=mikareno` conserva la
+/// consulta original.
+pub fn horario_personal() -> Horario {
+    fn dia(nombre: &str, materias: [&str; 10]) -> HorarioDia {
+        HorarioDia {
+            dia: nombre.to_string(),
+            clases: materias
+                .iter()
+                .enumerate()
+                .map(|(index, materia)| format!("{} — {}", HORAS_PERSONALES[index], materia))
+                .collect(),
+        }
+    }
+
+    Horario {
+        dias: vec![
+            dia(
+                "lunes",
+                [
+                    "Religión",
+                    "Tutoría",
+                    "Química",
+                    "Química",
+                    "Inglés",
+                    "Recreo",
+                    "CC.NN",
+                    "Dibujo T",
+                    "Robótica",
+                    "Robótica",
+                ],
+            ),
+            dia(
+                "martes",
+                [
+                    "Inglés", "Tutoría", "CC.NN", "CC.NN", "EE.FF", "Recreo", "Sociales",
+                    "Sociales", "Science", "Inglés",
+                ],
+            ),
+            dia(
+                "miércoles",
+                [
+                    "Matemática",
+                    "Tutoría",
+                    "Física",
+                    "Física",
+                    "Lenguaje",
+                    "Recreo",
+                    "Matemática",
+                    "Matemática",
+                    "Inglés",
+                    "Religión",
+                ],
+            ),
+            dia(
+                "jueves",
+                [
+                    "Club", "Club", "Science", "Tutoría", "Inglés", "Recreo", "Sociales",
+                    "Sociales", "Lenguaje", "Lenguaje",
+                ],
+            ),
+            dia(
+                "viernes",
+                [
+                    "EE.FF",
+                    "Tutoría",
+                    "Inglés",
+                    "Inglés",
+                    "Francés",
+                    "Recreo",
+                    "Lenguaje",
+                    "Matemática",
+                    "Plan lector",
+                    "Matemática",
+                ],
+            ),
+        ],
+    }
+}
 
 /// Presupuesto total para traer el horario del MCP (cache-first + reintento).
 ///
@@ -242,7 +344,7 @@ pub fn horario_html_detalles(dias: &[HorarioDia], hoy: NaiveDate) -> String {
             format!(r#"<ul class="mt-space-xs">{}</ul>"#, lis)
         };
         celdas.push_str(&format!(
-            r#"<div class="{resaltado}bg-surface-container rounded-lg p-space-sm min-h-[120px]">
+            r#"<div class="nova-schedule-day {resaltado}bg-surface-container rounded-lg p-space-sm min-h-[120px]">
                 <h3 class="font-headline-sm text-headline-sm text-primary-container font-semibold">{}</h3>
                 {chip}
                 {items}
@@ -253,7 +355,7 @@ pub fn horario_html_detalles(dias: &[HorarioDia], hoy: NaiveDate) -> String {
 
     format!(
         r#"<div class="overflow-x-auto">
-            <div class="min-w-[840px] grid grid-cols-7 gap-px bg-outline/40 border border-outline rounded-lg overflow-hidden">
+            <div class="nova-schedule-grid min-w-[840px] grid grid-cols-7 gap-px bg-outline/40 border border-outline rounded-lg overflow-hidden">
                 {celdas}
             </div>
         </div>{}"#,
@@ -301,31 +403,60 @@ async fn horario_con_presupuesto(client: &MikarenoClient) -> Option<Horario> {
 }
 
 /// GET /dashboard/horario — grilla semanal con SIEMPRE 7 columnas desde el
-/// lunes de esta semana. Usa el cache read-through del cliente Mikareno
-/// (`horario()`), con banner de estado honesto; sin conexión todas las columns
-/// muestran "Sin clases". Mismo contrato que `academic/schedule.rs::weekly`,
-/// listo para que la ruta apunte acá.
-pub async fn weekly(State(state): State<Arc<AppState>>) -> Html<String> {
-    let mut horario = Horario::default();
+/// lunes de esta semana. La fuente predeterminada es el horario personal
+/// 2026–2027 proporcionado por el usuario. `?fuente=mikareno` mantiene la
+/// consulta original y su estado de conexión honesto.
+pub async fn weekly(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Html<String> {
+    let usar_personal = params.get("fuente").map(String::as_str) != Some("mikareno");
+    let mut horario = if usar_personal {
+        horario_personal()
+    } else {
+        Horario::default()
+    };
     let mut conectado = false;
 
-    if let Some(client) = mikareno_client(&state) {
-        if let Some(h) = horario_con_presupuesto(&client).await {
-            conectado = !h.dias.is_empty();
-            horario = h;
+    if !usar_personal {
+        if let Some(client) = mikareno_client(&state) {
+            if let Some(h) = horario_con_presupuesto(&client).await {
+                conectado = !h.dias.is_empty();
+                horario = h;
+            }
         }
     }
+
+    let selector = format!(
+        r#"<nav class="nx-schedule-sources" aria-label="Fuente del horario"><a class="nx-schedule-source{}" href="/dashboard/horario"{}>Mi horario</a><a class="nx-schedule-source{}" href="/dashboard/horario?fuente=mikareno"{}>Mikareno</a></nav>"#,
+        if usar_personal { " is-active" } else { "" },
+        if usar_personal {
+            " aria-current=\"page\""
+        } else {
+            ""
+        },
+        if usar_personal { "" } else { " is-active" },
+        if usar_personal {
+            ""
+        } else {
+            " aria-current=\"page\""
+        },
+    );
+    let estado = if usar_personal {
+        r#"<div class="nx-schedule-personal"><span class="material-symbols-outlined">verified</span><div><strong>Unidad Educativa Álamos · 10.º</strong><p>Año lectivo 2026–2027 · Prof. Santiago Pasquel · Transcrito de tu imagen.</p></div></div>"#.to_string()
+    } else {
+        templates::mcp_status_banner(conectado)
+    };
 
     let hoy = Local::now().date_naive();
     let semana = semana_actual(hoy);
     let content = format!(
-        r#"<div class="mb-space-md">
-            <h2 class="font-headline-sm text-headline-sm text-primary-container font-semibold">Horario semanal</h2>
-            <p class="font-body-sm text-body-sm text-on-surface-variant">{}</p>
-        </div>
-        {}{}"#,
+        r#"<div class="nx-page nx-schedule nova-page nova-schedule-page">
+          <header class="nx-page-header nova-page-head"><div><p class="nx-eyebrow">Aprendizaje · Horario</p><h1>Tu semana,<br>bien ubicada.</h1><p>{}</p></div><div class="nx-button-row"><a href="/dashboard/planner" class="nx-button nx-button-secondary">Planificar</a><a href="/dashboard/calendar" class="nx-button nx-button-primary">Abrir agenda</a></div></header>
+          <section class="nx-schedule-board nova-schedule-board"><div class="nx-section-head"><div><p class="nx-eyebrow">Semana lectiva</p><h2>Lunes a domingo</h2></div><span class="material-symbols-outlined">calendar_view_week</span></div>{}{}</section>
+        </div>"#,
         rango_semana(semana[0], semana[6]),
-        templates::mcp_status_banner(conectado),
+        format!("{selector}{estado}"),
         horario_html_detalles(&horario.dias, hoy)
     );
 
@@ -341,6 +472,25 @@ pub async fn weekly(State(state): State<Arc<AppState>>) -> Html<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn horario_personal_conserva_bloques_horas_y_materias() {
+        let horario = horario_personal();
+        assert_eq!(horario.dias.len(), 5);
+        assert!(horario.dias.iter().all(|dia| dia.clases.len() == 10));
+        assert!(horario
+            .dias
+            .iter()
+            .all(|dia| dia.clases[5] == "10:35 - 11:05 — Recreo"));
+        assert_eq!(horario.dias[0].clases[0], "07:35 - 08:15 — Religión");
+        assert_eq!(horario.dias[0].clases[7], "11:45 - 12:25 — Dibujo T");
+        assert_eq!(horario.dias[1].clases[4], "09:55 - 10:35 — EE.FF");
+        assert_eq!(horario.dias[2].clases[9], "13:05 - 13:45 — Religión");
+        assert_eq!(horario.dias[3].clases[0], "07:35 - 08:15 — Club");
+        assert_eq!(horario.dias[3].clases[1], "08:15 - 08:35 — Club");
+        assert_eq!(horario.dias[3].clases[3], "09:15 - 09:55 — Tutoría");
+        assert_eq!(horario.dias[4].clases[8], "12:25 - 13:05 — Plan lector");
+    }
 
     #[test]
     fn siempre_siete_columnas_con_dia_del_mes() {

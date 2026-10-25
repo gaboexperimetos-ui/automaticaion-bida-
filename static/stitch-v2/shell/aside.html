@@ -1,128 +1,76 @@
-<aside class="app-rail nova-menu fixed left-0 top-0 h-full w-[250px] bg-surface-container-low border-r border-outline-variant/40 z-50 flex flex-col justify-between overflow-y-auto">
-  <div class="app-rail-main flex flex-col min-h-0">
-    <div class="app-brand h-16 px-4 flex items-center justify-between border-b border-outline-variant/30">
-      <a href="/dashboard" class="app-brand-link flex items-center gap-2.5" aria-label="Study Platform, ir al panel principal">
-        <span class="app-brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M8 10.5 18 5l10 5.5L18 16 8 10.5Z" fill="currentColor" opacity=".96"/>
-            <path d="M10.5 14.5v8.2c0 3.1 3.4 5.8 7.5 5.8s7.5-2.7 7.5-5.8v-8.2L18 18.8l-7.5-4.3Z" fill="currentColor" opacity=".48"/>
-            <path d="M28 12v8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-        </span>
-        <span class="app-brand-copy">
-          <span class="app-brand-name">Study Platform</span>
-          <span class="app-brand-caption">Mapa de tu espacio</span>
-        </span>
+<aside class="app-rail nx-sidebar" aria-label="Navegación de NOVA">
+  <div class="app-rail-main nx-sidebar-inner">
+    <header class="app-brand nx-brand">
+      <a href="/dashboard" class="app-brand-link nx-brand-link" aria-label="NOVA, ir al inicio">
+        <span class="app-brand-mark nx-brand-mark" aria-hidden="true">N</span>
+        <span class="app-brand-copy nx-brand-copy"><strong>NOVA</strong><small>PERSONAL OS · NÉBULA</small></span>
       </a>
-      <div class="app-brand-tools flex items-center gap-1">
-        <span class="app-version">v3.0</span>
-        <button class="app-icon-button p-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded transition-colors" title="Colapsar menú">
-          <span class="material-symbols-outlined text-[18px]">close</span>
-        </button>
+      <div class="app-brand-tools nx-brand-tools">
+        <span class="app-version nx-version">3.0</span>
+        <button class="app-icon-button nx-icon-button" title="Colapsar menú" aria-label="Cerrar navegación"><span class="material-symbols-outlined">close</span></button>
       </div>
-    </div>
+    </header>
 
-    <nav class="app-nav px-3 py-4 space-y-4" aria-label="Navegación principal" data-active-classes="bg-primary-container text-on-primary-container font-semibold">
-      <div class="app-nav-section space-y-1">
-        <div class="app-nav-heading">General</div>
-        <a aria-current="page" class="app-nav-link flex items-center gap-space-xs px-space-sm py-2 rounded-lg transition-all bg-primary-container text-on-primary-container font-semibold" data-path="panel-principal" href="#">
-          <span class="material-symbols-outlined">space_dashboard</span><span>Panel principal</span>
-        </a>
-        <a class="app-nav-link flex items-center gap-space-xs px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="mi-agenda" href="#">
-          <span class="material-symbols-outlined">calendar_month</span><span>Mi agenda</span>
-        </a>
-        <a class="app-nav-link flex items-center gap-space-xs px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="planificacion" href="#">
-          <span class="material-symbols-outlined">route</span><span>Planificación</span>
-        </a>
-      </div>
+    <nav class="app-nav nx-nav" aria-label="Navegación principal" data-active-classes="bg-primary-container text-on-primary-container font-semibold">
+      <section class="app-nav-section nx-nav-section">
+        <h2 class="app-nav-heading nx-nav-heading">Espacio de trabajo</h2>
+        <a aria-current="page" class="app-nav-link nx-nav-link" data-path="panel-principal" href="#"><span class="material-symbols-outlined">home</span><span>Inicio</span></a>
+        <a class="app-nav-link nx-nav-link" data-path="mi-agenda" href="#"><span class="material-symbols-outlined">calendar_month</span><span>Agenda</span></a>
+        <a class="app-nav-link nx-nav-link" data-path="planificacion" href="#"><span class="material-symbols-outlined">checklist</span><span>Planificador</span></a>
+        <a class="app-nav-link nx-nav-link" data-path="busqueda-global" href="#"><span class="material-symbols-outlined">search</span><span>Buscar</span><kbd>⌘K</kbd></a>
+      </section>
 
-      <div class="app-nav-section space-y-1">
-        <div class="app-nav-heading">Estudios</div>
-        <a class="app-nav-link flex items-center gap-space-xs px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="asignaturas" href="#">
-          <span class="material-symbols-outlined">menu_book</span><span>Asignaturas</span>
-        </a>
-        <a class="app-nav-link flex items-center gap-space-xs px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="tareas-y-actividades" href="#">
-          <span class="material-symbols-outlined">check_circle</span><span>Tareas y actividades</span>
-        </a>
-        <a class="app-nav-link flex items-center gap-space-xs px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="examenes" href="#">
-          <span class="material-symbols-outlined">school</span><span>Exámenes</span>
-        </a>
-        <a class="app-nav-link flex items-center gap-space-xs px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="vida-escolar" href="#">
-          <span class="material-symbols-outlined">diversity_1</span><span>Vida escolar</span>
-        </a>
-        <a class="app-nav-link flex items-center gap-space-xs px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="horarios" href="#">
-          <span class="material-symbols-outlined">calendar_view_week</span><span>Horarios</span>
-        </a>
-      </div>
+      <section class="app-nav-section nx-nav-section">
+        <h2 class="app-nav-heading nx-nav-heading">Aprendizaje</h2>
+        <a class="app-nav-link nx-nav-link" data-path="asignaturas" href="#"><span class="material-symbols-outlined">menu_book</span><span>Asignaturas</span></a>
+        <a class="app-nav-link nx-nav-link" data-path="tareas-y-actividades" href="#"><span class="material-symbols-outlined">task_alt</span><span>Tareas</span></a>
+        <a class="app-nav-link nx-nav-link" data-path="examenes" href="#"><span class="material-symbols-outlined">quiz</span><span>Evaluaciones</span></a>
+        <a class="app-nav-link nx-nav-link" data-path="horarios" href="#"><span class="material-symbols-outlined">schedule</span><span>Horario</span></a>
+        <a class="app-nav-link nx-nav-link" data-path="vida-escolar" href="#"><span class="material-symbols-outlined">diversity_1</span><span>Vida escolar</span></a>
+      </section>
 
-      <div class="app-nav-section space-y-1">
-        <div class="app-nav-heading">Inteligencia artificial</div>
-        <a class="app-nav-link flex items-center justify-between px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="asistente-academico" href="#">
-          <span class="app-nav-link-main"><span class="material-symbols-outlined text-primary-container">auto_awesome</span><span>Asistente académico</span></span><span class="app-nav-live" aria-hidden="true"></span>
-        </a>
-        <a class="app-nav-link flex items-center gap-space-xs px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="conversaciones" href="#">
-          <span class="material-symbols-outlined">forum</span><span>Conversaciones</span>
-        </a>
-        <a class="app-nav-link flex items-center gap-space-xs px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="generador-de-material" href="#">
-          <span class="material-symbols-outlined">magic_button</span><span>Generador de material</span>
-        </a>
-      </div>
+      <section class="app-nav-section nx-nav-section">
+        <h2 class="app-nav-heading nx-nav-heading">Crear y pensar</h2>
+        <a class="app-nav-link nx-nav-link" data-path="asistente-academico" href="#"><span class="material-symbols-outlined">auto_awesome</span><span>NOVA AI</span><i class="nx-live-dot" aria-hidden="true"></i></a>
+        <a class="app-nav-link nx-nav-link" data-path="conversaciones" href="#"><span class="material-symbols-outlined">forum</span><span>Conversaciones</span></a>
+        <a class="app-nav-link nx-nav-link" data-path="generador-de-material" href="#"><span class="material-symbols-outlined">magic_button</span><span>Material de estudio</span></a>
+        <a class="app-nav-link nx-nav-link" data-path="segundo-cerebro" href="#"><span class="material-symbols-outlined">neurology</span><span>Segundo cerebro</span></a>
+        <a class="app-nav-link nx-nav-link" data-path="mis-notas" href="#"><span class="material-symbols-outlined">edit_note</span><span>Notas</span></a>
+      </section>
 
-      <div class="app-nav-section space-y-1">
-        <div class="app-nav-heading">Conocimiento</div>
-        <a class="app-nav-link flex items-center gap-space-xs px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="segundo-cerebro" href="#">
-          <span class="material-symbols-outlined">neurology</span><span>Segundo cerebro</span>
-        </a>
-        <a class="app-nav-link flex items-center gap-space-xs px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="mis-notas" href="#">
-          <span class="material-symbols-outlined">description</span><span>Mis notas</span>
-        </a>
-        <a class="app-nav-link flex items-center gap-space-xs px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="busqueda-global" href="#">
-          <span class="material-symbols-outlined">search</span><span>Búsqueda global</span>
-        </a>
-      </div>
+      <section class="app-nav-section nx-nav-section">
+        <h2 class="app-nav-heading nx-nav-heading">Oficina</h2>
+        <a class="app-nav-link nx-nav-link" data-path="documentos" href="#"><span class="material-symbols-outlined">description</span><span>Documentos</span></a>
+        <a class="app-nav-link nx-nav-link" data-path="hojas-de-calculo" href="#"><span class="material-symbols-outlined">table_chart</span><span>Hojas de cálculo</span></a>
+        <a class="app-nav-link nx-nav-link" data-path="presentaciones" href="#"><span class="material-symbols-outlined">present_to_all</span><span>Presentaciones</span></a>
+        <a class="app-nav-link nx-nav-link" data-path="biblioteca-de-archivos" href="#"><span class="material-symbols-outlined">folder_open</span><span>Biblioteca</span></a>
+      </section>
 
-      <details class="app-nav-section space-y-1" data-nav-group="office">
-        <summary class="app-nav-heading">Oficina<span class="material-symbols-outlined">chevron_right</span></summary>
-        <a class="app-nav-link flex items-center gap-space-xs px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="documentos" href="#">
-          <span class="material-symbols-outlined">edit_document</span><span>Documentos</span>
-        </a>
-        <a class="app-nav-link flex items-center gap-space-xs px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="hojas-de-calculo" href="#">
-          <span class="material-symbols-outlined">table_chart</span><span>Hojas de cálculo</span>
-        </a>
-        <a class="app-nav-link flex items-center gap-space-xs px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="presentaciones" href="#">
-          <span class="material-symbols-outlined">slideshow</span><span>Presentaciones</span>
-        </a>
-        <a class="app-nav-link flex items-center gap-space-xs px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="biblioteca-de-archivos" href="#">
-          <span class="material-symbols-outlined">folder_copy</span><span>Biblioteca de archivos</span>
-        </a>
-      </details>
-
-      <details class="app-nav-section space-y-1" data-nav-group="integrations">
-        <summary class="app-nav-heading">Integraciones<span class="material-symbols-outlined">chevron_right</span></summary>
-        <a class="app-nav-link flex items-center justify-between px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="centro-mcp" href="#">
-          <span class="app-nav-link-main"><span class="material-symbols-outlined">memory</span><span>Centro MCP</span></span><span class="app-nav-badge"><!--SLOT:SHELL_NAV_MCP--></span>
-        </a>
-        <a class="app-nav-link flex items-center gap-space-xs px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="estado-de-conexiones" href="#">
-          <span class="material-symbols-outlined">hub</span><span>Estado de conexiones</span>
-        </a>
-      </details>
-
+      <section class="app-nav-section nx-nav-section">
+        <h2 class="app-nav-heading nx-nav-heading">Sistema</h2>
+        <a class="app-nav-link nx-nav-link" data-path="centro-mcp" href="#"><span class="material-symbols-outlined">hub</span><span>Integraciones</span><span class="app-nav-badge nx-nav-badge"><!--SLOT:SHELL_NAV_MCP--></span></a>
+        <a class="app-nav-link nx-nav-link" data-path="estado-de-conexiones" href="#"><span class="material-symbols-outlined">monitor_heart</span><span>Estado de servicios</span></a>
+      </section>
     </nav>
-    <nav class="app-system-nav" aria-label="Sistema">
-      <a class="app-nav-link flex items-center gap-space-xs px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="administracion" href="#">
-        <span class="material-symbols-outlined">monitoring</span><span>Administración</span>
-      </a>
-      <a class="app-nav-link flex items-center gap-space-xs px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="configuracion" href="#">
-        <span class="material-symbols-outlined">settings</span><span>Configuración</span>
-      </a>
-    </nav>
-  </div>
 
+<<<<<<< HEAD
   <div class="app-vault mx-3 mb-3 mt-2">
     <div class="app-vault-top">
       <span class="app-vault-label"><span class="material-symbols-outlined">database</span>Espacio de almacenamiento</span>
       <span class="app-vault-value"><!--SLOT:SHELL_VAULT_PCT-->%</span>
     </div>
     <p>Almacenamiento local y privado</p>
+=======
+    <nav class="app-system-nav nx-system-nav" aria-label="Configuración del sistema">
+      <a class="app-nav-link nx-nav-link" data-path="administracion" href="#"><span class="material-symbols-outlined">monitoring</span><span>Administración</span></a>
+      <a class="app-nav-link nx-nav-link" data-path="configuracion" href="#"><span class="material-symbols-outlined">settings</span><span>Configuración</span></a>
+    </nav>
+
+    <footer class="app-vault nx-vault">
+      <span class="nx-vault-icon material-symbols-outlined" aria-hidden="true">database</span>
+      <div><strong>Vault local</strong><span>Tus datos, bajo tu control</span></div>
+      <span class="app-vault-value nx-vault-value"><!--SLOT:SHELL_VAULT_PCT-->%</span>
+    </footer>
+>>>>>>> 9c0a42b34fe9e887e97de2b0755c4745d9427780
   </div>
 </aside>

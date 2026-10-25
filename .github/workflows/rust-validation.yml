@@ -5,6 +5,10 @@ on:
     branches:
       - main
       - "quality/**"
+<<<<<<< HEAD
+=======
+      - "arena/**"
+>>>>>>> 9c0a42b34fe9e887e97de2b0755c4745d9427780
   pull_request:
     branches:
       - main
@@ -12,6 +16,10 @@ on:
 
 permissions:
   contents: read
+<<<<<<< HEAD
+=======
+  pull-requests: write
+>>>>>>> 9c0a42b34fe9e887e97de2b0755c4745d9427780
 
 concurrency:
   group: validacion-rust-${{ github.ref }}
@@ -37,6 +45,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Compilar todas las plataformas
+<<<<<<< HEAD
         run: cargo check --all-targets
 
       - name: Ejecutar pruebas
@@ -44,3 +53,42 @@ jobs:
 
       - name: Revisar lint de Rust
         run: cargo clippy --all-targets
+=======
+        run: |
+          set -o pipefail
+          cargo check --all-targets 2>&1 | tee /tmp/nova-cargo-check.log
+
+      - name: Ejecutar pruebas
+        run: |
+          set -o pipefail
+          cargo test --no-fail-fast 2>&1 | tee /tmp/nova-cargo-test.log
+
+      - name: Revisar lint de Rust
+        run: |
+          set -o pipefail
+          cargo clippy --all-targets 2>&1 | tee /tmp/nova-cargo-clippy.log
+
+      - name: Reportar errores en el PR de validación
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            echo "### Diagnóstico de la validación Rust"
+            echo
+            for file in /tmp/nova-cargo-*.log; do
+              [ -f "$file" ] || continue
+              clean="${file%.log}-clean.log"
+              sed -E 's/\x1B\[[0-9;]*[[:alpha:]]//g' "$file" > "$clean"
+              grep -Eq 'error(\[|:)|FAILED|panicked at|assertion.*failed' "$clean" || continue
+              echo "#### $(basename "$file")"
+              echo '```text'
+              grep -n -B 8 -A 18 -E 'error(\[|:)|FAILED|panicked at|assertion.*failed' "$clean" | tail -n 520
+              echo '```'
+            done
+          } > /tmp/nova-validation-comment.md
+          pr_number=$(gh pr list --head "$GITHUB_REF_NAME" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$pr_number" ]; then
+            gh pr comment "$pr_number" --body-file /tmp/nova-validation-comment.md
+          fi
+>>>>>>> 9c0a42b34fe9e887e97de2b0755c4745d9427780

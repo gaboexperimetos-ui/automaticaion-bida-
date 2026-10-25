@@ -368,14 +368,17 @@ pub fn dias_del_mes(
             .push(a.clone());
     }
 
-    // Las clases se proyectan sobre todos los días del mes (el horario es
-    // semanal, así que aplica a cualquier día de la semana).
+    // Las clases se proyectan sobre todos los días del mes usando el mismo
+    // horario personal 2026–2027 que abre `/dashboard/horario`. Eventos,
+    // tareas y anotaciones conservan sus fuentes; no se mezclan con un
+    // horario distinto del que el usuario acaba de confirmar.
+    let horario_personal = crate::handlers::schedule::horario_personal();
     let (year, month) = (foco.year(), foco.month());
     let primero = NaiveDate::from_ymd_opt(year, month, 1).unwrap_or(foco);
     let dias_mes = days_in_month(year, month);
     for d in 1..=dias_mes {
         let fecha = primero + chrono::Duration::days(d as i64 - 1);
-        let clases = clases_del_dia(&datos.horario, fecha);
+        let clases = clases_del_dia(&horario_personal, fecha);
         if !clases.is_empty() {
             let clave = fecha.format("%Y-%m-%d").to_string();
             mapa.entry(clave).or_default().clases = clases;
@@ -404,10 +407,15 @@ fn days_in_month(year: i32, month: u32) -> u32 {
     }
 }
 
-/// Número de elementos que se pintan en una celda (clases + eventos + tareas
-/// + anotaciones), para el badge contador.
+/// Número de elementos que se pintan en una celda. El horario completo se
+/// resume en una sola entrada para no ocultar entregas y eventos detrás de
+/// diez bloques rutinarios; el detalle sigue disponible en su tooltip y en
+/// `/dashboard/horario`.
 pub fn total_elementos(dia: &DiaData) -> usize {
-    dia.clases.len() + dia.eventos.len() + dia.tareas.len() + dia.anotaciones.len()
+    usize::from(!dia.clases.is_empty())
+        + dia.eventos.len()
+        + dia.tareas.len()
+        + dia.anotaciones.len()
 }
 
 /// Cuántos elementos se quedan fuera de la celda (van como "+N").
@@ -420,26 +428,35 @@ pub fn tiene_datos_mikareno(dia: &DiaData) -> bool {
     !dia.clases.is_empty() || !dia.eventos.is_empty() || !dia.tareas.is_empty()
 }
 
+/// Resume el horario de un día sin perder el intervalo que cubre.
+fn resumen_clases(clases: &[String]) -> String {
+    if clases.len() == 1 {
+        return clases[0].clone();
+    }
+    let inicio = clases
+        .first()
+        .and_then(|clase| clase.split(" - ").next())
+        .unwrap_or("");
+    let fin = clases
+        .last()
+        .and_then(|clase| clase.split(" — ").next())
+        .and_then(|hora| hora.split(" - ").nth(1))
+        .unwrap_or("");
+    if inicio.is_empty() || fin.is_empty() {
+        format!("Horario · {} bloques", clases.len())
+    } else {
+        format!("{} bloques · {}–{}", clases.len(), inicio, fin)
+    }
+}
+
 /// Chips de una celda del calendario.
 ///
-/// Se muestran, en este orden: las clases del horario, las tareas que vencen
-/// ese día, los eventos escolares y las anotaciones del usuario. Cada chip
-/// lleva su color para distinguirlos de un vistazo.
+/// Entregas, eventos y anotaciones van primero porque requieren atención. El
+/// horario rutinario ocupa una sola entrada resumida; así un día lectivo no
+/// expulsa la información importante de la celda. Cada tipo tiene su color.
 pub fn chips_del_dia(dia: &DiaData, max: usize) -> String {
     let mut out = String::new();
     let mut n = 0usize;
-
-    for clase in &dia.clases {
-        if n >= max {
-            break;
-        }
-        out.push_str(&format!(
-            r#"<div class="mt-space-xs bg-secondary-container/20 border border-secondary-container/30 rounded text-[9px] text-on-surface truncate px-1 py-0.5" title="Clase: {}">{}</div>"#,
-            escape(clase),
-            escape(clase)
-        ));
-        n += 1;
-    }
 
     for tarea in &dia.tareas {
         if n >= max {
@@ -451,7 +468,7 @@ pub fn chips_del_dia(dia: &DiaData, max: usize) -> String {
             tarea.titulo.trim()
         };
         out.push_str(&format!(
-            r#"<div class="mt-space-xs bg-error-container/20 border border-error-container/30 rounded text-[9px] text-on-surface truncate px-1 py-0.5" title="Tarea: {}">{}</div>"#,
+            r#"<div class="calendar-chip calendar-chip-task mt-space-xs bg-error-container/20 border border-error-container/30 rounded text-[9px] text-on-surface truncate px-1 py-0.5" title="Tarea: {}">{}</div>"#,
             escape(titulo),
             escape(titulo)
         ));
@@ -463,7 +480,7 @@ pub fn chips_del_dia(dia: &DiaData, max: usize) -> String {
             break;
         }
         out.push_str(&format!(
-            r#"<div class="mt-space-xs bg-primary-container/15 border border-primary-container/20 rounded text-[9px] text-on-surface truncate px-1 py-0.5" title="{}">{}</div>"#,
+            r#"<div class="calendar-chip calendar-chip-event mt-space-xs bg-primary-container/15 border border-primary-container/20 rounded text-[9px] text-on-surface truncate px-1 py-0.5" title="{}">{}</div>"#,
             escape(&evento.evento),
             escape(&evento.evento)
         ));
@@ -483,11 +500,20 @@ pub fn chips_del_dia(dia: &DiaData, max: usize) -> String {
             continue;
         }
         out.push_str(&format!(
-            r#"<div class="mt-space-xs bg-tertiary-container/25 border border-tertiary-container/40 rounded text-[9px] text-on-surface truncate px-1 py-0.5" title="Anotación: {}">{}</div>"#,
+            r#"<div class="calendar-chip calendar-chip-note mt-space-xs bg-tertiary-container/25 border border-tertiary-container/40 rounded text-[9px] text-on-surface truncate px-1 py-0.5" title="Anotación: {}">{}</div>"#,
             escape(texto),
             escape(texto)
         ));
         n += 1;
+    }
+
+    if n < max && !dia.clases.is_empty() {
+        let resumen = resumen_clases(&dia.clases);
+        out.push_str(&format!(
+            r#"<div class="calendar-chip calendar-chip-class mt-space-xs bg-secondary-container/20 border border-secondary-container/30 rounded text-[9px] text-on-surface truncate px-1 py-0.5" title="Horario personal: {}">{}</div>"#,
+            escape(&dia.clases.join(" · ")),
+            escape(&resumen)
+        ));
     }
 
     out

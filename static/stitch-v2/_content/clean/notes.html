@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <div class="flex flex-col w-full text-on-surface">
 <!-- Top Command Context Bar -->
 <div class="flex flex-wrap items-center justify-between px-space-md py-space-xs bg-surface-container-low/70 backdrop-blur-md">
@@ -379,21 +380,47 @@
       closeModal();
       importer(files, policy);
     });
+=======
+<div class="nx-notes-page">
+  <header class="nx-notes-header">
+    <div><p class="nx-eyebrow">Segundo cerebro · <!--SLOT:VAULT_PATH--></p><h1>Notas que puedes<br>volver a encontrar.</h1></div>
+    <div class="nx-button-row"><button class="nx-button nx-button-secondary" id="quick-palette-trigger" type="button"><span class="material-symbols-outlined">terminal</span>Comandos<kbd>⌘P</kbd></button><button class="nx-button nx-button-primary" id="btn-new-note" type="button"><span class="material-symbols-outlined">note_add</span>Nueva nota</button></div>
+  </header>
 
-    // Editor View Mode Toggle micro-interactions
-    const modeEdit = document.getElementById('mode-edit');
-    const modeSplit = document.getElementById('mode-split');
-    const modePreview = document.getElementById('mode-preview');
+  <div class="nx-notes-layout">
+    <aside class="nx-notes-library" aria-label="Biblioteca de notas">
+      <header><div><p class="nx-eyebrow">Tu vault</p><h2>Biblioteca</h2></div><span><!--SLOT:NOTES_COUNT--></span></header>
+      <label class="nx-chat-search"><span class="material-symbols-outlined">search</span><input placeholder="Filtrar notas…" type="search" aria-label="Filtrar notas"></label>
+      <div class="nx-library-tree"><!--SLOT:NOTES_LIST--></div>
+      <details class="nx-library-details"><summary>Actividad reciente<span class="material-symbols-outlined">expand_more</span></summary><div><!--SLOT:NOTES_RECENT--></div></details>
+      <details class="nx-library-details"><summary>Etiquetas<span class="material-symbols-outlined">expand_more</span></summary><div class="nx-library-tags"><!--SLOT:TAGS--></div></details>
+      <footer><button id="btn-new-folder" type="button"><span class="material-symbols-outlined">create_new_folder</span>Nueva carpeta</button><button id="btn-import-vault" type="button"><span class="material-symbols-outlined">folder_zip</span>Importar Obsidian</button></footer>
+    </aside>
 
-    const modeButtons = [modeEdit, modeSplit, modePreview];
+    <section class="nx-writer" aria-label="Editor de nota">
+      <header class="nx-writer-head">
+        <div class="nx-note-title"><span class="material-symbols-outlined">edit_note</span><input type="text" value="<!--SLOT:NOTE_TITLE-->" readonly placeholder="Sin notas todavía" aria-label="Título de la nota"><!--SLOT:NOTE_STATUS--></div>
+        <div class="nx-note-meta"><div class="nx-note-tags"><!--SLOT:NOTE_TAGS--><button type="button">+ tag</button></div><div class="nx-view-modes" aria-label="Modo del editor"><button type="button" id="mode-edit" aria-pressed="false">Editar</button><button type="button" id="mode-split" aria-pressed="true">Dividido</button><button type="button" id="mode-preview" aria-pressed="false">Lectura</button></div></div>
+        <div class="nx-format-bar" aria-label="Formato Markdown">
+          <button type="button" title="Titulo H1">H1</button><button type="button" title="Titulo H2">H2</button><button type="button" title="Negrita" aria-label="Negrita"><span class="material-symbols-outlined">format_bold</span></button><button type="button" title="Cursiva" aria-label="Cursiva"><span class="material-symbols-outlined">format_italic</span></button><button type="button" title="Codigo Inline" aria-label="Código inline"><span class="material-symbols-outlined">code</span></button><button type="button" title="Enlace Interno Bidireccional" aria-label="WikiLink">[[ ]]</button><button type="button" title="Lista de verificacion" aria-label="Lista de verificación"><span class="material-symbols-outlined">checklist</span></button><button type="button" title="Tabla" aria-label="Insertar tabla"><span class="material-symbols-outlined">table_chart</span></button><button type="button" title="Bloque Matematico" aria-label="Bloque matemático"><span class="material-symbols-outlined">functions</span></button><div class="nx-note-stats"><!--SLOT:NOTE_STATS--></div>
+        </div>
+      </header>
+      <div class="flex-1 grid grid-cols-1 nx-editor-panes">
+        <div class="nx-raw-pane"><span class="nx-pane-label">MARKDOWN</span><!--SLOT:NOTE_RAW--></div>
+        <div class="nx-preview-pane"><span class="nx-pane-label">LECTURA</span><!--SLOT:NOTE_PREVIEW--></div>
+      </div>
+      <footer class="nx-backlinks"><div class="nx-subhead"><div><span>CONEXIONES</span><h3>Menciones vinculadas <b><!--SLOT:BACKLINKS_COUNT--></b></h3></div><span class="material-symbols-outlined">account_tree</span></div><div class="nx-backlinks-grid"><!--SLOT:BACKLINKS--></div></footer>
+    </section>
+>>>>>>> 9c0a42b34fe9e887e97de2b0755c4745d9427780
 
-    modeButtons.forEach((btn) => {
-      btn?.addEventListener('click', () => {
-        modeButtons.forEach(b => {
-          b.className = 'px-2 py-1 rounded text-outline hover:text-on-surface font-label-sm text-label-sm';
-        });
-        btn.className = 'px-2 py-1 rounded bg-surface-container-high text-primary-container font-label-sm text-label-sm font-semibold shadow-sm';
-      });
-    });
-  })();
-</script>
+    <aside class="nx-knowledge" aria-label="Conexiones y acciones de la nota">
+      <header><div><p class="nx-eyebrow">Contexto</p><h2>Conexiones</h2></div><span class="material-symbols-outlined">hub</span></header>
+      <div class="nx-graph-meta"><!--SLOT:GRAPH_META--></div>
+      <div class="nx-graph"><!--SLOT:GRAPH--></div>
+      <div class="nx-graph-controls"><button type="button" aria-label="Ampliar"><span class="material-symbols-outlined">add</span></button><button type="button" aria-label="Reducir"><span class="material-symbols-outlined">remove</span></button><button type="button" aria-label="Centrar"><span class="material-symbols-outlined">center_focus_strong</span></button></div>
+      <section class="nx-outlinks"><div><h3>Enlaces salientes</h3><span><!--SLOT:OUTLINKS_COUNT--></span></div><!--SLOT:OUTLINKS--></section>
+      <section class="nx-note-export"><h3>Usar esta nota</h3><button type="button" data-note-action="pdf"><span class="material-symbols-outlined">picture_as_pdf</span>Exportar a PDF<span class="material-symbols-outlined">arrow_outward</span></button><button type="button" data-note-action="office"><span class="material-symbols-outlined">edit_document</span>Abrir en Oficina<span class="material-symbols-outlined">arrow_outward</span></button><button type="button" data-note-action="ai"><span class="material-symbols-outlined">auto_awesome</span>Preguntar a NOVA AI<span class="material-symbols-outlined">arrow_outward</span></button></section>
+      <div class="nx-graph-stats"><!--SLOT:GRAPH_STATS--></div>
+    </aside>
+  </div>
+</div>

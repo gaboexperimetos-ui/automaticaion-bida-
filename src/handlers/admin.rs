@@ -29,7 +29,6 @@ use axum::{
     extract::{Path, Request, State},
     http::{header, HeaderValue, StatusCode},
     response::{Html, IntoResponse, Json, Response},
-    routing::post,
 };
 
 use crate::AppState;
@@ -63,7 +62,6 @@ struct AdminData {
     recent_backups: Vec<BackupEntry>,
     /// Número total de backups en el directorio (no sólo los de la tabla).
     backup_count: usize,
-    openrouter_catalog_state: String,
 }
 
 /// Entrada de backup listada en el panel.
@@ -279,12 +277,6 @@ async fn fetch_admin_data(state: &Arc<AppState>) -> AdminData {
     // Backups recientes (y el total del directorio).
     let (recent_backups, backup_count) = list_backups_for_panel().await;
 
-    // Estado del catálogo de modelos de IA
-    let openrouter_catalog_state = state
-        .cache_catalogo
-        .get()
-        .map_or_else(|| "expired".to_string(), |_| "fresh".to_string());
-
     AdminData {
         version,
         uptime_secs,
@@ -301,7 +293,6 @@ async fn fetch_admin_data(state: &Arc<AppState>) -> AdminData {
         budget_alert,
         recent_backups,
         backup_count,
-        openrouter_catalog_state,
     }
 }
 
@@ -395,120 +386,34 @@ fn format_uptime(secs: u64) -> String {
 /// Usa marcadores <!--SLOT:...--> que se reemplazan con datos reales.
 fn render_admin_content(d: &AdminData) -> String {
     let template = r##"
-<div class="flex items-center justify-between mb-space-md">
-    <div>
-        <h1 class="font-headline-lg text-headline-lg text-on-surface font-bold">Administración</h1>
-        <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">
-            Monitoreo del sistema y herramientas de administración
-        </p>
-    </div>
-    <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-surface-container-high text-primary-fixed-dim border border-outline-variant/60">
-        v<!--SLOT:ADMIN_VERSION-->
-    </span>
-</div>
-
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-space-md mb-space-md">
-    <div class="bg-surface-container border border-outline rounded-xl p-space-md text-center">
-        <div class="font-code-inline text-[11px] text-on-surface-variant uppercase tracking-wider">Uptime</div>
-        <div class="font-headline-md text-headline-md text-primary-container font-bold mt-1"><!--SLOT:ADMIN_UPTIME--></div>
-        <div class="font-body-sm text-[10px] text-on-surface-variant mt-1"><!--SLOT:ADMIN_UPTIME_SECS-->s</div>
-    </div>
-    <div class="bg-surface-container border border-outline rounded-xl p-space-md text-center">
-        <div class="font-code-inline text-[11px] text-on-surface-variant uppercase tracking-wider">Notas</div>
-        <div class="font-headline-md text-headline-md text-primary-container font-bold mt-1"><!--SLOT:ADMIN_NOTES_COUNT--></div>
-        <div class="font-body-sm text-[10px] text-on-surface-variant mt-1">notas locales (BD)</div>
-    </div>
-    <div class="bg-surface-container border border-outline rounded-xl p-space-md text-center">
-        <div class="font-code-inline text-[11px] text-on-surface-variant uppercase tracking-wider">Chats</div>
-        <div class="font-headline-md text-headline-md text-primary-container font-bold mt-1"><!--SLOT:ADMIN_CHATS_COUNT--></div>
-        <div class="font-body-sm text-[10px] text-on-surface-variant mt-1">conversaciones IA</div>
-    </div>
-    <div class="bg-surface-container border border-outline rounded-xl p-space-md text-center">
-        <div class="font-code-inline text-[11px] text-on-surface-variant uppercase tracking-wider">Gasto IA (mes)</div>
-        <div class="font-headline-md text-headline-md text-primary-container font-bold mt-1"><!--SLOT:ADMIN_SPEND--> / <!--SLOT:ADMIN_BUDGET--></div>
-        <div class="font-body-sm text-[10px] text-on-surface-variant mt-1"><!--SLOT:ADMIN_REQUESTS--> solicitudes · <!--SLOT:ADMIN_BUDGET_PCT-->% del presupuesto</div>
-        <!--SLOT:ADMIN_BUDGET_BAR-->
-    </div>
-</div>
-
-<!-- Indicadores de integración -->
-<div class="grid grid-cols-1 md:grid-cols-2 gap-space-md mb-space-md">
-    <div class="bg-surface-container border border-outline rounded-xl p-space-md">
-        <div class="flex items-center gap-2">
-            <span class="material-symbols-outlined text-[20px]"><!--SLOT:ADMIN_MCP_ICON--></span>
-            <h2 class="font-headline-sm text-headline-sm text-on-surface">Mikareno MCP</h2>
-        </div>
-        <p class="font-body-sm text-body-sm text-on-surface-variant mt-2"><!--SLOT:ADMIN_MCP_STATUS--></p>
-        <!--SLOT:ADMIN_MCP_LATENCY-->
-    </div>
-    <div class="bg-surface-container border border-outline rounded-xl p-space-md">
-        <div class="flex items-center gap-2">
-            <span class="material-symbols-outlined text-[20px]"><!--SLOT:ADMIN_OR_ICON--></span>
-            <h2 class="font-headline-sm text-headline-sm text-on-surface">OpenRouter</h2>
-        </div>
-        <p class="font-body-sm text-body-sm text-on-surface-variant mt-2">
-            Estado: <span class="<!--SLOT:ADMIN_OR_STATUS_COLOR-->"><!--SLOT:ADMIN_OR_STATUS--></span>
-        </p>
-        <p class="font-body-sm text-[10px] text-on-surface-variant mt-1">Modelo: <!--SLOT:ADMIN_OR_MODEL--></p>
-        <p class="font-body-sm text-[10px] text-on-surface-variant mt-1">Catálogo de IA: <!--SLOT:ADMIN_OR_CATALOG_STATE--></p>
-        <button id="refresh-catalog-btn" type="button" onclick="refreshCatalog()" class="flex items-center gap-1.5 px-space-sm py-1.5 rounded-lg bg-secondary text-on-secondary font-label-sm font-medium hover:bg-secondary-fixed-dim transition-colors">
-            <span class="material-symbols-outlined text-[16px]">refresh</span>
-            <span>Refrescar catálogo IA</span>
-        </button>
-        <div id="refresh-catalog-msg" class="hidden mt-1 p-space-sm rounded-lg text-[10px]"></div>
-        <p class="font-body-sm text-[10px] text-outline mt-1">El gasto real del mes (y el % del presupuesto) está en la tarjeta «Gasto IA (mes)».</p>
-    </div>
-</div>
-
-<!-- Sección de backup -->
-<div class="bg-surface-container border border-outline rounded-xl p-space-md mb-space-md" id="admin-backup">
-    <div class="flex items-start justify-between gap-2 mb-space-sm flex-wrap">
-        <div>
-            <h2 class="font-headline-sm text-headline-sm text-on-surface">Copia de seguridad</h2>
-            <p class="font-body-sm text-[10px] text-on-surface-variant mt-0.5">Copia automática cada 24 h + copias bajo demanda de la base de datos</p>
-        </div>
-        <button id="backup-btn" type="button" onclick="crearBackup()" class="flex items-center gap-1.5 px-space-md py-2 rounded-lg bg-primary-container text-on-primary font-label-md font-semibold hover:bg-primary-fixed-dim transition-all shadow-md">
-            <span class="material-symbols-outlined text-[18px]">save</span>
-            <span>Crear backup ahora</span>
-        </button>
-    </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-space-sm mb-space-sm">
-        <div class="bg-surface-container-high/40 border border-outline rounded-lg p-space-sm">
-            <div class="font-code-inline text-[10px] text-on-surface-variant uppercase tracking-wider">Último backup</div>
-            <div class="font-headline-sm text-headline-sm text-on-surface mt-1" id="admin-last-backup"><!--SLOT:ADMIN_LAST_BACKUP_DATE--></div>
-            <div class="font-code-inline text-[10px] text-outline mt-1 truncate" id="admin-last-backup-name" title="<!--SLOT:ADMIN_LAST_BACKUP_PATH-->"><!--SLOT:ADMIN_LAST_BACKUP_NAME--></div>
-        </div>
-        <div class="bg-surface-container-high/40 border border-outline rounded-lg p-space-sm">
-            <div class="font-code-inline text-[10px] text-on-surface-variant uppercase tracking-wider">Próximo backup</div>
-            <div class="font-headline-sm text-headline-sm text-on-surface mt-1" id="admin-next-backup" data-last-backup-ms="<!--SLOT:ADMIN_LAST_BACKUP_MS-->"><!--SLOT:ADMIN_NEXT_BACKUP--></div>
-            <div class="font-code-inline text-[10px] text-outline mt-1">Estimado: 24 h tras el último</div>
-        </div>
-        <div class="bg-surface-container-high/40 border border-outline rounded-lg p-space-sm">
-            <div class="font-code-inline text-[10px] text-on-surface-variant uppercase tracking-wider">Copias en disco</div>
-            <div class="font-headline-sm text-headline-sm text-on-surface mt-1" id="admin-backup-count"><!--SLOT:ADMIN_BACKUP_COUNT--></div>
-            <div class="font-code-inline text-[10px] text-outline mt-1">data/backups</div>
-        </div>
-    </div>
-
-    <div id="admin-backup-msg" class="hidden mb-space-sm"></div>
-
-    <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
-            <thead>
-                <tr class="border-b border-outline">
-                    <th class="font-code-inline text-[10px] uppercase tracking-wider text-outline py-1.5 pr-2">Fichero</th>
-                    <th class="font-code-inline text-[10px] uppercase tracking-wider text-outline py-1.5 pr-2">Fecha</th>
-                    <th class="font-code-inline text-[10px] uppercase tracking-wider text-outline py-1.5 pr-2">Tamaño</th>
-                    <th class="font-code-inline text-[10px] uppercase tracking-wider text-outline py-1.5 text-right">Acciones</th>
-                </tr>
-            </thead>
-            <tbody id="admin-backups-body"><!--SLOT:ADMIN_BACKUP_ROWS--></tbody>
-        </table>
-    </div>
-    <p class="font-body-sm text-[10px] text-outline mt-2">
-        «Descargar» entrega el fichero SQLite del backup. «Restaurar» copia su contenido sobre la base en vivo: si la base está bloqueada, la app lo dice y no cambia nada.
-    </p>
+<div class="nx-page nx-admin nova-page nova-admin-page">
+  <header class="nx-page-header nova-page-head">
+    <div><p class="nx-eyebrow">Sistema · Administración</p><h1>La instancia,<br>bajo control.</h1><p>Métricas, servicios y respaldos locales en una vista operativa.</p></div>
+    <span class="nx-version-badge">Build <!--SLOT:ADMIN_VERSION--></span>
+  </header>
+  <section class="nx-admin-metrics nova-admin-metrics" aria-label="Métricas principales">
+    <article><span class="material-symbols-outlined">schedule</span><div><small>Tiempo activo</small><strong><!--SLOT:ADMIN_UPTIME--></strong><p><!--SLOT:ADMIN_UPTIME_SECS--> segundos</p></div></article>
+    <article><span class="material-symbols-outlined">description</span><div><small>Conocimiento</small><strong><!--SLOT:ADMIN_NOTES_COUNT--></strong><p>notas locales</p></div></article>
+    <article><span class="material-symbols-outlined">forum</span><div><small>Conversaciones</small><strong><!--SLOT:ADMIN_CHATS_COUNT--></strong><p>chats de IA</p></div></article>
+    <article><span class="material-symbols-outlined">toll</span><div><small>Gasto IA / presupuesto</small><strong><!--SLOT:ADMIN_SPEND--></strong><p>de <!--SLOT:ADMIN_BUDGET--> · <!--SLOT:ADMIN_REQUESTS--> solicitudes</p><!--SLOT:ADMIN_BUDGET_BAR--></div><i><!--SLOT:ADMIN_BUDGET_PCT-->%</i></article>
+  </section>
+  <div class="nx-admin-layout">
+    <section class="nx-backup-panel" id="admin-backup" aria-labelledby="backup-title">
+      <div class="nx-section-head"><div><p class="nx-eyebrow">Continuidad</p><h2 id="backup-title">Copias de seguridad</h2></div><button id="backup-btn" type="button" onclick="crearBackup()" class="nx-button nx-button-primary"><span class="material-symbols-outlined">save</span><span>Crear backup ahora</span></button></div>
+      <p class="nx-panel-intro">Copia automática cada 24 horas y respaldos manuales de SQLite.</p>
+      <div class="nx-backup-status"><div><span>Último backup</span><strong id="admin-last-backup"><!--SLOT:ADMIN_LAST_BACKUP_DATE--></strong><small id="admin-last-backup-name" title="<!--SLOT:ADMIN_LAST_BACKUP_PATH-->"><!--SLOT:ADMIN_LAST_BACKUP_NAME--></small></div><div><span>Próximo ciclo</span><strong id="admin-next-backup" data-last-backup-ms="<!--SLOT:ADMIN_LAST_BACKUP_MS-->"><!--SLOT:ADMIN_NEXT_BACKUP--></strong><small>Estimado a partir del último</small></div><div><span>Copias en disco</span><strong id="admin-backup-count"><!--SLOT:ADMIN_BACKUP_COUNT--></strong><small>data/backups</small></div></div>
+      <div id="admin-backup-msg" class="hidden"></div>
+      <div class="nx-backup-table"><table><thead><tr><th>Fichero</th><th>Fecha</th><th>Tamaño</th><th>Acciones</th></tr></thead><tbody id="admin-backups-body"><!--SLOT:ADMIN_BACKUP_ROWS--></tbody></table></div>
+      <p class="nx-backup-note">Restaurar sobrescribe la base activa. Si está bloqueada, la aplicación lo informa y no cambia nada.</p>
+    </section>
+    <aside class="nx-admin-services" aria-label="Estado de servicios">
+      <div class="nx-section-head"><div><p class="nx-eyebrow">Servicios</p><h2>Estado actual</h2></div></div>
+      <article><span class="material-symbols-outlined"><!--SLOT:ADMIN_MCP_ICON--></span><div><h3>Mikareno MCP</h3><p><!--SLOT:ADMIN_MCP_STATUS--></p><!--SLOT:ADMIN_MCP_LATENCY--></div></article>
+      <article><span class="material-symbols-outlined"><!--SLOT:ADMIN_OR_ICON--></span><div><h3>OpenRouter</h3><p>Estado: <span class="<!--SLOT:ADMIN_OR_STATUS_COLOR-->"><!--SLOT:ADMIN_OR_STATUS--></span></p><code><!--SLOT:ADMIN_OR_MODEL--></code></div></article>
+      <a href="/dashboard/mcp" class="nx-text-link">Abrir integraciones<span class="material-symbols-outlined">arrow_forward</span></a>
+      <p class="nx-privacy-note"><span class="material-symbols-outlined">shield_locked</span>Los secretos se administran en el servidor.</p>
+    </aside>
+  </div>
 </div>
 
 <script>
@@ -731,45 +636,6 @@ fn render_admin_content(d: &AdminData) -> String {
   // La acción vive en `window` porque el botón la invoca con `onclick`.
   window.crearBackup = crearBackup;
 
-  function refreshCatalog() {
-    var btn = document.getElementById('refresh-catalog-btn');
-    var msg = document.getElementById('refresh-catalog-msg');
-    if (!btn) { return; }
-    btn.disabled = true;
-    btn.innerHTML = '<span class="material-symbols-outlined text-[16px]">hourglass_empty</span><span>Refrescando…</span>';
-    msg.className = 'hidden';
-    fetch('/admin/openrouter/refresh-catalog', { method: 'POST', credentials: 'same-origin' })
-      .then(function (res) {
-        return res.json().catch(function () { return {}; }).then(function (data) {
-          return { status: res.status, data: data || {} };
-        });
-      })
-      .then(function (r) {
-        if (r.status === 200 && r.data.success) {
-          msg.className = 'font-body-sm text-[10px] mb-space-sm p-space-sm rounded-lg border-secondary/40 bg-secondary-container/10';
-          msg.innerHTML = '<span class="material-symbols-outlined text-[14px] text-secondary">check_circle</span> <strong>Catálogo refrescado:</strong> ' + (r.data.count || 0) + ' modelos free disponibles.';
-          msg.classList.remove('hidden');
-          // Recargar la página para mostrar el nuevo estado del catálogo
-          window.setTimeout(function () { window.location.reload(); }, 1500);
-        } else {
-          msg.className = 'font-body-sm text-[10px] mb-space-sm p-space-sm rounded-lg border-error/40 bg-error-container/10';
-          msg.innerHTML = '<span class="material-symbols-outlined text-[14px] text-error">error</span> No se pudo refrescar: ' + ((r.data && r.data.error) || ('HTTP ' + r.status));
-          msg.classList.remove('hidden');
-        }
-      })
-      .catch(function (e) {
-        msg.className = 'font-body-sm text-[10px] mb-space-sm p-space-sm rounded-lg border-error/40 bg-error-container/10';
-        msg.innerHTML = '<span class="material-symbols-outlined text-[14px] text-error">error</span> Error de conexión: ' + e.message;
-        msg.classList.remove('hidden');
-      })
-      .then(function () {
-        btn.disabled = false;
-        btn.innerHTML = '<span class="material-symbols-outlined text-[16px]">refresh</span><span>Refrescar catálogo IA</span>';
-      });
-  }
-
-  window.refreshCatalog = refreshCatalog;
-
   cuentaAtras();
   window.setInterval(cuentaAtras, 30000);
 })();
@@ -815,13 +681,6 @@ fn render_admin_content(d: &AdminData) -> String {
         "text-secondary"
     } else {
         "text-outline"
-    };
-
-    // Estado del catálogo de modelos de IA
-    let or_catalog_state = if d.openrouter_catalog_state == "fresh" {
-        "Actualizado"
-    } else {
-        "Desactualizado"
     };
 
     // Gasto de IA del mes: el % del presupuesto (el filtro mensual ya está
@@ -899,7 +758,6 @@ fn render_admin_content(d: &AdminData) -> String {
         .replace("<!--SLOT:ADMIN_OR_STATUS-->", or_status)
         .replace("<!--SLOT:ADMIN_OR_STATUS_COLOR-->", or_status_color)
         .replace("<!--SLOT:ADMIN_OR_MODEL-->", &esc(&d.openrouter_model))
-        .replace("<!--SLOT:ADMIN_OR_CATALOG_STATE-->", or_catalog_state)
         .replace("<!--SLOT:ADMIN_BUDGET_BAR-->", &budget_bar)
         .replace("<!--SLOT:ADMIN_LAST_BACKUP_DATE-->", &esc(&last_date))
         .replace("<!--SLOT:ADMIN_LAST_BACKUP_NAME-->", &esc(&last_name))
@@ -1072,10 +930,6 @@ pub fn register_routes(
         .route("/admin", get(dashboard))
         .route("/admin/metrics", get(system_metrics))
         .route("/admin/openrouter/budget", get(openrouter_budget))
-        .route(
-            "/admin/openrouter/refresh-catalog",
-            post(openrouter_refresh_catalog),
-        )
         .route("/admin/backup/list", get(backup_list))
         .route_layer(from_fn_with_state(state.clone(), require_auth_state));
 
@@ -1101,36 +955,6 @@ pub async fn dashboard(State(state): State<Arc<AppState>>) -> (StatusCode, Html<
         &content,
     );
     (StatusCode::OK, Html(html))
-}
-
-/// POST /admin/openrouter/refresh-catalog — fuerza el refresh del catálogo de modelos.
-///
-/// Utiliza el método privado `CacheCatalogo::refresh` para invalidar el cache
-/// actual y descargar un nuevo catálogo desde OpenRouter (o volver al respaldo
-/// si el proveedor no responde). El admin puede usar este endpoint para hacer
-/// que los nuevos modelos free aparezcan más rápido que el TTL habitual (30 min).
-#[allow(dead_code)]
-pub async fn openrouter_refresh_catalog(
-    State(state): State<Arc<AppState>>,
-) -> (StatusCode, Json<serde_json::Value>) {
-    let key = state.config.openrouter_api_key.as_deref();
-    match state.cache_catalogo.refresh(key).await {
-        Some(modelos) => (
-            StatusCode::OK,
-            Json(serde_json::json!({
-                "success": true,
-                "count": modelos.len(),
-                "message": "Catálogo refrescado exitosamente",
-            })),
-        ),
-        None => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({
-                "success": false,
-                "error": "No se pudo refrescar el catálogo (proveedor no disponible)",
-            })),
-        ),
-    }
 }
 
 /// GET /admin/metrics — métricas del sistema en JSON.

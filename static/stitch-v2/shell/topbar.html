@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <header class="app-topbar nova-topbar fixed top-0 left-0 right-0 h-16 bg-surface-container-low/90 backdrop-blur-xl border-b border-outline-variant/30 z-40 flex items-center justify-between px-4 gap-3">
   <div class="app-topbar-left flex items-center gap-3 min-w-0">
     <a href="/dashboard" class="topbar-brand" aria-label="Study Platform, ir al panel principal">
@@ -18,35 +19,30 @@
       <input name="q" class="topbar-search-input" placeholder="¿Qué necesitas encontrar?" type="text" autocomplete="off"/>
       <kbd class="topbar-search-shortcut" aria-hidden="true">⌘ K</kbd>
     </form>
+=======
+<header class="app-topbar nx-topbar">
+  <div class="app-topbar-left nx-topbar-leading">
+    <a href="/dashboard" class="topbar-brand nx-mobile-brand" aria-label="NOVA, ir al inicio"><span>N</span><strong>NOVA</strong><small>3.0</small></a>
+    <div class="nx-topbar-context"><span>NOVA</span><span class="material-symbols-outlined" aria-hidden="true">chevron_right</span><strong>Tu espacio académico</strong></div>
+>>>>>>> 9c0a42b34fe9e887e97de2b0755c4745d9427780
   </div>
 
-  <div class="app-topbar-actions flex items-center gap-2 shrink-0">
-    <div class="relative">
-      <button type="button" class="topbar-create flex items-center gap-1.5 bg-secondary text-on-secondary" aria-label="Crear un elemento">
-        <span class="material-symbols-outlined">add</span>
-        <span class="topbar-create-label">Crear</span>
-        <span class="topbar-create-chevron material-symbols-outlined">expand_more</span>
-      </button>
+  <form class="topbar-search nx-global-search" action="/dashboard/search" method="get" role="search">
+    <span class="topbar-search-icon material-symbols-outlined" aria-hidden="true">search</span>
+    <input name="q" class="topbar-search-input" placeholder="Buscar notas, tareas o archivos…" type="search" autocomplete="off" aria-label="Búsqueda global">
+    <kbd class="topbar-search-shortcut" aria-hidden="true">⌘ K</kbd>
+  </form>
+
+  <div class="app-topbar-actions nx-topbar-actions">
+    <a href="/dashboard/mcp" class="topbar-status nx-connection" title="Ver estado de conexiones"><!--SLOT:SHELL_STATUS--></a>
+    <div class="relative nx-create-wrap">
+      <button type="button" class="topbar-create nx-create-button" aria-label="Crear un elemento"><span class="material-symbols-outlined">add</span><span class="topbar-create-label">Crear</span><span class="topbar-create-chevron material-symbols-outlined">expand_more</span></button>
     </div>
-
-    <a href="/dashboard/mcp" class="topbar-status" title="Ver estado de conexiones">
-      <!--SLOT:SHELL_STATUS-->
-    </a>
-
-    <div class="relative">
-      <button type="button" class="topbar-notification relative" title="Notificaciones">
-        <span class="material-symbols-outlined">notifications</span>
-        <span class="topbar-notification-dot" aria-hidden="true"></span>
-      </button>
-    </div>
-
-    <div class="topbar-user flex items-center gap-space-xs pl-space-xs border-l border-outline-variant/40">
+    <button type="button" class="topbar-notification nx-icon-button nx-notification" title="Notificaciones" aria-label="Notificaciones"><span class="material-symbols-outlined">notifications</span><i aria-hidden="true"></i></button>
+    <div class="topbar-user border-l border-outline-variant/40 nx-user-placeholder">
       <span class="relative shrink-0"><!--SLOT:SHELL_AVATAR--><span class="topbar-user-presence" aria-hidden="true"></span></span>
-      <span class="topbar-user-copy flex flex-col text-left">
-        <span class="topbar-user-name font-label-sm text-label-sm text-on-surface font-semibold leading-tight"><!--SLOT:SHELL_NAME--></span>
-        <span class="topbar-user-role font-body-sm text-[10px] text-outline leading-tight"><!--SLOT:SHELL_ROLE--></span>
-      </span>
-      <span class="topbar-user-chevron material-symbols-outlined text-[16px] text-outline cursor-pointer">expand_more</span>
+      <span class="topbar-user-copy"><span class="topbar-user-name"><!--SLOT:SHELL_NAME--></span><span class="topbar-user-role"><!--SLOT:SHELL_ROLE--></span></span>
+      <span class="topbar-user-chevron material-symbols-outlined">expand_more</span>
     </div>
   </div>
 </header>

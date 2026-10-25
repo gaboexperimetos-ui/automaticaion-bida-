@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <div class="flex flex-col w-full">
 <div class="px-gutter-desktop py-space-lg flex flex-col gap-space-lg">
 <!-- Header Section with Telemetry Overview -->
@@ -283,6 +284,53 @@
 </div>
 </div>
 </div>
+=======
+<div class="nx-page nx-mcp">
+  <header class="nx-page-header">
+    <div><p class="nx-eyebrow">Sistema · Integraciones</p><h1>Conexiones claras.<br>Estado verificable.</h1><p>Servicios, IA y telemetría en una vista operativa. Cada estado procede del servidor.</p></div>
+    <div class="nx-mcp-metrics"><div><span>Orchestrator</span><!--SLOT:MCP_ORCHESTRATOR--></div><div><span>Latencia</span><strong id="header-latency"><!--SLOT:MCP_LATENCY--></strong></div><div><span>Gasto del mes</span><strong><!--SLOT:MCP_SPEND--></strong></div></div>
+  </header>
+  <section class="nx-services" aria-labelledby="services-title">
+    <div class="nx-section-head"><div><p class="nx-eyebrow">01 · Servicios</p><h2 id="services-title">Tu ecosistema</h2></div><p><!--SLOT:MCP_SERVERS_LINE--></p></div>
+    <div class="nx-service-grid">
+      <article class="nx-service-card"><header><span class="material-symbols-outlined">cloud_sync</span><!--SLOT:MCP_STATUS_MIKARENO--></header><h3>Mikareno</h3><p>Vida académica, calificaciones, asistencia y calendario.</p><footer><code><!--SLOT:MCP_URL_MIKARENO--></code><span><!--SLOT:MCP_TOOLS--></span></footer></article>
+      <article class="nx-service-card"><header><span class="material-symbols-outlined">description</span><!--SLOT:MCP_STATUS_GENOFFICE--></header><h3>GenOffice</h3><p>Generación del informe DOCX mediante el MCP configurado.</p><footer><code><!--SLOT:MCP_URL_GENOFFICE--></code><span>MCP</span></footer></article>
+      <article class="nx-service-card"><header><span class="material-symbols-outlined">memory</span><!--SLOT:MCP_NATIVE_LOCATION--></header><h3>Study Native</h3><p>Notas, búsqueda y contexto servidos por esta instancia.</p><footer><code>/mcp</code><span><!--SLOT:MCP_NATIVE_TOOLS--></span></footer></article>
+    </div>
+  </section>
+  <div class="nx-mcp-layout">
+    <!-- Secret Key Form -->
+    <section class="nx-router">
+      <div class="nx-section-head"><div><p class="nx-eyebrow">02 · Enrutador</p><h2>OpenRouter</h2></div><!--SLOT:MCP_STATUS_AI--></div>
+      <p class="nx-panel-intro">Una configuración de servidor para llegar a múltiples modelos.</p>
+      <div class="nx-router-fields">
+        <div class="nx-field"><div class="nx-field-label"><label for="openrouter-key">API key secreta</label><span><!--SLOT:MCP_KEY_STATE--></span></div><div class="nx-secret-input"><span class="material-symbols-outlined">key</span><input id="openrouter-key" type="password" placeholder="sk-or-v1-••••••••••••••••••••••••" autocomplete="off" aria-describedby="openrouter-key-note"><button id="toggle-key-visibility" type="button"><span class="material-symbols-outlined" id="eye-icon">visibility</span><span id="eye-text">Mostrar</span></button></div></div>
+        <div class="nx-form-grid">
+          <div class="nx-field"><div class="nx-field-label"><label for="default-model">Modelo primario</label><span id="model-hint">Definido en .env</span></div><select id="default-model" aria-describedby="model-hint"><!--SLOT:MCP_MODEL_OPTIONS--></select></div>
+          <div class="nx-fallback"><div><strong>Fallback local</strong><span>Ollama / Native MCP</span></div><label for="fallback-toggle"><input class="sr-only" id="fallback-toggle" type="checkbox" checked aria-label="Derivar a Ollama si la API falla"><span></span></label></div>
+        </div>
+        <div class="nx-form-grid">
+          <div class="nx-range-field"><div><label for="temperature-slider">Temperatura</label><output id="temp-value">0.30 (Analítico)</output></div><input id="temperature-slider" max="100" min="0" type="range" value="30"><div><span>Precisión</span><span>Divergencia</span></div><p>El cliente fija 0.70; este control no cambia el servidor.</p></div>
+          <div class="nx-range-field"><div><label for="budget-slider">Tope mensual</label><output id="budget-value"><!--SLOT:MCP_BUDGET--></output></div><input id="budget-slider" max="150" min="1" type="range" value="<!--SLOT:MCP_BUDGET_INT-->"><div><span>$1</span><span>$150</span></div><p>Referencia visual; la configuración efectiva vive en .env.</p></div>
+        </div>
+      </div>
+      <p class="nx-privacy-note" id="openrouter-key-note"><span class="material-symbols-outlined">verified_user</span>La clave permanece en variables de entorno del servidor.</p>
+      <div class="nx-button-row"><button class="nx-button nx-button-secondary" id="btn-test-ping" type="button"><span class="material-symbols-outlined">wifi_tethering</span><span>Probar conexión</span></button><button class="nx-button nx-button-primary" id="btn-save-key" type="button"><span class="material-symbols-outlined">check_circle</span><span>Guardar parámetros</span></button></div>
+    </section>
+    <!-- Linked MCP Servers Grid -->
+    <aside class="nx-playground">
+      <header><div><p class="nx-eyebrow">03 · Simulación</p><h2>Playground</h2></div><button class="nx-icon-button" id="btn-clear-chat" type="button" aria-label="Limpiar registro"><span class="material-symbols-outlined">restart_alt</span></button></header>
+      <div class="nx-playground-model"><span class="material-symbols-outlined">terminal</span><span id="active-chat-model"><!--SLOT:MCP_MODEL--></span></div>
+      <div class="nx-playground-prompts"><button class="quick-test-btn" data-prompt="Ping check. Valida latencia de socket y retorna round-trip time.">Latencia</button><button class="quick-test-btn" data-prompt="Calcula el consumo de tokens y ratio de compresión para un párrafo técnico estándar.">Tokens</button><button class="quick-test-btn" data-prompt="Resume el último apunte del Segundo Cerebro sobre Sistemas Distribuidos.">Última nota</button></div>
+      <div id="chat-messages" class="nx-playground-messages"><!--SLOT:MCP_TRANSCRIPT--></div>
+      <div class="nx-playground-composer"><textarea id="chat-input" aria-label="Mensaje de prueba" placeholder="Mensaje de prueba…" rows="2"></textarea><button id="btn-send-message" type="button" aria-label="Enviar mensaje de prueba"><span class="material-symbols-outlined">arrow_upward</span></button></div>
+      <p class="nx-playground-note">Simulación local · no ejecuta inferencia real</p>
+    </aside>
+  </div>
+  <section class="nx-telemetry"><div class="nx-section-head"><div><p class="nx-eyebrow">04 · Telemetría</p><h2>Rendimiento histórico</h2></div><p>Registro local de uso</p></div><!--SLOT:MCP_TELEMETRY--></section>
+</div>
+
+>>>>>>> 9c0a42b34fe9e887e97de2b0755c4745d9427780
 <script>
   (function initMcpPlayground() {
     // 1. Secret Key Visibility Toggle

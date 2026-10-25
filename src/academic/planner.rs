@@ -81,7 +81,9 @@ pub async fn weekly(
             "Mikareno no respondió: no hay datos de tareas que mostrar. Verifica que el MCP esté corriendo.",
             &format!("{}?week={}", RUTA, iso(lunes)),
         );
-        let content = format!("{banner}{vacio}");
+        let content = format!(
+            r###"<div class="nx-page nx-planner nova-page nova-planner-page"><header class="nx-page-header nova-page-head"><div><p class="nx-eyebrow">Espacio de trabajo · Planificador</p><h1>Tu semana,<br>paso a paso.</h1><p>Organiza el trabajo real sin perder de vista lo que vence después.</p></div><a class="nx-button nx-button-secondary" href="/dashboard/calendar">Abrir calendario</a></header><section class="nx-planner-week nova-planner-week">{banner}{vacio}</section></div>"###
+        );
         return Html(templates::page_ext(
             "Planificador — Study Platform",
             "Planificador",
@@ -139,7 +141,7 @@ pub async fn weekly(
             format!(r#"<ul class="mt-space-xs space-y-space-xs">{lis}</ul>"#)
         };
         celdas.push_str(&format!(
-            r##"<div class="{resaltado}bg-surface-container rounded-lg p-space-sm min-h-[140px]">
+            r##"<div class="nova-planner-day {resaltado}bg-surface-container rounded-lg p-space-sm min-h-[140px]">
                 <h3 class="font-headline-sm text-headline-sm text-primary-container font-semibold">{etiqueta}</h3>
                 {chip}
                 {items}
@@ -149,7 +151,7 @@ pub async fn weekly(
     }
     let grid = format!(
         r##"<div class="overflow-x-auto">
-            <div class="min-w-[840px] grid grid-cols-7 gap-px bg-outline/40 border border-outline rounded-lg overflow-hidden">
+            <div class="nova-planner-grid min-w-[840px] grid grid-cols-7 gap-px bg-outline/40 border border-outline rounded-lg overflow-hidden">
                 {celdas}
             </div>
         </div>"##,
@@ -190,7 +192,13 @@ pub async fn weekly(
     let otras_html = card_tareas("Tareas que vencen en otras semanas", &otras_semanas);
     let sin_fecha_html = card_tareas("Tareas sin fecha de vencimiento legible", &sin_fecha);
 
-    let content = format!("{banner}{nav}{grid}{resumen_html}{otras_html}{sin_fecha_html}");
+    let content = format!(
+        r###"<div class="nx-page nx-planner nova-page nova-planner-page">
+          <header class="nx-page-header nova-page-head"><div><p class="nx-eyebrow">Espacio de trabajo · Planificador</p><h1>Tu semana,<br>paso a paso.</h1><p>Organiza el trabajo real sin perder de vista lo que vence después.</p></div><div class="nx-button-row"><a class="nx-button nx-button-secondary" href="/dashboard/horario">Ver horario</a><a class="nx-button nx-button-primary" href="/dashboard/calendar">Abrir calendario</a></div></header>
+          <section class="nx-planner-week nova-planner-week"><div class="nx-section-head"><div><p class="nx-eyebrow">Plan semanal</p><h2>Ritmo de la semana</h2></div><span class="material-symbols-outlined">view_week</span></div>{banner}{nav}{grid}</section>
+          <div class="nx-planner-bottom nova-planner-bottom">{resumen_html}{otras_html}{sin_fecha_html}</div>
+        </div>"###
+    );
 
     Html(templates::page_ext(
         "Planificador — Study Platform",
@@ -356,7 +364,7 @@ fn nav_semana(
     };
 
     format!(
-        r##"<div class="flex items-center justify-between gap-space-sm mb-space-md">
+        r##"<div class="nova-planner-nav flex items-center justify-between gap-space-sm mb-space-md">
             {prev}
             <div class="text-center">
                 <h2 class="font-headline-sm text-headline-sm text-primary-container font-semibold">{rango}</h2>
@@ -391,7 +399,7 @@ fn item_tarea(t: &Tarea) -> String {
         )
     };
     format!(
-        r##"<li class="rounded-lg border border-outline bg-surface-container px-space-sm py-space-xs">
+        r##"<li class="nova-task-card rounded-lg border border-outline bg-surface-container px-space-sm py-space-xs">
             <p class="font-body-sm text-body-sm text-on-surface">{titulo}</p>
             {sub}
         </li>"##,

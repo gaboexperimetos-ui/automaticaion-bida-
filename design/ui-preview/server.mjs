@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import http from 'node:http';
 import { fileURLToPath } from 'node:url';
+import { createPages } from './pages.mjs';
 
 // Preview aislada: todos los datos de este archivo son ficticios.
 const previewDir = path.dirname(fileURLToPath(import.meta.url));
@@ -57,7 +58,7 @@ let aside = read('static/stitch-v2/shell/aside.html')
 const avatar = '<span class="w-8 h-8 rounded-full bg-primary-container/20 ring-1 ring-primary/40 flex items-center justify-center font-label-md text-[11px] text-primary-container font-semibold">AL</span>';
 let topbar = read('static/stitch-v2/shell/topbar.html')
   .replace('<header ', '<header id="app-topbar" ')
-  .replace('<div class="app-topbar-left flex items-center gap-3 min-w-0">', '<div class="app-topbar-left flex items-center gap-3 min-w-0"><button id="rail-toggle" type="button" aria-controls="app-rail" aria-expanded="true" aria-label="Mostrar u ocultar el menú lateral"><span class="material-symbols-outlined text-[20px]">menu</span></button>')
+  .replace(/<div class="app-topbar-left[^"]*">/, (opening) => `${opening}<button id="rail-toggle" type="button" aria-controls="app-rail" aria-expanded="true" aria-label="Mostrar u ocultar la navegación"><span class="material-symbols-outlined">menu</span></button>`)
   .replaceAll('<!--SLOT:SHELL_AVATAR-->', avatar)
   .replaceAll('<!--SLOT:SHELL_NAME-->', 'Alex')
   .replaceAll('<!--SLOT:SHELL_ROLE-->', 'Ingeniería')
@@ -65,7 +66,9 @@ let topbar = read('static/stitch-v2/shell/topbar.html')
 
 const head = read('static/stitch-v2/shell/head.html')
   .replace('https://cdn.tailwindcss.com', '/node_modules/tailwindcss-cdn/tailwindcss.js')
-  .replace(/<link href="https:\/\/fonts\.googleapis\.com[^>]+>/, '<link rel="stylesheet" href="/node_modules/@fontsource/inter/latin.css"><link rel="stylesheet" href="/node_modules/@fontsource/manrope/latin.css"><link rel="stylesheet" href="/node_modules/@fontsource/material-symbols-outlined/latin-400.css">');
+  .replace('https://unpkg.com/htmx.org@2.0.3/dist/htmx.min.js', '/node_modules/htmx.org/dist/htmx.min.js')
+  .replace(/<link rel="preconnect"[^>]+>/g, '')
+  .replace(/<link href="https:\/\/fonts\.googleapis\.com[^>]+>/, '<link rel="stylesheet" href="/node_modules/@fontsource/dm-sans/latin.css"><link rel="stylesheet" href="/node_modules/@fontsource/space-grotesk/latin.css"><link rel="stylesheet" href="/node_modules/@fontsource/manrope/latin.css"><link rel="stylesheet" href="/node_modules/@fontsource/material-symbols-outlined/latin-400.css">');
 const rust = read('src/handlers/stitch_v2.rs');
 const shellCss = rust.match(/const SHELL_CSS: &str = r##"([\s\S]*?)"##;/)?.[1] || '';
 const shellJs = rust.match(/const SHELL_JS: &str = r##"([\s\S]*?)"##;/)?.[1] || '';
@@ -90,13 +93,159 @@ topbar = topbar.replace(
   `<div class="relative">${fillUserSlots(userButton)}${fillUserSlots(userPanel)}</div>`,
 );
 
-const html = `<!DOCTYPE html><html class="dark" lang="es"><head>${head}<style>${shellCss}</style></head><body class="rail-collapsed bg-background font-body-md text-body-md text-on-surface antialiased"><a class="skip-link" href="#contenido">Saltar al contenido</a>${aside}<button id="rail-backdrop" type="button" aria-label="Cerrar menú"></button><div id="app-rail-content" class="pl-[250px]">${topbar}<main id="contenido" tabindex="-1" class="relative pt-16 w-full min-h-screen bg-background">${dashboard}</main></div><script>${shellJs}${userMenuJs}</script><script src="/shell.js" defer></script></body></html>`;
+const pages = createPages(dashboard);
+
+// Autenticación: se extraen las plantillas reales de Rust y solo se sustituyen
+// los slots que normalmente rellena el servidor. Así la preview no mantiene una
+// segunda maqueta que pueda desincronizarse del acceso de producción.
+const authSource = read('src/handlers/auth.rs');
+const loginTemplate = authSource.match(/const LOGIN_PAGE_HTML: &str = r##"([\s\S]*?)"##;/)?.[1] || '';
+const loginErrorHtml = authSource.match(/const LOGIN_ERROR_HTML: &str = r##"([\s\S]*?)"##;/)?.[1] || '';
+const passwordSource = authSource.slice(authSource.indexOf('fn password_page_html('));
+const passwordTemplate = passwordSource.match(/r##"(<!DOCTYPE html>[\s\S]*?)"##,/)?.[1] || '';
+const passwordJs = authSource.match(/const PASSWORD_PAGE_JS: &str = r#"([\s\S]*?)"#;/)?.[1] || '';
+const passwordMinLength = authSource.match(/const MIN_NEW_PASSWORD_LEN: usize = (\d+);/)?.[1] || '12';
+const loginHead = loginTemplate.match(/<head>[\s\S]*?<\/head>/)?.[0] || '';
+const passwordPage = passwordTemplate
+  .replace('{head}', loginHead.replace('<title>NOVA — Iniciar sesión</title>', '<title>NOVA — Cambiar contraseña</title>'))
+  .replace('{banner}', '')
+  .replace('{username_input}', '<input id="username" type="text" name="username" value="alex" readonly autocomplete="username">')
+  .replace('{action}', '/settings/password')
+  .replaceAll('{min_len}', passwordMinLength)
+  .replace('{js}', passwordJs);
+const localizeAuth = (html) => html
+  .replace('https://cdn.tailwindcss.com', '/node_modules/tailwindcss-cdn/tailwindcss.js')
+  .replace('https://unpkg.com/htmx.org@1.9.12', '/node_modules/htmx.org/dist/htmx.min.js')
+  .replace(/<link rel="preconnect"[^>]+>/g, '')
+  .replace(/<link href="https:\/\/fonts\.googleapis\.com[^>]+>/, '<link rel="stylesheet" href="/node_modules/@fontsource/dm-sans/latin.css"><link rel="stylesheet" href="/node_modules/@fontsource/space-grotesk/latin.css"><link rel="stylesheet" href="/node_modules/@fontsource/manrope/latin.css"><link rel="stylesheet" href="/node_modules/@fontsource/material-symbols-outlined/latin-400.css">');
+const authPages = new Map([
+  ['/login', localizeAuth(loginTemplate)],
+  ['/settings/password', localizeAuth(passwordPage)],
+]);
+const navSource = rust.match(/pub const NAV_LINKS[\s\S]*?=\s*&\[([\s\S]*?)\];/)?.[1] || '';
+const navLinks = [...navSource.matchAll(/\("([^"]+)",\s*"([^"]+)"\)/g)].map((match) => [match[1], match[2]]);
+const stateTokens = ['bg-primary-container', 'text-on-primary-container', 'font-semibold', 'text-on-surface-variant', 'hover:text-on-surface', 'hover:bg-surface-container', 'hover:bg-primary-fixed-dim'];
+const activeClasses = ['text-on-primary-container', 'bg-primary-container', 'font-label-md', 'font-semibold', 'hover:bg-primary-fixed-dim'];
+const idleClasses = ['text-on-surface-variant', 'hover:text-on-surface', 'hover:bg-surface-container'];
+const asideFor = (route) => {
+  const section = [
+    ['/dashboard/calendar/', '/dashboard/calendar'],
+    ['/dashboard/subjects/', '/dashboard/subjects'],
+    ['/office/docs/', '/office/docs'],
+    ['/office/sheets/', '/office/sheets'],
+    ['/office/presentations/', '/office/presentations'],
+    ['/office/library/', '/office/library'],
+  ].find(([prefix]) => route.startsWith(prefix))?.[1] || route;
+  const active = section === '/dashboard/notes'
+    ? 'segundo-cerebro'
+    : navLinks.find(([, target]) => target === section)?.[0];
+  return aside.replace(/<a\b[^>]*data-path="([^"]+)"[^>]*>/g, (tag, key) => {
+    const link = navLinks.find(([pathKey]) => pathKey === key);
+    const isActive = key === active;
+    let out = link ? tag.replace(/href="[^"]*"/, `href="${link[1]}"`) : tag;
+    out = out.replace(/\s+aria-current="[^"]*"/g, '');
+    out = out.replace(/class="([^"]*)"/, (_, classes) => {
+      const base = classes.split(/\s+/).filter((name) => name && !stateTokens.includes(name));
+      return `class="${[...base, ...(isActive ? activeClasses : idleClasses)].join(' ')}"`;
+    });
+    return isActive ? out.replace(/>$/, ' aria-current="page">') : out;
+  });
+};
+const shell = (content, route) => `<!DOCTYPE html><html class="dark" lang="es"><head>${head}<style>${shellCss}</style></head><body class="bg-background font-body-md text-body-md text-on-surface antialiased"><a class="skip-link" href="#contenido">Saltar al contenido</a>${asideFor(route)}<button id="rail-backdrop" type="button" aria-label="Cerrar menú"></button><div id="app-rail-content" class="pl-[250px]">${topbar}<main id="contenido" tabindex="-1" class="relative pt-16 w-full min-h-screen bg-background">${content}</main></div><script>${shellJs}${userMenuJs}</script><script src="/shell.js" defer></script></body></html>`;
 const types = { '.css': 'text/css; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.woff': 'font/woff' };
+const json = (res, value) => {
+  res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+  res.end(JSON.stringify(value));
+};
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
-  if (url.pathname === '/' || url.pathname === '/dashboard') {
+  if (url.pathname === '/health') {
+    json(res, { status: 'ok', components: { openrouter: true, mikareno: true } });
+    return;
+  }
+  if (url.pathname === '/api/notes') {
+    json(res, { notes: [
+      { slug: 'concurrencia', title: 'Concurrencia y semáforos', tags: 'sistemas' },
+      { slug: 'routing', title: 'Routing dinámico', tags: 'redes' },
+    ] });
+    return;
+  }
+  if (url.pathname.startsWith('/api/notes/')) {
+    const slug = decodeURIComponent(url.pathname.slice('/api/notes/'.length));
+    json(res, { note: { slug, title: slug === 'routing' ? 'Routing dinámico' : 'Concurrencia y semáforos', tags: 'sistemas' }, content: '# Concurrencia y semáforos\n\nUn **semáforo** coordina el acceso a recursos compartidos.\n\n## Ideas clave\n\n- Exclusión mutua\n- Sincronización' });
+    return;
+  }
+  if (url.pathname === '/api/ai/conversations') {
+    json(res, { conversations: [
+      { subject: 'sistemas', last_message: 'Un semáforo coordina procesos.', message_count: 6, updated_at: '2026-10-23T16:30:00Z' },
+      { subject: 'redes', last_message: 'RIP utiliza distancia administrativa.', message_count: 4, updated_at: '2026-10-22T14:10:00Z' },
+    ] });
+    return;
+  }
+  if (/^\/api\/ai\/conversations\/[^/]+\/messages$/.test(url.pathname)) {
+    json(res, { messages: [
+      { role: 'user', content: '¿Qué es un semáforo?', created_at: '2026-10-23T16:29:00Z' },
+      { role: 'assistant', content: 'Es un mecanismo de sincronización que coordina el acceso a recursos compartidos.', created_at: '2026-10-23T16:30:00Z' },
+    ] });
+    return;
+  }
+  if (url.pathname === '/api/ai/models') {
+    json(res, { active: 'minimax/minimax-m2:free', models: [
+      { id: 'minimax/minimax-m2:free', name: 'MiniMax M2' },
+      { id: 'google/gemma-4-31b-it:free', name: 'Gemma 4 31B' },
+    ] });
+    return;
+  }
+  if (url.pathname === '/api/ai/cost') {
+    json(res, { total_cost: 0.42, budget_limit: 25 });
+    return;
+  }
+  if (url.pathname === '/api/ai/summary' && req.method === 'POST') {
+    json(res, { summary: 'La concurrencia coordina procesos y los semáforos protegen los recursos compartidos.' });
+    return;
+  }
+  if (url.pathname === '/api/ai/quiz' && req.method === 'POST') {
+    json(res, { questions: [{ question: '¿Qué problema resuelve un semáforo?', options: ['La sincronización', 'El routing'], answer: 'La sincronización' }] });
+    return;
+  }
+  if (url.pathname === '/api/ai/study-sheet' && req.method === 'POST') {
+    json(res, { study_sheet: 'Pregunta: ¿para qué sirve un semáforo?\nRespuesta: para coordinar el acceso a recursos compartidos.' });
+    return;
+  }
+  if (url.pathname === '/api/ai/chat/stream' && req.method === 'POST') {
+    res.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-store' });
+    res.write('event: delta\ndata: {"content":"Respuesta ficticia de la preview: repasa la idea y contrástala con tus apuntes."}\n\n');
+    setTimeout(() => {
+      res.write('event: done\ndata: {"usage":{"input":18,"output":24,"cost":0.001}}\n\n');
+      res.end();
+    }, 30);
+    return;
+  }
+  if (url.pathname === '/api/ai/chat' && req.method === 'POST') {
+    res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
+    res.end('Respuesta ficticia de la preview: repasa la idea y contrástala con tus apuntes.');
+    return;
+  }
+  if (url.pathname === '/dashboard/calendar' && url.searchParams.get('partial') === 'grid') {
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.end('<div id="calendar-grid" class="nova-calendar-grid-host"><p class="nova-card-intro">Mes actualizado · datos ficticios</p></div>');
+    return;
+  }
+  if (url.pathname === '/login' && req.method === 'POST') {
+    req.resume();
+    res.writeHead(401, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+    res.end(loginErrorHtml);
+    return;
+  }
+  if (authPages.has(url.pathname) && req.method === 'GET') {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
-    res.end(html);
+    res.end(authPages.get(url.pathname));
+    return;
+  }
+  if (pages.has(url.pathname)) {
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+    res.end(shell(pages.get(url.pathname), url.pathname));
     return;
   }
   const assets = {
@@ -110,10 +259,10 @@ const server = http.createServer((req, res) => {
   if (url.pathname.startsWith('/node_modules/')) file = path.join(previewDir, 'node_modules', decodeURIComponent(url.pathname.slice('/node_modules/'.length)));
   if (!file || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
     res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
-    res.end('Preview visual: solo panel principal.');
+    res.end('Ruta no incluida en la preview Nova.');
     return;
   }
   res.writeHead(200, { 'content-type': types[path.extname(file)] || 'application/octet-stream', 'cache-control': 'no-store' });
   fs.createReadStream(file).pipe(res);
 });
-server.listen(3000, '0.0.0.0', () => console.log('Nova UI preview ready on 0.0.0.0:3000'));
+server.listen(3000, '0.0.0.0', () => console.log(`Nova UI preview ready on 0.0.0.0:3000 · ${pages.size} páginas`));

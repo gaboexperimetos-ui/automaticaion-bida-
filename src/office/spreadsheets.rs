@@ -7,7 +7,7 @@
 
 use axum::{
     extract::{Path, State},
-    response::{IntoResponse, Response},
+    response::IntoResponse,
     Form,
 };
 use serde::Deserialize;
@@ -15,7 +15,7 @@ use std::sync::Arc;
 
 use crate::office::sheets_dir;
 use crate::office::templates;
-use crate::office::templates::{hx_redirect, layout, slugify};
+use crate::office::templates::{hx_redirect, layout, layout_as, slugify};
 use crate::AppState;
 
 /// Input bounds (400 on violation).
@@ -40,72 +40,37 @@ pub struct ImportForm {
 
 /// List all spreadsheets.
 pub async fn list(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let dir = sheets_dir(&state);
-    let files = templates::list_files(&dir, "csv");
-
-    let rows = if files.is_empty() {
-        r#"<p class="text-gray-500">No hay hojas aún.</p>"#.to_string()
+    let files = templates::list_files(&sheets_dir(&state), "csv");
+    let cards = if files.is_empty() {
+        r##"<div class="gen-office-empty"><span class="material-symbols-outlined">table_chart</span><h3>Empieza con una cuadrícula.</h3><p>Crea una hoja de cinco por cinco o importa tus propios datos CSV.</p><a href="/office/sheets/new" class="gen-office-primary-button">Crear hoja</a></div>"##.to_string()
     } else {
-        files
-            .iter()
-            .map(|f| {
-                format!(
-                    r#"<tr class="border-t border-gray-800">
-                        <td class="py-2"><a href="/office/sheets/{slug}" class="text-accent hover:text-cyan-300">{display}</a></td>
-                        <td class="py-2 text-sm text-gray-500">{size}</td>
-                        <td class="py-2 text-sm text-gray-500">{modified}</td>
-                        <td class="py-2 space-x-2">
-                            <a href="/office/sheets/{slug}/export" class="text-xs text-gray-400 hover:text-white">exportar</a>
-                            <form hx-post="/office/sheets/{slug}/delete" class="inline">
-                                <button type="submit" onclick="return confirm('¿Borrar?')"
-                                    class="text-xs text-red-400 hover:text-red-300">borrar</button>
-                            </form>
-                        </td>
-                    </tr>"#,
-                    slug = templates::html_escape(&f.name),
-                    display = templates::html_escape(&f.display),
-                    size = templates::human_size(f.size),
-                    modified = &f.modified,
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("\n")
+        files.iter().map(|f| {
+            format!(
+                r##"<article class="gen-office-file-card sheets"><a class="gen-office-file-preview" href="/office/sheets/{slug}"><span class="material-symbols-outlined">table_chart</span><small>CSV</small></a><div class="gen-office-file-copy"><a href="/office/sheets/{slug}">{display}</a><span>{modified} · {size}</span></div><footer><a href="/office/sheets/{slug}/export">Exportar CSV</a><form hx-post="/office/sheets/{slug}/delete"><button type="submit" onclick="return confirm('¿Borrar?')" class="gen-office-icon-button danger" aria-label="Borrar {display}"><span class="material-symbols-outlined">delete</span></button></form></footer></article>"##,
+                slug = templates::html_escape(&f.name),
+                display = templates::html_escape(&f.display),
+                size = templates::human_size(f.size),
+                modified = templates::html_escape(&f.modified),
+            )
+        }).collect::<Vec<_>>().join("\n")
     };
 
     let body = format!(
-        r#"<div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-bold text-accent">Hojas de cálculo</h2>
-            <a href="/office/sheets/new" class="px-4 py-2 bg-accent text-black font-bold rounded hover:bg-cyan-300">+ Nueva</a>
-        </div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm">
-                <thead class="border-b border-gray-800"><tr>
-                    <th class="py-2 text-gray-400">Nombre</th>
-                    <th class="py-2 text-gray-400">Tamaño</th>
-                    <th class="py-2 text-gray-400">Modificado</th>
-                    <th class="py-2 text-gray-400">Acciones</th>
-                </tr></thead>
-                <tbody>{rows}</tbody>
-            </table>
-        </div>"#,
-        rows = rows,
+        r##"<div class="nova-page gen-office-page gen-office-manager-page">{tabs}<header class="gen-office-manager-head"><div><span>HOJAS DE CÁLCULO · CSV</span><h1>Datos que puedes trabajar.</h1><p>{count} hoja(s) con cuadrícula editable y fórmulas SUM / AVG.</p></div><a href="/office/sheets/new" class="gen-office-primary-button"><span class="material-symbols-outlined">add</span>Nueva hoja</a></header><nav class="gen-office-appnav" aria-label="Aplicaciones de oficina"><a href="/office/docs"><span class="material-symbols-outlined">description</span>Documentos</a><a class="is-active sheets" href="/office/sheets"><span class="material-symbols-outlined">table_chart</span>Hojas</a><a href="/office/presentations"><span class="material-symbols-outlined">present_to_all</span>Presentaciones</a><a href="/office/library"><span class="material-symbols-outlined">folder_open</span>Biblioteca</a></nav><section class="gen-office-file-grid">{cards}</section><footer class="gen-office-home-footer"><span><span class="material-symbols-outlined">hard_drive</span> CSV local</span><span>Fórmulas calculadas al exportar</span></footer></div>"##,
+        tabs = templates::office_tab_strip("sheets", "Hojas", "/office/sheets/new"),
+        count = files.len(),
+        cards = cards,
     );
-
-    layout("Hojas de cálculo", &body)
+    layout_as("Hojas de cálculo", "hojas", &body)
 }
 
 /// New-sheet form.
 pub async fn new_sheet() -> impl IntoResponse {
-    let body = r#"<h2 class="text-xl font-bold text-accent mb-4">Nueva hoja</h2>
-<form hx-post="/office/sheets" hx-swap="outerHTML" class="space-y-4">
-    <div>
-        <label class="block text-sm text-gray-400 mb-1">Título</label>
-        <input type="text" name="title" required
-            class="w-full px-4 py-2 bg-card border border-gray-700 rounded text-white focus:border-accent focus:outline-none">
-    </div>
-    <button type="submit" class="px-6 py-2 bg-accent text-black font-bold rounded hover:bg-cyan-300">Crear</button>
-</form>"#;
-    layout("Nueva hoja", &body)
+    let body = format!(
+        r##"<div class="nova-page gen-office-page gen-office-create-page">{tabs}<main class="gen-office-create-shell"><div class="gen-office-create-heading"><span class="gen-office-launcher-icon sheets"><span class="material-symbols-outlined">table_chart</span></span><div><span>NUEVA HOJA DE CÁLCULO</span><h1>Una cuadrícula lista para tus datos.</h1><p>Crearemos cinco filas y cinco columnas; después puedes ampliarlas desde el editor.</p></div></div><form hx-post="/office/sheets" hx-swap="outerHTML" class="gen-office-create-form compact"><div class="gen-office-create-fields"><label for="new-sheet-title">Nombre de la hoja</label><input id="new-sheet-title" type="text" name="title" placeholder="Ej. Presupuesto del trimestre" required autofocus></div><div class="gen-office-create-facts"><span><strong>5 × 5</strong> cuadrícula inicial</span><span><strong>SUM / AVG</strong> fórmulas</span><span><strong>CSV</strong> exportación</span></div><footer><a href="/office/sheets" class="gen-office-secondary-button">Cancelar</a><span>Se guardará como .csv</span><button type="submit" class="gen-office-primary-button">Crear hoja<span class="material-symbols-outlined">arrow_forward</span></button></footer></form></main></div>"##,
+        tabs = templates::office_tab_strip("sheets", "Nueva hoja", "/office/sheets/new"),
+    );
+    layout_as("Nueva hoja", "hojas", &body)
 }
 
 /// Create a spreadsheet (empty grid).
@@ -185,36 +150,39 @@ pub async fn edit(
         )
             .into_response();
     }
-    let raw = templates::read_text(&file_path);
+    let raw = match templates::read_text(&file_path) {
+        Ok(raw) => raw,
+        Err(e) => {
+            tracing::error!(
+                slug_len = slug.len(),
+                "office sheets edit: read failed: {}",
+                e
+            );
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                layout("Error", INTERNAL_ERROR_HTML),
+            )
+                .into_response();
+        }
+    };
     let rows = parse_csv(&raw);
     let computed = compute_grid(&rows);
     let grid_html = render_grid(&slug, &rows, &computed);
-    let body = format!(
-        r#"<div class="flex justify-between items-center mb-3">
-            <h2 class="text-xl font-bold text-accent">Hoja: <span class="text-white">{title}</span></h2>
-            <div class="space-x-2">
-                <a href="/office/sheets/{slug}/export" class="px-3 py-1 bg-accent text-black font-bold rounded text-sm hover:bg-cyan-300">Exportar CSV</a>
-                <form hx-post="/office/sheets/{slug}/delete" class="inline">
-                    <button type="submit" onclick="return confirm('¿Borrar hoja?')"
-                        class="px-3 py-1 bg-red-700 border border-red-800 rounded text-sm hover:bg-red-600">Borrar</button>
-                </form>
-            </div>
-        </div>
-        <div>
-            <h3 class="text-sm font-bold text-accent mb-1">Importar CSV (pega o escribe contenido)</h3>
-            <p class="text-xs text-gray-500 mb-2">Fórmulas soportadas: =SUM(rango), =AVG(rango). Las fórmulas no soportadas muestran #ERROR en la rejilla y en la exportación.</p>
-            <form hx-post="/office/sheets/{slug}/import" class="mb-4">
-                <textarea name="csv_data" rows="6"
-                    class="w-full px-3 py-2 bg-card border border-gray-700 rounded text-white font-mono text-sm focus:border-accent focus:outline-none"></textarea>
-                <button type="submit" class="mt-2 px-4 py-1 bg-accent text-black font-bold rounded text-sm hover:bg-cyan-300">Importar</button>
-            </form>
-            {grid}
-        </div>"#,
-        title = templates::html_escape(&slug.replace('-', " ")),
+    let ai_content = format!(
+        r##"<div class="gen-office-tool-list"><button type="button" onclick="addOfficeGridRow()"><span class="material-symbols-outlined">add_row_below</span><span><strong>Añadir una fila</strong><small>Amplía la cuadrícula antes de guardar</small></span></button><button type="button" onclick="addOfficeGridColumn()"><span class="material-symbols-outlined">add_column_right</span><span><strong>Añadir una columna</strong><small>Nueva columna editable al final</small></span></button></div><details class="gen-office-import-panel"><summary><span class="material-symbols-outlined">upload_file</span><span><strong>Importar CSV</strong><small>Reemplaza los datos actuales</small></span><span class="material-symbols-outlined">expand_more</span></summary><form hx-post="/office/sheets/{slug}/import"><label for="csv-import">Contenido CSV</label><textarea id="csv-import" name="csv_data" rows="8" placeholder="nombre,nota&#10;Examen,8.5"></textarea><button type="submit" class="gen-office-secondary-button">Importar datos</button></form></details><div class="gen-office-formula-help"><strong>Fórmulas compatibles</strong><code>=SUM(A1:A5)</code><code>=AVG(B2:B8)</code><span>Se calculan en la vista de valores y al exportar.</span></div>"##,
         slug = templates::html_escape(&slug),
-        grid = grid_html,
     );
-    layout(&format!("Hoja: {}", slug), &body).into_response()
+    let body = format!(
+        r##"<div class="nova-page gen-office-page gen-office-editor-page">{tabs}<header class="gen-office-ribbon"><nav class="gen-office-menubar" aria-label="Acciones de la hoja"><a class="is-active" href="/office/sheets/{slug}">Inicio</a><button type="button" onclick="addOfficeGridRow()">Insertar fila</button><button type="button" onclick="addOfficeGridColumn()">Insertar columna</button><a href="/office/sheets/{slug}/export">Exportar CSV</a></nav><div class="gen-office-ribbon-actions">{ai_toggle}<a class="gen-office-primary-button" href="/office/sheets/{slug}/export"><span class="material-symbols-outlined">download</span>CSV</a></div></header><div class="gen-office-workspace">{ai}<main class="gen-office-editor-main"><div class="gen-office-canvas-head"><div><span>HOJA DE CÁLCULO</span><strong>{title}</strong></div><span class="gen-office-local-badge"><span class="material-symbols-outlined">hard_drive</span>CSV local</span></div><section class="gen-office-sheet-workspace">{grid}</section></main></div><footer class="gen-office-statusbar"><span><span class="material-symbols-outlined">table_chart</span> Hoja1</span><span>Editable · SUM / AVG</span><span>NOVA Office</span></footer></div><script>{workspace_js}</script>"##,
+        tabs = templates::office_tab_strip("sheets", &slug.replace('-', " "), "/office/sheets/new"),
+        slug = templates::html_escape(&slug),
+        ai_toggle = templates::OFFICE_AI_TOGGLE,
+        ai = templates::office_ai_panel("Herramientas de la hoja", "Edita celdas directamente o usa la barra fx. Las acciones de esta panel modifican la cuadrícula, no un archivo ficticio.", &ai_content),
+        title = templates::html_escape(&slug.replace('-', " ")),
+        grid = grid_html,
+        workspace_js = templates::OFFICE_WORKSPACE_JS,
+    );
+    layout_as(&format!("Hoja: {}", slug), "hojas", &body).into_response()
 }
 
 /// Import CSV (or save the grid). Accepts `csv_data` (the grid is serialized
@@ -242,9 +210,8 @@ pub async fn import(
         )
             .into_response();
     }
-    // Validate the pasted CSV parses (best-effort); store the raw text so user
-    // can re-edit pasted content that the strict parser might reject.
-    let _ = parse_csv(&form.csv_data);
+    // Conserva el CSV original para que el usuario pueda corregirlo y exportarlo
+    // después; las fórmulas se calculan al abrir la vista de valores o exportar.
     if form.csv_data.len() > MAX_CSV_LEN {
         return (
             axum::http::StatusCode::BAD_REQUEST,
@@ -282,10 +249,38 @@ pub async fn export(
     if !file_path.exists() {
         return (axum::http::StatusCode::NOT_FOUND, "sheet not found").into_response();
     }
-    let raw = templates::read_text(&file_path);
+    let raw = match templates::read_text(&file_path) {
+        Ok(raw) => raw,
+        Err(e) => {
+            tracing::error!(
+                slug_len = slug.len(),
+                "office sheets export: read failed: {}",
+                e
+            );
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                "No se pudo completar la operación",
+            )
+                .into_response();
+        }
+    };
     let rows = parse_csv(&raw);
     let computed = compute_grid(&rows);
-    let bytes = write_csv(&computed);
+    let bytes = match write_csv(&computed) {
+        Ok(bytes) => bytes,
+        Err(e) => {
+            tracing::error!(
+                slug_len = slug.len(),
+                "office sheets export: CSV encoding failed: {}",
+                e
+            );
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                "No se pudo completar la operación",
+            )
+                .into_response();
+        }
+    };
     templates::file_download(
         &format!("{}.csv", slug),
         templates::mime_for_ext("csv"),
@@ -306,7 +301,22 @@ pub async fn delete(
             .into_response();
     }
     let file_path = sheets_dir(&state).join(format!("{}.csv", slug));
-    let _ = std::fs::remove_file(&file_path);
+    if let Err(e) = std::fs::remove_file(&file_path) {
+        let status = if e.kind() == std::io::ErrorKind::NotFound {
+            axum::http::StatusCode::NOT_FOUND
+        } else {
+            tracing::error!(slug_len = slug.len(), "office sheets delete: failed: {}", e);
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR
+        };
+        return (
+            status,
+            layout(
+                "Error",
+                "<p class=\"text-red-400\">No se pudo borrar la hoja.</p>",
+            ),
+        )
+            .into_response();
+    }
     hx_redirect("/office/sheets")
 }
 
@@ -318,25 +328,31 @@ fn render_grid(slug: &str, rows: &[Vec<String>], computed: &[Vec<String>]) -> St
     let cols = rows.iter().map(|r| r.len()).max().unwrap_or(0).max(5);
     let display_rows = if rows.is_empty() { 5 } else { rows.len() };
 
-    let mut editable =
-        String::from(r#"<table id="grid" class="border-collapse w-full text-sm mb-2">"#);
+    let mut editable = String::from(
+        r##"<table id="grid" class="gen-office-sheet-grid" aria-label="Cuadrícula editable"><thead><tr><th class="gen-office-row-corner"></th>"##,
+    );
+    for c in 0..cols {
+        editable.push_str(&format!("<th scope=\"col\">{}</th>", row_to_header(c)));
+    }
+    editable.push_str("</tr></thead><tbody>");
     for r in 0..display_rows {
-        editable.push_str("<tr>");
+        editable.push_str(&format!("<tr><th scope=\"row\">{}</th>", r + 1));
         for c in 0..cols {
             let val = rows
                 .get(r)
                 .and_then(|row| row.get(c))
                 .map(|s| templates::html_escape(s))
                 .unwrap_or_default();
+            let cell_ref = format!("{}{}", row_to_header(c), r + 1);
             editable.push_str(&format!(
-                "<td contenteditable=\"true\" data-r=\"{r}\" data-c=\"{c}\" class=\"border border-gray-800 px-1 py-0.5 w-24 min-w-0\">{val}</td>",
+                "<td contenteditable=\"true\" data-r=\"{r}\" data-c=\"{c}\" data-cell=\"{cell_ref}\" aria-label=\"Celda {cell_ref}\">{val}</td>",
             ));
         }
         editable.push_str("</tr>");
     }
-    editable.push_str("</table>");
+    editable.push_str("</tbody></table>");
 
-    let mut values = String::from(r#"<table class="border-collapse w-full text-sm mt-2"><tbody>"#);
+    let mut values = String::from(r##"<table class="gen-office-sheet-values"><tbody>"##);
     for r in 0..display_rows {
         values.push_str("<tr>");
         for c in 0..cols {
@@ -345,30 +361,22 @@ fn render_grid(slug: &str, rows: &[Vec<String>], computed: &[Vec<String>]) -> St
                 .and_then(|row| row.get(c))
                 .map(|s| templates::html_escape(s))
                 .unwrap_or_default();
-            values.push_str(&format!(
-                "<td class=\"border border-gray-800 px-1 py-0.5 bg-card text-gray-300\">{val}</td>",
-            ));
+            values.push_str(&format!("<td>{val}</td>"));
         }
         values.push_str("</tr>");
     }
     values.push_str("</tbody></table>");
 
     let header = (0..cols).map(row_to_header).collect::<Vec<_>>().join(" ");
-
     format!(
-        r#"<form hx-post="/office/sheets/{slug}/import" hx-on::before-request="serializeGrid()" class="mb-2">
-            <input type="hidden" name="csv_data" id="csv_data" value="">
-            <button type="submit" class="px-4 py-1 bg-accent text-black font-bold rounded text-sm hover:bg-cyan-300">Guardar cuadrícula</button>
-        </form>
-        <div class="mb-2">
-            <span class="text-xs text-gray-400">Valores calculados (soportado: =SUM(rango), =AVG(rango); no soportadas: #ERROR):</span>
-            {values}
-            <span class="ml-3 text-xs text-gray-500">Columnas: {header}</span>
-        </div>
-        <script>
-            {grid_js}
-        </script>"#,
+        r##"<div class="gen-office-sheet-head"><div><span>HOJA1 · CUADRÍCULA EDITABLE</span><p id="sheet-grid-count">{row_count} filas · {col_count} columnas</p></div><form hx-post="/office/sheets/{slug}/import" hx-on::before-request="serializeGrid()"><input type="hidden" name="csv_data" id="csv_data" value=""><button type="submit" id="save-grid-button" class="gen-office-primary-button"><span class="material-symbols-outlined">save</span>Guardar cuadrícula</button></form></div>
+        <div class="gen-office-formula-bar"><span id="active-cell">A1</span><span class="gen-office-fx">fx</span><label class="sr-only" for="formula-input">Contenido de la celda seleccionada</label><input id="formula-input" type="text" autocomplete="off" placeholder="Selecciona una celda o escribe una fórmula"></div>
+        <div class="gen-office-sheet-grid-wrap">{editable}</div>
+        <details class="gen-office-sheet-computed"><summary><span><span class="material-symbols-outlined">calculate</span>Valores calculados</span><span class="material-symbols-outlined">expand_more</span></summary><div>{values}<p>Columnas: {header}</p></div></details><script>{grid_js}</script>"##,
+        row_count = display_rows,
+        col_count = cols,
         slug = slug,
+        editable = editable,
         values = values,
         header = header,
         grid_js = templates::GRID_SERIALIZE_JS,
@@ -420,17 +428,16 @@ fn parse_csv(text: &str) -> Vec<Vec<String>> {
     rows
 }
 
-fn write_csv(rows: &[Vec<String>]) -> Vec<u8> {
+fn write_csv(rows: &[Vec<String>]) -> std::io::Result<Vec<u8>> {
     let mut wtr = csv::WriterBuilder::new()
         .has_headers(false)
         .from_writer(Vec::new());
     for row in rows {
         let rec: Vec<&str> = row.iter().map(|s| s.as_str()).collect();
-        if wtr.write_record(&rec).is_err() {
-            break;
-        }
+        wtr.write_record(&rec)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
     }
-    wtr.into_inner().unwrap_or_default()
+    wtr.into_inner().map_err(|e| e.into_error())
 }
 
 /// Column letters (`A`..) → zero-based index.
@@ -622,7 +629,7 @@ mod tests {
     #[test]
     fn write_csv_roundtrip() {
         let rows = parse_csv("1,2\n3,4");
-        let bytes = write_csv(&rows);
+        let bytes = write_csv(&rows).expect("CSV de prueba válido");
         let s = String::from_utf8_lossy(&bytes).to_string();
         assert!(s.contains("1,2"));
         assert!(s.contains("3,4"));

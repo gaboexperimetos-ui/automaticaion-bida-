@@ -1,84 +1,28 @@
-<div class="flex flex-col w-full max-w-4xl mx-auto gap-space-md">
-  <!-- MCP Status Banner -->
-  <div class="flex items-center gap-1.5 px-space-sm py-1.5 rounded-xl bg-surface-container border border-outline-variant/40 text-[11px]">
-    <!--SLOT:MCP_STATUS-->
+<div class="nx-page nx-material">
+  <header class="nx-page-header">
+    <div><p class="nx-eyebrow">NOVA AI · Estudio de aprendizaje</p><h1>Material que te ayuda<br>a practicar de verdad.</h1><p>Define el tema y el formato. Revisa el resultado y conviértelo en tu propia herramienta de estudio.</p></div>
+    <div class="nx-page-status"><i><!--SLOT:AI_DOT--></i><span><!--SLOT:AI_MODEL--></span></div>
+  </header>
+  <div class="nx-material-layout">
+    <aside class="nx-material-brief">
+      <div class="nx-step-label"><span>01</span>Configura la actividad</div>
+      <h2>Tu punto de partida</h2>
+      <p>Solo necesitas tres decisiones. Después puedes generar otra versión.</p>
+      <div class="nx-material-fields">
+        <div class="nx-field"><label for="materia-select">Materia</label><div class="nx-input-with-icon"><span class="material-symbols-outlined">menu_book</span><select id="materia-select"><!--SLOT:MATERIA_OPTIONS--></select></div></div>
+        <div class="nx-field"><label for="tema-input">Tema o punto de partida</label><input id="tema-input" type="text" placeholder="Ej. Concurrencia en sistemas operativos" autocomplete="off"></div>
+        <div class="nx-field"><label for="tipo-select">Formato de salida</label><div class="nx-input-with-icon"><span class="material-symbols-outlined">view_carousel</span><select id="tipo-select"><option value="Quiz">Cuestionario</option><option value="Resumen">Resumen</option><option value="Ficha de estudio">Ficha de estudio</option><option value="Explicación">Explicación</option></select></div></div>
+      </div>
+      <button id="generate-btn" type="button" class="nx-button nx-button-primary nx-material-generate"><span class="material-symbols-outlined">auto_awesome</span><span>Generar material</span></button>
+      <div id="cost-info" class="nx-material-cost" aria-live="polite"><span class="material-symbols-outlined">toll</span><span>Cargando coste…</span></div>
+      <div class="nx-material-source"><!--SLOT:MCP_STATUS--></div>
+    </aside>
+    <section id="results-area" role="region" aria-live="polite" aria-label="Resultado de la generación" class="nx-material-result">
+      <header class="nx-result-head"><div><span>02</span><strong>Resultado</strong></div><small>Vista de trabajo</small></header>
+      <div class="nx-material-output"><!--SLOT:INITIAL_HINT--></div>
+    </section>
   </div>
-
-  <!-- Generator Card -->
-  <div class="bg-surface-container border border-outline-variant/40 rounded-xl p-space-md">
-    <div class="flex items-center justify-between mb-space-sm">
-      <h2 class="font-headline-sm text-headline-sm text-primary-container flex items-center gap-space-xs">
-        <span class="material-symbols-outlined text-[20px] text-primary-container">draw</span>
-        <span>Generador de material de estudio</span>
-      </h2>
-      <div class="flex items-center gap-space-xs">
-        <span class="w-2 h-2 rounded-full <!--SLOT:AI_DOT-->"></span>
-        <span class="font-code-inline text-[10px] text-outline"><!--SLOT:AI_MODEL--></span>
-      </div>
-    </div>
-
-    <!-- Form Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
-      <!-- Asignatura Selector -->
-      <div>
-        <label for="materia-select" class="font-label-sm text-label-sm text-on-surface-variant mb-1 flex items-center gap-1">
-          <span class="material-symbols-outlined text-[18px] text-primary-container" aria-hidden="true">menu_book</span>
-          <span>Asignatura</span>
-        </label>
-        <select id="materia-select"
-                class="w-full px-space-sm py-2 rounded-lg bg-surface-container-high border border-outline-variant text-on-surface font-body-md text-body-md focus:outline-none focus:ring-1 focus:ring-primary-container appearance-none">
-          <!--SLOT:MATERIA_OPTIONS-->
-        </select>
-      </div>
-
-      <!-- Tipo Selector -->
-      <div>
-        <label for="tipo-select" class="font-label-sm text-label-sm text-on-surface-variant mb-1 flex items-center gap-1">
-          <span class="material-symbols-outlined text-[18px] text-primary-container" aria-hidden="true">quiz</span>
-          <span>Tipo de recurso</span>
-        </label>
-        <select id="tipo-select"
-                class="w-full px-space-sm py-2 rounded-lg bg-surface-container-high border border-outline-variant text-on-surface font-body-md text-body-md focus:outline-none focus:ring-1 focus:ring-primary-container appearance-none">
-          <option value="Quiz">Cuestionario</option>
-          <option value="Resumen">Resumen</option>
-          <option value="Ficha de estudio">Ficha de estudio</option>
-          <option value="Explicación">Explicación</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Tema de estudio Input -->
-    <div class="mt-space-md">
-      <label for="tema-input" class="font-label-sm text-label-sm text-on-surface-variant mb-1 flex items-center gap-1">
-        <span class="material-symbols-outlined text-[18px] text-primary-container" aria-hidden="true">topic</span>
-        <span>Tema de estudio</span>
-      </label>
-      <input id="tema-input" type="text"
-             placeholder="Ej: Derivadas, La Revolución Francesa, Fotosíntesis..."
-             class="w-full px-space-sm py-2 rounded-lg bg-surface-container-high border border-outline-variant text-on-surface font-body-md text-body-md placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-primary-container"
-             autocomplete="off">
-    </div>
-
-    <!-- Generate Button + Cost -->
-    <div class="mt-space-lg flex items-center justify-between">
-      <button id="generate-btn" type="button"
-              title="Genera el material con el modelo configurado. Se deshabilita mientras la IA responde (el botón muestra «Generando…»)."
-              class="flex items-center justify-center gap-1.5 px-space-md py-2.5 rounded-lg bg-primary-container text-on-primary-container font-label-md font-semibold hover:bg-primary-fixed-dim transition-all shadow-md">
-        <span class="material-symbols-outlined text-[18px]">auto_awesome</span>
-        <span>Generar material</span>
-      </button>
-      <div id="cost-info" aria-live="polite" class="flex items-center gap-1 font-code-inline text-[10px] text-outline">
-        <span class="material-symbols-outlined text-[14px]">schedule</span>
-        <span>Cargando información…</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- Results Area -->
-  <div id="results-area" role="region" aria-live="polite" aria-label="Resultado de la generación"
-       class="bg-surface-container border border-outline-variant/40 rounded-xl p-space-md min-h-[200px] flex items-center justify-center">
-    <!--SLOT:INITIAL_HINT-->
-  </div>
+  <ol class="nx-material-flow"><li><span>1</span><div><strong>Genera una base</strong><small>No una respuesta definitiva.</small></div></li><li><span>2</span><div><strong>Revisa y edita</strong><small>Contrasta con tus apuntes.</small></div></li><li><span>3</span><div><strong>Practica</strong><small>Vuelve a intentarlo sin mirar.</small></div></li></ol>
 </div>
 
 <script>
@@ -108,7 +52,7 @@
     resultsArea.innerHTML =
       '<div class="flex items-center justify-center gap-2 py-8">' +
       '  <span class="material-symbols-outlined text-primary animate-spin text-[24px]">autorenew</span>' +
-      '  <span class="font-body-sm text-body-sm text-on-surface-variant">Generando el material…</span>' +
+      '  <span class="font-body-sm text-body-sm text-on-surface-variant">Generando material…</span>' +
       '</div>';
   }
 
@@ -116,7 +60,7 @@
     generateBtn.disabled = false;
     generateBtn.innerHTML =
       '<span class="material-symbols-outlined text-[18px]">auto_awesome</span>' +
-      '<span>Generar material</span>';
+      '<span>Generar</span>';
   }
 
   function renderError(message) {
@@ -165,7 +109,7 @@
     } else {
       html +=
         '<p class="font-body-sm text-body-sm text-on-surface-variant">' +
-        'No se pudieron interpretar las preguntas del cuestionario.' +
+        'No se pudieron parsear las preguntas del cuestionario.' +
         '</p>';
     }
 
@@ -220,7 +164,7 @@
         } else if (data.material) {
           renderGeneric(data.material);
         } else {
-          renderText('Asignatural generado sin contenido reconocible.');
+          renderText('Material generado sin contenido reconocible.');
         }
       } else {
         renderError(data.error || 'Error desconocido al generar material.');
@@ -240,7 +184,7 @@
         data.total_cost.toFixed(2) + ' / $' + data.budget_limit.toFixed(2) +
         '</span>';
     } catch (e) {
-      costInfo.innerHTML = '<span class="text-outline">Información no disponible</span>';
+      costInfo.innerHTML = '<span class="text-outline">No disponible</span>';
     }
   }
 

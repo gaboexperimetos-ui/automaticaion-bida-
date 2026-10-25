@@ -429,7 +429,7 @@ pub async fn search_page(
                 .join("");
             (
                 format!(
-                    r#"<ul class="space-y-space-xs">{cards}</ul>"#,
+                    r#"<ul class="nova-search-results">{cards}</ul>"#,
                     cards = cards,
                 ),
                 Some(results.len()),
@@ -455,23 +455,15 @@ pub async fn search_page(
 /// o no devolvió nada): en ese caso no se inventa un contador.
 fn render_search_content(query: &str, count: Option<usize>, body: &str) -> String {
     let badge = match count {
-        Some(n) => format!(
-            r#"<span class="px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm">{n} resultado(s)</span>"#
-        ),
+        Some(n) => format!(r#"<span class="nx-version-badge">{n} resultado(s)</span>"#),
         None => String::new(),
     };
 
     format!(
-        r#"<div class="flex flex-col w-full text-on-surface">
-            <div class="flex flex-wrap items-center justify-between gap-2 mb-space-md">
-                <div>
-                    <h1 class="font-headline-lg text-headline-lg text-on-surface font-bold">Búsqueda global</h1>
-                    <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Busca en tus notas por título, etiqueta o contenido</p>
-                </div>
-                {badge}
-            </div>
+        r#"<div class="nx-page nx-search nova-page nova-search-page">
+            <header class="nx-page-header nx-search-hero"><div><p class="nx-eyebrow">Conocimiento · Búsqueda</p><h1>Vuelve a encontrar<br>cualquier idea.</h1><p>Busca por título, etiqueta o contenido dentro de tus notas locales.</p></div>{badge}</header>
             {form}
-            {body}
+            <section class="nx-search-body nova-search-body" aria-label="Resultados de búsqueda">{body}</section>
         </div>"#,
         badge = badge,
         form = render_search_form(query),
@@ -481,10 +473,7 @@ fn render_search_content(query: &str, count: Option<usize>, body: &str) -> Strin
 
 /// Estado vacío honesto #1: la página sin query (no se toca la BD).
 fn render_empty_hint() -> String {
-    r#"<div class="bg-surface-container border border-outline rounded-xl p-6 text-center">
-                <span class="material-symbols-outlined text-[32px] text-outline mb-2">search</span>
-                <p class="font-body-sm text-body-sm text-on-surface-variant">Escribe algo para buscar</p>
-            </div>"#
+    r#"<div class="nova-search-empty"><span class="material-symbols-outlined">travel_explore</span><h2>Tu biblioteca está lista.</h2><p>Escribe algo para buscar en tus notas.</p></div>"#
         .to_string()
 }
 
@@ -571,14 +560,11 @@ const EMPTY_STATE_RETRY_SCRIPT: &str = r#"<script>
 /// atributo `value` ni inyectar markup.
 fn render_search_form(query: &str) -> String {
     format!(
-        r#"<form method="get" action="/dashboard/search" class="flex items-center gap-2 bg-surface-container border border-outline rounded-xl p-space-md mb-space-md">
-            <span class="material-symbols-outlined text-[20px] text-outline">search</span>
+        r#"<form method="get" action="/dashboard/search" class="nx-search-form nova-search-form">
+            <span class="material-symbols-outlined">search</span>
             <label for="search-input" class="sr-only">Buscar notas</label>
-            <input id="search-input" type="search" name="q" value="{q}" placeholder="Buscar notas por título, etiqueta o contenido…"
-                class="flex-1 min-w-0 bg-transparent border-none outline-none font-body-md text-body-md text-on-surface placeholder:text-outline" />
-            <button type="submit" class="inline-flex items-center gap-1.5 px-space-md py-2 rounded-lg bg-primary-container text-on-primary-container font-label-md font-semibold hover:bg-primary-fixed-dim transition-colors">
-                <span class="material-symbols-outlined text-[16px]">search</span>Buscar
-            </button>
+            <input id="search-input" type="search" name="q" value="{q}" placeholder="Escribe una palabra, una etiqueta o una idea…" autocomplete="off" />
+            <button type="submit" class="nx-button nx-button-primary">Buscar<span class="material-symbols-outlined">arrow_forward</span></button>
         </form>"#,
         q = html_escape(query),
     )
@@ -610,10 +596,10 @@ fn render_result_card(hit: &SearchHit, notes_dir: &Path) -> String {
     };
 
     format!(
-        r#"<li class="bg-surface-container border border-outline rounded-xl p-space-md">
-                <a href="/app/notes/{slug}" class="font-headline-sm text-headline-sm text-primary-container hover:text-primary-fixed-dim transition-colors">{title}</a>
-                {snippet}
-                {chips}
+        r#"<li class="nova-search-result">
+                <span class="nova-search-result-icon"><span class="material-symbols-outlined">description</span></span>
+                <div><a href="/app/notes/{slug}">{title}</a>{snippet}{chips}</div>
+                <a href="/app/notes/{slug}" class="nova-icon-button" aria-label="Abrir {title}"><span class="material-symbols-outlined">arrow_outward</span></a>
             </li>"#,
         slug = html_escape(&hit.slug),
         title = html_escape(&hit.title),

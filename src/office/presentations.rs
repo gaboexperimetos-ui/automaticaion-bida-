@@ -6,7 +6,7 @@
 
 use axum::{
     extract::{Path, State},
-    response::{IntoResponse, Response},
+    response::IntoResponse,
     Form,
 };
 use serde::{Deserialize, Serialize};
@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use crate::office::pres_dir;
 use crate::office::templates;
-use crate::office::templates::{hx_redirect, layout, md_to_html, slugify};
+use crate::office::templates::{hx_redirect, layout, layout_as, md_to_html, slugify};
 use crate::AppState;
 
 /// Input bounds (400 on violation).
@@ -47,12 +47,25 @@ impl Presentation {
     }
 
     fn load_from(path: &std::path::Path) -> Option<Self> {
-        let txt = templates::read_text(path);
-        serde_json::from_str::<Presentation>(&txt).ok()
+        let txt = match templates::read_text(path) {
+            Ok(txt) => txt,
+            Err(e) => {
+                tracing::error!("office presentation read failed: {}", e);
+                return None;
+            }
+        };
+        match serde_json::from_str::<Presentation>(&txt) {
+            Ok(presentation) => Some(presentation),
+            Err(e) => {
+                tracing::warn!("office presentation JSON invalid: {}", e);
+                None
+            }
+        }
     }
 
     fn save_to(&self, path: &std::path::Path) -> std::io::Result<()> {
-        let txt = serde_json::to_string_pretty(self).unwrap_or_else(|_| "{}".to_string());
+        let txt = serde_json::to_string_pretty(self)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
         templates::write_text(path, &txt)
     }
 }
@@ -73,75 +86,47 @@ pub struct ReorderForm {
 pub async fn list(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let dir = pres_dir(&state);
     let files = templates::list_files(&dir, "json");
-
-    let rows = if files.is_empty() {
-        r#"<p class="text-gray-500">No hay presentaciones aún.</p>"#.to_string()
+    let cards = if files.is_empty() {
+        r##"<div class="gen-office-empty"><span class="material-symbols-outlined">present_to_all</span><h3>Tu próxima idea merece un escenario.</h3><p>Crea una presentación y construye sus diapositivas en Markdown.</p><a href="/office/presentations/new" class="gen-office-primary-button">Crear presentación</a></div>"##.to_string()
     } else {
-        files
-            .iter()
-            .map(|f| {
-                let p = Presentation::load_from(&dir.join(format!("{}.json", f.name)));
-                let slide_count = p.as_ref().map(|p| p.slides.len()).unwrap_or(0);
-                format!(
-                    r#"<tr class="border-t border-gray-800">
-                        <td class="py-2"><a href="/office/presentations/{slug}" class="text-accent hover:text-cyan-300">{display}</a></td>
-                        <td class="py-2 text-sm text-gray-500">{n} diapositiva(s)</td>
-                        <td class="py-2 text-sm text-gray-500">{size}</td>
-                        <td class="py-2 text-sm text-gray-500">{modified}</td>
-                        <td class="py-2 space-x-2">
-                            <a href="/office/presentations/{slug}/present" target="_blank"
-                                class="text-xs text-gray-400 hover:text-white">presentar</a>
-                            <form hx-delete="/office/presentations/{slug}" class="inline">
-                                <button type="submit" onclick="return confirm('¿Borrar?')"
-                                    class="text-xs text-red-400 hover:text-red-300">borrar</button>
-                            </form>
-                        </td>
-                    </tr>"#,
-                    slug = templates::html_escape(&f.name),
-                    display = templates::html_escape(&f.display),
-                    n = slide_count,
-                    size = templates::human_size(f.size),
-                    modified = &f.modified,
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("\n")
+        files.iter().map(|f| {
+            let p = Presentation::load_from(&dir.join(format!("{}.json", f.name)));
+            let slide_count = p.as_ref().map(|p| p.slides.len()).unwrap_or(0);
+            format!(
+                r##"<article class="gen-office-file-card presentations"><a class="gen-office-file-preview" href="/office/presentations/{slug}"><span class="material-symbols-outlined">present_to_all</span><small>{n} DIAPOSITIVA(S)</small></a><div class="gen-office-file-copy"><a href="/office/presentations/{slug}">{display}</a><span>{modified} · {size}</span></div><footer><a href="/office/presentations/{slug}/present" target="_blank">Presentar</a><form hx-delete="/office/presentations/{slug}"><button type="submit" onclick="return confirm('¿Borrar?')" class="gen-office-icon-button danger" aria-label="Borrar {display}"><span class="material-symbols-outlined">delete</span></button></form></footer></article>"##,
+                slug = templates::html_escape(&f.name),
+                display = templates::html_escape(&f.display),
+                n = slide_count,
+                size = templates::human_size(f.size),
+                modified = templates::html_escape(&f.modified),
+            )
+        }).collect::<Vec<_>>().join("\n")
     };
 
     let body = format!(
-        r#"<div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-bold text-accent">Presentaciones</h2>
-            <a href="/office/presentations/new" class="px-4 py-2 bg-accent text-black font-bold rounded hover:bg-cyan-300">+ Nueva</a>
-        </div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm">
-                <thead class="border-b border-gray-800"><tr>
-                    <th class="py-2 text-gray-400">Nombre</th>
-                    <th class="py-2 text-gray-400">Diapositivas</th>
-                    <th class="py-2 text-gray-400">Tamaño</th>
-                    <th class="py-2 text-gray-400">Modificado</th>
-                    <th class="py-2 text-gray-400">Acciones</th>
-                </tr></thead>
-                <tbody>{rows}</tbody>
-            </table>
-        </div>"#,
-        rows = rows,
+        r##"<div class="nova-page gen-office-page gen-office-manager-page">{tabs}<header class="gen-office-manager-head"><div><span>PRESENTACIONES · MARKDOWN</span><h1>Ideas listas para presentar.</h1><p>{count} presentación(es) editables en tu espacio local.</p></div><a href="/office/presentations/new" class="gen-office-primary-button"><span class="material-symbols-outlined">add</span>Nueva presentación</a></header><nav class="gen-office-appnav" aria-label="Aplicaciones de oficina"><a href="/office/docs"><span class="material-symbols-outlined">description</span>Documentos</a><a href="/office/sheets"><span class="material-symbols-outlined">table_chart</span>Hojas</a><a class="is-active presentations" href="/office/presentations"><span class="material-symbols-outlined">present_to_all</span>Presentaciones</a><a href="/office/library"><span class="material-symbols-outlined">folder_open</span>Biblioteca</a></nav><section class="gen-office-file-grid">{cards}</section><footer class="gen-office-home-footer"><span><span class="material-symbols-outlined">hard_drive</span> Presentaciones locales</span><span>Edición y modo presentación</span></footer></div>"##,
+        tabs = templates::office_tab_strip(
+            "presentations",
+            "Presentaciones",
+            "/office/presentations/new"
+        ),
+        count = files.len(),
+        cards = cards,
     );
-    layout("Presentaciones", &body)
+    layout_as("Presentaciones", "presentaciones", &body)
 }
 
 /// New presentation form.
 pub async fn new_pres() -> impl IntoResponse {
-    let body = r#"<h2 class="text-xl font-bold text-accent mb-4">Nueva presentación</h2>
-<form hx-post="/office/presentations" hx-swap="outerHTML" class="space-y-4">
-    <div>
-        <label class="block text-sm text-gray-400 mb-1">Título</label>
-        <input type="text" name="title" required
-            class="w-full px-4 py-2 bg-card border border-gray-700 rounded text-white focus:border-accent focus:outline-none">
-    </div>
-    <button type="submit" class="px-6 py-2 bg-accent text-black font-bold rounded hover:bg-cyan-300">Crear</button>
-</form>"#;
-    layout("Nueva presentación", &body)
+    let body = format!(
+        r##"<div class="nova-page gen-office-page gen-office-create-page">{tabs}<main class="gen-office-create-shell"><div class="gen-office-create-heading"><span class="gen-office-launcher-icon presentations"><span class="material-symbols-outlined">present_to_all</span></span><div><span>NUEVA PRESENTACIÓN</span><h1>Tu primera escena empieza aquí.</h1><p>Crea el mazo y añade después títulos, contenido Markdown y el orden de cada escena.</p></div></div><form hx-post="/office/presentations" hx-swap="outerHTML" class="gen-office-create-form compact"><div class="gen-office-create-fields"><label for="new-pres-title">Título de la presentación</label><input id="new-pres-title" type="text" name="title" placeholder="Ej. El sistema circulatorio" required autofocus></div><div class="gen-office-create-facts"><span><strong>Miniaturas</strong> navegación visual</span><span><strong>Markdown</strong> contenido editable</span><span><strong>Presentar</strong> una escena a la vez</span></div><footer><a href="/office/presentations" class="gen-office-secondary-button">Cancelar</a><span>Se guardará como .json</span><button type="submit" class="gen-office-primary-button">Crear presentación<span class="material-symbols-outlined">arrow_forward</span></button></footer></form></main></div>"##,
+        tabs = templates::office_tab_strip(
+            "presentations",
+            "Nueva presentación",
+            "/office/presentations/new"
+        ),
+    );
+    layout_as("Nueva presentación", "presentaciones", &body)
 }
 
 /// Create a presentation (empty slide deck).
@@ -149,6 +134,16 @@ pub async fn create(
     State(state): State<Arc<AppState>>,
     Form(form): Form<SlideForm>,
 ) -> impl IntoResponse {
+    if form.title.trim().is_empty() {
+        return (
+            axum::http::StatusCode::BAD_REQUEST,
+            layout(
+                "Error",
+                "<p class=\"text-red-400\">El título es obligatorio.</p>",
+            ),
+        )
+            .into_response();
+    }
     if form.title.len() > MAX_TITLE_LEN {
         return (
             axum::http::StatusCode::BAD_REQUEST,
@@ -214,98 +209,120 @@ pub async fn edit(
         }
     };
 
-    let mut cards = String::new();
+    let mut thumbnails = String::new();
+    let mut editors = String::new();
+    let total = pres.slides.len();
     for (i, slide) in pres.slides.iter().enumerate() {
         let title_esc = templates::html_escape(&slide.title);
         let content_esc = templates::html_escape(&slide.content);
-        cards.push_str(&format!(
-            r#"<div class="bg-card border border-gray-800 rounded-lg p-3 mb-3 slide" id="slide-{i}" data-idx="{i}">
-                <form hx-put="/office/presentations/{slug}/slides/{i}" class="space-y-2">
-                    <div class="flex justify-between items-center mb-2">
-                        <input name="title" value="{title}"
-                            class="text-sm bg-gray-900 border border-gray-700 rounded px-2 py-1 text-white flex-1 mr-2 focus:border-accent focus:outline-none"
-                            placeholder="Título de la diapositiva">
-                        <div class="flex gap-1">
-                            <button type="submit"
-                                class="px-2 py-1 bg-accent text-black font-bold rounded text-xs hover:bg-cyan-300">Guardar</button>
-                        </div>
-                    </div>
-                    <textarea name="content" rows="4"
-                        class="w-full px-2 py-1 bg-gray-900 border border-gray-700 rounded text-white font-mono text-xs focus:border-accent focus:outline-none">{content}</textarea>
-                </form>
-                <div class="flex gap-1 mt-2">
-                    <button type="button" onclick="moveSlide({i}, -1)"
-                        class="px-2 py-1 bg-gray-700 border border-gray-700 rounded text-xs hover:bg-gray-800">↑</button>
-                    <button type="button" onclick="moveSlide({i}, 1)"
-                        class="px-2 py-1 bg-gray-700 border border-gray-700 rounded text-xs hover:bg-gray-800">↓</button>
-                    <form hx-delete="/office/presentations/{slug}/slides/{i}" class="inline">
-                        <button type="submit" onclick="return confirm('¿Eliminar diapositiva?')"
-                            class="px-2 py-1 bg-red-700 border border-red-800 rounded text-xs hover:bg-red-600">✕</button>
-                    </form>
-                </div>
-            </div>"#,
+        let preview_html = md_to_html(&slide.content);
+        let number = i + 1;
+        let pressed = if i == 0 { "true" } else { "false" };
+        let hidden = if i == 0 { "" } else { "hidden" };
+        thumbnails.push_str(&format!(
+            r##"<article class="gen-office-thumb" id="slide-{i}" data-idx="{i}"><button type="button" class="gen-office-thumb-select" data-slide-target="{i}" onclick="selectOfficeSlide({i})" aria-pressed="{pressed}"><span class="gen-office-thumb-number">{number}</span><span class="gen-office-thumb-canvas"><strong>{title}</strong><span>{content}</span></span></button><footer><span>{number} / {total}</span><div><button type="button" onclick="moveSlide({i}, -1)" class="gen-office-icon-button" aria-label="Mover diapositiva hacia arriba"><span class="material-symbols-outlined">arrow_upward</span></button><button type="button" onclick="moveSlide({i}, 1)" class="gen-office-icon-button" aria-label="Mover diapositiva hacia abajo"><span class="material-symbols-outlined">arrow_downward</span></button><form hx-delete="/office/presentations/{slug}/slides/{i}"><button type="submit" onclick="return confirm('¿Eliminar diapositiva?')" class="gen-office-icon-button danger" aria-label="Eliminar diapositiva"><span class="material-symbols-outlined">delete</span></button></form></div></footer></article>"##,
             i = i,
+            number = number,
+            total = total,
+            pressed = pressed,
             slug = templates::html_escape(&slug),
             title = title_esc,
             content = content_esc,
         ));
+        editors.push_str(&format!(
+            r##"<section class="gen-office-slide-editor" data-slide-panel="{i}" {hidden}><div class="gen-office-slide-canvas" id="slide-preview-{i}"><div class="gen-office-slide-brand">NOVA · ESCENA {number}</div><h2>{title}</h2><div class="gen-office-slide-content" data-preview-content>{preview}</div><footer>{deck_title}</footer></div><form hx-put="/office/presentations/{slug}/slides/{i}" class="gen-office-slide-form"><div><label for="slide-title-{i}">Título</label><input id="slide-title-{i}" name="title" value="{title}" placeholder="Título de la diapositiva" oninput="syncOfficeSlidePreview({i})" required></div><div><label for="slide-content-{i}">Contenido Markdown</label><textarea id="slide-content-{i}" name="content" rows="6" oninput="syncOfficeSlidePreview({i})">{content}</textarea></div><footer><span>La vista se actualiza al escribir</span><button type="submit" class="gen-office-primary-button"><span class="material-symbols-outlined">save</span>Guardar diapositiva</button></footer></form></section>"##,
+            i = i,
+            number = number,
+            hidden = hidden,
+            slug = templates::html_escape(&slug),
+            title = title_esc,
+            content = content_esc,
+            preview = preview_html,
+            deck_title = templates::html_escape(&pres.title),
+        ));
+    }
+    if pres.slides.is_empty() {
+        editors.push_str(
+            r##"<div class="gen-office-empty gen-office-slide-empty"><span class="material-symbols-outlined">present_to_all</span><h3>Esta presentación aún no tiene escenas.</h3><p>Añade la primera desde el panel de herramientas.</p><button type="button" class="gen-office-primary-button" onclick="openNewSlide()">Añadir diapositiva</button></div>"##,
+        );
     }
 
-    let body = format!(
-        r#"<div class="flex justify-between items-center mb-3">
-            <h2 class="text-xl font-bold text-accent">Presentación: <span class="text-white">{title}</span></h2>
-            <div class="space-x-2">
-                <a href="/office/presentations/{slug}/present" target="_blank"
-                    class="px-3 py-1 bg-accent text-black font-bold rounded text-sm hover:bg-cyan-300">Presentar</a>
-                <form hx-delete="/office/presentations/{slug}" class="inline">
-                    <button type="submit" onclick="return confirm('¿Borrar presentación?')"
-                        class="px-3 py-1 bg-red-700 border border-red-800 rounded text-sm hover:bg-red-600">Borrar</button>
-                </form>
-            </div>
-        </div>
-        <div id="slides">{cards}</div>
-        <h3 class="text-sm font-bold text-accent mb-1 mt-4">Añadir diapositiva</h3>
-        <form hx-post="/office/presentations/{slug}/slides" class="space-y-2 mb-4">
-            <input name="title" placeholder="Título"
-                class="w-full px-3 py-1 bg-card border border-gray-700 rounded text-white focus:border-accent focus:outline-none">
-            <textarea name="content" rows="3" placeholder="Contenido (Markdown)"
-                class="w-full px-3 py-1 bg-card border border-gray-700 rounded text-white font-mono text-xs focus:border-accent focus:outline-none"></textarea>
-            <button type="submit" class="px-4 py-1 bg-accent text-black font-bold rounded text-sm hover:bg-cyan-300">Añadir</button>
-        </form>
-        <form hx-post="/office/presentations/{slug}/slides/reorder" hx-on::before-request="buildOrder()" class="mt-4">
-            <input type="hidden" name="order" id="order" value="">
-            <button type="submit" class="px-3 py-1 bg-gray-700 border border-gray-700 rounded text-xs hover:bg-gray-800">Aplicar reorden</button>
-        </form>
-        <script>
-            function buildOrder() {{
-                const order = Array.from(document.querySelectorAll('#slides [data-idx]'))
-                    .map(el => el.getAttribute('data-idx'));
-                document.getElementById('order').value = order.join(',');
-            }}
-            function moveSlide(idx, delta) {{
-                buildOrder();
-                // Delegate to a simple reorder by rebuilding order with the moved item.
-                const order = Array.from(document.querySelectorAll('#slides [data-idx]'))
-                    .map(el => parseInt(el.getAttribute('data-idx'), 10));
-                const i = order.indexOf(idx);
-                if (i === -1) return;
-                const j = i + delta;
-                if (j < 0 || j >= order.length) return;
-                order.splice(i, 1);
-                order.splice(j, 0, idx);
-                document.getElementById('order').value = order.join(',');
-                fetch('/office/presentations/{slug}/slides/reorder', {{
-                    method: 'POST',
-                    headers: {{'Content-Type': 'application/x-www-form-urlencoded'}},
-                    body: 'order=' + encodeURIComponent(document.getElementById('order').value)
-                }}).then(() => location.reload());
-            }}
-        </script>"#,
-        title = templates::html_escape(&pres.title),
+    let ai_content = format!(
+        r##"<div class="gen-office-tool-list"><a href="/office/presentations/{slug}/present" target="_blank"><span class="material-symbols-outlined">play_arrow</span><span><strong>Iniciar presentación</strong><small>Abrir el modo de una escena a la vez</small></span></a></div><section class="gen-office-new-slide" id="gen-office-new-slide"><div><span>NUEVA ESCENA</span><h3>Añadir diapositiva</h3></div><form hx-post="/office/presentations/{slug}/slides"><label for="new-slide-title">Título</label><input id="new-slide-title" name="title" placeholder="Una idea clara" required><label for="new-slide-content">Contenido Markdown</label><textarea id="new-slide-content" name="content" rows="7" placeholder="Idea principal&#10;&#10;Escribe tu contenido…"></textarea><button type="submit" class="gen-office-primary-button"><span class="material-symbols-outlined">add</span>Añadir diapositiva</button></form></section>"##,
         slug = templates::html_escape(&slug),
-        cards = cards,
     );
-    layout(&format!("Editar: {}", slug), &body).into_response()
+    let slug_js = serde_json::to_string(&slug).unwrap_or_else(|_| "\"\"".to_string());
+    let deck_js = r##"
+var genOfficeDeckSlug = __SLUG__;
+function selectOfficeSlide(index) {
+    document.querySelectorAll('[data-slide-panel]').forEach((panel) => {
+        panel.hidden = panel.getAttribute('data-slide-panel') !== String(index);
+    });
+    document.querySelectorAll('[data-slide-target]').forEach((button) => {
+        button.setAttribute('aria-pressed', String(button.getAttribute('data-slide-target') === String(index)));
+    });
+    const total = document.querySelectorAll('[data-slide-panel]').length;
+    const position = document.getElementById('slide-position');
+    if (position && total) position.textContent = (index + 1) + ' / ' + total;
+}
+function syncOfficeSlidePreview(index) {
+    const panel = document.querySelector('[data-slide-panel="' + index + '"]');
+    if (!panel) return;
+    const title = panel.querySelector('input[name="title"]');
+    const content = panel.querySelector('textarea[name="content"]');
+    const preview = panel.querySelector('.gen-office-slide-canvas');
+    if (preview && title) preview.querySelector('h2').textContent = title.value;
+    if (preview && content) preview.querySelector('[data-preview-content]').textContent = content.value;
+}
+function openNewSlide() {
+    openOfficeAi();
+    window.setTimeout(() => document.getElementById('new-slide-title')?.focus(), 30);
+}
+function buildOrder() {
+    const order = Array.from(document.querySelectorAll('#slides [data-idx]')).map((el) => el.getAttribute('data-idx'));
+    const input = document.getElementById('order');
+    if (input) input.value = order.join(',');
+    return order.join(',');
+}
+function moveSlide(idx, delta) {
+    const order = Array.from(document.querySelectorAll('#slides [data-idx]')).map((el) => parseInt(el.getAttribute('data-idx'), 10));
+    const current = order.indexOf(idx);
+    if (current === -1) return;
+    const destination = current + delta;
+    if (destination < 0 || destination >= order.length) return;
+    order.splice(current, 1);
+    order.splice(destination, 0, idx);
+    const value = order.join(',');
+    const input = document.getElementById('order');
+    if (input) input.value = value;
+    fetch('/office/presentations/' + encodeURIComponent(genOfficeDeckSlug) + '/slides/reorder', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'order=' + encodeURIComponent(value)
+    }).then((response) => {
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        window.location.reload();
+    }).catch(() => {
+        window.alert('No se pudo guardar el nuevo orden. Inténtalo de nuevo.');
+    });
+}
+"##.replace("__SLUG__", &slug_js);
+
+    let body = format!(
+        r##"<div class="nova-page gen-office-page gen-office-editor-page">{tabs}<header class="gen-office-ribbon"><nav class="gen-office-menubar" aria-label="Acciones de la presentación"><a class="is-active" href="/office/presentations/{slug}">Inicio</a><button type="button" onclick="openNewSlide()">Nueva diapositiva</button><a href="/office/presentations/{slug}/present" target="_blank">Presentar</a></nav><div class="gen-office-ribbon-actions">{ai_toggle}<a class="gen-office-primary-button" href="/office/presentations/{slug}/present" target="_blank"><span class="material-symbols-outlined">play_arrow</span>Presentar</a><form hx-delete="/office/presentations/{slug}"><button type="submit" onclick="return confirm('¿Borrar presentación?')" class="gen-office-icon-button danger" aria-label="Borrar presentación"><span class="material-symbols-outlined">delete</span></button></form></div></header><div class="gen-office-workspace">{ai}<main class="gen-office-editor-main"><div class="gen-office-canvas-head"><div><span>PRESENTACIÓN</span><strong>{title}</strong></div><span class="gen-office-local-badge"><span class="material-symbols-outlined">hard_drive</span>Archivo local</span></div><section class="gen-office-deck-stage"><aside class="gen-office-thumbnails"><header><span>DIAPOSITIVAS</span><button type="button" class="gen-office-icon-button" onclick="openNewSlide()" aria-label="Añadir diapositiva"><span class="material-symbols-outlined">add</span></button></header><div id="slides" class="gen-office-slide-list">{thumbnails}</div><form hx-post="/office/presentations/{slug}/slides/reorder" hx-on::before-request="buildOrder()" class="gen-office-reorder-form"><input type="hidden" name="order" id="order" value=""><button type="submit" class="gen-office-secondary-button"><span class="material-symbols-outlined">swap_vert</span>Aplicar orden</button></form></aside><div class="gen-office-slide-stage">{editors}</div></section></main></div><footer class="gen-office-statusbar"><span id="slide-position">{position}</span><span>{total} diapositiva(s)</span><span>NOVA Office</span></footer></div><script>{workspace_js}</script><script>{deck_js}</script>"##,
+        tabs = templates::office_tab_strip("presentations", &pres.title, "/office/presentations/new"),
+        slug = templates::html_escape(&slug),
+        ai_toggle = templates::OFFICE_AI_TOGGLE,
+        ai = templates::office_ai_panel("Construye la presentación", "Selecciona una escena, edítala en el lienzo y añade nuevas diapositivas desde este panel.", &ai_content),
+        title = templates::html_escape(&pres.title),
+        thumbnails = thumbnails,
+        editors = editors,
+        position = if total == 0 { "0 / 0".to_string() } else { format!("1 / {total}") },
+        total = total,
+        workspace_js = templates::OFFICE_WORKSPACE_JS,
+        deck_js = deck_js,
+    );
+    layout_as(&format!("Editar: {}", slug), "presentaciones", &body).into_response()
 }
 
 /// Add a slide.
@@ -316,6 +333,13 @@ pub async fn add_slide(
 ) -> impl IntoResponse {
     if !crate::office::is_safe_slug(&slug) {
         return (axum::http::StatusCode::BAD_REQUEST, "invalid name").into_response();
+    }
+    if form.title.trim().is_empty() {
+        return (
+            axum::http::StatusCode::BAD_REQUEST,
+            "slide title is required",
+        )
+            .into_response();
     }
     if form.title.len() > MAX_TITLE_LEN || form.content.len() > MAX_CONTENT_LEN {
         return (axum::http::StatusCode::BAD_REQUEST, "slide too large").into_response();
@@ -358,6 +382,13 @@ pub async fn update_slide(
     if !crate::office::is_safe_slug(&slug) {
         return (axum::http::StatusCode::BAD_REQUEST, "invalid name").into_response();
     }
+    if form.title.trim().is_empty() {
+        return (
+            axum::http::StatusCode::BAD_REQUEST,
+            "slide title is required",
+        )
+            .into_response();
+    }
     if form.title.len() > MAX_TITLE_LEN || form.content.len() > MAX_CONTENT_LEN {
         return (axum::http::StatusCode::BAD_REQUEST, "slide too large").into_response();
     }
@@ -376,7 +407,14 @@ pub async fn update_slide(
     }
     pres.slides[index].title = form.title;
     pres.slides[index].content = form.content;
-    let _ = pres.save_to(&file_path);
+    if let Err(e) = pres.save_to(&file_path) {
+        tracing::error!("office presentations update_slide: save failed: {}", e);
+        return (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            "No se pudo completar la operación",
+        )
+            .into_response();
+    }
     hx_redirect(&format!("/office/presentations/{}", slug))
 }
 
@@ -398,9 +436,17 @@ pub async fn delete_slide(
             return (axum::http::StatusCode::NOT_FOUND, "presentation not found").into_response()
         }
     };
-    if index < pres.slides.len() {
-        pres.slides.remove(index);
-        let _ = pres.save_to(&file_path);
+    if index >= pres.slides.len() {
+        return (axum::http::StatusCode::NOT_FOUND, "slide not found").into_response();
+    }
+    pres.slides.remove(index);
+    if let Err(e) = pres.save_to(&file_path) {
+        tracing::error!("office presentations delete_slide: save failed: {}", e);
+        return (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            "No se pudo completar la operación",
+        )
+            .into_response();
     }
     hx_redirect(&format!("/office/presentations/{}", slug))
 }
@@ -427,11 +473,25 @@ pub async fn reorder(
             return (axum::http::StatusCode::NOT_FOUND, "presentation not found").into_response()
         }
     };
-    let indices: Vec<usize> = form
-        .order
-        .split(',')
-        .filter_map(|s| s.trim().parse::<usize>().ok())
-        .collect();
+    let indices: Vec<usize> = if form.order.trim().is_empty() {
+        Vec::new()
+    } else {
+        match form
+            .order
+            .split(',')
+            .map(|s| s.trim().parse::<usize>())
+            .collect::<Result<Vec<_>, _>>()
+        {
+            Ok(indices) => indices,
+            Err(_) => {
+                return (
+                    axum::http::StatusCode::BAD_REQUEST,
+                    "order contains an invalid slide index",
+                )
+                    .into_response()
+            }
+        }
+    };
     // Validate that `order` is a permutation of 0..n; otherwise reject
     // instead of silently ignoring the request.
     let n = pres.slides.len();
@@ -450,7 +510,14 @@ pub async fn reorder(
         .filter_map(|i| pres.slides.get(*i).cloned())
         .collect();
     pres.slides = reordered;
-    let _ = pres.save_to(&file_path);
+    if let Err(e) = pres.save_to(&file_path) {
+        tracing::error!("office presentations reorder: save failed: {}", e);
+        return (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            "No se pudo completar la operación",
+        )
+            .into_response();
+    }
     hx_redirect(&format!("/office/presentations/{}", slug))
 }
 
@@ -467,11 +534,30 @@ pub async fn delete(
             .into_response();
     }
     let file_path = pres_dir(&state).join(format!("{}.json", slug));
-    let _ = std::fs::remove_file(&file_path);
+    if let Err(e) = std::fs::remove_file(&file_path) {
+        let status = if e.kind() == std::io::ErrorKind::NotFound {
+            axum::http::StatusCode::NOT_FOUND
+        } else {
+            tracing::error!(
+                slug_len = slug.len(),
+                "office presentations delete: failed: {}",
+                e
+            );
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR
+        };
+        return (
+            status,
+            layout(
+                "Error",
+                "<p class=\"text-red-400\">No se pudo borrar la presentación.</p>",
+            ),
+        )
+            .into_response();
+    }
     hx_redirect("/office/presentations")
 }
 
-/// Presentation mode — all slides rendered from Markdown.
+/// Presentation mode — una diapositiva visible, con teclado y pantalla completa.
 pub async fn present(
     State(state): State<Arc<AppState>>,
     Path(slug): Path<String>,
@@ -498,40 +584,78 @@ pub async fn present(
         }
     };
 
+    let total = pres.slides.len();
     let mut slides_html = String::new();
-    for slide in &pres.slides {
-        let title_esc = templates::html_escape(&slide.title);
-        let body_html = md_to_html(&slide.content);
+    for (index, slide) in pres.slides.iter().enumerate() {
+        let number = index + 1;
+        let hidden = if index == 0 { "" } else { "hidden" };
         slides_html.push_str(&format!(
-            r#"<section class="slide bg-card border border-gray-800 rounded-lg p-6 mb-4 min-h-[300px]">
-                <h2 class="text-2xl font-bold text-accent mb-4">{title}</h2>
-                <div class="prose prose-invert max-w-none">{body}</div>
-            </section>"#,
-            title = title_esc,
-            body = body_html,
+            r##"<section class="gen-office-present-slide" data-present-slide="{index}" {hidden}><div class="gen-office-present-canvas"><header><span>NOVA</span><span>{number:02} / {total:02}</span></header><div><p>ESCENA {number}</p><h2>{title}</h2><div class="gen-office-present-body">{body}</div></div><footer><span>{deck}</span><span>{number} de {total}</span></footer></div></section>"##,
+            index = index,
+            hidden = hidden,
+            number = number,
+            total = total,
+            title = templates::html_escape(&slide.title),
+            body = md_to_html(&slide.content),
+            deck = templates::html_escape(&pres.title),
         ));
     }
+    if total == 0 {
+        slides_html.push_str(r##"<div class="gen-office-empty"><span class="material-symbols-outlined">present_to_all</span><h3>No hay diapositivas para presentar.</h3><p>Vuelve al editor y añade la primera escena.</p></div>"##);
+    }
+    let disabled = if total == 0 { "disabled" } else { "" };
+    let present_js = r##"
+var genPresentationIndex = 0;
+var genPresentationTotal = __TOTAL__;
+function genPresentationShow(index) {
+    if (!genPresentationTotal) return;
+    genPresentationIndex = Math.max(0, Math.min(index, genPresentationTotal - 1));
+    document.querySelectorAll('[data-present-slide]').forEach((slide) => {
+        slide.hidden = slide.getAttribute('data-present-slide') !== String(genPresentationIndex);
+    });
+    const position = document.getElementById('presentation-position');
+    if (position) position.textContent = (genPresentationIndex + 1) + ' / ' + genPresentationTotal;
+    const previous = document.getElementById('presentation-prev');
+    const next = document.getElementById('presentation-next');
+    if (previous) previous.disabled = genPresentationIndex === 0;
+    if (next) next.disabled = genPresentationIndex === genPresentationTotal - 1;
+}
+function genPresentationStep(delta) {
+    genPresentationShow(genPresentationIndex + delta);
+}
+function genOfficeFullscreen() {
+    const stage = document.querySelector('.gen-office-present-stage');
+    if (!stage) return;
+    if (document.fullscreenElement) document.exitFullscreen();
+    else if (stage.requestFullscreen) stage.requestFullscreen();
+}
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowRight' || event.key === 'PageDown' || event.key === ' ') {
+        event.preventDefault(); genPresentationStep(1);
+    }
+    if (event.key === 'ArrowLeft' || event.key === 'PageUp') {
+        event.preventDefault(); genPresentationStep(-1);
+    }
+    if (event.key === 'Home') genPresentationShow(0);
+    if (event.key === 'End') genPresentationShow(genPresentationTotal - 1);
+});
+genPresentationShow(0);
+"##
+    .replace("__TOTAL__", &total.to_string());
 
-    let head = format!(
-        r#"<div class="flex justify-between items-center mb-4">
-            <h2 class="text-2xl font-bold text-accent">{title}</h2>
-            <a href="/office/presentations/{slug}/edit" hidden></a>
-        </div>"#,
-        title = templates::html_escape(&pres.title),
-    );
-    let _ = head; // title bar kept minimal in presentation mode
     let body = format!(
-        r#"<div class="fixed inset-0 bg-dark overflow-y-auto py-8">
-            <div class="max-w-3xl mx-auto">
-                <div class="text-center mb-6 text-gray-500 text-sm">
-                    Presentación: {title} — {n} diapositiva(s)
-                </div>
-                {slides}
-            </div>
-        </div>"#,
-        title = templates::html_escape(&pres.title),
-        n = pres.slides.len(),
+        r##"<div class="nova-page gen-office-page gen-office-editor-page gen-office-present-mode">{tabs}<header class="gen-office-ribbon"><nav class="gen-office-menubar" aria-label="Acciones de presentación"><a href="/office/presentations/{slug}"><span class="material-symbols-outlined">arrow_back</span>Volver al editor</a><button type="button" class="is-active" onclick="genOfficeFullscreen()">Pantalla completa</button></nav><div class="gen-office-ribbon-actions"><a class="gen-office-primary-button" href="/office/presentations/{slug}"><span class="material-symbols-outlined">edit</span>Editar</a></div></header><main class="gen-office-present-stage">{slides}</main><footer class="gen-office-present-controls"><button type="button" id="presentation-prev" onclick="genPresentationStep(-1)" {disabled}><span class="material-symbols-outlined">arrow_back</span>Anterior</button><span id="presentation-position">{position}</span><button type="button" id="presentation-next" onclick="genPresentationStep(1)" {disabled}>Siguiente<span class="material-symbols-outlined">arrow_forward</span></button></footer></div><script>{present_js}</script>"##,
+        tabs =
+            templates::office_tab_strip("presentations", &pres.title, "/office/presentations/new"),
+        slug = templates::html_escape(&slug),
         slides = slides_html,
+        disabled = disabled,
+        position = if total == 0 {
+            "0 / 0".to_string()
+        } else {
+            format!("1 / {total}")
+        },
+        present_js = present_js,
     );
-    layout("Presentar", &body).into_response()
+    layout_as("Presentar", "presentaciones", &body).into_response()
 }

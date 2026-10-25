@@ -1,18 +1,33 @@
-<!-- Contenido Stitch v2: Configuración (sólo slot <main>). Marcadores <!--SLOT:...--> rellenados server-side. -->
-<div class="max-w-3xl mx-auto px-space-md py-space-lg space-y-space-md">
-  <header class="flex items-center justify-between">
-    <div class="flex items-center gap-space-sm">
-      <span class="material-symbols-outlined text-[22px] text-primary-container" aria-hidden="true">tune</span>
-      <h1 class="font-headline-sm text-headline-sm text-on-surface">Configuración</h1>
-    </div>
+<div class="nx-page nx-settings">
+  <header class="nx-page-header">
+    <div><p class="nx-eyebrow">Sistema</p><h1>Configuración sin<br>letra pequeña.</h1><p>Consulta qué está conectado, qué puedes cambiar y dónde vive cada ajuste. Las credenciales nunca se exponen.</p></div>
+    <span class="nx-version-badge">NOVA · <!--SLOT:VERSION--></span>
   </header>
-
-  <!-- Grupo: estado de conexión -->
-  <section class="bg-surface-container-low rounded-xl p-space-md space-y-space-sm">
-    <div class="flex items-center gap-space-xs">
-      <!--SLOT:MCP_DOT-->
-      <h2 class="font-label-md text-label-md text-on-surface">Conexión</h2>
+  <div class="nx-settings-layout">
+    <aside class="nx-settings-summary">
+      <span class="nx-settings-summary-icon material-symbols-outlined">tune</span>
+      <h2>Tu instancia local</h2>
+      <p>El navegador muestra el estado; la configuración efectiva permanece en el servidor.</p>
+      <dl><div><dt>Entorno</dt><dd>local / tailnet</dd></div><div><dt>Acceso</dt><dd><!--SLOT:AUTH_MODE--></dd></div><div><dt>Datos</dt><dd>Mikareno · solo lectura</dd></div></dl>
+      <a class="nx-text-link" href="/settings/password">Cambiar contraseña<span class="material-symbols-outlined">arrow_forward</span></a>
+      <a class="nx-text-link" href="/dashboard/mcp">Ver integraciones<span class="material-symbols-outlined">arrow_forward</span></a>
+    </aside>
+    <div class="nx-settings-content">
+      <section class="nx-settings-card">
+        <header><span class="nx-settings-card-icon material-symbols-outlined">lan</span><div><p>CONEXIÓN</p><h2>Mikareno</h2></div><div class="nx-settings-state"><!--SLOT:MCP_DOT--></div></header>
+        <p class="nx-settings-status"><!--SLOT:MCP_STATUS--></p>
+        <div class="nx-settings-endpoint"><span>Endpoint MCP</span><code><!--SLOT:MCP_URL--></code></div>
+      </section>
+      <section class="nx-settings-card nx-settings-ai" aria-label="IA / OpenRouter">
+        <header><span class="nx-settings-card-icon material-symbols-outlined">auto_awesome</span><div><p>INTELIGENCIA ARTIFICIAL</p><h2>OpenRouter</h2></div><div class="nx-settings-state"><!--SLOT:AI_DOT--></div></header>
+        <div class="nx-settings-ai-status"><!--SLOT:AI_STATUS--></div>
+        <dl class="nx-settings-facts"><div><dt>Modelo</dt><dd><!--SLOT:AI_MODEL--></dd></div><div><dt>Presupuesto mensual</dt><dd><!--SLOT:AI_BUDGET--></dd></div><div><dt>Máximo de tokens</dt><dd><!--SLOT:AI_MAX_TOKENS--></dd></div></dl>
+        <div class="nx-settings-editor"><div class="nx-subhead"><div><span>Parámetros de arranque</span><h3>Preparar configuración</h3></div><span class="nx-badge">Sin secretos</span></div><!--SLOT:AI_FORM--></div>
+        <!--SLOT:AI_ENV-->
+        <p class="nx-privacy-note"><span class="material-symbols-outlined">lock</span>La clave de API nunca se muestra; solo se informa si está configurada.</p>
+      </section>
     </div>
+<<<<<<< HEAD
     <p class="font-body-sm text-body-sm text-on-surface-variant">
       <!--SLOT:MCP_STATUS-->
     </p>
@@ -55,4 +70,8 @@
     <span>Study Platform <!--SLOT:VERSION--> — datos de Mikareno en modo de solo lectura</span>
     <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full <!--SLOT:AI_DOT2-->"></span>IA <!--SLOT:AI_BADGE--></span>
   </footer>
+=======
+  </div>
+  <footer class="nx-settings-footer"><span>NOVA 3.0 · acciones explícitas</span><span><!--SLOT:AI_DOT2--> IA <!--SLOT:AI_BADGE--></span></footer>
+>>>>>>> 9c0a42b34fe9e887e97de2b0755c4745d9427780
 </div>
