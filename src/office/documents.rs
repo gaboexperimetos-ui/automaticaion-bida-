@@ -57,7 +57,12 @@ pub async fn office_home(State(state): State<Arc<AppState>>) -> impl IntoRespons
     let mut recent: Vec<(String, String, String, &str, &str, String)> = Vec::new();
     for (kind, dir, ext, icon) in [
         ("docs", docs_dir(&state), "md", "description"),
-        ("sheets", crate::office::sheets_dir(&state), "csv", "table_chart"),
+        (
+            "sheets",
+            crate::office::sheets_dir(&state),
+            "csv",
+            "table_chart",
+        ),
         (
             "presentations",
             crate::office::pres_dir(&state),
@@ -67,11 +72,7 @@ pub async fn office_home(State(state): State<Arc<AppState>>) -> impl IntoRespons
     ] {
         for file in templates::list_files(&dir, ext) {
             let href = format!("/office/{kind}/{}", file.name);
-            let meta = format!(
-                "{} · {}",
-                file.modified,
-                templates::human_size(file.size)
-            );
+            let meta = format!("{} · {}", file.modified, templates::human_size(file.size));
             recent.push((file.modified, file.display, href, icon, kind, meta));
         }
     }
@@ -430,16 +431,15 @@ pub async fn delete(
         let status = if e.kind() == std::io::ErrorKind::NotFound {
             axum::http::StatusCode::NOT_FOUND
         } else {
-            tracing::error!(
-                slug_len = slug.len(),
-                "office docs delete: failed: {}",
-                e
-            );
+            tracing::error!(slug_len = slug.len(), "office docs delete: failed: {}", e);
             axum::http::StatusCode::INTERNAL_SERVER_ERROR
         };
         return (
             status,
-            layout("Error", "<p class=\"text-red-400\">No se pudo borrar el documento.</p>"),
+            layout(
+                "Error",
+                "<p class=\"text-red-400\">No se pudo borrar el documento.</p>",
+            ),
         )
             .into_response();
     }

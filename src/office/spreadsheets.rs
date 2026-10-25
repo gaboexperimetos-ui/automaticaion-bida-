@@ -305,16 +305,15 @@ pub async fn delete(
         let status = if e.kind() == std::io::ErrorKind::NotFound {
             axum::http::StatusCode::NOT_FOUND
         } else {
-            tracing::error!(
-                slug_len = slug.len(),
-                "office sheets delete: failed: {}",
-                e
-            );
+            tracing::error!(slug_len = slug.len(), "office sheets delete: failed: {}", e);
             axum::http::StatusCode::INTERNAL_SERVER_ERROR
         };
         return (
             status,
-            layout("Error", "<p class=\"text-red-400\">No se pudo borrar la hoja.</p>"),
+            layout(
+                "Error",
+                "<p class=\"text-red-400\">No se pudo borrar la hoja.</p>",
+            ),
         )
             .into_response();
     }

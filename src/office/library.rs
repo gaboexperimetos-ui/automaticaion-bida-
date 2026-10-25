@@ -192,7 +192,10 @@ pub async fn delete(
         None => {
             return (
                 axum::http::StatusCode::NOT_FOUND,
-                layout("Error", "<p class=\"text-red-400\">Tipo de archivo no válido.</p>"),
+                layout(
+                    "Error",
+                    "<p class=\"text-red-400\">Tipo de archivo no válido.</p>",
+                ),
             )
                 .into_response()
         }
@@ -202,7 +205,10 @@ pub async fn delete(
         None => {
             return (
                 axum::http::StatusCode::NOT_FOUND,
-                layout("Error", "<p class=\"text-red-400\">Tipo de archivo no válido.</p>"),
+                layout(
+                    "Error",
+                    "<p class=\"text-red-400\">Tipo de archivo no válido.</p>",
+                ),
             )
                 .into_response()
         }
@@ -222,7 +228,10 @@ pub async fn delete(
         };
         return (
             status,
-            layout("Error", "<p class=\"text-red-400\">No se pudo borrar el archivo.</p>"),
+            layout(
+                "Error",
+                "<p class=\"text-red-400\">No se pudo borrar el archivo.</p>",
+            ),
         )
             .into_response();
     }

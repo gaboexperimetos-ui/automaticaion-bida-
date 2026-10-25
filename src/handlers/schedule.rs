@@ -91,16 +91,8 @@ pub fn horario_personal() -> Horario {
             dia(
                 "martes",
                 [
-                    "Inglés",
-                    "Tutoría",
-                    "CC.NN",
-                    "CC.NN",
-                    "EE.FF",
-                    "Recreo",
-                    "Sociales",
-                    "Sociales",
-                    "Science",
-                    "Inglés",
+                    "Inglés", "Tutoría", "CC.NN", "CC.NN", "EE.FF", "Recreo", "Sociales",
+                    "Sociales", "Science", "Inglés",
                 ],
             ),
             dia(
@@ -121,16 +113,8 @@ pub fn horario_personal() -> Horario {
             dia(
                 "jueves",
                 [
-                    "Club",
-                    "Club",
-                    "Science",
-                    "Tutoría",
-                    "Inglés",
-                    "Recreo",
-                    "Sociales",
-                    "Sociales",
-                    "Lenguaje",
-                    "Lenguaje",
+                    "Club", "Club", "Science", "Tutoría", "Inglés", "Recreo", "Sociales",
+                    "Sociales", "Lenguaje", "Lenguaje",
                 ],
             ),
             dia(
@@ -446,9 +430,17 @@ pub async fn weekly(
     let selector = format!(
         r#"<nav class="nx-schedule-sources" aria-label="Fuente del horario"><a class="nx-schedule-source{}" href="/dashboard/horario"{}>Mi horario</a><a class="nx-schedule-source{}" href="/dashboard/horario?fuente=mikareno"{}>Mikareno</a></nav>"#,
         if usar_personal { " is-active" } else { "" },
-        if usar_personal { " aria-current=\"page\"" } else { "" },
+        if usar_personal {
+            " aria-current=\"page\""
+        } else {
+            ""
+        },
         if usar_personal { "" } else { " is-active" },
-        if usar_personal { "" } else { " aria-current=\"page\"" },
+        if usar_personal {
+            ""
+        } else {
+            " aria-current=\"page\""
+        },
     );
     let estado = if usar_personal {
         r#"<div class="nx-schedule-personal"><span class="material-symbols-outlined">verified</span><div><strong>Unidad Educativa Álamos · 10.º</strong><p>Año lectivo 2026–2027 · Prof. Santiago Pasquel · Transcrito de tu imagen.</p></div></div>"#.to_string()

@@ -309,7 +309,10 @@ pub fn layout_as(title: &str, active: &str, body: &str) -> String {
     let close = open + relative_close + "</title>".len();
     let mut titled = String::with_capacity(html.len() + title.len() + 16);
     titled.push_str(&html[..open]);
-    titled.push_str(&format!("<title>{} — NOVA Office</title>", html_escape(title)));
+    titled.push_str(&format!(
+        "<title>{} — NOVA Office</title>",
+        html_escape(title)
+    ));
     titled.push_str(&html[close..]);
     titled
 }

@@ -967,11 +967,7 @@ pub async fn daily(
 
     let navigation = format!(
         r###"<div class="nova-daily-nav"><div>{}<a href="/dashboard/calendar/daily" class="{}" title="Volver a hoy">Hoy</a>{}</div><button hx-get="/dashboard/calendar/daily?date={}&partial=list" hx-target="#daily-events" hx-swap="innerHTML" class="{}" title="Actualizar"><span class="material-symbols-outlined">refresh</span>Actualizar</button></div>"###,
-        prev,
-        NAV_CLASS,
-        next,
-        target_iso,
-        NAV_CLASS,
+        prev, NAV_CLASS, next, target_iso, NAV_CLASS,
     );
 
     // With times of day the "now" band belongs to the timeline (inside the

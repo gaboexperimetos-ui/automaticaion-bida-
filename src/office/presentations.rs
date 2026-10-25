@@ -105,7 +105,11 @@ pub async fn list(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 
     let body = format!(
         r##"<div class="nova-page gen-office-page gen-office-manager-page">{tabs}<header class="gen-office-manager-head"><div><span>PRESENTACIONES · MARKDOWN</span><h1>Ideas listas para presentar.</h1><p>{count} presentación(es) editables en tu espacio local.</p></div><a href="/office/presentations/new" class="gen-office-primary-button"><span class="material-symbols-outlined">add</span>Nueva presentación</a></header><nav class="gen-office-appnav" aria-label="Aplicaciones de oficina"><a href="/office/docs"><span class="material-symbols-outlined">description</span>Documentos</a><a href="/office/sheets"><span class="material-symbols-outlined">table_chart</span>Hojas</a><a class="is-active presentations" href="/office/presentations"><span class="material-symbols-outlined">present_to_all</span>Presentaciones</a><a href="/office/library"><span class="material-symbols-outlined">folder_open</span>Biblioteca</a></nav><section class="gen-office-file-grid">{cards}</section><footer class="gen-office-home-footer"><span><span class="material-symbols-outlined">hard_drive</span> Presentaciones locales</span><span>Edición y modo presentación</span></footer></div>"##,
-        tabs = templates::office_tab_strip("presentations", "Presentaciones", "/office/presentations/new"),
+        tabs = templates::office_tab_strip(
+            "presentations",
+            "Presentaciones",
+            "/office/presentations/new"
+        ),
         count = files.len(),
         cards = cards,
     );
@@ -116,7 +120,11 @@ pub async fn list(State(state): State<Arc<AppState>>) -> impl IntoResponse {
 pub async fn new_pres() -> impl IntoResponse {
     let body = format!(
         r##"<div class="nova-page gen-office-page gen-office-create-page">{tabs}<main class="gen-office-create-shell"><div class="gen-office-create-heading"><span class="gen-office-launcher-icon presentations"><span class="material-symbols-outlined">present_to_all</span></span><div><span>NUEVA PRESENTACIÓN</span><h1>Tu primera escena empieza aquí.</h1><p>Crea el mazo y añade después títulos, contenido Markdown y el orden de cada escena.</p></div></div><form hx-post="/office/presentations" hx-swap="outerHTML" class="gen-office-create-form compact"><div class="gen-office-create-fields"><label for="new-pres-title">Título de la presentación</label><input id="new-pres-title" type="text" name="title" placeholder="Ej. El sistema circulatorio" required autofocus></div><div class="gen-office-create-facts"><span><strong>Miniaturas</strong> navegación visual</span><span><strong>Markdown</strong> contenido editable</span><span><strong>Presentar</strong> una escena a la vez</span></div><footer><a href="/office/presentations" class="gen-office-secondary-button">Cancelar</a><span>Se guardará como .json</span><button type="submit" class="gen-office-primary-button">Crear presentación<span class="material-symbols-outlined">arrow_forward</span></button></footer></form></main></div>"##,
-        tabs = templates::office_tab_strip("presentations", "Nueva presentación", "/office/presentations/new"),
+        tabs = templates::office_tab_strip(
+            "presentations",
+            "Nueva presentación",
+            "/office/presentations/new"
+        ),
     );
     layout_as("Nueva presentación", "presentaciones", &body)
 }
@@ -327,7 +335,11 @@ pub async fn add_slide(
         return (axum::http::StatusCode::BAD_REQUEST, "invalid name").into_response();
     }
     if form.title.trim().is_empty() {
-        return (axum::http::StatusCode::BAD_REQUEST, "slide title is required").into_response();
+        return (
+            axum::http::StatusCode::BAD_REQUEST,
+            "slide title is required",
+        )
+            .into_response();
     }
     if form.title.len() > MAX_TITLE_LEN || form.content.len() > MAX_CONTENT_LEN {
         return (axum::http::StatusCode::BAD_REQUEST, "slide too large").into_response();
@@ -371,7 +383,11 @@ pub async fn update_slide(
         return (axum::http::StatusCode::BAD_REQUEST, "invalid name").into_response();
     }
     if form.title.trim().is_empty() {
-        return (axum::http::StatusCode::BAD_REQUEST, "slide title is required").into_response();
+        return (
+            axum::http::StatusCode::BAD_REQUEST,
+            "slide title is required",
+        )
+            .into_response();
     }
     if form.title.len() > MAX_TITLE_LEN || form.content.len() > MAX_CONTENT_LEN {
         return (axum::http::StatusCode::BAD_REQUEST, "slide too large").into_response();
@@ -531,7 +547,10 @@ pub async fn delete(
         };
         return (
             status,
-            layout("Error", "<p class=\"text-red-400\">No se pudo borrar la presentación.</p>"),
+            layout(
+                "Error",
+                "<p class=\"text-red-400\">No se pudo borrar la presentación.</p>",
+            ),
         )
             .into_response();
     }
@@ -621,15 +640,21 @@ document.addEventListener('keydown', (event) => {
     if (event.key === 'End') genPresentationShow(genPresentationTotal - 1);
 });
 genPresentationShow(0);
-"##.replace("__TOTAL__", &total.to_string());
+"##
+    .replace("__TOTAL__", &total.to_string());
 
     let body = format!(
         r##"<div class="nova-page gen-office-page gen-office-editor-page gen-office-present-mode">{tabs}<header class="gen-office-ribbon"><nav class="gen-office-menubar" aria-label="Acciones de presentación"><a href="/office/presentations/{slug}"><span class="material-symbols-outlined">arrow_back</span>Volver al editor</a><button type="button" class="is-active" onclick="genOfficeFullscreen()">Pantalla completa</button></nav><div class="gen-office-ribbon-actions"><a class="gen-office-primary-button" href="/office/presentations/{slug}"><span class="material-symbols-outlined">edit</span>Editar</a></div></header><main class="gen-office-present-stage">{slides}</main><footer class="gen-office-present-controls"><button type="button" id="presentation-prev" onclick="genPresentationStep(-1)" {disabled}><span class="material-symbols-outlined">arrow_back</span>Anterior</button><span id="presentation-position">{position}</span><button type="button" id="presentation-next" onclick="genPresentationStep(1)" {disabled}>Siguiente<span class="material-symbols-outlined">arrow_forward</span></button></footer></div><script>{present_js}</script>"##,
-        tabs = templates::office_tab_strip("presentations", &pres.title, "/office/presentations/new"),
+        tabs =
+            templates::office_tab_strip("presentations", &pres.title, "/office/presentations/new"),
         slug = templates::html_escape(&slug),
         slides = slides_html,
         disabled = disabled,
-        position = if total == 0 { "0 / 0".to_string() } else { format!("1 / {total}") },
+        position = if total == 0 {
+            "0 / 0".to_string()
+        } else {
+            format!("1 / {total}")
+        },
         present_js = present_js,
     );
     layout_as("Presentar", "presentaciones", &body).into_response()

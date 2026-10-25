@@ -1103,9 +1103,7 @@ async fn test_slide_validation_and_missing_deletes() {
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
     let response = app
         .clone()
-        .oneshot(authed_delete(
-            "/office/library/unknown/missing/delete",
-        ))
+        .oneshot(authed_delete("/office/library/unknown/missing/delete"))
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::NOT_FOUND);

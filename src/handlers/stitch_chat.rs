@@ -1337,7 +1337,11 @@ fn session_card(active: bool, s: &SessionRow) -> String {
 <span class="nx-session-preview">{preview}</span>
 <span class="nx-session-footer"><span>{subject}</span><span><span class="material-symbols-outlined">chat_bubble</span>{n}</span></span>
 </button>"##,
-        class = if active { "nx-session nova-session-card is-active" } else { "nx-session nova-session-card" },
+        class = if active {
+            "nx-session nova-session-card is-active"
+        } else {
+            "nx-session nova-session-card"
+        },
         subject_attr = args.3,
         title = args.0,
         time = args.1,
