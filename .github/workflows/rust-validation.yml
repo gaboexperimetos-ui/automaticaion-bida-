@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - "quality/**"
+      - "arena/**"
   pull_request:
     branches:
       - main
