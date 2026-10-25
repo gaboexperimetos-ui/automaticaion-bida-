@@ -62,6 +62,13 @@ pub async fn serve_polish_css(State(_state): State<Arc<AppState>>) -> Response<B
     make_response_with_cache(content, "text/css; charset=utf-8")
 }
 
+/// Sistema visual Nova (`static/app/nova.css`) en `/nova.css`. Se carga después
+/// de `polish.css` y define la composición inmersiva del shell y del panel 3.0.
+pub async fn serve_nova_css(State(_state): State<Arc<AppState>>) -> Response<Body> {
+    let content = include_bytes!("../../static/app/nova.css");
+    make_response_with_cache(content, "text/css; charset=utf-8")
+}
+
 fn make_response(content: &[u8], content_type: &'static str) -> Response<Body> {
     let mut resp = Response::new(Body::from(content.to_vec()));
     *resp.status_mut() = StatusCode::OK;

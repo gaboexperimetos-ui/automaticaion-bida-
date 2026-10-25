@@ -258,12 +258,9 @@ pub fn fill_mcp(content: &str, d: &McpPanelData) -> String {
 /// Estado del orquestador en la cinta superior del encabezado.
 fn render_orchestrator(d: &McpPanelData) -> String {
     if d.api_configured {
-        r#"<span class="w-2 h-2 rounded-full bg-secondary shadow-[0_0_8px_rgba(158,215,83,0.8)]"></span>
-        <span class="font-label-sm text-label-sm text-on-surface">Orquestador: Activo</span>"#.to_string()
+        r#"<strong><span class="text-secondary">●</span> Activo</strong>"#.to_string()
     } else {
-        r#"<span class="w-2 h-2 rounded-full bg-outline"></span>
-        <span class="font-label-sm text-label-sm text-outline">Orquestador: Sin API key</span>"#
-            .to_string()
+        r#"<strong class="text-outline">Sin API key</strong>"#.to_string()
     }
 }
 
@@ -444,14 +441,13 @@ fn render_telemetry(d: &McpPanelData) -> String {
         0
     };
     format!(
-        r#"<p class="font-body-sm text-body-sm text-outline">Uso real del mes en curso, registrado en la base local.</p>
-<div class="flex flex-wrap items-center gap-space-md font-code-inline text-[11px]">
-<span class="text-on-surface-variant">Solicitudes: {n}</span>
-<span class="text-primary-container">Gasto: ${spend:.2} / ${budget:.2} USD</span>
+        r#"<p class="nx-panel-intro">Uso real del mes en curso, registrado en la base local.</p>
+<div class="nx-admin-metrics nx-telemetry-metrics">
+<article><span class="material-symbols-outlined">forum</span><div><small>Solicitudes</small><strong>{n}</strong><p>este mes</p></div></article>
+<article><span class="material-symbols-outlined">payments</span><div><small>Gasto</small><strong>${spend:.2}</strong><p>USD acumulados</p></div></article>
+<article><span class="material-symbols-outlined">account_balance_wallet</span><div><small>Presupuesto</small><strong>${budget:.2}</strong><p>{pct}% utilizado</p></div></article>
 </div>
-<div class="w-full h-1.5 bg-surface-container rounded-full overflow-hidden">
-<div class="h-full bg-gradient-to-r from-secondary to-primary-container rounded-full" style="width: {pct}%"></div>
-</div>"#,
+<div class="nx-quota-track" aria-label="{pct}% del presupuesto utilizado"><div style="width:{pct}%;height:100%;background:var(--nx-accent)"></div></div>"#,
         n = d.requests_month,
         spend = d.spend_usd,
         budget = d.budget_usd,

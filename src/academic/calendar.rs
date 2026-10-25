@@ -326,7 +326,7 @@ fn bucket_by_day(events: &[CalendarioEvent]) -> HashMap<String, DayBucket> {
 fn badge_html(bucket: &DayBucket) -> String {
     let titles = bucket.titles.join(" · ");
     format!(
-        r###"<span class="absolute top-1 right-1 inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full bg-primary-container/20 text-primary-container text-[9px] font-semibold leading-none" title="{}">{}</span>"###,
+        r###"<span class="calendar-event-count absolute top-1 right-1 inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full bg-primary-container/20 text-primary-container text-[9px] font-semibold leading-none" title="{}">{}</span>"###,
         templates::html_escape(&titles),
         bucket.count
     )
@@ -399,7 +399,7 @@ fn inject_event_badges(
 fn outside_cell_html(day: u32, bucket: Option<&DayBucket>) -> String {
     let badge = bucket.map(badge_html).unwrap_or_default();
     format!(
-        r###"<div class="{} relative h-28 border border-outline/20 rounded-lg p-space-xs opacity-50">{badge}<span class="block font-label-sm text-[10px] text-on-surface-variant">{}</span></div>"###,
+        r###"<div class="{} agenda-outside relative h-28 border border-outline/20 rounded-lg p-space-xs opacity-50">{badge}<span class="calendar-day-number block font-label-sm text-[10px] text-on-surface-variant">{}</span></div>"###,
         OUTSIDE_CELL_CLASS, day
     )
 }
@@ -477,12 +477,75 @@ fn mark_current_month(grid: &str, focus: NaiveDate, today: NaiveDate) -> String 
         return grid.to_string();
     };
     let insert_at = body_start + close_rel + "</span>".len();
-    let chip = r#"<span class="font-label-sm text-[10px] px-2 py-0.5 rounded-full bg-primary-container/20 text-primary-container font-semibold whitespace-nowrap ml-2">Mes actual</span>"#;
+    let chip = r#"<span class="calendar-current-month font-label-sm text-[10px] px-2 py-0.5 rounded-full bg-primary-container/20 text-primary-container font-semibold whitespace-nowrap ml-2">Mes actual</span>"#;
     let mut out = String::with_capacity(grid.len() + chip.len());
     out.push_str(&grid[..insert_at]);
     out.push_str(chip);
     out.push_str(&grid[insert_at..]);
     out
+}
+
+/// Próximos eventos del mes y de las semanas siguientes. Se ordenan por
+/// fecha, se omiten los que ya pasaron y cada evento navegable abre su día.
+fn upcoming_html(events: &[CalendarioEvent], today: &str) -> String {
+    let mut upcoming: Vec<&CalendarioEvent> = events
+        .iter()
+        .filter(|event| day_key(&event.fecha).as_str() >= today)
+        .collect();
+    upcoming.sort_by(|a, b| a.fecha.cmp(&b.fecha).then_with(|| a.evento.cmp(&b.evento)));
+
+    if upcoming.is_empty() {
+        return r#"<div class="nx-calendar-empty" id="event-timeline"><span class="material-symbols-outlined">event_available</span><p>No hay próximos eventos registrados.</p></div>"#.to_string();
+    }
+
+    let today_date = NaiveDate::parse_from_str(today, "%Y-%m-%d").ok();
+    let items = upcoming
+        .iter()
+        .take(5)
+        .map(|event| {
+            let iso = day_key(&event.fecha);
+            let parsed = NaiveDate::parse_from_str(&iso, "%Y-%m-%d").ok();
+            let (day, month) = parsed
+                .map(|date| {
+                    (
+                        date.day(),
+                        crate::handlers::schedule::mes_es(date.month()).unwrap_or(""),
+                    )
+                })
+                .unwrap_or((0, ""));
+            let time = event_time(&event.fecha)
+                .map(|(_, hhmm)| hhmm)
+                .unwrap_or_else(|| "Sin hora".to_string());
+            let body = format!(
+                r#"<time class="nx-calendar-event-date" datetime="{}"><strong>{:02}</strong><span>{}</span></time><div class="nx-calendar-event-copy"><span>{}</span><h3>{}</h3><p>{} · {}</p></div><span class="material-symbols-outlined nx-calendar-event-arrow">arrow_outward</span>"#,
+                templates::html_escape(&event.fecha),
+                day,
+                templates::html_escape(month),
+                templates::html_escape(&tipo_label(&event.tipo)),
+                templates::html_escape(&event.evento),
+                templates::html_escape(&templates::weekday_es(&iso)),
+                templates::html_escape(&time),
+            );
+            let navigable = match (parsed, today_date) {
+                (Some(date), Some(now)) => {
+                    let offset = (date - now).num_days();
+                    (0..=MAX_DAY_OFFSET).contains(&offset)
+                }
+                _ => false,
+            };
+            if navigable {
+                format!(
+                    r#"<a class="nx-calendar-event" href="/dashboard/calendar/daily?date={}">{}</a>"#,
+                    templates::html_escape(&iso),
+                    body
+                )
+            } else {
+                format!(r#"<article class="nx-calendar-event">{}</article>"#, body)
+            }
+        })
+        .collect::<String>();
+
+    format!(r#"<div class="nx-calendar-events" id="event-timeline">{items}</div>"#)
 }
 
 /// GET /dashboard/calendar — Google-Calendar-style monthly view.
@@ -546,53 +609,66 @@ pub async fn monthly(
     // encogiera a la mitad con cada clic.
     if partial == Some("grid") {
         return Html(format!(
-            r###"<div id="calendar-grid" class="mb-space-md">{}</div>"###,
+            r###"<div id="calendar-grid" class="agenda-grid-host nova-calendar-grid-host">{}</div>"###,
             grid_html
         ));
     } // HTMX partial: swap just the timeline.
     if partial == Some("timeline") {
-        return Html(templates::event_timeline_html(&datos.eventos, Some(&today)));
+        return Html(upcoming_html(&datos.eventos, &today));
     }
 
+    let month_prefix = focus.format("%Y-%m").to_string();
+    let mut dias_con_horario = 0usize;
+    let mut entregas_mes = 0usize;
+    let mut eventos_mes = 0usize;
+    for (fecha, dia) in &dias {
+        if !fecha.starts_with(&month_prefix) {
+            continue;
+        }
+        dias_con_horario += usize::from(!dia.clases.is_empty());
+        entregas_mes += dia.tareas.len();
+        eventos_mes += dia.eventos.len();
+    }
+    let resumen = format!(
+        r#"<div class="agenda-summary" aria-label="Resumen del mes"><article><span>Días con horario</span><strong>{dias_con_horario}</strong><small>Bloques lectivos del mes</small></article><article><span>Entregas</span><strong>{entregas_mes}</strong><small>Tareas con fecha</small></article><article><span>Eventos</span><strong>{eventos_mes}</strong><small>Actividades registradas</small></article></div>"#
+    );
+
     let status = banner_mcp_datos(&datos);
-    let grid = format!(
-        r###"<div id="calendar-grid" class="mb-space-md">{}</div>"###,
-        grid_html
-    );
     let timeline = format!(
-        r###"<div class="mb-space-md">
-            <h2 class="font-headline-sm text-headline-sm text-primary-container mb-space-sm">Próximos eventos</h2>
+        r###"<aside class="agenda-upcoming nx-upcoming nova-calendar-upcoming">
+            <div class="agenda-upcoming-head"><div><p>A continuación</p><h2>Próximos eventos</h2></div><span class="material-symbols-outlined">upcoming</span></div>
+            <p>Lo que viene después, ordenado por fecha.</p>
             {}
+            <a class="agenda-upcoming-link" href="/dashboard/calendar/weekly">Ver la semana completa<span class="material-symbols-outlined">arrow_forward</span></a>
+        </aside>"###,
+        upcoming_html(&datos.eventos, &today)
+    );
+
+    let content = format!(
+        r###"<div class="nx-page nx-calendar agenda-page nova-page nova-calendar-page">
+          <header class="agenda-header">
+            <div class="agenda-heading"><span class="agenda-heading-icon material-symbols-outlined">calendar_month</span><div><p>Agenda académica · 2026—2027</p><h1>Calendario</h1><span>Clases, entregas y eventos en un solo lugar.</span></div></div>
+            <div class="agenda-actions"><nav class="agenda-view-tabs" aria-label="Vista del calendario"><a class="is-active" aria-current="page" href="/dashboard/calendar">Mes</a><a href="/dashboard/calendar/weekly">Semana</a><a href="/dashboard/calendar/daily">Día</a></nav><a class="agenda-export" href="/dashboard/calendar.ics" download title="Descargar calendario ICS"><span class="material-symbols-outlined">download</span><span>Exportar</span></a></div>
+          </header>
+          <div class="agenda-layout nx-calendar-layout nova-calendar-layout">
+            <main class="agenda-main">
+              {}
+              <section class="agenda-month-card nx-month-panel nova-month-panel" aria-label="Calendario mensual">
+                <div class="agenda-month-meta"><div class="agenda-legend" aria-label="Tipos de elemento"><span class="is-class"><i></i>Horario</span><span class="is-task"><i></i>Entregas</span><span class="is-event"><i></i>Eventos</span><span class="is-note"><i></i>Notas</span></div><a class="agenda-today" href="/dashboard/calendar?month={}"><span class="material-symbols-outlined">today</span>Mes actual</a></div>
+                {}
+                <div id="calendar-grid" class="agenda-grid-host nx-calendar-grid-host nova-calendar-grid-host">{}</div>
+                <footer class="agenda-month-footer"><span><span class="material-symbols-outlined">edit_calendar</span>Selecciona un día para añadir o editar anotaciones.</span><a href="/dashboard/horario">Abrir mi horario<span class="material-symbols-outlined">arrow_outward</span></a></footer>
+              </section>
+            </main>
+            {}
+          </div>
         </div>"###,
-        templates::event_timeline_html(&datos.eventos, Some(&today))
-    );
-
-    // Page header with the iCalendar download (route /dashboard/calendar.ics).
-    let link_class = "inline-flex items-center gap-1.5 px-space-md py-2 rounded-lg border border-outline text-on-surface font-label-md font-semibold hover:bg-surface-container transition-colors";
-    let header = format!(
-        r###"<div class="flex flex-wrap items-center justify-between gap-space-md mb-space-md">
-        <div>
-            <h1 class="font-headline-md text-headline-md text-primary-container">Calendario</h1>
-            <p class="font-body-sm text-body-sm text-on-surface-variant">Eventos del calendario escolar</p>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-            <a href="/dashboard/calendar?month={}" class="{}" title="Ir al mes en curso">Mes actual</a>
-            <a href="/dashboard/calendar/daily" class="{}" title="Ver los eventos de un día">Vista diaria</a>
-            <a href="/dashboard/calendar.ics" download
-                class="{}"
-                title="Descargar el calendario en formato iCalendar (.ics)">
-                <span class="material-symbols-outlined text-[18px] text-primary-container">calendar_down</span>
-                Descargar .ics
-            </a>
-        </div>
-    </div>"###,
+        resumen,
         today_date.format("%Y-%m"),
-        link_class,
-        link_class,
-        link_class
+        status,
+        grid_html,
+        timeline,
     );
-
-    let content = format!(r###"{}{}{}{}"###, status, header, grid, timeline);
 
     Html(templates::page_ext(
         "Calendario — Study Platform",
@@ -646,13 +722,13 @@ fn day_event_row(item: &DayEvent<'_>) -> String {
         None => String::new(),
     };
     format!(
-        r###"<div class="bg-surface-container border border-outline rounded-xl p-space-sm flex items-start gap-3">
-            <span class="material-symbols-outlined text-[18px] text-primary-container mt-0.5">event</span>
-            <div class="flex-1 min-w-0">
+        r###"<div class="agenda-day-event bg-surface-container border border-outline rounded-xl p-space-sm flex items-start gap-3">
+            <span class="agenda-day-event-icon material-symbols-outlined text-[18px] text-primary-container mt-0.5">event</span>
+            <div class="agenda-day-event-copy flex-1 min-w-0">
                 <div class="font-label-md text-label-md text-on-surface font-semibold">{}</div>
                 <div class="font-body-sm text-body-sm text-on-surface-variant">{} · {}</div>
             </div>
-            <div class="flex items-center gap-2 shrink-0">
+            <div class="agenda-day-event-meta flex items-center gap-2 shrink-0">
                 {}
                 <span class="font-label-sm text-[10px] px-2 py-0.5 rounded-full bg-secondary/10 text-secondary whitespace-nowrap" title="{}">{}</span>
             </div>
@@ -674,7 +750,7 @@ fn day_event_row(item: &DayEvent<'_>) -> String {
 fn now_band(now_hm: &str, with_hours: bool) -> String {
     if with_hours {
         format!(
-            r###"<div class="flex items-center gap-2 my-space-sm" title="Hora actual (hora local del servidor)">
+            r###"<div class="agenda-now-band flex items-center gap-2 my-space-sm" title="Hora actual (hora local del servidor)">
                 <span class="h-2 w-2 rounded-full bg-primary-container shrink-0"></span>
                 <span class="font-label-sm text-label-sm text-primary-container whitespace-nowrap">Ahora · {}</span>
                 <span class="flex-1 h-px bg-primary-container/40"></span>
@@ -683,7 +759,7 @@ fn now_band(now_hm: &str, with_hours: bool) -> String {
         )
     } else {
         format!(
-            r###"<div class="flex items-center gap-2 mb-space-sm" title="Hora actual del servidor (los eventos no tienen horario)">
+            r###"<div class="agenda-now-band flex items-center gap-2 mb-space-sm" title="Hora actual del servidor (los eventos no tienen horario)">
                 <span class="h-2 w-2 rounded-full bg-primary-container shrink-0"></span>
                 <span class="font-label-sm text-label-sm text-primary-container whitespace-nowrap">Ahora · {}</span>
                 <span class="font-label-sm text-[10px] text-on-surface-variant whitespace-nowrap">solo el reloj del servidor</span>
@@ -695,7 +771,7 @@ fn now_band(now_hm: &str, with_hours: bool) -> String {
 
 /// Honest notice shown when the source does not deliver times of day.
 fn no_hours_notice() -> String {
-    r###"<div class="bg-surface-container border border-outline rounded-xl p-3 mb-space-md flex items-start gap-2">
+    r###"<div class="agenda-daily-notice bg-surface-container border border-outline rounded-xl p-3 mb-space-md flex items-start gap-2">
         <span class="material-symbols-outlined text-[18px] text-outline mt-0.5">info</span>
         <p class="font-body-sm text-body-sm text-on-surface-variant">Mikareno no entrega horas: se muestran los eventos del día sin horario</p>
     </div>"###
@@ -772,7 +848,7 @@ fn hourly_timeline(items: &[DayEvent<'_>], now_hm: &str, now_hour: u32) -> Strin
 /// no time column.
 fn daily_fragment(items: &[DayEvent<'_>], now_hm: &str, now_hour: u32, with_hours: bool) -> String {
     if items.is_empty() {
-        return r###"<div class="bg-surface-container border border-outline rounded-xl p-6 text-center">
+        return r###"<div class="agenda-daily-empty bg-surface-container border border-outline rounded-xl p-6 text-center">
             <span class="material-symbols-outlined text-[32px] text-outline mb-2">event_busy</span>
             <p class="font-body-sm text-body-sm text-on-surface-variant">No hay eventos para este día.</p>
         </div>"###
@@ -889,29 +965,8 @@ pub async fn daily(
         ""
     };
 
-    let header = format!(
-        r###"<div class="flex flex-wrap items-center justify-between gap-space-md mb-space-sm">
-            <div>
-                <div class="flex items-center gap-2">
-                    <h2 class="font-headline-sm text-headline-sm text-primary-container">{}</h2>
-                    {}
-                </div>
-                <p class="font-body-sm text-body-sm text-on-surface-variant">{} · {}</p>
-            </div>
-            <div class="flex items-center gap-2">
-                {}
-                <a href="/dashboard/calendar/daily" class="{}" title="Volver a hoy">Hoy</a>
-                {}
-                <button hx-get="/dashboard/calendar/daily?date={}&partial=list" hx-target="#daily-events" hx-swap="innerHTML"
-                    class="{}" title="Actualizar">
-                    <span class="material-symbols-outlined text-[16px]">refresh</span> Actualizar
-                </button>
-            </div>
-        </div>"###,
-        templates::html_escape(&title),
-        hoy_chip,
-        templates::weekday_es(&target_iso),
-        templates::html_escape(&format_fecha_es(&target_iso)),
+    let navigation = format!(
+        r###"<div class="nova-daily-nav"><div>{}<a href="/dashboard/calendar/daily" class="{}" title="Volver a hoy">Hoy</a>{}</div><button hx-get="/dashboard/calendar/daily?date={}&partial=list" hx-target="#daily-events" hx-swap="innerHTML" class="{}" title="Actualizar"><span class="material-symbols-outlined">refresh</span>Actualizar</button></div>"###,
         prev,
         NAV_CLASS,
         next,
@@ -931,7 +986,17 @@ pub async fn daily(
         fragment
     );
 
-    let content = format!(r###"{}{}{}{}"###, status, header, band, list);
+    let content = format!(
+        r###"<div class="nx-page nx-daily agenda-page agenda-daily-page nova-page nova-daily-page"><header class="agenda-header"><div class="agenda-heading"><span class="agenda-heading-icon material-symbols-outlined">calendar_view_day</span><div><p>Agenda académica · Vista diaria</p><h1>Día</h1><span>{} · {}</span></div></div><div class="agenda-actions"><nav class="agenda-view-tabs" aria-label="Vista del calendario"><a href="/dashboard/calendar">Mes</a><a href="/dashboard/calendar/weekly">Semana</a><a class="is-active" aria-current="page" href="/dashboard/calendar/daily">Día</a></nav><a class="agenda-export" href="/dashboard/calendar.ics" download title="Descargar calendario ICS"><span class="material-symbols-outlined">download</span><span>Exportar</span></a></div></header><section class="nx-daily-panel nova-daily-panel agenda-daily-board"><div class="agenda-subview-head"><div><p>Tu jornada</p><h2>{}</h2></div>{}</div>{}{}{}{}</section></div>"###,
+        templates::weekday_es(&target_iso),
+        templates::html_escape(&format_fecha_es(&target_iso)),
+        templates::html_escape(&title),
+        hoy_chip,
+        status,
+        navigation,
+        band,
+        list,
+    );
     Html(templates::page_ext(
         "Calendario Diario — Study Platform",
         "Mi agenda",
@@ -944,6 +1009,7 @@ pub async fn daily(
 pub async fn weekly(State(state): State<Arc<AppState>>) -> Html<String> {
     let carga = cargar_calendario(&state).await;
     let events = &carga.eventos;
+    let status = banner_mcp_datos(&carga);
 
     let days = [
         "Lunes",
@@ -954,32 +1020,47 @@ pub async fn weekly(State(state): State<Arc<AppState>>) -> Html<String> {
         "Sábado",
         "Domingo",
     ];
-    let mut day_items: Vec<String> = Vec::new();
+    let mut columns: Vec<String> = Vec::new();
 
     for day in &days {
         let day_events: Vec<&CalendarioEvent> = events
             .iter()
             .filter(|e| templates::weekday_es(&e.fecha) == *day)
             .collect();
-        if !day_events.is_empty() {
-            let items: Vec<String> = day_events
+        let items = if day_events.is_empty() {
+            r#"<p class="nova-weekly-empty">Sin eventos</p>"#.to_string()
+        } else {
+            day_events
                 .iter()
                 .map(|e| {
+                    let time_label = event_time(&e.fecha)
+                        .map(|(_, hhmm)| hhmm)
+                        .unwrap_or_else(|| "Sin hora".to_string());
                     format!(
-                        "{} ({}) — {}",
-                        templates::weekday_es(&e.fecha),
-                        e.fecha,
-                        e.evento
+                        r#"<article><span>{}</span><h3>{}</h3><time datetime="{}" title="{}">{}</time></article>"#,
+                        templates::html_escape(&tipo_label(&e.tipo)),
+                        templates::html_escape(&e.evento),
+                        templates::html_escape(&e.fecha),
+                        templates::html_escape(&format_fecha_es(&e.fecha)),
+                        templates::html_escape(&time_label),
                     )
                 })
-                .collect();
-            day_items.extend(items);
-        } else {
-            day_items.push(format!("{} — Sin eventos", day));
-        }
+                .collect::<Vec<_>>()
+                .join("")
+        };
+        columns.push(format!(
+            r#"<section class="nova-weekly-day"><header><span>{}</span><strong>{}</strong></header><div>{}</div></section>"#,
+            day.chars().take(3).collect::<String>(),
+            day,
+            items,
+        ));
     }
 
-    let content = templates::card_list("Vista semanal", &day_items);
+    let content = format!(
+        r###"<div class="nx-page nx-weekly agenda-page agenda-weekly-page nova-page nova-weekly-page"><header class="agenda-header"><div class="agenda-heading"><span class="agenda-heading-icon material-symbols-outlined">calendar_view_week</span><div><p>Agenda académica · Vista semanal</p><h1>Semana</h1><span>Los eventos se agrupan por día usando los datos reales del calendario.</span></div></div><div class="agenda-actions"><nav class="agenda-view-tabs" aria-label="Vista del calendario"><a href="/dashboard/calendar">Mes</a><a class="is-active" aria-current="page" href="/dashboard/calendar/weekly">Semana</a><a href="/dashboard/calendar/daily">Día</a></nav><a class="agenda-export" href="/dashboard/calendar.ics" download title="Descargar calendario ICS"><span class="material-symbols-outlined">download</span><span>Exportar</span></a></div></header><section class="nx-schedule-board nova-schedule-board agenda-weekly-board"><div class="agenda-subview-head"><div><p>Tu semana</p><h2>Eventos por día</h2></div><span class="material-symbols-outlined">calendar_view_week</span></div>{}<div class="nx-weekly-agenda nova-weekly-agenda">{}</div></section></div>"###,
+        status,
+        columns.join(""),
+    );
     Html(templates::page_ext(
         "Semana — Study Platform",
         "Mi agenda",

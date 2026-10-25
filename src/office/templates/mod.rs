@@ -291,165 +291,153 @@ pub fn human_size(bytes: u64) -> String {
     }
 }
 
-/// Full-page HTML wrapper (cyberpunk dark theme + office navigation).
+/// Envoltorio de Oficina unificado con Nova. Los editores conservan sus
+/// formularios, scripts y endpoints; desaparece la cabecera independiente.
 pub fn layout(title: &str, body: &str) -> String {
-    LAYOUT_TEMPLATE
-        .replace("__TITLE__", &html_escape(title))
-        .replace("__BODY__", body)
+    layout_as(title, "", body)
 }
+
+/// Variante que marca la sección activa dentro del mapa Nova.
+pub fn layout_as(title: &str, active: &str, body: &str) -> String {
+    let html = crate::handlers::stitch_v2::stitch_v2_page(active, body, true);
+    let Some(open) = html.find("<title>") else {
+        return html;
+    };
+    let Some(relative_close) = html[open..].find("</title>") else {
+        return html;
+    };
+    let close = open + relative_close + "</title>".len();
+    let mut titled = String::with_capacity(html.len() + title.len() + 16);
+    titled.push_str(&html[..open]);
+    titled.push_str(&format!("<title>{} — NOVA Office</title>", html_escape(title)));
+    titled.push_str(&html[close..]);
+    titled
+}
+
+/// Franja superior de la suite: inicio, archivo activo, creación y Biblioteca.
+/// Mantiene la metáfora de pestañas de GenOffice sin ocultar las rutas reales.
+pub fn office_tab_strip(kind: &str, title: &str, new_href: &str) -> String {
+    let (icon, label, list_href) = match kind {
+        "docs" => ("description", "Documentos", "/office/docs"),
+        "sheets" => ("table_chart", "Hojas", "/office/sheets"),
+        "presentations" => ("present_to_all", "Presentaciones", "/office/presentations"),
+        "library" => ("folder_open", "Biblioteca", "/office/library"),
+        _ => ("grid_view", "Oficina", "/office"),
+    };
+    format!(
+        r##"<nav class="gen-office-tabs" aria-label="Pestañas de Oficina">
+            <a class="gen-office-brand-tab" href="/office"><span class="gen-office-brand-mark"><span class="material-symbols-outlined">grid_view</span></span><strong>NOVA <span>Office</span></strong></a>
+            <a class="gen-office-file-tab is-active" href="{list_href}"><span class="gen-office-file-icon {kind}"><span class="material-symbols-outlined">{icon}</span></span><span>{title}</span><small>{label}</small></a>
+            <a class="gen-office-add-tab" href="{new_href}" aria-label="Crear un archivo"><span class="material-symbols-outlined">add</span></a>
+            <span class="gen-office-tabs-spacer"></span>
+            <a class="gen-office-library-tab" href="/office/library"><span class="material-symbols-outlined">folder_open</span><span>Biblioteca</span></a>
+        </nav><script>{feedback_js}</script>"##,
+        feedback_js = OFFICE_FEEDBACK_JS,
+        list_href = list_href,
+        kind = html_escape(kind),
+        icon = icon,
+        title = html_escape(title),
+        label = label,
+        new_href = html_escape(new_href),
+    )
+}
+
+/// Botón común para mostrar/ocultar el panel de herramientas y NOVA AI.
+pub const OFFICE_AI_TOGGLE: &str = r##"<button type="button" class="gen-office-ribbon-button" data-office-ai-toggle onclick="toggleOfficeAi()" aria-controls="gen-office-ai-panel" aria-expanded="false"><span class="material-symbols-outlined">auto_awesome</span><span>Herramientas</span></button>"##;
+
+/// Panel lateral de trabajo. Las acciones se pasan como HTML y siempre usan
+/// controles/endpoints existentes; el enlace a NOVA AI no finge editar el archivo.
+pub fn office_ai_panel(title: &str, description: &str, content: &str) -> String {
+    format!(
+        r##"<button type="button" class="gen-office-ai-backdrop" onclick="closeOfficeAi()" aria-label="Cerrar herramientas"></button>
+        <aside class="gen-office-ai" id="gen-office-ai-panel" aria-label="Herramientas de Oficina">
+            <header><div><span class="gen-office-ai-mark"><span class="material-symbols-outlined">auto_awesome</span></span><strong>NOVA AI</strong></div><button type="button" class="gen-office-icon-button" onclick="closeOfficeAi()" aria-label="Cerrar herramientas"><span class="material-symbols-outlined">close</span></button></header>
+            <div class="gen-office-ai-intro"><span>ESPACIO DE TRABAJO</span><h2>{title}</h2><p>{description}</p></div>
+            <div class="gen-office-ai-content">{content}</div>
+            <footer><a href="/dashboard/ai"><span class="material-symbols-outlined">forum</span><span><strong>Abrir NOVA AI</strong><small>Conversa con el asistente académico</small></span><span class="material-symbols-outlined">arrow_outward</span></a></footer>
+        </aside>"##,
+        title = html_escape(title),
+        description = html_escape(description),
+        content = content,
+    )
+}
+
+/// Feedback visible para los formularios HTMX de Oficina. Los errores 4xx/5xx
+/// no se intercambian en el DOM por defecto; sin este aviso parecerían clics muertos.
+pub const OFFICE_FEEDBACK_JS: &str = r##"
+if (!window.genOfficeFeedbackReady) {
+    window.genOfficeFeedbackReady = true;
+    function genOfficeHtmxFeedback(event, networkError) {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        const officePage = target.closest('.gen-office-page') || target.querySelector('.gen-office-page');
+        if (!officePage) return;
+        const status = networkError ? 0 : (event.detail.xhr ? event.detail.xhr.status : 0);
+        let message = 'No se pudo completar la acción. Inténtalo de nuevo.';
+        if (networkError) message = 'Sin conexión con el servidor. Tus cambios no se han guardado.';
+        else if (status === 400) message = 'Revisa los datos del formulario: faltan campos o no son válidos.';
+        else if (status === 404) message = 'El archivo ya no existe o fue movido.';
+        else if (status === 409) message = 'Ya existe un archivo con ese nombre. Elige otro título.';
+        else if (status === 413) message = 'El contenido supera el tamaño permitido.';
+        if (window.__SP__ && typeof window.__SP__.toast === 'function') {
+            window.__SP__.toast(message, 'err', 6500);
+        } else {
+            window.alert(message);
+        }
+    }
+    document.addEventListener('htmx:responseError', function (event) {
+        genOfficeHtmxFeedback(event, false);
+    });
+    document.addEventListener('htmx:sendError', function (event) {
+        genOfficeHtmxFeedback(event, true);
+    });
+}
+"##;
+
+/// Interacción del panel lateral. En escritorio se pliega en su columna; en
+/// pantallas compactas se abre como cajón superpuesto y Escape lo cierra.
+pub const OFFICE_WORKSPACE_JS: &str = r##"
+function officeAiCompact() {
+    return window.matchMedia('(max-width: 1100px)').matches;
+}
+function syncOfficeAiToggle() {
+    const workspace = document.querySelector('.gen-office-workspace');
+    const toggle = document.querySelector('[data-office-ai-toggle]');
+    if (!workspace || !toggle) return;
+    const open = officeAiCompact() ? workspace.classList.contains('ai-open') : !workspace.classList.contains('ai-hidden');
+    toggle.setAttribute('aria-expanded', String(open));
+}
+function openOfficeAi() {
+    const workspace = document.querySelector('.gen-office-workspace');
+    if (!workspace) return;
+    workspace.classList.remove('ai-hidden');
+    if (officeAiCompact()) workspace.classList.add('ai-open');
+    syncOfficeAiToggle();
+}
+function closeOfficeAi() {
+    const workspace = document.querySelector('.gen-office-workspace');
+    if (!workspace) return;
+    if (officeAiCompact()) workspace.classList.remove('ai-open');
+    else workspace.classList.add('ai-hidden');
+    syncOfficeAiToggle();
+}
+function toggleOfficeAi() {
+    const workspace = document.querySelector('.gen-office-workspace');
+    if (!workspace) return;
+    const open = officeAiCompact() ? workspace.classList.contains('ai-open') : !workspace.classList.contains('ai-hidden');
+    if (open) closeOfficeAi(); else openOfficeAi();
+}
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeOfficeAi();
+});
+window.addEventListener('resize', syncOfficeAiToggle);
+syncOfficeAiToggle();
+"##;
 
 /// Return an empty page (used when a document/slide editor has no row body).
 pub fn empty_layout() -> String {
-    LAYOUT_TEMPLATE
-        .replace("__TITLE__", "Suite de oficina")
-        .replace("__BODY__", "")
+    layout("NOVA Office", "")
 }
-
-const LAYOUT_TEMPLATE: &str = r##"<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>__TITLE__ — Suite de oficina</title>
-    <!-- Google Fonts: Manrope (headings) + Hanken Grotesk (body) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Material Symbols Outlined -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined">
-    <!-- HTMX + Tailwind CDN -->
-    <script src="https://unpkg.com/htmx.org@2.0.3/dist/htmx.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        /* Surface stack */
-                        background: '#101419',
-                        surface: '#101419',
-                        'surface-dim': '#101419',
-                        'surface-bright': '#36393f',
-                        'surface-container-lowest': '#0a0e13',
-                        'surface-container-low': '#181c21',
-                        'surface-container': '#1c2025',
-                        'surface-container-high': '#262a30',
-                        'surface-container-highest': '#31353b',
-                        'surface-variant': '#31353b',
-                        'surface-tint': '#4ddcc6',
-                        'on-surface': '#e0e2ea',
-                        'on-surface-variant': '#bbcac5',
-                        'on-background': '#e0e2ea',
-                        /* Outline */
-                        outline: '#859490',
-                        'outline-variant': '#3c4946',
-                        /* Primary (luminescent cyan - AI telemetry) */
-                        primary: '#5eead4',
-                        'on-primary': '#003730',
-                        'primary-container': '#5eead4',
-                        'on-primary-container': '#00675b',
-                        'inverse-primary': '#006b5e',
-                        'primary-fixed': '#6ef9e2',
-                        'primary-fixed-dim': '#4ddcc6',
-                        'on-primary-fixed': '#00201b',
-                        'on-primary-fixed-variant': '#005047',
-                        /* Secondary (soft lime - user action) */
-                        secondary: '#9ed753',
-                        'on-secondary': '#203700',
-                        'secondary-container': '#6b9f1f',
-                        'on-secondary-container': '#1b2f00',
-                        'secondary-fixed': '#b9f46c',
-                        'secondary-fixed-dim': '#9ed753',
-                        'on-secondary-fixed': '#102000',
-                        'on-secondary-fixed-variant': '#304f00',
-                        /* Tertiary (muted violet - taxonomy/metadata) */
-                        tertiary: '#a78bfa',
-                        'on-tertiary': '#381385',
-                        'tertiary-container': '#dbcdff',
-                        'on-tertiary-container': '#6448b2',
-                        'tertiary-fixed': '#e8ddff',
-                        'tertiary-fixed-dim': '#cebdff',
-                        'on-tertiary-fixed': '#21005e',
-                        'on-tertiary-fixed-variant': '#4f319c',
-                        /* Error */
-                        error: '#ffb4ab',
-                        'on-error': '#690005',
-                        'error-container': '#93000a',
-                        'on-error-container': '#ffdad6',
-                        /* Inverse */
-                        'inverse-surface': '#e0e2ea',
-                        'inverse-on-surface': '#2d3136',
-                    },
-                    fontFamily: {
-                        manrope: ['Manrope', 'sans-serif'],
-                        hanken: ['Hanken Grotesk', 'sans-serif'],
-                    },
-                }
-            },
-        }
-    </script>
-    <style>
-        @layer base {
-            body {
-                @apply bg-surface text-on-surface font-hanken;
-            }
-            h1, h2, h3, h4, h5, h6 {
-                @apply font-manrope;
-            }
-        }
-        td[contenteditable]:focus {
-            outline: 2px solid #4ddcc6;
-            @apply bg-surface-container;
-        }
-        th {
-            @apply bg-surface-container;
-        }
-        .slide {
-            @apply border border-outline-variant;
-        }
-    </style>
-</head>
-<body class="min-h-screen">
-    <header class="fixed top-0 left-0 right-0 bg-surface-container-low/90 backdrop-blur-sm border-b border-outline z-50">
-        <div class="flex items-center justify-between px-6 py-3">
-            <div class="flex items-center space-x-6">
-                <h1 class="text-xl font-semibold text-primary">Suite de oficina</h1>
-                <nav class="flex items-center space-x-1">
-                    <a href="/office/docs" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/50 transition-colors">
-                        <span class="material-symbols-outlined text-base">edit_document</span>
-                        <span>Documentos</span>
-                    </a>
-                    <a href="/office/sheets" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/50 transition-colors">
-                        <span class="material-symbols-outlined text-base">table_chart</span>
-                        <span>Hojas</span>
-                    </a>
-                    <a href="/office/presentations" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/50 transition-colors">
-                        <span class="material-symbols-outlined text-base">slideshow</span>
-                        <span>Presentaciones</span>
-                    </a>
-                    <a href="/office/library" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high/50 transition-colors">
-                        <span class="material-symbols-outlined text-base">folder_copy</span>
-                        <span>Biblioteca</span>
-                    </a>
-                </nav>
-            </div>
-            <form hx-post="/logout" hx-swap="outerHTML">
-                <button type="submit" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-on-surface-variant hover:text-primary transition-colors">
-                    <span class="material-symbols-outlined text-base">logout</span>
-                    <span>Salir</span>
-                </button>
-            </form>
-        </div>
-    </header>
-    <main class="pt-16 pb-6 px-6">
-        <div class="max-w-5xl mx-auto">
-            <div class="bg-surface-container rounded-xl border border-outline p-6">
-__BODY__
-            </div>
-        </div>
-    </main>
-</body>
-</html>"##;
 
 /// HTMX-friendly redirect: HTTP 200 + `HX-Redirect` header.
 /// HTMX clients perform a client-side navigation to `url`; plain clients receive
@@ -499,12 +487,14 @@ function insertMd(prefix, suffix) {
     const sel = ta.value.substring(start, end);
     const after = ta.value.substring(end);
     ta.value = before + prefix + sel + suffix + after;
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
     ta.focus();
 }
 function appendMd(text) {
     const ta = document.getElementById('editor');
     if (!ta) return;
     ta.value += text + '\n';
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
     ta.focus();
 }
 "#;
@@ -512,36 +502,138 @@ function appendMd(text) {
 /// JavaScript for the spreadsheet grid: serialize a contenteditable `<table id="grid">`
 /// into a hidden `csv_data` input so it can be submitted with the form.
 pub const GRID_SERIALIZE_JS: &str = r#"
+function officeCsvCell(value) {
+    const clean = value.replace(/\r?\n/g, ' ');
+    return /[",]/.test(clean) ? '"' + clean.replace(/"/g, '""') + '"' : clean;
+}
 function serializeGrid() {
-    const rows = document.querySelectorAll('#grid tr');
     const lines = [];
-    rows.forEach(tr => {
+    document.querySelectorAll('#grid tbody tr').forEach((tr) => {
         const cells = tr.querySelectorAll('td[contenteditable]');
-        const vals = [];
-        cells.forEach(td => vals.push(td.textContent.replace(/\r?\n/g, ' ')));
-        lines.push(vals.join(','));
+        if (!cells.length) return;
+        const values = [];
+        cells.forEach((td) => values.push(officeCsvCell(td.textContent)));
+        lines.push(values.join(','));
     });
     const hidden = document.getElementById('csv_data');
     if (hidden) hidden.value = lines.join('\n');
+    return hidden ? hidden.value : '';
 }
+function officeColumnName(index) {
+    let value = index + 1;
+    let name = '';
+    while (value > 0) {
+        const remainder = (value - 1) % 26;
+        name = String.fromCharCode(65 + remainder) + name;
+        value = Math.floor((value - 1) / 26);
+    }
+    return name;
+}
+function renumberOfficeGrid() {
+    const grid = document.getElementById('grid');
+    if (!grid) return;
+    const rows = [...grid.querySelectorAll('tbody tr')];
+    const columns = rows.reduce((max, row) => Math.max(max, row.querySelectorAll('td[contenteditable]').length), 0);
+    const head = grid.querySelector('thead tr');
+    if (head) {
+        while (head.cells.length > columns + 1) head.deleteCell(-1);
+        while (head.cells.length < columns + 1) head.insertCell(-1).outerHTML = '<th scope="col"></th>';
+        [...head.cells].forEach((cell, index) => { cell.textContent = index === 0 ? '' : officeColumnName(index - 1); });
+    }
+    rows.forEach((row, rowIndex) => {
+        const number = row.querySelector('th');
+        if (number) { number.textContent = String(rowIndex + 1); number.scope = 'row'; }
+        row.querySelectorAll('td[contenteditable]').forEach((cell, columnIndex) => {
+            const ref = officeColumnName(columnIndex) + (rowIndex + 1);
+            cell.dataset.r = String(rowIndex);
+            cell.dataset.c = String(columnIndex);
+            cell.dataset.cell = ref;
+            cell.setAttribute('aria-label', 'Celda ' + ref);
+        });
+    });
+    const count = document.getElementById('sheet-grid-count');
+    if (count) count.textContent = rows.length + ' filas · ' + columns + ' columnas';
+}
+function selectOfficeCell(cell) {
+    if (!cell) return;
+    document.querySelectorAll('#grid td.is-selected').forEach((item) => item.classList.remove('is-selected'));
+    cell.classList.add('is-selected');
+    const reference = document.getElementById('active-cell');
+    const formula = document.getElementById('formula-input');
+    if (reference) reference.textContent = cell.dataset.cell || '';
+    if (formula) formula.value = cell.textContent;
+}
+function addOfficeGridRow() {
+    const body = document.querySelector('#grid tbody');
+    if (!body) return;
+    const columns = body.querySelector('tr')?.querySelectorAll('td[contenteditable]').length || 5;
+    const row = document.createElement('tr');
+    row.appendChild(document.createElement('th'));
+    for (let index = 0; index < columns; index += 1) {
+        const cell = document.createElement('td');
+        cell.contentEditable = 'true';
+        row.appendChild(cell);
+    }
+    body.appendChild(row);
+    renumberOfficeGrid();
+    selectOfficeCell(row.querySelector('td'));
+}
+function addOfficeGridColumn() {
+    const grid = document.getElementById('grid');
+    if (!grid) return;
+    grid.querySelectorAll('tbody tr').forEach((row) => {
+        const cell = document.createElement('td');
+        cell.contentEditable = 'true';
+        row.appendChild(cell);
+    });
+    renumberOfficeGrid();
+}
+function initializeOfficeGrid() {
+    const grid = document.getElementById('grid');
+    const formula = document.getElementById('formula-input');
+    if (!grid || !formula) return;
+    renumberOfficeGrid();
+    if (!grid.dataset.ready) {
+        grid.dataset.ready = 'true';
+        grid.addEventListener('focusin', (event) => {
+            if (event.target.matches('td[contenteditable]')) selectOfficeCell(event.target);
+        });
+        grid.addEventListener('input', (event) => {
+            if (event.target.matches('td[contenteditable].is-selected')) formula.value = event.target.textContent;
+        });
+        formula.addEventListener('input', () => {
+            const selected = grid.querySelector('td.is-selected');
+            if (selected) selected.textContent = formula.value;
+        });
+        formula.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                const selected = grid.querySelector('td.is-selected');
+                if (selected) selected.focus();
+            }
+        });
+    }
+    if (!grid.querySelector('td.is-selected')) selectOfficeCell(grid.querySelector('td[contenteditable]'));
+}
+initializeOfficeGrid();
 "#;
 
-/// Read a file's text, returning an empty string on error.
-pub fn read_text(path: &Path) -> String {
-    fs::read_to_string(path).unwrap_or_default()
+/// Read a file's text without hiding permission or I/O failures.
+pub fn read_text(path: &Path) -> std::io::Result<String> {
+    fs::read_to_string(path)
 }
 
 /// Write text to a file, creating parent dirs.
 pub fn write_text(path: &Path, content: &str) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
-        let _ = fs::create_dir_all(parent);
+        fs::create_dir_all(parent)?;
     }
     fs::write(path, content)
 }
 
-/// Read file bytes, returning empty on error.
-pub fn read_bytes(path: &Path) -> Vec<u8> {
-    fs::read(path).unwrap_or_default()
+/// Read file bytes without converting an I/O failure into an empty download.
+pub fn read_bytes(path: &Path) -> std::io::Result<Vec<u8>> {
+    fs::read(path)
 }
 
 /// Filename stem helper.

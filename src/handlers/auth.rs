@@ -901,10 +901,10 @@ const LOGIN_PAGE_HTML: &str = r##"<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Study Platform — Iniciar sesión</title>
+<title>NOVA — Iniciar sesión</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined&family=Hanken+Grotesk:wght@400;500;600;700&family=Manrope:wght@600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined&family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -913,103 +913,105 @@ const LOGIN_PAGE_HTML: &str = r##"<!DOCTYPE html>
             theme: {
                 extend: {
                     colors: {
-                        background: '#101419',
-                        'surface-container-lowest': '#0a0e13',
-                        'surface-container-low': '#181c21',
-                        'surface-container': '#1c2025',
-                        'surface-container-high': '#262a30',
-                        'surface-container-highest': '#31353b',
-                        'on-surface': '#e0e2ea',
-                        'on-surface-variant': '#bbcac5',
-                        outline: '#859490',
-                        'outline-variant': '#3c4946',
-                        primary: '#b5fff0',
-                        'on-primary': '#003730',
-                        'primary-container': '#5eead4',
-                        'on-primary-container': '#00675b',
-                        secondary: '#9ed753',
-                        'on-secondary': '#203700',
-                        'secondary-container': '#6b9f1f',
-                        'on-secondary-container': '#1b2f00',
-                        'surface-tint': '#4ddcc6',
-                        'text-primary': '#f1f5f9',
-                        'text-secondary': '#94a3b8',
-                        'text-muted': '#64748b',
-                        canvas: '#0b0f14',
-                        'input-bg': '#111821',
+                        background: '#090b11',
+                        'surface-container-lowest': '#090c12',
+                        'surface-container-low': '#0d1017',
+                        'surface-container': '#11151d',
+                        'surface-container-high': '#161b25',
+                        'surface-container-highest': '#1c2230',
+                        'on-surface': '#f2f4f8',
+                        'on-surface-variant': '#a2abbc',
+                        outline: '#747f93',
+                        'outline-variant': '#2a3242',
+                        primary: '#dce1ff',
+                        'on-primary': '#121728',
+                        'primary-container': '#a9b6ff',
+                        'on-primary-container': '#121728',
+                        secondary: '#76d7c0',
+                        'on-secondary': '#121728',
+                        'secondary-container': '#1f4a40',
+                        'on-secondary-container': '#d4f8ed',
+                        'surface-tint': '#a9b6ff',
+                        'text-primary': '#f2f4f8',
+                        'text-secondary': '#a2abbc',
+                        'text-muted': '#747f93',
+                        canvas: '#090c12',
+                        'input-bg': '#0c1017',
                     },
                     fontFamily: {
-                        manrope: ['"Manrope"', 'sans-serif'],
-                        hanken: ['"Hanken Grotesk"', 'sans-serif'],
+                        manrope: ['"Space Grotesk"', 'sans-serif'],
+                        hanken: ['"DM Sans"', 'sans-serif'],
                     },
                     boxShadow: {
-                        glow: '0 0 12px rgba(158, 215, 83, 0.25)',
-                        'glow-hover': '0 0 20px rgba(158, 215, 83, 0.45)',
+                        glow: '0 0 12px rgba(169, 182, 255, 0.22)',
+                        'glow-hover': '0 0 20px rgba(169, 182, 255, 0.35)',
                     },
                 },
             },
         };
     </script>
+    <link rel="stylesheet" href="/polish.css">
 </head>
-<body class="bg-background font-hanken text-on-surface antialiased min-h-screen flex items-center justify-center">
-    <div class="w-full max-w-sm px-6" id="login-container">
-        <!-- Logo -->
-        <div class="text-center mb-8">
-            <div class="flex items-center justify-center gap-2 mb-2">
-                <span class="material-symbols-outlined text-2xl text-surface-tint">psychology</span>
-                <h1 class="font-manrope text-2xl font-bold"><span class="text-secondary">Study</span> Platform</h1>
+<body class="auth-body">
+    <main class="auth-shell">
+        <section class="auth-intro" aria-label="NOVA Academic OS">
+            <div class="auth-brand">
+                <span class="auth-brand-mark" aria-hidden="true">N</span>
+                <div><strong>NOVA</strong><small>ACADEMIC OS</small></div>
+                <span class="auth-version">3.0</span>
             </div>
-            <p class="text-sm text-on-surface-variant">Tu espacio de productividad académica</p>
-        </div>
-        <!-- Card -->
-        <div class="relative bg-surface-container/85 border border-outline-variant border-t-2 border-t-primary-container rounded-xl p-8 backdrop-blur-lg">
-            <div class="flex items-center gap-3">
-                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-container/15 border border-primary-container/30">
-                    <span class="material-symbols-outlined text-[22px] text-surface-tint">water_drop</span>
-                </span>
-                <div>
-                    <h2 class="font-manrope text-lg font-semibold text-on-surface">Inicia sesión</h2>
-                    <p class="mt-0.5 text-sm text-on-surface-variant">Ingresa tus credenciales para continuar</p>
-                </div>
+            <div class="auth-intro-copy">
+                <p class="auth-kicker">Tu espacio académico</p>
+                <h1>Todo lo que estudias.<br><em>Por fin, en su lugar.</em></h1>
+                <p>Notas, materias, IA y documentos conectados en un entorno privado que trabaja a tu ritmo.</p>
             </div>
-            <!-- Slot de error: htmx no hace swap con respuestas 4xx, así que el
-                 fragmento LOGIN_ERROR_HTML (401) se inyecta aquí por JS. -->
-            <div id="login-error" class="mt-5"></div>
-            <!-- `method`/`action` son el respaldo SIN JavaScript: sin htmx el
-                 navegador haría GET a /login con la contraseña en la URL (y
-                 nunca habría POST ni error visible). Con htmx manda `hx-post`
-                 (el verbo y la ruta los toma htmx, no los atributos nativos). -->
-            <form method="post" action="/login" hx-post="/login" hx-swap="outerHTML" hx-target="#login-container" class="mt-6 space-y-4">
-                <div>
-                    <label for="username" class="block text-sm font-medium text-on-surface-variant mb-1">Usuario</label>
-                    <input id="username" type="text" name="username" required autocomplete="username" autofocus placeholder="usuario" class="w-full h-10 px-3 bg-surface-container border border-[#37485a] rounded text-on-surface placeholder:text-muted transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint focus:border-surface-tint focus:ring-offset-2 focus:ring-offset-background">
-                </div>
-                <div>
-                    <label for="password" class="block text-sm font-medium text-on-surface-variant mb-1">Contraseña</label>
-                    <div class="relative">
-                        <input id="password" type="password" name="password" required autocomplete="current-password" placeholder="••••••••" class="w-full h-10 px-3 pr-11 bg-surface-container border border-[#37485a] rounded text-on-surface placeholder:text-muted transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint focus:border-surface-tint focus:ring-offset-2 focus:ring-offset-background">
-                        <button type="button" id="toggle-password" aria-label="Mostrar contraseña" aria-pressed="false" class="absolute right-0 top-0 h-10 w-11 flex items-center justify-center rounded text-on-surface-variant hover:text-on-surface transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint">
-                            <span class="material-symbols-outlined text-[18px]" id="toggle-password-icon">visibility</span>
-                        </button>
+            <div class="auth-features" aria-label="Incluye">
+                <div><span class="material-symbols-outlined">auto_awesome</span><div><strong>IA con contexto</strong><p>Tus apuntes y materias, disponibles al preguntar.</p></div></div>
+                <div><span class="material-symbols-outlined">account_tree</span><div><strong>Todo conectado</strong><p>Agenda, conocimiento y archivos sin saltar entre apps.</p></div></div>
+                <div><span class="material-symbols-outlined">shield_locked</span><div><strong>Privado por diseño</strong><p>Tu espacio vive en tu red local.</p></div></div>
+            </div>
+            <footer class="auth-intro-foot"><span><i></i> Sistema local disponible</span><span>NOVA · 3.0</span></footer>
+        </section>
+        <section class="auth-access" aria-label="Iniciar sesión">
+            <div class="auth-card" id="login-container">
+                <header class="auth-card-head">
+                    <span class="auth-card-icon material-symbols-outlined" aria-hidden="true">lock_open</span>
+                    <p>ACCESO PRIVADO</p>
+                    <h2>Bienvenido de nuevo.</h2>
+                    <span>Entra para continuar donde lo dejaste.</span>
+                </header>
+                <!-- Slot de error: htmx no hace swap con respuestas 4xx, así que el
+                     fragmento LOGIN_ERROR_HTML (401) se inyecta aquí por JS. -->
+                <div id="login-error" class="mt-5"></div>
+                <!-- `method`/`action` son el respaldo SIN JavaScript: sin htmx el
+                     navegador haría GET a /login con la contraseña en la URL (y
+                     nunca habría POST ni error visible). Con htmx manda `hx-post`
+                     (el verbo y la ruta los toma htmx, no los atributos nativos). -->
+                <form method="post" action="/login" hx-post="/login" hx-swap="outerHTML" hx-target="#login-container" class="auth-form">
+                    <div class="auth-field">
+                        <label for="username">Usuario</label>
+                        <div class="auth-input-wrap"><span class="material-symbols-outlined" aria-hidden="true">person</span><input id="username" type="text" name="username" required autocomplete="username" autofocus placeholder="Escribe tu usuario"></div>
                     </div>
-                </div>
-                <div class="flex items-center justify-between text-sm">
-                    <label class="flex items-center gap-2 cursor-pointer text-on-surface-variant">
-                        <input type="checkbox" class="sr-only peer">
-                        <span class="flex h-5 w-5 items-center justify-center rounded bg-surface-container border border-outline text-xs text-transparent transition-colors peer-focus:ring-2 peer-focus:ring-surface-tint peer-focus:ring-offset-2 peer-focus:ring-offset-background peer-checked:bg-secondary peer-checked:border-secondary peer-checked:text-on-secondary">&#10003;</span>
-                        Mantener sesión
-                    </label>
-                    <a href="#" class="text-secondary hover:underline">¿Olvidaste tu contraseña?</a>
-                </div>
-                <button type="submit" class="w-full h-11 rounded-lg bg-secondary text-on-secondary font-medium shadow-glow transition-colors hover:shadow-glow-hover focus:outline-none focus:ring-2 focus:ring-surface-tint focus:ring-offset-2 focus:ring-offset-background">Iniciar sesión</button>
-            </form>
-        </div>
-        <p class="mt-5 flex items-center justify-center gap-1.5 text-xs text-outline">
-            <span class="material-symbols-outlined text-[14px]">lock</span>
-            Acceso solo desde la red local
-        </p>
-        <p class="mt-4 text-center text-sm text-outline">¿No tienes cuenta? <a href="/register" class="font-medium text-secondary hover:text-secondary/90">Regístrate aquí</a></p>
-    </div>
+                    <div class="auth-field">
+                        <label for="password">Contraseña</label>
+                        <div class="auth-input-wrap auth-password">
+                            <span class="material-symbols-outlined" aria-hidden="true">key</span>
+                            <input id="password" type="password" name="password" required autocomplete="current-password" placeholder="Escribe tu contraseña">
+                            <button type="button" id="toggle-password" aria-label="Mostrar contraseña" aria-pressed="false"><span class="material-symbols-outlined" id="toggle-password-icon">visibility</span></button>
+                        </div>
+                    </div>
+                    <div class="auth-options">
+                        <label class="auth-remember"><input type="checkbox" class="sr-only peer"><span aria-hidden="true">✓</span> Mantener sesión</label>
+                        <a href="#">¿Olvidaste tu contraseña?</a>
+                    </div>
+                    <button type="submit" class="auth-submit"><span>Iniciar sesión</span><span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></button>
+                </form>
+                <p class="auth-local"><span class="material-symbols-outlined">lock</span> Acceso solo desde la red local</p>
+                <p class="auth-register">¿No tienes cuenta? <a href="/register">Regístrate aquí</a></p>
+            </div>
+            <p class="auth-access-meta">NOVA 3.0 <span>·</span> Tu conocimiento, bajo tu control.</p>
+        </section>
+    </main>
     <script>
         // UX mínima de la tarjeta de login:
         //  1) badge mostrar/ocultar contraseña
@@ -1105,10 +1107,10 @@ const LOGIN_PAGE_HTML: &str = r##"<!DOCTYPE html>
 </html>"##;
 
 /// Título de la página de login (se sustituye en la de contraseña).
-const LOGIN_TITLE: &str = "<title>Study Platform — Iniciar sesión</title>";
+const LOGIN_TITLE: &str = "<title>NOVA — Iniciar sesión</title>";
 
 /// Título de la página de cambio de contraseña.
-const PASSWORD_TITLE: &str = "<title>Study Platform — Cambiar contraseña</title>";
+const PASSWORD_TITLE: &str = "<title>NOVA — Cambiar contraseña</title>";
 
 /// Bloque `<head>…</head>` de la página de login, reutilizado tal cual en la
 /// página de contraseña.
@@ -1187,12 +1189,12 @@ fn password_page_html(
 
     let username_input = if username_editable {
         format!(
-            r##"<input id="username" type="text" name="username" value="{}" required autocomplete="username" placeholder="usuario" class="w-full h-10 px-3 bg-surface-container border border-[#37485a] rounded text-on-surface placeholder:text-muted transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint focus:border-surface-tint focus:ring-offset-2 focus:ring-offset-background">"##,
+            r##"<input id="username" type="text" name="username" value="{}" required autocomplete="username" placeholder="usuario" class="w-full h-10 px-3 bg-surface-container border border-[#30394b] rounded text-on-surface placeholder:text-muted transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint focus:border-surface-tint focus:ring-offset-2 focus:ring-offset-background">"##,
             html_escape(username)
         )
     } else {
         format!(
-            r##"<input id="username" type="text" name="username" value="{}" readonly autocomplete="username" class="w-full h-10 px-3 bg-surface-container/60 border border-[#37485a] rounded text-on-surface-variant transition-colors">"##,
+            r##"<input id="username" type="text" name="username" value="{}" readonly autocomplete="username" class="w-full h-10 px-3 bg-surface-container/60 border border-[#30394b] rounded text-on-surface-variant transition-colors">"##,
             html_escape(username)
         )
     };
@@ -1203,70 +1205,72 @@ fn password_page_html(
         r##"<!DOCTYPE html>
 <html lang="es">
 {head}
-<body class="bg-background font-hanken text-on-surface antialiased min-h-screen flex items-center justify-center">
-    <div class="w-full max-w-md px-6" id="login-container">
-        <!-- Logo -->
-        <div class="text-center mb-8">
-            <div class="flex items-center justify-center gap-2 mb-2">
-                <span class="material-symbols-outlined text-2xl text-surface-tint">psychology</span>
-                <h1 class="font-manrope text-2xl font-bold"><span class="text-secondary">Study</span> Platform</h1>
+<body class="auth-body">
+    <main class="auth-shell">
+        <section class="auth-intro" aria-label="NOVA Academic OS">
+            <div class="auth-brand">
+                <span class="auth-brand-mark" aria-hidden="true">N</span>
+                <div><strong>NOVA</strong><small>ACADEMIC OS</small></div>
+                <span class="auth-version">3.0</span>
             </div>
-            <p class="text-sm text-on-surface-variant">Tu espacio de productividad académica</p>
-        </div>
-        <!-- Card -->
-        <div class="relative bg-surface-container/85 border border-outline-variant border-t-2 border-t-primary-container rounded-xl p-8 backdrop-blur-lg">
-            <div class="flex items-center gap-3">
-                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-container/15 border border-primary-container/30">
-                    <span class="material-symbols-outlined text-[22px] text-surface-tint">key</span>
-                </span>
-                <div>
-                    <h2 class="font-manrope text-lg font-semibold text-on-surface">Cambiar contraseña</h2>
-                    <p class="mt-0.5 text-sm text-on-surface-variant">Al guardarla se cerrarán tus demás sesiones</p>
-                </div>
+            <div class="auth-intro-copy">
+                <p class="auth-kicker">Seguridad de tu cuenta</p>
+                <h1>Tu espacio.<br><em>Protegido por diseño.</em></h1>
+                <p>Actualiza tu contraseña sin perder tus notas, materias, conversaciones ni documentos.</p>
             </div>
-            <!-- Slot de feedback: banner de error (400) o de éxito (200). -->
-            <div id="password-feedback" class="mt-5">{banner}</div>
-            <form method="post" action="{action}" class="mt-6 space-y-4">
-                <div>
-                    <label for="username" class="block text-sm font-medium text-on-surface-variant mb-1">Usuario actual</label>
-                    {username_input}
-                </div>
-                <div>
-                    <label for="current_password" class="block text-sm font-medium text-on-surface-variant mb-1">Contraseña actual</label>
-                    <div class="relative">
-                        <input id="current_password" type="password" name="current_password" required autocomplete="current-password" placeholder="••••••••" class="w-full h-10 px-3 pr-11 bg-surface-container border border-[#37485a] rounded text-on-surface placeholder:text-muted transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint focus:border-surface-tint focus:ring-offset-2 focus:ring-offset-background">
-                        <button type="button" id="toggle-current_password" aria-label="Mostrar contraseña" aria-pressed="false" class="absolute right-0 top-0 h-10 w-11 flex items-center justify-center rounded text-on-surface-variant hover:text-on-surface transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint">
-                            <span class="material-symbols-outlined text-[18px]">visibility</span>
-                        </button>
+            <div class="auth-features" aria-label="Privacidad">
+                <div><span class="material-symbols-outlined">shield_locked</span><div><strong>Sesiones bajo control</strong><p>Al guardar se cerrarán tus demás sesiones.</p></div></div>
+                <div><span class="material-symbols-outlined">home_storage</span><div><strong>Datos en tu red</strong><p>Tu información permanece en esta instancia local.</p></div></div>
+            </div>
+            <footer class="auth-intro-foot"><span><i></i> Sistema local disponible</span><span>NOVA · 3.0</span></footer>
+        </section>
+        <section class="auth-access" aria-label="Cambiar contraseña">
+            <div class="auth-card" id="login-container">
+                <header class="auth-card-head">
+                    <span class="auth-card-icon material-symbols-outlined" aria-hidden="true">key</span>
+                    <p>SEGURIDAD DE LA CUENTA</p>
+                    <h2>Cambia tu contraseña.</h2>
+                    <span>Al guardarla se cerrarán tus demás sesiones.</span>
+                </header>
+                <!-- Slot de feedback: banner de error (400) o de éxito (200). -->
+                <div id="password-feedback" class="mt-5">{banner}</div>
+                <form method="post" action="{action}" class="auth-form">
+                    <div class="auth-field">
+                        <label for="username">Usuario actual</label>
+                        {username_input}
                     </div>
-                </div>
-                <div>
-                    <label for="new_password" class="block text-sm font-medium text-on-surface-variant mb-1">Nueva contraseña</label>
-                    <div class="relative">
-                        <input id="new_password" type="password" name="new_password" required minlength="{min_len}" autocomplete="new-password" placeholder="••••••••" class="w-full h-10 px-3 pr-11 bg-surface-container border border-[#37485a] rounded text-on-surface placeholder:text-muted transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint focus:border-surface-tint focus:ring-offset-2 focus:ring-offset-background">
-                        <button type="button" id="toggle-new_password" aria-label="Mostrar contraseña" aria-pressed="false" class="absolute right-0 top-0 h-10 w-11 flex items-center justify-center rounded text-on-surface-variant hover:text-on-surface transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint">
-                            <span class="material-symbols-outlined text-[18px]">visibility</span>
-                        </button>
+                    <div class="auth-field">
+                        <label for="current_password">Contraseña actual</label>
+                        <div class="auth-input-wrap auth-password">
+                            <span class="material-symbols-outlined" aria-hidden="true">lock</span>
+                            <input id="current_password" type="password" name="current_password" required autocomplete="current-password" placeholder="Contraseña actual">
+                            <button type="button" id="toggle-current_password" aria-label="Mostrar contraseña" aria-pressed="false"><span class="material-symbols-outlined">visibility</span></button>
+                        </div>
                     </div>
-                    <p class="mt-1 text-xs text-text-muted">Mínimo {min_len} caracteres.</p>
-                </div>
-                <div>
-                    <label for="confirm_password" class="block text-sm font-medium text-on-surface-variant mb-1">Repetir nueva contraseña</label>
-                    <div class="relative">
-                        <input id="confirm_password" type="password" name="confirm_password" required minlength="{min_len}" autocomplete="new-password" placeholder="••••••••" class="w-full h-10 px-3 pr-11 bg-surface-container border border-[#37485a] rounded text-on-surface placeholder:text-muted transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint focus:border-surface-tint focus:ring-offset-2 focus:ring-offset-background">
-                        <button type="button" id="toggle-confirm_password" aria-label="Mostrar contraseña" aria-pressed="false" class="absolute right-0 top-0 h-10 w-11 flex items-center justify-center rounded text-on-surface-variant hover:text-on-surface transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint">
-                            <span class="material-symbols-outlined text-[18px]">visibility</span>
-                        </button>
+                    <div class="auth-field">
+                        <label for="new_password">Nueva contraseña</label>
+                        <div class="auth-input-wrap auth-password">
+                            <span class="material-symbols-outlined" aria-hidden="true">key</span>
+                            <input id="new_password" type="password" name="new_password" required minlength="{min_len}" autocomplete="new-password" placeholder="Nueva contraseña">
+                            <button type="button" id="toggle-new_password" aria-label="Mostrar contraseña" aria-pressed="false"><span class="material-symbols-outlined">visibility</span></button>
+                        </div>
+                        <small>Mínimo {min_len} caracteres.</small>
                     </div>
-                </div>
-                <button type="submit" class="w-full h-11 rounded-lg bg-secondary text-on-secondary font-medium shadow-glow transition-colors hover:shadow-glow-hover focus:outline-none focus:ring-2 focus:ring-surface-tint focus:ring-offset-2 focus:ring-offset-background">Actualizar contraseña</button>
-            </form>
-        </div>
-        <p class="mt-5 flex items-center justify-center gap-1.5 text-xs text-outline">
-            <span class="material-symbols-outlined text-[14px]">lock</span>
-            Acceso solo desde la red local
-        </p>
-    </div>
+                    <div class="auth-field">
+                        <label for="confirm_password">Repetir nueva contraseña</label>
+                        <div class="auth-input-wrap auth-password">
+                            <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
+                            <input id="confirm_password" type="password" name="confirm_password" required minlength="{min_len}" autocomplete="new-password" placeholder="Repite la nueva contraseña">
+                            <button type="button" id="toggle-confirm_password" aria-label="Mostrar contraseña" aria-pressed="false"><span class="material-symbols-outlined">visibility</span></button>
+                        </div>
+                    </div>
+                    <button type="submit" class="auth-submit"><span>Actualizar contraseña</span><span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></button>
+                </form>
+                <p class="auth-local"><span class="material-symbols-outlined">lock</span> Acceso solo desde la red local</p>
+            </div>
+            <p class="auth-access-meta">NOVA 3.0 <span>·</span> Tu conocimiento, bajo tu control.</p>
+        </section>
+    </main>
     <script>{js}</script>
 </body>
 </html>"##,

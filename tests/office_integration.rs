@@ -260,7 +260,9 @@ async fn test_office_home_with_auth() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let html = body_string(response).await;
-    assert!(html.contains("Suite de oficina"));
+    assert!(html.contains("gen-office-home"));
+    assert!(html.contains("NOVA Office"));
+    assert!(!html.contains("Suite de oficina"));
     assert!(html.contains("Documentos"));
     assert!(html.contains("Hojas"));
     assert!(html.contains("Presentaciones"));
@@ -307,6 +309,9 @@ async fn test_document_crud_lifecycle() {
     let html = body_string(response).await;
     assert!(html.contains("my-first-document"));
     assert!(html.contains("my first document"));
+    assert!(html.contains("gen-office-manager-page"));
+    assert!(html.contains("<title>Documentos — NOVA Office</title>"));
+    assert!(!html.contains("No hay documentos aún"));
 
     // Edit (view) the document — should show the content
     let response = app
@@ -919,6 +924,191 @@ async fn test_presentation_slide_operations() {
     assert!(html.contains("Slide Two"));
     assert!(!html.contains("Slide One"));
     assert!(!html.contains("slide-1"));
+}
+
+// ---------------------------------------------------------------------------
+// Biblioteca: importación real de presentaciones y validación de diapositivas
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn test_library_import_presentation_text_and_json() {
+    let (state, _work_dir) = setup().await;
+    let app = study_platform::handlers::router(state);
+
+    // Texto sencillo: debe convertirse en JSON válido con una primera escena.
+    let response = app
+        .clone()
+        .oneshot(authed_post_form(
+            "/office/library/import/presentations",
+            &form(&[
+                ("name", "Imported Deck"),
+                ("content", "# Escenario inicial\n\nContenido importado."),
+            ]),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let response = app
+        .clone()
+        .oneshot(authed_get("/office/presentations/imported-deck"))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let html = body_string(response).await;
+    assert!(html.contains("data-slide-panel=\"0\""));
+    assert!(html.contains("gen-office-slide-canvas"));
+    assert!(html.contains("id=\"new-slide-content\""));
+    assert!(html.contains("Contenido importado"));
+
+    let response = app
+        .clone()
+        .oneshot(authed_get(
+            "/office/library/presentations/imported-deck/download",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let value: serde_json::Value = serde_json::from_slice(&body_bytes(response).await).unwrap();
+    assert_eq!(value["title"], "Imported Deck");
+    assert_eq!(value["slides"][0]["title"], "Imported Deck");
+    assert!(value["slides"][0]["content"]
+        .as_str()
+        .unwrap()
+        .contains("Escenario inicial"));
+
+    // JSON existente válido conserva sus escenas y sigue siendo presentable.
+    let json = r#"{"title":"Mazo JSON","slides":[{"title":"Uno","content":"Primera"},{"title":"Dos","content":"Segunda escena"}]}"#;
+    let response = app
+        .clone()
+        .oneshot(authed_post_form(
+            "/office/library/import/presentations",
+            &form(&[("name", "Json Deck"), ("content", json)]),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let response = app
+        .clone()
+        .oneshot(authed_get("/office/presentations/json-deck/present"))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let html = body_string(response).await;
+    assert!(html.contains("data-present-slide=\"1\""));
+    assert!(html.contains("Segunda escena"));
+
+    // Una estructura que el editor no podría abrir se rechaza, no se guarda.
+    let invalid = r#"{"title":"Broken","slides":[{"title":"","content":"x"}]}"#;
+    let response = app
+        .clone()
+        .oneshot(authed_post_form(
+            "/office/library/import/presentations",
+            &form(&[("name", "Broken"), ("content", invalid)]),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let response = app
+        .clone()
+        .oneshot(authed_get("/office/presentations/broken"))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn test_slide_validation_and_missing_deletes() {
+    let (state, _work_dir) = setup().await;
+    let app = study_platform::handlers::router(state);
+    app.clone()
+        .oneshot(authed_post_form(
+            "/office/presentations",
+            &form(&[("title", "Validation Deck")]),
+        ))
+        .await
+        .unwrap();
+
+    for (uri, method) in [
+        ("/office/presentations/validation-deck/slides", "POST"),
+        ("/office/presentations/validation-deck/slides/0", "PUT"),
+    ] {
+        let request = if method == "POST" {
+            authed_post_form(uri, &form(&[("title", "  "), ("content", "x")]))
+        } else {
+            authed_put_form(uri, &form(&[("title", "  "), ("content", "x")]))
+        };
+        let response = app.clone().oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    app.clone()
+        .oneshot(authed_post_form(
+            "/office/presentations/validation-deck/slides",
+            &form(&[("title", "Válida"), ("content", "Contenido")]),
+        ))
+        .await
+        .unwrap();
+    let response = app
+        .clone()
+        .oneshot(authed_put_form(
+            "/office/presentations/validation-deck/slides/0",
+            &form(&[("title", "  "), ("content", "x")]),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+    let response = app
+        .clone()
+        .oneshot(authed_post_form(
+            "/office/presentations/validation-deck/slides/reorder",
+            &form(&[("order", "0,no-es-un-numero")]),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let response = app
+        .clone()
+        .oneshot(authed_delete(
+            "/office/presentations/validation-deck/slides/9",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+    let response = app
+        .clone()
+        .oneshot(authed_delete("/office/docs/missing"))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let response = app
+        .clone()
+        .oneshot(authed_post_form("/office/sheets/missing/delete", ""))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let response = app
+        .clone()
+        .oneshot(authed_delete("/office/presentations/missing"))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let response = app
+        .clone()
+        .oneshot(authed_post_form("/office/library/docs/missing/delete", ""))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let response = app
+        .clone()
+        .oneshot(authed_delete(
+            "/office/library/unknown/missing/delete",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
 // ---------------------------------------------------------------------------

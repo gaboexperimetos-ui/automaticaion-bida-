@@ -815,7 +815,7 @@ fn render_greeting(d: &PanelData) -> String {
 fn render_todayline(d: &PanelData) -> String {
     let now = chrono::Local::now();
     let base = format!(
-        "| {}, {} de {}",
+        "{}, {} de {}",
         capitalize(weekday_es(now.weekday())),
         now.day(),
         month_es(now.month())
@@ -1400,8 +1400,10 @@ fn shell_desde_panel(d: &mut ShellData, panel: &PanelData) {
 
 /// Inyecta el shell con datos reales en el HTML final de cada página.
 pub fn fill_shell(html: &str, d: &ShellData) -> String {
+    // El avatar también se inserta dentro del botón del menú de usuario:
+    // debe ser contenido phrasing (`span`), no un `div` dentro de `button`.
     let avatar = if d.initial.is_empty() {
-        r#"<div class="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center"><span class="material-symbols-outlined text-[18px] text-on-surface-variant">person</span></div>"#.to_string()
+        r#"<span class="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center"><span class="material-symbols-outlined text-[18px] text-on-surface-variant">person</span></span>"#.to_string()
     } else {
         // Dos iniciales (p.ej. "LA") necesitan un cuerpo algo menor para
         // caber en el círculo de 32 px sin recortarse.
@@ -1411,7 +1413,7 @@ pub fn fill_shell(html: &str, d: &ShellData) -> String {
             "text-label-md"
         };
         format!(
-            r#"<div class="w-8 h-8 rounded-full bg-primary-container/20 ring-1 ring-primary/40 flex items-center justify-center font-label-md {size} text-primary-container font-semibold">{inicial}</div>"#,
+            r#"<span class="w-8 h-8 rounded-full bg-primary-container/20 ring-1 ring-primary/40 flex items-center justify-center font-label-md {size} text-primary-container font-semibold">{inicial}</span>"#,
             size = size,
             inicial = esc(&d.initial)
         )

@@ -1,233 +1,158 @@
-<div class="flex flex-col w-full h-[calc(100vh-4rem)] overflow-hidden bg-background">
-<div class="flex w-full h-full min-w-0">
-<aside class="w-[280px] shrink-0 h-full flex flex-col bg-surface-container-low select-none">
-<div class="p-space-md">
-<button class="w-full flex items-center justify-center gap-space-xs py-space-sm px-space-md rounded-lg bg-secondary text-on-secondary font-label-md text-label-md font-semibold hover:bg-secondary-fixed transition-all shadow-md group" id="btn-new-chat">
-<span class="material-symbols-outlined text-[18px] transition-transform group-hover:rotate-12">auto_awesome</span>
-<span>Nueva Conversacion</span>
-</button>
+<div class="nx-chat nova-chat-layout">
+  <button class="nx-chat-scrim nova-chat-scrim" type="button" aria-label="Cerrar paneles laterales"></button>
+
+  <aside class="nx-chat-history nova-chat-history" id="chat-history" aria-label="Historial de conversaciones">
+    <header class="nx-chat-history-head">
+      <div><p class="nx-eyebrow">NOVA AI</p><h1>Conversaciones</h1></div>
+      <button class="nx-icon-button nx-chat-mobile-close" id="close-history-btn" type="button" aria-label="Cerrar historial"><span class="material-symbols-outlined">close</span></button>
+    </header>
+    <button class="nx-button nx-button-primary nx-new-chat" id="btn-new-chat" type="button"><span class="material-symbols-outlined">add</span>Nueva conversación</button>
+    <label class="nx-chat-search" for="session-search"><span class="material-symbols-outlined">search</span><input id="session-search" placeholder="Buscar conversación…" type="search"></label>
+    <div class="nx-chat-filters" aria-label="Filtrar por materia"><button type="button">Todas</button><!--SLOT:CHAT_FILTERS--></div>
+    <div class="nx-chat-sessions nova-chat-sessions"><!--SLOT:CHAT_SESSIONS--></div>
+    <footer class="nx-chat-quota">
+      <div><span><!--SLOT:CHAT_MODE_DOT--> <!--SLOT:CHAT_MODEL--></span><strong><!--SLOT:CHAT_QUOTA_PCT--></strong></div>
+      <div class="nx-quota-track"><!--SLOT:CHAT_QUOTA_BAR--></div>
+      <p><span><!--SLOT:CHAT_COSTS--></span><!--SLOT:CHAT_MODE--></p>
+    </footer>
+  </aside>
+
+  <section class="nx-conversation" aria-label="Conversación actual">
+    <header class="nx-conversation-head">
+      <div class="nx-conversation-title">
+        <button class="nx-icon-button nx-chat-history-toggle" id="toggle-history-btn" type="button" aria-label="Abrir historial" aria-controls="chat-history" aria-expanded="false"><span class="material-symbols-outlined">menu</span></button>
+        <span class="nx-conversation-mark material-symbols-outlined">auto_awesome</span>
+        <div><span>Asistente académico</span><div class="nx-chat-context" data-context><!--SLOT:CHAT_CONTEXT--></div></div>
+      </div>
+      <div class="nx-conversation-actions">
+        <button class="nx-button nx-button-secondary" id="toggle-sources-btn" type="button" aria-controls="sources-sidebar" aria-expanded="false"><span class="material-symbols-outlined">menu_book</span><span>Fuentes <b><!--SLOT:CHAT_FCOUNT--></b></span></button>
+        <button id="btn-clear-chat" class="nx-icon-button" type="button" title="Limpiar pantalla" aria-label="Limpiar conversación"><span class="material-symbols-outlined">restart_alt</span></button>
+      </div>
+    </header>
+
+    <div class="nx-chat-messages" id="chat-messages-container"><!--SLOT:CHAT_MESSAGES--></div>
+
+    <footer class="nx-composer">
+      <div class="nx-composer-tools" aria-label="Acciones de estudio">
+        <button id="btn-summarize" class="nx-chat-tool" type="button"><span class="material-symbols-outlined">summarize</span>Resumir</button>
+        <button id="btn-explain" class="nx-chat-tool" type="button"><span class="material-symbols-outlined">search_insights</span>Explicar</button>
+        <button id="btn-quiz" class="nx-chat-tool" type="button"><span class="material-symbols-outlined">quiz</span>Cuestionario</button>
+        <button id="btn-flashcards" class="nx-chat-tool" type="button"><span class="material-symbols-outlined">style</span>Flashcards</button>
+        <button id="btn-plan" class="nx-chat-tool" type="button"><span class="material-symbols-outlined">calendar_month</span>Plan de estudio</button>
+      </div>
+      <div class="nx-composer-box">
+        <label for="prompt-input" class="sr-only">Mensaje para el asistente</label>
+        <textarea id="prompt-input" placeholder="Pregunta sobre tus materias o pega una idea para trabajarla…" rows="2"></textarea>
+        <div class="nx-composer-bottom">
+          <div class="nx-composer-attachments"><button type="button" title="Adjuntar archivo o nota" aria-label="Adjuntar archivo o nota"><span class="material-symbols-outlined">attach_file</span></button><button type="button" title="Vincular apunte" aria-label="Vincular apunte"><span class="material-symbols-outlined">add_link</span></button><button type="button" title="Dictado por voz" aria-label="Dictado por voz"><span class="material-symbols-outlined">mic</span></button><span><!--SLOT:CHAT_COMPOSER_MODE--></span></div>
+          <button class="nx-send-button" id="send-btn" type="button"><span>Enviar</span><span class="material-symbols-outlined">arrow_upward</span></button>
+        </div>
+      </div>
+      <div class="nx-composer-meta"><span>La IA puede equivocarse. Contrasta lo importante.</span><span><kbd>Enter</kbd> enviar · <kbd>Shift</kbd> + <kbd>Enter</kbd> nueva línea</span></div>
+    </footer>
+  </section>
+
+  <aside class="nx-chat-sources hidden" id="sources-sidebar" aria-label="Fuentes y contexto">
+    <header><div><p class="nx-eyebrow">Contexto</p><h2>Fuentes</h2></div><button class="nx-icon-button" id="close-sources-btn" type="button" aria-label="Cerrar fuentes"><span class="material-symbols-outlined">close</span></button></header>
+    <p>Material relacionado con esta conversación.</p>
+    <div class="nx-sources-list"><!--SLOT:CHAT_SOURCES--></div>
+  </aside>
 </div>
-<div class="px-space-md mb-space-sm">
-<div class="flex items-center gap-space-xs bg-surface-container px-space-sm py-1.5 rounded-lg text-outline focus-within:text-on-surface">
-<span class="material-symbols-outlined text-[18px]">search</span>
-<input class="bg-transparent border-none outline-none font-body-sm text-body-sm text-on-surface placeholder:text-outline w-full" id="session-search" placeholder="Filtrar sesiones..." type="text"/>
-</div>
-</div>
-<div class="px-space-md pb-space-sm">
-<span class="font-label-sm text-[10px] tracking-wider uppercase text-outline block mb-1">Materia</span>
-<div class="flex items-center gap-1 overflow-x-auto pb-1" style="scrollbar-width: none;">
-<button class="px-2 py-0.5 rounded-full font-label-sm text-label-sm bg-primary-container text-on-primary-container font-semibold whitespace-nowrap">Todas</button>
-<!--SLOT:CHAT_FILTERS-->
-</div>
-</div>
-<div class="flex-1 overflow-y-auto px-space-sm space-y-space-xs" style="scrollbar-width: thin;">
-<!--SLOT:CHAT_SESSIONS-->
-</div>
-<div class="p-space-sm bg-surface-container-lowest text-on-surface-variant">
-<div class="flex items-center justify-between mb-1">
-<span class="font-label-sm text-[11px] text-on-surface font-semibold flex items-center gap-1">
-<!--SLOT:CHAT_MODE_DOT--> <!--SLOT:CHAT_MODEL-->
-</span>
-<span class="font-code-inline text-[10px] text-primary-fixed-dim"><!--SLOT:CHAT_QUOTA_PCT--></span>
-</div>
-<div class="w-full bg-surface-container h-1.5 rounded-full overflow-hidden mb-1.5">
-<!--SLOT:CHAT_QUOTA_BAR-->
-</div>
-<div class="flex items-center justify-between font-code-inline text-[10px] text-outline">
-<span><!--SLOT:CHAT_COSTS--></span>
-<!--SLOT:CHAT_MODE-->
-</div>
-</div>
-</aside>
-<main class="flex-1 min-w-0 h-full flex flex-col bg-surface relative">
-<header class="h-14 px-space-md flex items-center justify-between bg-surface-container-low shrink-0 shadow-sm z-10">
-<div class="flex items-center gap-space-sm min-w-0">
-<span class="material-symbols-outlined text-primary-container text-[20px] shrink-0">neurology</span>
-<div class="flex items-center gap-1.5 min-w-0">
-<span class="font-label-sm text-label-sm uppercase tracking-wider text-outline shrink-0">Contexto:</span>
-<div class="flex items-center gap-1.5 truncate" data-context>
-<!--SLOT:CHAT_CONTEXT-->
-</div>
-</div>
-</div>
-<div class="flex items-center gap-space-xs shrink-0">
-<button class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-sm text-label-sm transition-all" id="toggle-sources-btn" title="Alternar panel de fuentes">
-<span class="material-symbols-outlined text-[16px] text-primary-container">menu_book</span>
-<span>Fuentes (<!--SLOT:CHAT_FCOUNT-->)</span>
-</button>
-<button id="btn-clear-chat" class="p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors" title="Limpiar pantalla">
-<span class="material-symbols-outlined text-[18px]">restart_alt</span>
-</button>
-</div>
-</header>
-<div class="flex-1 overflow-y-auto px-space-xl py-space-lg space-y-space-lg" id="chat-messages-container" style="scrollbar-width: thin;">
-<!--SLOT:CHAT_MESSAGES-->
-</div>
-<footer class="p-space-md bg-surface-container-low shrink-0 shadow-lg">
-<div class="max-w-4xl mx-auto space-y-space-sm">
-<div class="flex items-center gap-1.5 overflow-x-auto pb-1" style="scrollbar-width: none;">
-<button id="btn-summarize" class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-sm text-label-sm whitespace-nowrap transition-colors">
-<span class="material-symbols-outlined text-[14px] text-primary-container">summarize</span>
-<span>Resumir apunte</span>
-</button>
-<button id="btn-explain" class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-sm text-label-sm whitespace-nowrap transition-colors">
-<span class="material-symbols-outlined text-[14px] text-primary-container">search_insights</span>
-<span>Explicar a fondo</span>
-</button>
-<button id="btn-quiz" class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-sm text-label-sm whitespace-nowrap transition-colors">
-<span class="material-symbols-outlined text-[14px] text-secondary">psychology</span>
-<span>Crear cuestionario (5 preguntas)</span>
-</button>
-<button id="btn-flashcards" class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-sm text-label-sm whitespace-nowrap transition-colors">
-<span class="material-symbols-outlined text-[14px] text-secondary">style</span>
-<span>Generar flashcards</span>
-</button>
-<button id="btn-plan" class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-sm text-label-sm whitespace-nowrap transition-colors">
-<span class="material-symbols-outlined text-[14px] text-primary-fixed">calendar_month</span>
-<span>Planificar examen</span>
-</button>
-</div>
-<div class="bg-surface-container rounded-xl p-space-sm flex flex-col gap-space-xs shadow-inner">
-<textarea class="bg-transparent text-on-surface font-body-md text-body-md placeholder:text-outline resize-none outline-none w-full p-space-xs" id="prompt-input" placeholder="Pregunta algo sobre tus asignaturas... (Shift+Enter para nueva linea)" rows="3"></textarea>
-<div class="flex items-center justify-between pt-1">
-<div class="flex items-center gap-1">
-<button class="flex items-center gap-1 p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high transition-colors" title="Adjuntar archivo o nota">
-<span class="material-symbols-outlined text-[18px]">attach_file</span>
-</button>
-<button class="flex items-center gap-1 p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high transition-colors" title="Vincular apunte del Segundo Cerebro">
-<span class="material-symbols-outlined text-[18px]">add_link</span>
-</button>
-<button class="flex items-center gap-1 p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high transition-colors" title="Dictado por voz">
-<span class="material-symbols-outlined text-[18px]">mic</span>
-</button>
-<span class="text-outline/40 mx-1">|</span>
-<span class="font-code-inline text-[11px] text-outline">Modo: <!--SLOT:CHAT_COMPOSER_MODE--></span>
-</div>
-<button class="flex items-center justify-center gap-1.5 px-space-md py-2 rounded-lg bg-primary-container text-on-primary font-label-md text-label-md font-semibold hover:bg-primary transition-all shadow-md" id="send-btn">
-<span>Enviar</span>
-<span class="material-symbols-outlined text-[18px]">send</span>
-</button>
-</div>
-</div>
-</div>
-</footer>
-</main>
-<aside class="w-[300px] shrink-0 h-full flex flex-col bg-surface-container-low transition-all duration-200" id="sources-sidebar">
-<div class="p-space-md flex items-center justify-between shadow-sm">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-[18px] text-primary-container">source</span>
-<span class="font-headline-sm text-headline-sm text-on-surface">Fuentes y Contexto</span>
-</div>
-<button class="p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container transition-colors" id="close-sources-btn" title="Ocultar panel">
-<span class="material-symbols-outlined text-[18px]">close</span>
-</button>
-</div>
-<div class="flex-1 overflow-y-auto p-space-md space-y-space-md" style="scrollbar-width: thin;">
-<!--SLOT:CHAT_SOURCES-->
-</div>
-</aside>
-</div>
-</div>
+
 <script>
 (function () {
   "use strict";
-  const sendBtn = document.getElementById("send-btn");
-  const promptInput = document.getElementById("prompt-input");
-  const chatContainer = document.getElementById("chat-messages-container");
-  const newChatBtn = document.getElementById("btn-new-chat");
-  const clearChatBtn = document.getElementById("btn-clear-chat");
-  const summarizeBtn = document.getElementById("btn-summarize");
-  const explainBtn = document.getElementById("btn-explain");
-  const quizBtn = document.getElementById("btn-quiz");
-  const flashcardsBtn = document.getElementById("btn-flashcards");
-  const toggleSourcesBtn = document.getElementById("toggle-sources-btn");
-  const closeSourcesBtn = document.getElementById("close-sources-btn");
-  const sourcesSidebar = document.getElementById("sources-sidebar");
+  var container = document.getElementById("chat-messages-container");
+  var prompt = document.getElementById("prompt-input");
+  var send = document.getElementById("send-btn");
+  var sources = document.getElementById("sources-sidebar");
+  var sourcesToggle = document.getElementById("toggle-sources-btn");
+  var sourcesClose = document.getElementById("close-sources-btn");
+  if (!container || !prompt || !send) return;
 
-  function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
-
-  function renderMessage(role, content) {
-    const div = document.createElement("div");
-    div.className = "flex items-start gap-3 max-w-4xl mx-auto w-full";
-    if (role === "user") {
-      div.innerHTML = '<div class="w-9 h-9 rounded-full bg-surface-container-high flex items-center justify-center shrink-0 font-label-md text-on-surface font-bold">TU</div><div class="flex-1 min-w-0"><div class="flex items-center gap-2 mb-1"><span class="font-label-md text-label-md font-semibold text-on-surface">Estudiante</span><span class="font-code-inline text-[10px] text-outline">Ahora</span></div><div class="bg-surface-container-high text-on-surface rounded-xl p-3 shadow-sm"><p class="font-body-md text-body-md leading-relaxed whitespace-pre-wrap">' + esc(content) + '</p></div></div>';
-    } else {
-      div.innerHTML = '<div class="w-9 h-9 rounded-full bg-primary-container/15 flex items-center justify-center shrink-0 text-primary-container"><span class="material-symbols-outlined text-[20px]">smart_toy</span></div><div class="flex-1 min-w-0"><div class="flex items-center gap-2 mb-1"><span class="font-label-md text-label-md font-semibold text-primary-fixed-dim">Asistente IA</span></div><div class="bg-surface-container-low rounded-xl p-3 text-on-surface shadow-md"><p class="font-body-md text-body-md leading-relaxed text-on-surface-variant whitespace-pre-wrap">' + esc(content) + '</p></div></div>';
-    }
-    chatContainer.appendChild(div);
-    chatContainer.scrollTop = chatContainer.scrollHeight;
+  function esc(value) { return String(value).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function scroll() { container.scrollTop = container.scrollHeight; }
+  function setSources(open) {
+    if (!sources) return;
+    sources.classList.toggle("hidden", !open);
+    if (sourcesToggle) sourcesToggle.setAttribute("aria-expanded", open ? "true" : "false");
   }
-
-  function lastAIMessage() {
-    const msgs = chatContainer.querySelectorAll(".flex-1.min-w-0");
-    if (msgs.length === 0) return "";
-    const p = msgs[msgs.length - 1].querySelector("p");
-    return p ? p.textContent : "";
+  function showError(message) {
+    var node = document.createElement("div");
+    node.className = "nx-chat-error nova-chat-state is-error";
+    node.innerHTML = '<span class="material-symbols-outlined">error</span><div><strong>No se pudo completar</strong><p>' + esc(message) + '</p></div>';
+    container.appendChild(node); scroll();
   }
-
-  function showError(msg) {
-    const d = document.createElement("div");
-    d.className = "flex items-center gap-2 max-w-4xl mx-auto";
-    d.innerHTML = '<span class="material-symbols-outlined text-[20px] text-error">error</span><span class="font-body-sm text-on-error-container">' + esc(msg) + '</span>';
-    chatContainer.appendChild(d);
-    chatContainer.scrollTop = chatContainer.scrollHeight;
+  function appendAssistant(content) {
+    var row = document.createElement("article");
+    row.className = "nx-message nx-message-assistant nova-message nova-message-assistant";
+    row.setAttribute("data-chat-turn", "assistant");
+    row.innerHTML = '<div class="nx-message-avatar nova-message-avatar nova-message-avatar-assistant"><span class="material-symbols-outlined">auto_awesome</span></div><div class="nx-message-content nova-message-content"><div class="nx-message-meta nova-message-meta"><strong>NOVA AI</strong><span>Ahora</span></div><div class="nx-message-bubble nova-message-bubble"><p class="nx-message-text nova-message-text"></p></div></div>';
+    row.querySelector(".nx-message-text").textContent = content;
+    container.appendChild(row); scroll();
   }
-
-  function setLoading(flag) {
-    if (!sendBtn) return;
-    sendBtn.disabled = flag;
-    sendBtn.innerHTML = flag ? '<span class="material-symbols-outlined text-[18px] animate-spin">autorenew</span><span class="ml-2">Enviando...</span>' : '<span>Enviar</span><span class="material-symbols-outlined text-[18px]">send</span>';
+  function lastAnswer() {
+    var messages = container.querySelectorAll('[data-chat-turn="assistant"] .nx-message-text, [data-chat-turn="assistant"] .nova-message-text');
+    return messages.length ? messages[messages.length - 1].textContent.trim() : "";
   }
-
-  async function sendMessage() {
-    const message = promptInput.value.trim();
-    if (!message) return;
-    renderMessage("user", message);
-    promptInput.value = "";
-    setLoading(true);
-    try {
-      const resp = await fetch("/api/ai/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: message, subject: "general" }) });
-      const text = await resp.text();
-      setLoading(false);
-      if (resp.ok) renderMessage("assistant", text);
-      else showError("Error: " + text);
-    } catch (e) {
-      setLoading(false);
-      showError("Error de conexion: " + esc(e.message));
-    }
+  function attachedContext() {
+    try { return JSON.parse(sessionStorage.getItem("sp:ai-ctx") || "null"); }
+    catch (error) { return null; }
   }
-
+  function sourceContent() {
+    var context = attachedContext();
+    var content = prompt.value.trim() || (context && context.c ? String(context.c) : "") || lastAnswer();
+    if (!content) showError("Escribe una idea, adjunta una nota o genera una respuesta primero.");
+    return content.slice(0, 7600);
+  }
+  function setToolsBusy(busy) {
+    document.querySelectorAll(".nx-chat-tool").forEach(function (button) { button.disabled = busy; });
+  }
   async function callJSON(url, body, render) {
-    setLoading(true);
+    setToolsBusy(true);
     try {
-      const resp = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      const data = await resp.json();
-      setLoading(false);
-      if (resp.ok) render(data);
-      else showError("Error: " + (data.error || "fallo"));
-    } catch (e) {
-      setLoading(false);
-      showError("Error de conexion: " + esc(e.message));
-    }
+      var response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      var data = await response.json();
+      if (!response.ok) throw new Error(data.error || ("HTTP " + response.status));
+      render(data);
+    } catch (error) { showError(error.message || "Error de conexión"); }
+    finally { setToolsBusy(false); }
   }
+  function ask(text) { prompt.value = text; prompt.focus(); send.click(); }
 
-  function summarize()   { const c = lastAIMessage(); if (!c) { showError("Genera un mensaje primero."); return; } callJSON("/api/ai/summary", { content: c }, d => renderMessage("assistant", "## Resumen\n\n" + (d.summary || JSON.stringify(d)))); }
-  function explain()     { const c = promptInput.value.trim(); if (!c) { showError("Escribe algo."); return; } renderMessage("user", "Explicar a fondo: " + c); promptInput.value = ""; setLoading(true); fetch("/api/ai/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: "Explica esto a fondo y con detalle: " + c, subject: "general" }) }).then(r => r.text()).then(t => { renderMessage("assistant", t); setLoading(false); }).catch(e => { setLoading(false); showError("Error: " + esc(e.message)); }); }
-  function quiz()        { const c = lastAIMessage(); if (!c) { showError("Genera un mensaje primero."); return; } callJSON("/api/ai/quiz", { content: c, num_questions: 5 }, d => { let o = "## Cuestionario\n\n"; (d.questions || []).forEach((q,i) => { o += (i+1) + ". " + (q.question||q.text||"") + "\n"; if (q.options) q.options.forEach(op => o += " - " + op + "\n"); o += " Respuesta: " + (q.answer||q.correct_answer||"") + "\n\n"; }); renderMessage("assistant", o); }); }
-  function flashcards()  { const c = lastAIMessage(); if (!c) { showError("Genera un mensaje primero."); return; } callJSON("/api/ai/study-sheet", { content: c }, d => renderMessage("assistant", d.study_sheet || JSON.stringify(d))); }
-  function clearChat()   { chatContainer.innerHTML = '<div class="text-center py-8"><p class="font-body-sm text-body-sm text-on-surface-variant">Hola! Soy tu asistente academico. Escribe un mensaje para empezar.</p></div>'; }
-
-  if (toggleSourcesBtn && sourcesSidebar) toggleSourcesBtn.addEventListener("click", () => sourcesSidebar.classList.toggle("hidden"));
-  if (closeSourcesBtn && sourcesSidebar) closeSourcesBtn.addEventListener("click", () => sourcesSidebar.classList.add("hidden"));
-  if (sendBtn && promptInput && chatContainer) {
-    sendBtn.addEventListener("click", sendMessage);
-    promptInput.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
-  }
-  if (newChatBtn) newChatBtn.addEventListener("click", clearChat);
-  if (clearChatBtn) clearChatBtn.addEventListener("click", clearChat);
-  if (summarizeBtn) summarizeBtn.addEventListener("click", summarize);
-  if (explainBtn) explainBtn.addEventListener("click", explain);
-  if (quizBtn) quizBtn.addEventListener("click", quiz);
-  if (flashcardsBtn) flashcardsBtn.addEventListener("click", flashcards);
+  document.getElementById("btn-summarize").addEventListener("click", function () {
+    var content = sourceContent(); if (!content) return;
+    callJSON("/api/ai/summary", { content: content }, function (data) { appendAssistant("Resumen\n\n" + (data.summary || JSON.stringify(data))); });
+  });
+  document.getElementById("btn-explain").addEventListener("click", function () {
+    var content = sourceContent();
+    if (!content) return;
+    ask("Explica esto a fondo, con un ejemplo y los errores frecuentes:\n\n" + content);
+  });
+  document.getElementById("btn-quiz").addEventListener("click", function () {
+    var content = sourceContent(); if (!content) return;
+    callJSON("/api/ai/quiz", { content: content, num_questions: 5 }, function (data) {
+      var output = "Cuestionario\n\n";
+      (data.questions || []).forEach(function (question, index) {
+        output += (index + 1) + ". " + (question.question || question.text || "") + "\n";
+        (question.options || []).forEach(function (option) { output += "   • " + option + "\n"; });
+        output += "Respuesta: " + (question.answer || question.correct_answer || "") + "\n\n";
+      });
+      appendAssistant(output);
+    });
+  });
+  document.getElementById("btn-flashcards").addEventListener("click", function () {
+    var content = sourceContent(); if (!content) return;
+    callJSON("/api/ai/study-sheet", { content: content }, function (data) { appendAssistant(data.study_sheet || JSON.stringify(data)); });
+  });
+  document.getElementById("btn-plan").addEventListener("click", function () {
+    var content = sourceContent();
+    if (!content) return;
+    ask("Crea un plan de estudio concreto, por sesiones y con repaso activo, para:\n\n" + content);
+  });
+  if (sourcesToggle) sourcesToggle.addEventListener("click", function () { setSources(sources.classList.contains("hidden")); });
+  if (sourcesClose) sourcesClose.addEventListener("click", function () { setSources(false); });
+  prompt.addEventListener("input", function () { prompt.style.height = "auto"; prompt.style.height = Math.min(prompt.scrollHeight, 180) + "px"; });
+  scroll();
 })();
 </script>

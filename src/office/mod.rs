@@ -61,9 +61,13 @@ pub(crate) fn pres_dir(state: &AppState) -> PathBuf {
 
 /// Ensure the three office directories exist.
 pub(crate) fn ensure_dirs(state: &AppState) {
-    let _ = std::fs::create_dir_all(docs_dir(state));
-    let _ = std::fs::create_dir_all(sheets_dir(state));
-    let _ = std::fs::create_dir_all(pres_dir(state));
+    for dir in [docs_dir(state), sheets_dir(state), pres_dir(state)] {
+        if let Err(e) = std::fs::create_dir_all(&dir) {
+            // Los handlers devuelven 500 al escribir; deja además una pista
+            // operativa clara en lugar de ocultar el fallo de inicialización.
+            tracing::error!("office directory initialization failed: {}", e);
+        }
+    }
 }
 
 /// Extension used on disk for each office type.

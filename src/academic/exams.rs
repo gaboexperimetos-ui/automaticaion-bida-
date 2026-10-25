@@ -142,27 +142,21 @@ pub async fn index(State(state): State<Arc<AppState>>) -> Html<String> {
     let status = templates::mcp_status_banner(connected);
     let aviso_html = aviso.as_deref().map(aviso_html).unwrap_or_default();
 
-    let content = if evaluaciones.is_empty() {
-        format!(
-            r###"{}<div class="bg-surface-container border border-outline rounded-xl p-6 text-center">
-                <span class="material-symbols-outlined text-[32px] text-outline mb-2">event_busy</span>
-                <p class="font-body-sm text-body-sm text-on-surface-variant">Sin evaluaciones registradas</p>
-                <p class="font-body-sm text-body-sm text-outline mt-space-sm">Mikareno no devolvió actividades de tipo evaluación (EVALUACIONES / EXAMEN TRIMESTRAL) ni eventos de calendario con título de evaluación.</p>
-            </div>{}"###,
-            status, aviso_html
-        )
+    let body = if evaluaciones.is_empty() {
+        r###"<div class="nova-exams-empty"><span class="material-symbols-outlined">event_busy</span><h2>Sin evaluaciones registradas</h2><p>Mikareno no devolvió actividades de evaluación ni eventos de calendario con título de evaluación.</p><a href="/dashboard/calendar" class="nova-button nova-button-quiet">Revisar calendario</a></div>"###.to_string()
     } else {
         let today = chrono::Local::now().date_naive();
         let timeline = timeline_html(&evaluaciones, today);
         format!(
-            r###"{}<p class="font-label-md text-label-md text-on-surface-variant mb-space-sm">{}</p>{}{}{}"###,
-            status,
+            r###"<div class="nx-exam-summary nova-exam-summary"><span class="material-symbols-outlined">monitoring</span><p>{}</p></div>{}{}"###,
             resumen(&evaluaciones, today),
-            aviso_html,
             nota_posibles(&evaluaciones),
-            timeline
+            timeline,
         )
     };
+    let content = format!(
+        r###"<div class="nx-page nx-exams nova-page nova-exams-page"><header class="nx-page-header nova-page-head"><div><p class="nx-eyebrow">Aprendizaje · Evaluaciones</p><h1>Prepara lo importante.<br>Sin sorpresas.</h1><p>Una lectura cronológica de tus evaluaciones y del tiempo que tienes por delante.</p></div><a href="/dashboard/planner" class="nx-button nx-button-primary"><span class="material-symbols-outlined">event_available</span>Planificar estudio</a></header><section class="nx-exams-board nova-exams-board"><div class="nx-section-head"><div><p class="nx-eyebrow">Cronología</p><h2>Próximas evaluaciones</h2></div><span class="material-symbols-outlined">timeline</span></div>{status}{aviso_html}{body}</section></div>"###
+    );
 
     // Stitch v2 shell con breadcrumb + nav activo resueltos vía page_ext (fill_shell).
     Html(templates::page_ext(
@@ -641,21 +635,11 @@ fn tarjeta_evaluacion(ev: &Evaluacion, today: NaiveDate) -> String {
         None => String::new(),
     };
     format!(
-        r###"<div class="{} {} border rounded-xl p-space-sm mb-space-xs">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-3">
-                    <span class="{}">{}</span>
-                    <div>
-                        <div class="font-label-md text-label-md text-on-surface font-semibold">{}</div>
-                        <div class="font-body-sm text-body-sm text-on-surface-variant">{}</div>
-                    </div>
-                </div>
-                <div class="flex items-center gap-space-xs">
-                    {}
-                    {}
-                </div>
-            </div>
-        </div>"###,
+        r###"<article class="nova-exam-card {} {}">
+            <div class="nova-exam-date"><span class="material-symbols-outlined">event</span><span class="{}">{}</span></div>
+            <div class="nova-exam-copy"><h3>{}</h3><p>{}</p></div>
+            <div class="nova-exam-badges">{}{}</div>
+        </article>"###,
         bg,
         borde,
         dia_clase,
@@ -693,13 +677,13 @@ fn timeline_html(evaluaciones: &[Evaluacion], today: NaiveDate) -> String {
                 .collect::<Vec<_>>()
                 .join("");
             Some(format!(
-                r###"<div class="mb-space-md">
-                    <div class="flex items-center justify-between mb-space-sm">
+                r###"<section class="nova-exam-group">
+                    <div class="nova-exam-group-head">
                         <h2 class="font-headline-sm text-headline-sm text-primary-container">{}</h2>
                         <span class="font-label-sm text-[10px] text-outline">{} {}</span>
                     </div>
-                    {}
-                </div>"###,
+                    <div class="nova-exam-group-list">{}</div>
+                </section>"###,
                 etiqueta_ventana(*v),
                 items.len(),
                 if items.len() == 1 {
@@ -714,7 +698,7 @@ fn timeline_html(evaluaciones: &[Evaluacion], today: NaiveDate) -> String {
         .join("");
 
     format!(
-        r###"<div class="space-y-0" id="event-timeline">{}</div>"###,
+        r###"<div class="nova-exam-timeline" id="event-timeline">{}</div>"###,
         secciones
     )
 }

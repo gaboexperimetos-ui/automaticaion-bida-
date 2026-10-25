@@ -63,15 +63,14 @@ const STITCH_V2_MAIN_CLOSE: &str = "</main>";
 
 // ── Shell responsive y accesibilidad ──────────────────────────────────────
 //
-// El rail lateral (`<aside>`) del kit es fijo de 250px: por debajo de
-// 1024px tapaba el contenido y no había forma de apartarlo. Aquí el rail
-// se comporta como cajón "off-canvas" en móvil y además se pliega en
-// escritorio, con un botón hamburguesa en el topbar.
+// La navegación lateral queda visible desde 1200 px y puede plegarse. Por
+// debajo de ese ancho se comporta como cajón "off-canvas": se abre con el
+// botón hamburguesa y se cierra con Escape, al navegar o al pulsar el fondo.
 //
-// El HTML del kit (`static/stitch-v2/shell/aside.html` y `topbar.html`) NO
-// se modifica: todo se inyecta desde aquí, para no romper los 21
-// `data-path` del nav ni los marcadores `<!--SLOT:SHELL_*-->` que rellena
-// `stitch_panel::fill_shell`.
+// Las plantillas del kit (`static/stitch-v2/shell/aside.html` y
+// `topbar.html`) definen la presentación; aquí se inyectan los controles y
+// el estado interactivo sin romper los 22 `data-path` del nav ni los
+// marcadores `<!--SLOT:SHELL_*-->` que rellena `stitch_panel::fill_shell`.
 
 /// `id` del rail lateral (`<aside>`).
 const RAIL_ID: &str = "app-rail";
@@ -129,7 +128,7 @@ const USER_MENU_ID: &str = "user-menu";
 /// + `aria-controls` dejan el estado del desplegable anunciado.
 fn user_menu_button() -> String {
     format!(
-        r##"<button id="{USER_MENU_BUTTON_ID}" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="{USER_MENU_ID}" aria-label="Abrir el menú de usuario" title="Menú de usuario" class="flex items-center gap-space-xs pl-space-xs border-l border-outline-variant/40 rounded-lg py-1 pr-1.5 hover:bg-surface-container transition-colors"><span class="relative shrink-0"><!--SLOT:SHELL_AVATAR--><span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-secondary ring-2 ring-surface-container-low"></span></span><span class="flex flex-col text-left"><span class="font-label-sm text-label-sm text-on-surface font-semibold leading-tight"><!--SLOT:SHELL_NAME--></span><span class="font-body-sm text-[10px] text-outline leading-tight"><!--SLOT:SHELL_ROLE--></span></span><span class="material-symbols-outlined text-[16px] text-outline" aria-hidden="true">expand_more</span></button>"##
+        r##"<button id="{USER_MENU_BUTTON_ID}" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="{USER_MENU_ID}" aria-label="Abrir el menú de usuario" title="Menú de usuario" class="topbar-user flex items-center gap-space-xs pl-space-xs border-l border-outline-variant/40 rounded-lg py-1 pr-1.5 hover:bg-surface-container transition-colors"><span class="relative shrink-0"><!--SLOT:SHELL_AVATAR--><span class="topbar-user-presence absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-secondary ring-2 ring-surface-container-low"></span></span><span class="topbar-user-copy flex flex-col text-left"><span class="topbar-user-name font-label-sm text-label-sm text-on-surface font-semibold leading-tight"><!--SLOT:SHELL_NAME--></span><span class="topbar-user-role font-body-sm text-[10px] text-outline leading-tight"><!--SLOT:SHELL_ROLE--></span></span><span class="topbar-user-chevron material-symbols-outlined text-[16px] text-outline" aria-hidden="true">expand_more</span></button>"##
     )
 }
 
@@ -157,7 +156,7 @@ fn user_menu_panel(authenticated: bool) -> String {
         )
     };
     format!(
-        r##"<div id="{USER_MENU_ID}" hidden class="absolute right-0 top-full mt-2 w-72 z-50 rounded-xl border border-outline-variant/40 bg-surface-container shadow-2xl p-1.5"><div class="flex items-center gap-3 px-2.5 py-2 border-b border-outline-variant/30"><span class="relative shrink-0"><!--SLOT:SHELL_AVATAR--><span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-secondary ring-2 ring-surface-container"></span></span><span class="flex min-w-0 flex-col text-left"><span class="truncate font-label-sm text-label-sm text-on-surface font-semibold leading-tight"><!--SLOT:SHELL_NAME--></span><span class="truncate font-body-sm text-[10px] text-outline leading-tight"><!--SLOT:SHELL_ROLE--></span></span></div><div role="menu" aria-label="Menú de usuario" class="pt-1"><a role="menuitem" href="/settings" class="{ITEM}"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">settings</span>Configuración</a><a role="menuitem" href="/settings/password" class="{ITEM}"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">key</span>Cambiar contraseña</a>{action}</div></div>"##,
+        r##"<div id="{USER_MENU_ID}" hidden class="absolute right-0 top-full mt-2 w-72 z-50 rounded-xl border border-outline-variant/40 bg-surface-container shadow-2xl p-1.5"><div class="flex items-center gap-3 px-2.5 py-2 border-b border-outline-variant/30"><span class="relative shrink-0"><!--SLOT:SHELL_AVATAR--><span class="topbar-user-presence absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-secondary ring-2 ring-surface-container"></span></span><span class="topbar-user-copy flex min-w-0 flex-col text-left"><span class="topbar-user-name truncate font-label-sm text-label-sm text-on-surface font-semibold leading-tight"><!--SLOT:SHELL_NAME--></span><span class="topbar-user-role truncate font-body-sm text-[10px] text-outline leading-tight"><!--SLOT:SHELL_ROLE--></span></span></div><div role="menu" aria-label="Menú de usuario" class="pt-1"><a role="menuitem" href="/dashboard/profile" class="{ITEM}"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">account_circle</span>Perfil académico</a><a role="menuitem" href="/settings" class="{ITEM}"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">settings</span>Configuración</a><a role="menuitem" href="/settings/password" class="{ITEM}"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">key</span>Cambiar contraseña</a>{action}</div></div>"##,
         ITEM = ITEM,
         action = action
     )
@@ -235,42 +234,38 @@ fn main_open() -> String {
 /// `:focus-visible`; esta capa los **refuerza** con un anillo visible
 /// (WCAG 2.4.7) en vez de dejarlos depender de los tokens del kit.
 const SHELL_CSS: &str = r##"
-/* --- Shell v2: rail lateral plegable + skip-link + foco visible --- */
-.skip-link{position:absolute;left:0;top:0;z-index:100;transform:translateY(-160%);
-  padding:.5rem .875rem;border-radius:0 0 .5rem 0;background:#00675b;color:#e0e2ea;
-  font-family:'Hanken Grotesk',sans-serif;font-size:.75rem;font-weight:600;line-height:1rem;
-  text-decoration:none;transition:transform .15s ease}
+/* NOVA 3.0 · shell de escritorio persistente y cajón móvil. */
+.skip-link{position:fixed;left:18px;top:12px;z-index:160;transform:translateY(-180%);padding:11px 16px;border-radius:10px;background:#a78bfa;color:#140d26;font:700 13px 'DM Sans',sans-serif;text-decoration:none;transition:transform .16s ease}
 .skip-link:focus{transform:translateY(0)}
-#app-rail{transition:transform .22s ease,visibility .22s ease}
-#rail-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:30}
-@media (max-width:1023.98px){
-  #app-rail{transform:translateX(-100%);visibility:hidden}
+#app-rail-content{padding-left:286px!important;transition:padding-left .22s ease}
+#app-topbar{left:286px!important;transition:left .22s ease}
+#app-rail{transform:translateX(0);visibility:visible;transition:transform .22s ease,visibility .22s}
+#contenido{padding-top:92px!important}
+body.rail-collapsed #app-rail{transform:translateX(-104%);visibility:hidden}
+body.rail-collapsed #app-rail-content{padding-left:0!important}
+body.rail-collapsed #app-topbar{left:12px!important}
+#rail-backdrop{display:none;position:fixed;inset:0;background:rgba(3,5,7,.72);backdrop-filter:blur(5px);z-index:80}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible,[tabindex]:focus-visible{outline:2px solid #a78bfa;outline-offset:3px;border-radius:6px}
+#contenido:focus-visible{outline:2px solid #a78bfa;outline-offset:-5px}
+#user-menu[hidden]{display:none!important}
+@media (max-width:1099px){
+  #app-rail-content,body.rail-collapsed #app-rail-content{padding-left:0!important}
+  #app-topbar,body.rail-collapsed #app-topbar{left:8px!important}
+  #contenido{padding-top:84px!important}
+  #app-rail,body.rail-collapsed #app-rail{transform:translateX(-104%);visibility:hidden}
   body.rail-open #app-rail{transform:translateX(0);visibility:visible}
   body.rail-open #rail-backdrop{display:block}
-  #app-rail-content{padding-left:0!important}
-  #app-topbar{left:0!important}
 }
-body.rail-collapsed #app-rail{transform:translateX(-100%);visibility:hidden}
-body.rail-collapsed #app-rail-content{padding-left:0!important}
-body.rail-collapsed #app-topbar{left:0!important}
-a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible,[tabindex]:focus-visible{
-  outline:2px solid #5eead4;outline-offset:2px;border-radius:4px}
-#app-topbar input:focus-visible{outline:2px solid #5eead4;outline-offset:2px}
-#contenido:focus-visible{outline:2px solid #5eead4;outline-offset:-6px}
-/* Menú de usuario: el atributo `hidden` manda sobre cualquier utilidad
-   de display que el CDN de Tailwind pueda aplicar. */
-#user-menu[hidden]{display:none!important}
-@media (prefers-reduced-motion:reduce){#app-rail,.skip-link{transition:none}}
+@media (prefers-reduced-motion:reduce){#app-rail,#app-rail-content,#app-topbar,.skip-link{transition:none}}
 "##;
 
 /// Script mínimo del shell: alterna la clase del rail y mantiene sincronizado
 /// el `aria-expanded` de los dos botones que lo controlan.
 ///
-/// Un único estado por ancho de pantalla: en escritorio se usa
-/// `rail-collapsed` (el rail se pliega dejando el hueco libre) y en móvil
-/// `rail-open` (el rail sale como cajón sobre el contenido). Ambas clases
-/// son excluyentes, así que un cambio de ancho no deja el shell en un
-/// estado imposible.
+/// En escritorio la navegación parte visible y `rail-collapsed` permite
+/// ocultarla; en pantallas estrechas se usa `rail-open`. El bloqueo de
+/// scroll y el fondo modal solo se aplican al cajón. Ambas clases son
+/// excluyentes, así que un cambio de ancho no deja un estado imposible.
 const SHELL_JS: &str = r##"
 (function(){
   var body=document.body;
@@ -279,57 +274,54 @@ const SHELL_JS: &str = r##"
   var asideToggle=document.getElementById('rail-toggle-aside');
   var backdrop=document.getElementById('rail-backdrop');
   if(!rail||!toggle){return;}
-  var wide=function(){return window.matchMedia('(min-width:1024px)').matches;};
-  var isOpen=function(){
-    return wide()?!body.classList.contains('rail-collapsed'):body.classList.contains('rail-open');
-  };
+  var desktop=function(){return window.matchMedia('(min-width: 1100px)').matches;};
+  var visible=function(){return desktop()?!body.classList.contains('rail-collapsed'):body.classList.contains('rail-open');};
   var sync=function(){
-    if(wide()){body.classList.remove('rail-open');}
-    else{body.classList.remove('rail-collapsed');}
-    var open=isOpen();
-    var label=open?'Ocultar el menú lateral':'Mostrar el menú lateral';
-    var buttons=[toggle,asideToggle];
-    for(var i=0;i<buttons.length;i++){
-      var b=buttons[i];
-      if(!b){continue;}
-      b.setAttribute('aria-expanded',open?'true':'false');
-      b.setAttribute('aria-label',label);
-    }
-  };
-  var flip=function(){
-    if(wide()){
-      body.classList.toggle('rail-collapsed');
-      sync();
-      return;
-    }
-    var opening=!body.classList.contains('rail-open');
-    body.classList.toggle('rail-open');
-    sync();
-    if(opening){
-      var first=rail.querySelector('nav a');
-      if(first){first.focus();}
-    }else{
-      toggle.focus();
-    }
-  };
-  toggle.addEventListener('click',flip);
-  if(asideToggle){asideToggle.addEventListener('click',flip);}
-  if(backdrop){
-    backdrop.addEventListener('click',function(){
-      body.classList.remove('rail-open');
-      sync();
-      toggle.focus();
+    var open=visible();
+    body.style.overflow=!desktop()&&open?'hidden':'';
+    var label=open?'Ocultar la navegación':'Mostrar la navegación';
+    [toggle,asideToggle].forEach(function(button){
+      if(!button){return;}
+      button.setAttribute('aria-expanded',open?'true':'false');
+      button.setAttribute('aria-label',label);
     });
-  }
-  document.addEventListener('keydown',function(e){
-    if(e.key==='Escape'&&body.classList.contains('rail-open')){
+  };
+  var revealActive=function(){
+    var nav=rail.querySelector('.nx-nav');
+    var active=nav?nav.querySelector('[aria-current="page"]'):null;
+    if(!nav||!active){return;}
+    var navRect=nav.getBoundingClientRect();
+    var activeRect=active.getBoundingClientRect();
+    if(activeRect.bottom>navRect.bottom-6){nav.scrollTop+=activeRect.bottom-navRect.bottom+12;}
+    else if(activeRect.top<navRect.top+6){nav.scrollTop-=navRect.top-activeRect.top+12;}
+  };
+  var setVisible=function(open,moveFocus){
+    if(desktop()){
+      body.classList.toggle('rail-collapsed',!open);
       body.classList.remove('rail-open');
-      sync();
-      toggle.focus();
+    }else{
+      body.classList.toggle('rail-open',open);
+      body.classList.remove('rail-collapsed');
     }
+    sync();
+    if(open){revealActive();}
+    if(!moveFocus){return;}
+    if(open){var first=rail.querySelector('.app-brand-tools button, nav a');if(first){first.focus();}}
+    else{toggle.focus();}
+  };
+  toggle.addEventListener('click',function(){setVisible(!visible(),true);});
+  if(asideToggle){asideToggle.addEventListener('click',function(){setVisible(false,true);});}
+  if(backdrop){backdrop.addEventListener('click',function(){setVisible(false,true);});}
+  rail.addEventListener('click',function(event){
+    if(!desktop()&&event.target.closest('a')){setVisible(false,false);}
   });
-  window.addEventListener('resize',sync);
+  document.addEventListener('keydown',function(event){
+    if(event.key==='Escape'&&visible()){setVisible(false,true);}
+  });
+  window.addEventListener('resize',function(){body.classList.remove('rail-open');sync();revealActive();});
+  body.classList.remove('rail-open','rail-collapsed');
   sync();
+  revealActive();
 })();
 "##;
 
@@ -882,6 +874,9 @@ fn swap_state_tokens(existing: &str, tokens: &[&str], state: &str) -> String {
 
 /// Construye la pagina completa: head + shell + contenido + script de auth.
 pub fn stitch_v2_page(active: &str, content: &str, authenticated: bool) -> String {
+    // Acepta tanto la clave canónica (`mi-agenda`) como una ruta
+    // (`/dashboard/calendar`) para que todos los renderizadores compartan shell.
+    let active = primary_path_for(active).unwrap_or(active);
     // Real <head> (fonts, Tailwind CDN, design tokens) plus the early auth
     // flag; omitting STITCH_V2_HEAD here rendered every page unstyled.
     // El CSS del shell (rail plegable, skip-link, foco visible) va aquí:
@@ -931,6 +926,8 @@ pub fn stitch_v2_page(active: &str, content: &str, authenticated: bool) -> Strin
     // botón que abre un desplegable con las acciones de la cuenta.
     topbar = inject_user_menu(&topbar, authenticated);
 
+    // En escritorio la navegación queda visible; bajo 1200 px se convierte
+    // en un cajón inicialmente cerrado controlado por `rail-open`.
     let body_classes = "bg-background font-body-md text-body-md text-on-surface antialiased";
 
     format!(
