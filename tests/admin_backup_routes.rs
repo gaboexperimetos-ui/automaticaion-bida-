@@ -354,7 +354,6 @@ async fn download_sirve_backup_real_y_rechaza_traversal() {
     // El servidor resuelve `data/backups` contra su CWD; el test usa la misma
     // ruta relativa, así que el fichero Dummy queda visible para el handler.
     let dir = Path::new(BACKUPS_DIR);
-    let dir_ya_existia = dir.exists();
     std::fs::create_dir_all(dir).expect("no se pudo crear data/backups");
     let ruta_dummy = dir.join(DUMMY_NAME);
 
@@ -413,12 +412,10 @@ async fn download_sirve_backup_real_y_rechaza_traversal() {
         "el cuerpo descargado debe ser el fichero de backup"
     );
 
-    // Limpieza: el dummy (si lo creamos) y el directorio (si lo creamos y
-    // ha quedado vacío).
+    // Limpieza: sólo el dummy. El directorio es compartido con las pruebas
+    // que crean backups en paralelo; borrarlo aunque parezca vacío puede
+    // interrumpir una copia entre su checkpoint y la escritura del fichero.
     if creado_por_test {
         let _ = std::fs::remove_file(&ruta_dummy);
-    }
-    if !dir_ya_existia {
-        let _ = std::fs::remove_dir(dir);
     }
 }
