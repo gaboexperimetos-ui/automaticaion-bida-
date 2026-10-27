@@ -48,7 +48,11 @@ generado por IA con ese stack quedó archivado en `docs/archive/` — ignorar.
 - IA: sin `OPENROUTER_API_KEY` ⇒ modo demo (todo funciona menos IA). Modelo hoy
   `minimax/minimax-m3.1-flash:free` (default en código:
   `cohere/north-mini-code:free`) — no cambiar sin permiso. Presupuesto mensual
-  $2 (`OPENROUTER_MAX_COST_USD`): gate que deja de llamar al proveedor al agotarse.
+  $2 (`OPENROUTER_MAX_COST_USD`): gate que deja de llamar al proveedor al
+  agotarse. Y ojo: es techo de gasto ANOTADO por la app, no factura del
+  proveedor. El selector de `/dashboard/ai` puede listar modelos de pago
+  (`free === false`): la UI pide confirmación SP.confirm (aviso de cargos) y
+  sin confirmar no se aplica el PUT; los free se aplican directamente.
 - `POST /register` exige `REGISTRATION_TOKEN` (sin esa variable responde 403).
 - `CUSTOM_MCP_API_KEY` vacía ⇒ el servidor MCP propio (`/mcp`, `/mcp/sse`,
   header `X-API-Key`) queda deshabilitado.

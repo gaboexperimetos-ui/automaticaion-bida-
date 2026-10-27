@@ -51,7 +51,7 @@ pub struct AppState {
     /// del calendario pague el timeout del MCP: se sirve la copia cacheada al
     /// instante y se refresca en background (stale-while-revalidate).
     pub cache_mikareno: Arc<crate::academic::calendar_data::CacheMikareno>,
-    /// Caché en memoria del catálogo de modelos free de OpenRouter (30 min).
+    /// Caché en memoria del catálogo de OpenRouter (free y de pago; TTL 5 min).
     ///
     /// Evita pegarse al proveedor en cada visita al selector de modelo.
     pub cache_catalogo: Arc<crate::ai::modelos::CacheCatalogo>,

@@ -170,7 +170,7 @@ Cualquier ruta no registrada responde 404 estilizado (JSON `{"error":"not_found"
 
 ## Calidad y pruebas
 
-- 28 suites de integración en `tests/` + tests de librería. Última corrida completa: **562 en verde, 0 fallos** (2026-10-19 21:32, con nota: el árbol siguió moviéndose después, re-ejecutar antes de dar por buena una cifra).
+- 28 suites de integración en `tests/` + tests de librería. Última corrida completa verificada en esta rama (arena, 2026-10-25): **620 tests en verde, 0 fallos** (`cargo test --no-fail-fast`; 3 `#[ignore]` con su motivo). La cifra de 562 del 2026-10-19 es histórica y ya no es la medida vigente.
 - `cargo fmt --check` PASS · `cargo clippy --all-targets` sin errores.
 - Tests marcados con `#[ignore]` tienen el motivo escrito en el propio test.
 

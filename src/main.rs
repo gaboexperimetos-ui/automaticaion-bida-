@@ -125,7 +125,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let listener = TcpListener::bind(&cli.addr).await?;
     info!("Study Platform listening on http://{}", cli.addr);
 
-    axum::serve(listener, app).await?;
+    // `into_make_service_with_connect_info` inyecta la dirección del socket
+    // real en cada request (extensión `ConnectInfo`): el rate limiter usa esa
+    // IP y no necesita fiarse de `X-Forwarded-For`, que un cliente podría
+    // falsificar. No hay proxy confiable configurado en este despliegue.
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await?;
 
     Ok(())
 }

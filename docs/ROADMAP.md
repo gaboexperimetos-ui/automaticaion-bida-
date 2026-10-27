@@ -277,11 +277,11 @@ verificadas contra el código y contra las máquinas reales.
 | Cookie `Secure` condicional | F1 | ✅ Hecho | ✅ Hecho (2026-10-19): `src/middleware/auth.rs` — `Secure` sólo si la petición llegó por HTTPS (`headers_indicate_https`); en HTTP por tailnet la cookie sigue siendo utilizable |
 | TTL de sesión | F1 | ✅ Hecho | ✅ Hecho (2026-10-19): `SESSION_TTL_DAYS = 30` como techo duro desde la creación de la fila, además de `expires_at` |
 | Shell Stitch v2 | F3 | ✅ Hecho | ✅ Hecho (2026-10-19): `src/handlers/stitch_v2.rs` — fuente única `NAV_LINKS`, un item activo por página (`aria-current="page"`), skip-link, rail plegable, foco visible, responsive y 3 tarjetas del día (saludo / próxima clase / próximas tareas) |
-| Limpieza de la clave de OpenRouter | — | 🔨 En progreso | ⏳ Parcial (2026-10-19): saneada de los estáticos que se sirven (`static/stitch-v2/**` sirve `value=""`); **queda una clave vieja** en `design/stitch-reference/.../centro_mcp_configuraci_n_openrouter/code.html` (no se sirve, pero está en el repo y en el historial de git `aa193d0`): rotar y sacar del árbol |
+| Limpieza de la clave de OpenRouter | — | 🔨 En progreso | ⏳ Parcial: saneada de los estáticos que se sirven (`static/stitch-v2/**` sirve `value=""`) y el `value` con credencial de la referencia de diseño está **vacío en el árbol actual** (rama arena 2026-10-25); el historial de git (`aa193d0`) sigue considerándose expuesto: **rotar la clave** si fue real |
 
 > Nota M12: Session security hardened — `require_auth_state` valida contra DB SHA256(secret:token) lookup + legacy UUID fallback; rechaza sesiones expiradas via `Session::is_valid()`; logout elimina fila de DB. `cargo fmt --check` PASS; `clippy` 0 errores.
 
-> Nota 2026-10-19 (cierre del sprint): la jornada cerró con **3 olas de agentes**,
+> Nota 2026-10-19 (cierre del sprint; **cifras históricas**, no es la medida vigente): la jornada cerró con **3 olas de agentes**,
 > **562 tests en verde, 0 fallos** (289 de la lib + suites de integración; **3**
 > `#[ignore]` con su motivo escrito; corrida de las 21:32) y el release
 > `9740466f34b2da1e1…` desplegado en la homelab Dell
