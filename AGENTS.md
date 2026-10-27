@@ -105,9 +105,10 @@ generado por IA con ese stack quedó archivado en `docs/archive/` — ignorar.
   el local de dev encima.
 
 ## Seguridad (invariantes — no se negocian)
-- NUNCA secrets en código ni logs. Queda una key de OpenRouter vieja en el
-  árbol (`design/stitch-reference/**/code.html`) y en el historial (`aa193d0`);
-  rotación pendiente: no usarla, no imprimirla.
+- NUNCA secrets en código ni logs. La key de OpenRouter vieja fue retirada
+  del árbol actual (design/**/centro_mcp_configuraci_n_openrouter/code.html,
+  `value=` vaciado); el historial (aa193d0) sigue considerándose expuesto y
+  la rotación queda PENDIENTE si esa clave fue real: no usarla, no imprimirla.
 - No exponer puertos a internet: acceso solo vía Tailscale.
 - No tocar firewall, Tailscale, GenOffice MCP ni config de OpenCode; no
   instalar paquetes de sistema sin autorización; confirmar antes de

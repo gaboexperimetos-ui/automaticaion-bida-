@@ -930,7 +930,10 @@
 
   function initVaultActions() {
     var importButton = document.getElementById("btn-import-vault");
-    if (importButton) {
+    // El flujo del botón es exclusivo: si la página trae el modal de
+    // importación segura (double-confirm), el propio modal es el propietario
+    // del clic y aquí no se registra un selector directo.
+    if (importButton && !document.getElementById("import-vault-modal")) {
       once(importButton, "spVaultImport", function (button) {
         button.addEventListener("click", function (event) {
           event.preventDefault();
