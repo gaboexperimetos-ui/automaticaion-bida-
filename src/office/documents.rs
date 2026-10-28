@@ -130,7 +130,7 @@ pub async fn office_home(State(state): State<Arc<AppState>>) -> impl IntoRespons
         mcp = mcp_banner,
     );
 
-    layout_as("NOVA Office", "", &body)
+    templates::layout_as_shelled(&state, "NOVA Office", "", &body).await
 }
 
 /// List all documents.
@@ -167,7 +167,7 @@ pub async fn list(State(state): State<Arc<AppState>>) -> impl IntoResponse {
         mcp = mcp_banner,
     );
 
-    layout_as("Documentos", "documentos", &body)
+    templates::layout_as_shelled(&state, "Documentos", "documentos", &body).await
 }
 
 /// New document form.

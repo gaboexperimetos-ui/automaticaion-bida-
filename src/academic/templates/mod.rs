@@ -205,6 +205,24 @@ pub fn html_escape(s: &str) -> String {
         .replace('\'', "&#39;")
 }
 
+/// Como `page_ext`, pero además rellena los slots del shell (`SHELL_*`) con
+/// datos reales vía `stitch_panel::{fetch_shell_data, fill_shell}` — el mismo
+/// llenado que usan las páginas stitchadas de `/dashboard`. Los handlers de
+/// página completa que tienen `State(state)` disponible deben servir a través
+/// de esta función: `page_ext` a secas deja los placeholders del shell tal
+/// cual en el HTML.
+pub async fn page_ext_shelled(
+    state: &std::sync::Arc<crate::AppState>,
+    title: &str,
+    crumb: &str,
+    href: &str,
+    content: &str,
+) -> String {
+    let html = page_ext(title, crumb, href, content);
+    let shell = crate::handlers::stitch_panel::fetch_shell_data(state).await;
+    crate::handlers::stitch_panel::fill_shell(&html, &shell)
+}
+
 /// MCP connection status banner.
 ///
 /// Conectado: chip con punto pulsante (`animate-pulse`).

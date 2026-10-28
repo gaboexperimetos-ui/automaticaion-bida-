@@ -113,7 +113,7 @@ pub async fn list(State(state): State<Arc<AppState>>) -> impl IntoResponse {
         count = files.len(),
         cards = cards,
     );
-    layout_as("Presentaciones", "presentaciones", &body)
+    templates::layout_as_shelled(&state, "Presentaciones", "presentaciones", &body).await
 }
 
 /// New presentation form.

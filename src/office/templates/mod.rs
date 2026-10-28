@@ -317,6 +317,20 @@ pub fn layout_as(title: &str, active: &str, body: &str) -> String {
     titled
 }
 
+/// Como `layout_as`, pero además rellena los slots del shell (`SHELL_*`) con
+/// datos reales (`stitch_panel::{fetch_shell_data, fill_shell}`): el chequeo
+/// de la UI exige servirlas sin placeholders de shell.
+pub async fn layout_as_shelled(
+    state: &std::sync::Arc<crate::AppState>,
+    title: &str,
+    active: &str,
+    body: &str,
+) -> String {
+    let html = layout_as(title, active, body);
+    let shell = crate::handlers::stitch_panel::fetch_shell_data(state).await;
+    crate::handlers::stitch_panel::fill_shell(&html, &shell)
+}
+
 /// Franja superior de la suite: inicio, archivo activo, creación y Biblioteca.
 /// Mantiene la metáfora de pestañas de GenOffice sin ocultar las rutas reales.
 pub fn office_tab_strip(kind: &str, title: &str, new_href: &str) -> String {

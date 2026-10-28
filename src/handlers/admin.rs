@@ -1018,7 +1018,13 @@ pub async fn dashboard(State(state): State<Arc<AppState>>) -> (StatusCode, Html<
         "/admin",
         &content,
     );
-    (StatusCode::OK, Html(html))
+    // Igual que en `/ai`: `page_ext` deja los slots del shell sin llenar; los
+    // completo con el mismo `fill_shell` que usan las páginas stitchadas.
+    let shell = crate::handlers::stitch_panel::fetch_shell_data(&state).await;
+    (
+        StatusCode::OK,
+        Html(crate::handlers::stitch_panel::fill_shell(&html, &shell)),
+    )
 }
 
 /// POST /admin/openrouter/refresh-catalog — fuerza el refresh del catálogo de modelos.

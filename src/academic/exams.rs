@@ -158,13 +158,17 @@ pub async fn index(State(state): State<Arc<AppState>>) -> Html<String> {
         r###"<div class="nx-page nx-exams nova-page nova-exams-page"><header class="nx-page-header nova-page-head"><div><p class="nx-eyebrow">Aprendizaje · Evaluaciones</p><h1>Prepara lo importante.<br>Sin sorpresas.</h1><p>Una lectura cronológica de tus evaluaciones y del tiempo que tienes por delante.</p></div><a href="/dashboard/planner" class="nx-button nx-button-primary"><span class="material-symbols-outlined">event_available</span>Planificar estudio</a></header><section class="nx-exams-board nova-exams-board"><div class="nx-section-head"><div><p class="nx-eyebrow">Cronología</p><h2>Próximas evaluaciones</h2></div><span class="material-symbols-outlined">timeline</span></div>{status}{aviso_html}{body}</section></div>"###
     );
 
-    // Stitch v2 shell con breadcrumb + nav activo resueltos vía page_ext (fill_shell).
-    Html(templates::page_ext(
-        "Exámenes — Study Platform",
-        "Exámenes",
-        "/dashboard/examenes",
-        &content,
-    ))
+    // Stitch v2 shell con breadcrumb + nav activo resueltos vía page_ext_shelled.
+    Html(
+        templates::page_ext_shelled(
+            &state,
+            "Exámenes — Study Platform",
+            "Exámenes",
+            "/dashboard/examenes",
+            &content,
+        )
+        .await,
+    )
 }
 
 // ── presupuesto y respaldo ───────────────────────────────────────────

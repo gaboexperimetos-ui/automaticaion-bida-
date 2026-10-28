@@ -703,7 +703,11 @@ pub async fn ai_page(State(state): State<Arc<AppState>>) -> impl IntoResponse {
         &body_html,
     );
 
-    Html(html)
+    // `page_ext` no rellena los slots del shell (nombre, estado, badge MCP):
+    // la versión stitchada (/dashboard/ai) lo hace vía `stitch_chat::page`;
+    // aquí reutilizamos el mismo llenado para no servir placeholders.
+    let shell = crate::handlers::stitch_panel::fetch_shell_data(&state).await;
+    Html(crate::handlers::stitch_panel::fill_shell(&html, &shell))
 }
 
 /// HTML template for the AI chat UI page (Stitch "Synthetic Cognition" design system).

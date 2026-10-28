@@ -460,13 +460,17 @@ pub async fn weekly(
         horario_html_detalles(&horario.dias, hoy)
     );
 
-    // Stitch v2 shell con breadcrumb + nav activo resueltos vía page_ext.
-    Html(templates::page_ext(
-        "Horario — Study Platform",
-        "Horario",
-        "/dashboard/horario",
-        &content,
-    ))
+    // Stitch v2 shell con breadcrumb + nav activo resueltos vía page_ext_shelled.
+    Html(
+        templates::page_ext_shelled(
+            &state,
+            "Horario — Study Platform",
+            "Horario",
+            "/dashboard/horario",
+            &content,
+        )
+        .await,
+    )
 }
 
 #[cfg(test)]

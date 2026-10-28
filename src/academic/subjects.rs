@@ -474,12 +474,16 @@ pub async fn index(
         status,
         grid_html,
     );
-    Html(templates::page_ext(
-        "Asignaturas — Study Platform",
-        "Asignaturas",
-        "/dashboard/subjects",
-        &content,
-    ))
+    Html(
+        templates::page_ext_shelled(
+            &state,
+            "Asignaturas — Study Platform",
+            "Asignaturas",
+            "/dashboard/subjects",
+            &content,
+        )
+        .await,
+    )
 }
 
 // ── Data extraction ──────────────────────────────────────────────────

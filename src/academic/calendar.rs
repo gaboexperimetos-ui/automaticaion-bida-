@@ -670,12 +670,16 @@ pub async fn monthly(
         timeline,
     );
 
-    Html(templates::page_ext(
-        "Calendario — Study Platform",
-        "Mi agenda",
-        "/dashboard/calendar",
-        &content,
-    ))
+    Html(
+        templates::page_ext_shelled(
+            &state,
+            "Calendario — Study Platform",
+            "Mi agenda",
+            "/dashboard/calendar",
+            &content,
+        )
+        .await,
+    )
 }
 
 /// One event of the selected day, with the timing data the list needs.
@@ -993,12 +997,16 @@ pub async fn daily(
         band,
         list,
     );
-    Html(templates::page_ext(
-        "Calendario Diario — Study Platform",
-        "Mi agenda",
-        "/dashboard/calendar",
-        &content,
-    ))
+    Html(
+        templates::page_ext_shelled(
+            &state,
+            "Calendario Diario — Study Platform",
+            "Mi agenda",
+            "/dashboard/calendar",
+            &content,
+        )
+        .await,
+    )
 }
 
 /// GET /dashboard/calendar/weekly — weekly view.
@@ -1057,12 +1065,16 @@ pub async fn weekly(State(state): State<Arc<AppState>>) -> Html<String> {
         status,
         columns.join(""),
     );
-    Html(templates::page_ext(
-        "Semana — Study Platform",
-        "Mi agenda",
-        "/dashboard/calendar",
-        &content,
-    ))
+    Html(
+        templates::page_ext_shelled(
+            &state,
+            "Semana — Study Platform",
+            "Mi agenda",
+            "/dashboard/calendar",
+            &content,
+        )
+        .await,
+    )
 }
 
 #[cfg(test)]
