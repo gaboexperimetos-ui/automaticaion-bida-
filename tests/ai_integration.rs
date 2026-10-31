@@ -974,15 +974,11 @@ async fn test_structured_chat_modes_control_note_retrieval() {
     let legacy = serde_json::json!({"message":"Test semáforo","subject":"general"});
     let response = app
         .clone()
-        .oneshot(json_post_structured(
-            "/api/ai/chat",
-            &legacy.to_string(),
-        ))
+        .oneshot(json_post_structured("/api/ai/chat", &legacy.to_string()))
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
-    let legacy: serde_json::Value =
-        serde_json::from_str(&body_string(response).await).unwrap();
+    let legacy: serde_json::Value = serde_json::from_str(&body_string(response).await).unwrap();
     assert_eq!(legacy["mode"], "general");
     assert_eq!(legacy["sources"].as_array().unwrap().len(), 0);
 
@@ -992,15 +988,11 @@ async fn test_structured_chat_modes_control_note_retrieval() {
         "mode":"notes"
     });
     let response = app
-        .oneshot(json_post_structured(
-            "/api/ai/chat",
-            &grounded.to_string(),
-        ))
+        .oneshot(json_post_structured("/api/ai/chat", &grounded.to_string()))
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
-    let grounded: serde_json::Value =
-        serde_json::from_str(&body_string(response).await).unwrap();
+    let grounded: serde_json::Value = serde_json::from_str(&body_string(response).await).unwrap();
     assert_eq!(grounded["mode"], "notes");
     assert_eq!(grounded["sources"][0]["type"], "note");
     assert_eq!(grounded["sources"][0]["url"], "/app/notes/test");

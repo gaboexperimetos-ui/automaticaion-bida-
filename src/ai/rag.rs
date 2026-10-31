@@ -155,7 +155,10 @@ impl PreparedContext {
             .iter()
             .map(|source| source.url.clone())
             .collect();
-        for source in annotations.iter().filter_map(RagSource::from_web_annotation) {
+        for source in annotations
+            .iter()
+            .filter_map(RagSource::from_web_annotation)
+        {
             if seen.insert(source.url.clone()) {
                 self.sources.push(source);
             }
@@ -262,9 +265,10 @@ pub async fn prepare(
         merge_results(
             &mut results,
             &mut seen,
-            knowledge.search(&query, MAX_NOTES * 2).await.map_err(|_| {
-                AiError::Db("note retrieval failed".to_string())
-            })?,
+            knowledge
+                .search(&query, MAX_NOTES * 2)
+                .await
+                .map_err(|_| AiError::Db("note retrieval failed".to_string()))?,
         );
     } else {
         // El fallback LIKE busca una cadena literal: consultar cada término
@@ -273,9 +277,10 @@ pub async fn prepare(
             merge_results(
                 &mut results,
                 &mut seen,
-                knowledge.search(term, MAX_NOTES).await.map_err(|_| {
-                    AiError::Db("note retrieval failed".to_string())
-                })?,
+                knowledge
+                    .search(term, MAX_NOTES)
+                    .await
+                    .map_err(|_| AiError::Db("note retrieval failed".to_string()))?,
             );
         }
     }
@@ -339,12 +344,55 @@ fn merge_results(
 /// limita la consulta para no convertir un texto pegado en una expresión enorme.
 fn search_terms(message: &str) -> Vec<String> {
     const STOPWORDS: &[&str] = &[
-        "como", "cómo", "cuál", "cuáles", "cuando", "cuándo", "desde", "donde", "dónde",
-        "este", "esta", "estos", "estas", "hola", "para", "pero", "porque", "puedes",
-        "qué", "que", "sobre", "tengo", "tiene", "unas", "unos", "una", "con", "del",
-        "las", "los", "más", "mas", "muy", "nos", "por", "sin", "son", "sus", "the",
-        "and", "for", "with", "from", "explícame", "explicame", "explicarme", "explicar",
-        "hacer", "resume",
+        "como",
+        "cómo",
+        "cuál",
+        "cuáles",
+        "cuando",
+        "cuándo",
+        "desde",
+        "donde",
+        "dónde",
+        "este",
+        "esta",
+        "estos",
+        "estas",
+        "hola",
+        "para",
+        "pero",
+        "porque",
+        "puedes",
+        "qué",
+        "que",
+        "sobre",
+        "tengo",
+        "tiene",
+        "unas",
+        "unos",
+        "una",
+        "con",
+        "del",
+        "las",
+        "los",
+        "más",
+        "mas",
+        "muy",
+        "nos",
+        "por",
+        "sin",
+        "son",
+        "sus",
+        "the",
+        "and",
+        "for",
+        "with",
+        "from",
+        "explícame",
+        "explicame",
+        "explicarme",
+        "explicar",
+        "hacer",
+        "resume",
     ];
     let mut seen = HashSet::new();
     let mut terms = Vec::new();

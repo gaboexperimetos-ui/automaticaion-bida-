@@ -450,32 +450,14 @@ async fn dispatch_event(
     }
 
     match serde_json::from_str::<Value>(&joined) {
-        Ok(value) => {
-            relay_chunk(
-                tx,
-                usage,
-                content,
-                reasoning,
-                seen_web_sources,
-                &value,
-            )
-            .await
-        }
+        Ok(value) => relay_chunk(tx, usage, content, reasoning, seen_web_sources, &value).await,
         Err(e) => {
             // Recovery: providers that emit one JSON object per `data:` line
             // without blank-line delimiters — retry each line on its own.
             let mut relayed = false;
             for line in joined.split('\n') {
                 if let Ok(value) = serde_json::from_str::<Value>(line) {
-                    match relay_chunk(
-                        tx,
-                        usage,
-                        content,
-                        reasoning,
-                        seen_web_sources,
-                        &value,
-                    )
-                    .await
+                    match relay_chunk(tx, usage, content, reasoning, seen_web_sources, &value).await
                     {
                         Dispatch::Continue => relayed = true,
                         Dispatch::Aborted => return Dispatch::Aborted,
@@ -522,7 +504,10 @@ async fn relay_chunk(
         })
         .and_then(Value::as_array);
     if let Some(annotations) = annotations {
-        for source in annotations.iter().filter_map(RagSource::from_web_annotation) {
+        for source in annotations
+            .iter()
+            .filter_map(RagSource::from_web_annotation)
+        {
             if seen_web_sources.insert(source.url.clone())
                 && !send_frame(tx, "sources", &json!({ "sources": [source] })).await
             {

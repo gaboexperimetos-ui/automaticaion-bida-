@@ -76,8 +76,11 @@ antes de considerar válido un cambio posterior.
 
 - Cliente HTTPS/TLS para OpenRouter; no usar texto plano ni desactivar verificación.
 - Chat, historial, resúmenes, quizzes, hojas de estudio y catálogo de modelos.
+- RAG `hybrid`/`notes`/`general`: recuperación real de notas, límites de
+  contexto, web sólo en híbrido, citas verificables y compatibilidad sin `mode`.
 - Budget gate transaccional y métricas de uso con la misma semántica.
-- SSE `delta`/`reasoning`/`done`/`error`, cancelación y límite de streams.
+- SSE `context`/`sources`/`delta`/`reasoning`/`done`/`error`, cancelación y
+  límite de streams.
 - Pruebas sin consumir modelos de pago ni exponer credenciales.
 
 ### Fase 6 — Office, administración y operación
