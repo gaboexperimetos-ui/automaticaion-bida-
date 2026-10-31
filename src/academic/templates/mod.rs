@@ -205,6 +205,24 @@ pub fn html_escape(s: &str) -> String {
         .replace('\'', "&#39;")
 }
 
+/// Como `page_ext`, pero además rellena los slots del shell (`SHELL_*`) con
+/// datos reales vía `stitch_panel::{fetch_shell_data, fill_shell}` — el mismo
+/// llenado que usan las páginas stitchadas de `/dashboard`. Los handlers de
+/// página completa que tienen `State(state)` disponible deben servir a través
+/// de esta función: `page_ext` a secas deja los placeholders del shell tal
+/// cual en el HTML.
+pub async fn page_ext_shelled(
+    state: &std::sync::Arc<crate::AppState>,
+    title: &str,
+    crumb: &str,
+    href: &str,
+    content: &str,
+) -> String {
+    let html = page_ext(title, crumb, href, content);
+    let shell = crate::handlers::stitch_panel::fetch_shell_data(state).await;
+    crate::handlers::stitch_panel::fill_shell(&html, &shell)
+}
+
 /// MCP connection status banner.
 ///
 /// Conectado: chip con punto pulsante (`animate-pulse`).
@@ -712,13 +730,13 @@ pub fn calendar_grid_html(
             )
         } else {
             (
-                "border border-outline/40 rounded-lg p-space-xs",
+                "border border-outline/20 rounded-lg p-space-xs bg-surface-container/30",
                 "block font-label-sm text-[10px] text-on-surface-variant",
             )
         };
 
         cells.push(format!(
-            r#"<div class="calendar-cell agenda-cell relative h-28 {}{}" tabindex="0" role="button" aria-label="Añadir o editar anotaciones del {fecha}" title="Añadir o editar anotaciones · {fecha}"><span class="calendar-day-number {} mb-space-xs">{}</span><div class="calendar-day-items mt-space-xs space-y-0.5 overflow-hidden">{}</div></div>"#,
+            r#"<div class="calendar-cell agenda-cell relative h-32 {}{}" tabindex="0" role="button" aria-label="Añadir o editar anotaciones del {fecha}" title="Añadir o editar anotaciones · {fecha}"><span class="calendar-day-number {} mb-space-xs">{}</span><div class="calendar-day-items mt-space-xs space-y-0.5 overflow-hidden">{}</div></div>"#,
             cell_cls, atributos_celda, num_cls, d, contenido
         ));
     }

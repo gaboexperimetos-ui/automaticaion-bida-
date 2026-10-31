@@ -42,10 +42,11 @@ use crate::AppState;
 /// Clave en `app_config` donde se guarda el modelo elegido.
 pub const CLAVE_MODELO: &str = "ai.model";
 
-/// Cuánto se cachea el catálogo de modelos (30 min).
+/// Cuánto se cachea el catálogo de modelos (5 min; `POST
+/// /admin/openrouter/refresh-catalog` lo fuerza antes si hace falta).
 ///
-/// OpenRouter añade y retira modelos con frecuencia, pero 30 min es
-/// suficiente para no castigar al proveedor ni congelar la lista.
+/// OpenRouter añade y retira modelos con frecuencia: 5 min es corto para no
+/// congelar la lista del selector y sigue castigando poco al proveedor.
 const TTL_CATALOGO: Duration = Duration::from_secs(300);
 
 /// Catálogo de respaldo: modelos free conocidos.
@@ -200,7 +201,7 @@ impl CacheCatalogo {
     }
 }
 
-/// Descarga el catálogo de modelos free de OpenRouter.
+/// Descarga el catálogo completo de OpenRouter (free y de pago).
 ///
 /// Devuelve `None` si el proveedor no responde (se usará el respaldo).
 async fn descargar_catalogo(api_key: Option<&str>) -> Option<Vec<ModeloInfo>> {
@@ -276,7 +277,7 @@ async fn descargar_catalogo(api_key: Option<&str>) -> Option<Vec<ModeloInfo>> {
     }
 }
 
-/// Catálogo de modelos free (con caché).
+/// Catálogo de modelos de OpenRouter (free y de pago, con caché).
 pub async fn catalogo(state: &Arc<AppState>) -> Vec<ModeloInfo> {
     if let Some(c) = state.cache_catalogo.get() {
         return c;

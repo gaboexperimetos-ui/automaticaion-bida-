@@ -1,0 +1,38 @@
+name: Validación del backend C
+
+on:
+  push:
+    branches:
+      - main
+      - "quality/**"
+      - "arena/**"
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validacion-c-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validar-c:
+    name: C17, sanitizers, HTTP y análisis estático
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Comprobar toolchain C
+        run: |
+          cc --version
+          make --version
+          python3 --version
+          ldconfig -p | grep 'libsqlite3.so.0'
+
+      - name: Compilar y validar backend C
+        run: make -C c_backend ci

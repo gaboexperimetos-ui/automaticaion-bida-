@@ -55,6 +55,7 @@ struct AdminData {
     mcp_latency_ms: Option<u128>,
     openrouter_configured: bool,
     openrouter_model: String,
+    openrouter_catalog_state: String,
     spend_usd: f64,
     budget_usd: f64,
     requests_month: u64,
@@ -254,6 +255,12 @@ async fn fetch_admin_data(state: &Arc<AppState>) -> AdminData {
     let openrouter_model = state.config.openrouter_model.clone();
     let budget_usd = state.config.openrouter_max_cost_usd;
 
+    // Estado del catálogo de modelos de IA
+    let openrouter_catalog_state = state
+        .cache_catalogo
+        .get()
+        .map_or_else(|| "expired".to_string(), |_| "fresh".to_string());
+
     // Gasto real de IA (tabla usage_metrics) — 0.00 si no hay datos
     let (spend_usd, requests_month, budget_alert) = {
         match crate::ai::openrouter::persistent_summary(&state.db, &state.config).await {
@@ -287,6 +294,7 @@ async fn fetch_admin_data(state: &Arc<AppState>) -> AdminData {
         mcp_latency_ms,
         openrouter_configured,
         openrouter_model,
+        openrouter_catalog_state,
         spend_usd,
         budget_usd,
         requests_month,
@@ -409,7 +417,7 @@ fn render_admin_content(d: &AdminData) -> String {
     <aside class="nx-admin-services" aria-label="Estado de servicios">
       <div class="nx-section-head"><div><p class="nx-eyebrow">Servicios</p><h2>Estado actual</h2></div></div>
       <article><span class="material-symbols-outlined"><!--SLOT:ADMIN_MCP_ICON--></span><div><h3>Mikareno MCP</h3><p><!--SLOT:ADMIN_MCP_STATUS--></p><!--SLOT:ADMIN_MCP_LATENCY--></div></article>
-      <article><span class="material-symbols-outlined"><!--SLOT:ADMIN_OR_ICON--></span><div><h3>OpenRouter</h3><p>Estado: <span class="<!--SLOT:ADMIN_OR_STATUS_COLOR-->"><!--SLOT:ADMIN_OR_STATUS--></span></p><code><!--SLOT:ADMIN_OR_MODEL--></code></div></article>
+      <article><span class="material-symbols-outlined"><!--SLOT:ADMIN_OR_ICON--></span><div><h3>OpenRouter</h3><p>Estado: <span class="<!--SLOT:ADMIN_OR_STATUS_COLOR-->"><!--SLOT:ADMIN_OR_STATUS--></span></p><code><!--SLOT:ADMIN_OR_MODEL--></code><p>Catálogo de IA: <span id="admin-or-catalog-state"><!--SLOT:ADMIN_OR_CATALOG_STATE--></span></p><button id="refresh-catalog-btn" type="button" onclick="refreshCatalog()" class="nx-button nx-button-secondary"><span class="material-symbols-outlined">refresh</span><span>Refrescar catálogo IA</span></button><div id="refresh-catalog-msg" class="hidden"></div></div></article>
       <a href="/dashboard/mcp" class="nx-text-link">Abrir integraciones<span class="material-symbols-outlined">arrow_forward</span></a>
       <p class="nx-privacy-note"><span class="material-symbols-outlined">shield_locked</span>Los secretos se administran en el servidor.</p>
     </aside>
@@ -636,6 +644,46 @@ fn render_admin_content(d: &AdminData) -> String {
   // La acción vive en `window` porque el botón la invoca con `onclick`.
   window.crearBackup = crearBackup;
 
+  function refreshCatalog() {
+    var btn = document.getElementById('refresh-catalog-btn');
+    var msg = document.getElementById('refresh-catalog-msg');
+    if (!btn) { return; }
+    btn.disabled = true;
+    var label = btn.querySelector('span:last-child');
+    msg.className = 'hidden';
+    fetch('/admin/openrouter/refresh-catalog', { method: 'POST', credentials: 'same-origin' })
+      .then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (data) {
+          return { status: res.status, data: data || {} };
+        });
+      })
+      .then(function (r) {
+        if (r.status === 200 && r.data.success) {
+          var estado = document.getElementById('admin-or-catalog-state');
+          if (estado) { estado.textContent = 'Actualizado'; }
+          msg.className = 'nx-backup-note';
+          msg.innerHTML = 'Catálogo refrescado: ' + (r.data.count || 0) + ' modelos disponibles.';
+          msg.classList.remove('hidden');
+          window.setTimeout(function () { window.location.reload(); }, 1500);
+        } else {
+          msg.className = 'nx-backup-note';
+          msg.textContent = 'No se pudo refrescar: ' + ((r.data && r.data.error) || ('HTTP ' + r.status));
+          msg.classList.remove('hidden');
+        }
+      })
+      .catch(function (e) {
+        msg.className = 'nx-backup-note';
+        msg.textContent = 'Error de conexión: ' + e.message;
+        msg.classList.remove('hidden');
+      })
+      .then(function () {
+        btn.disabled = false;
+        if (label) { label.textContent = 'Refrescar catálogo IA'; }
+      });
+  }
+
+  window.refreshCatalog = refreshCatalog;
+
   cuentaAtras();
   window.setInterval(cuentaAtras, 30000);
 })();
@@ -681,6 +729,13 @@ fn render_admin_content(d: &AdminData) -> String {
         "text-secondary"
     } else {
         "text-outline"
+    };
+
+    // Estado del catálogo de modelos de IA
+    let or_catalog_state = if d.openrouter_catalog_state == "fresh" {
+        "Actualizado"
+    } else {
+        "Desactualizado"
     };
 
     // Gasto de IA del mes: el % del presupuesto (el filtro mensual ya está
@@ -758,6 +813,7 @@ fn render_admin_content(d: &AdminData) -> String {
         .replace("<!--SLOT:ADMIN_OR_STATUS-->", or_status)
         .replace("<!--SLOT:ADMIN_OR_STATUS_COLOR-->", or_status_color)
         .replace("<!--SLOT:ADMIN_OR_MODEL-->", &esc(&d.openrouter_model))
+        .replace("<!--SLOT:ADMIN_OR_CATALOG_STATE-->", &esc(or_catalog_state))
         .replace("<!--SLOT:ADMIN_BUDGET_BAR-->", &budget_bar)
         .replace("<!--SLOT:ADMIN_LAST_BACKUP_DATE-->", &esc(&last_date))
         .replace("<!--SLOT:ADMIN_LAST_BACKUP_NAME-->", &esc(&last_name))
@@ -901,7 +957,11 @@ fn format_bytes_short(n: u64) -> String {
 // módulo sigue compilando. No se exponen secrets: solo flags booleanos y
 // cifras; ni SESSION_SECRET, ni API keys, ni el .env.
 
-use axum::{middleware::from_fn_with_state, routing::get, Router};
+use axum::{
+    middleware::from_fn_with_state,
+    routing::{get, post},
+    Router,
+};
 
 use crate::middleware::auth::require_auth_state;
 
@@ -930,6 +990,10 @@ pub fn register_routes(
         .route("/admin", get(dashboard))
         .route("/admin/metrics", get(system_metrics))
         .route("/admin/openrouter/budget", get(openrouter_budget))
+        .route(
+            "/admin/openrouter/refresh-catalog",
+            post(openrouter_refresh_catalog),
+        )
         .route("/admin/backup/list", get(backup_list))
         .route_layer(from_fn_with_state(state.clone(), require_auth_state));
 
@@ -954,7 +1018,42 @@ pub async fn dashboard(State(state): State<Arc<AppState>>) -> (StatusCode, Html<
         "/admin",
         &content,
     );
-    (StatusCode::OK, Html(html))
+    // Igual que en `/ai`: `page_ext` deja los slots del shell sin llenar; los
+    // completo con el mismo `fill_shell` que usan las páginas stitchadas.
+    let shell = crate::handlers::stitch_panel::fetch_shell_data(&state).await;
+    (
+        StatusCode::OK,
+        Html(crate::handlers::stitch_panel::fill_shell(&html, &shell)),
+    )
+}
+
+/// POST /admin/openrouter/refresh-catalog — fuerza el refresh del catálogo de modelos.
+///
+/// Utiliza el método `CacheCatalogo::refresh` para invalidar la caché actual
+/// y descargar un catálogo nuevo desde OpenRouter (o volver al respaldo si el
+/// proveedor no responde). Sirve para que un modelo nuevo aparezca en el
+/// selector sin esperar el TTL habitual de la caché.
+pub async fn openrouter_refresh_catalog(
+    State(state): State<Arc<AppState>>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let key = state.config.openrouter_api_key.as_deref();
+    match state.cache_catalogo.refresh(key).await {
+        Some(modelos) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "success": true,
+                "count": modelos.len(),
+                "message": "Catálogo refrescado exitosamente",
+            })),
+        ),
+        None => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "success": false,
+                "error": "No se pudo refrescar el catálogo (proveedor no disponible)",
+            })),
+        ),
+    }
 }
 
 /// GET /admin/metrics — métricas del sistema en JSON.

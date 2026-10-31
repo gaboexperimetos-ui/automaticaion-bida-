@@ -5,10 +5,7 @@ on:
     branches:
       - main
       - "quality/**"
-<<<<<<< HEAD
-=======
       - "arena/**"
->>>>>>> 9c0a42b34fe9e887e97de2b0755c4745d9427780
   pull_request:
     branches:
       - main
@@ -16,10 +13,7 @@ on:
 
 permissions:
   contents: read
-<<<<<<< HEAD
-=======
   pull-requests: write
->>>>>>> 9c0a42b34fe9e887e97de2b0755c4745d9427780
 
 concurrency:
   group: validacion-rust-${{ github.ref }}
@@ -33,6 +27,17 @@ jobs:
       - name: Descargar el repositorio
         uses: actions/checkout@v4
 
+      # Un merge con conflictos sin resolver no debe llegar silencio a las
+      # plantillas: este chequeo temprano lo convierte en fallo inmediato.
+      # Solo se buscan los dos marcadores inequívocos, para no fallar por
+      # líneas "=======" legítimamente usuales en la documentación.
+      - name: Detectar marcadores de conflicto sin resolver
+        run: |
+          if git grep -nE '^(<<<<<<<|>>>>>>>)' -- . ; then
+            echo "::error::El árbol contiene marcadores de conflicto de merge sin resolver."
+            exit 1
+          fi
+
       - name: Instalar Rust estable
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -45,15 +50,6 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Compilar todas las plataformas
-<<<<<<< HEAD
-        run: cargo check --all-targets
-
-      - name: Ejecutar pruebas
-        run: cargo test --no-fail-fast
-
-      - name: Revisar lint de Rust
-        run: cargo clippy --all-targets
-=======
         run: |
           set -o pipefail
           cargo check --all-targets 2>&1 | tee /tmp/nova-cargo-check.log
@@ -91,4 +87,3 @@ jobs:
           if [ -n "$pr_number" ]; then
             gh pr comment "$pr_number" --body-file /tmp/nova-validation-comment.md
           fi
->>>>>>> 9c0a42b34fe9e887e97de2b0755c4745d9427780

@@ -19,8 +19,9 @@
 //! the router provides it, falling back to `X-Forwarded-For` and then
 //! `"unknown"`. `X-Forwarded-For` is client-controlled and therefore
 //! spoofable; it is only a fallback for deployments without a trusted proxy.
-//! Serve behind `into_make_service_with_connect_info` (a `main.rs` change,
-//! outside this module's ownership) to make the IP spoof-proof.
+//! `main.rs` now serves behind `into_make_service_with_connect_info`, so in
+//! production the rate limiter always keys on the real socket address; the
+//! spoofable headers are only reachable from in-memory test routers.
 
 use std::collections::HashMap;
 use std::net::SocketAddr;

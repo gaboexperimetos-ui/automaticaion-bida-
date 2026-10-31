@@ -44,7 +44,7 @@
 
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
+    http::{header, HeaderMap, StatusCode},
     response::{Html, IntoResponse, Response},
     Json,
 };
@@ -53,6 +53,7 @@ use serde::Deserialize;
 
 use std::sync::Arc;
 
+use crate::ai::rag::RetrievalMode;
 use crate::ai::{AiAssistant, AiError, CostSummary};
 
 use crate::AppState;
@@ -75,6 +76,10 @@ pub struct ChatRequest {
     pub message: String,
 
     pub subject: String,
+
+    /// Ausente = general, para conservar el comportamiento de clientes previos.
+    #[serde(default)]
+    pub mode: Option<RetrievalMode>,
 }
 
 /// Body for `POST /api/ai/summary`.
@@ -335,6 +340,8 @@ async fn enforce_budget(
 pub async fn chat_handler(
     State(state): State<Arc<AppState>>,
 
+    headers: HeaderMap,
+
     Json(payload): Json<ChatRequest>,
 ) -> Response {
     let input_len = char_len(&payload.message);
@@ -350,10 +357,36 @@ pub async fn chat_handler(
         return budget.into_response();
     }
 
+    let mode = payload.mode.unwrap_or_default();
+    let prepared = match crate::ai::rag::prepare(state.clone(), &payload.message, mode).await {
+        Ok(context) => context,
+        Err(error) => return chat_error("chat/context", input_len, error),
+    };
     let assistant = AiAssistant::new(state);
 
-    match assistant.chat(&payload.message, &subject).await {
-        Ok(response) => (StatusCode::OK, response).into_response(),
+    match assistant
+        .chat_grounded(&payload.message, &subject, prepared)
+        .await
+    {
+        Ok(answer) => {
+            let wants_json = headers
+                .get(header::ACCEPT)
+                .and_then(|value| value.to_str().ok())
+                .is_some_and(|value| value.contains("application/json"));
+            if wants_json {
+                (
+                    StatusCode::OK,
+                    Json(serde_json::json!({
+                        "content": answer.content,
+                        "mode": answer.mode,
+                        "sources": answer.sources,
+                    })),
+                )
+                    .into_response()
+            } else {
+                (StatusCode::OK, answer.content).into_response()
+            }
+        }
 
         Err(e) => chat_error("chat", input_len, e),
     }
@@ -703,7 +736,11 @@ pub async fn ai_page(State(state): State<Arc<AppState>>) -> impl IntoResponse {
         &body_html,
     );
 
-    Html(html)
+    // `page_ext` no rellena los slots del shell (nombre, estado, badge MCP):
+    // la versión stitchada (/dashboard/ai) lo hace vía `stitch_chat::page`;
+    // aquí reutilizamos el mismo llenado para no servir placeholders.
+    let shell = crate::handlers::stitch_panel::fetch_shell_data(&state).await;
+    Html(crate::handlers::stitch_panel::fill_shell(&html, &shell))
 }
 
 /// HTML template for the AI chat UI page (Stitch "Synthetic Cognition" design system).

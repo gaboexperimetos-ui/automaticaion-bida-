@@ -305,20 +305,26 @@ await interaction('acciones de una respuesta', '/ai', async (page) => {
   assert.equal(quiz.includes('¿Qué problema resuelve un semáforo?'), true);
 });
 
-await interaction('notas: hidratación, modos e importación real', '/dashboard/notes', async (page) => {
-  await page.waitForFunction(() => document.querySelector('#note-editor')?.value.includes('semáforo'));
-  assert.equal(await page.$$('.nx-pane-label').then((labels) => labels.length), 2);
+await interaction('notas: modos e importación segura (modal)', '/dashboard/notes', async (page) => {
+  await page.waitForFunction(() => document.getElementById('note-editor') !== null);
+  const paneles = await page.$$eval('.nx-pane-label', (labels) => labels.length);
+  assert.equal(paneles, 2);
   await page.click('#mode-preview');
   assert.equal(await page.$eval('#note-editor-pane', (el) => getComputedStyle(el).display), 'none');
   assert.equal(await page.$eval('#mode-preview', (el) => el.getAttribute('aria-pressed')), 'true');
   await page.click('#mode-split');
   assert.notEqual(await page.$eval('#note-editor-pane', (el) => getComputedStyle(el).display), 'none');
+  // Importación segura: el botón abre SOLO el modal; el selector de carpetas
+  // queda detrás de "Examinar" y la confirmación arranca deshabilitada.
   await page.click('#btn-import-vault');
-  assert.equal(await page.$('#import-vault-modal'), null);
-  const importInput = await page.$('input[type="file"][webkitdirectory]');
-  assert.ok(importInput, 'La importación abre un selector de carpeta real');
+  assert.equal(await page.$eval('#import-vault-modal', (el) => el.classList.contains('hidden')), false);
+  assert.equal(await page.$eval('#confirm-import-btn', (el) => el.disabled), true);
+  assert.equal(await page.$eval('input[name="conflict-rule"]:checked', (el) => el.value), 'keep-both');
+  const importInput = await page.$('input[type="file"][webkitdirectory][hidden]');
+  assert.ok(importInput, 'el selector de carpeta vive en el modal, no se lanza directo');
   assert.equal(await importInput.evaluate((el) => el.accept), '.md,.markdown');
-  await importInput.evaluate((el) => el.remove());
+  await page.keyboard.press('Escape');
+  assert.equal(await page.$eval('#import-vault-modal', (el) => el.classList.contains('hidden')), true);
 });
 
 await interaction('MCP: secreto, ping y playground', '/dashboard/mcp', async (page) => {

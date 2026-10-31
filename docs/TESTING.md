@@ -99,7 +99,7 @@ curl -s http://127.0.0.1:8090/api/mcp/status   # → {"connected":true, "tools":
 - [x] `cargo check` pasa (sin errors; 3 warnings por dead code future features)
 - [x] `cargo clippy` — 0 errors
 - [x] `cargo fmt --check` — pass
-- [x] `cargo test` — 13 tests pasan (integration suite)
+- [x] `cargo test` — 13 tests pasan (integration suite; **cifra histórica de la fase inicial**, la suite completa actual es mucho mayor — ver README «Calidad y pruebas»)
 - [x] DB crea schema correcto (4 tablas: users, sessions, notes, app_config)
 - [x] API `/health` responde `{"status":"healthy", "components":{"database":true, ...}}`
 - [x] API `/api/config` devuelve configuración pública (sin secrets)

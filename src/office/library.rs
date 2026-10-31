@@ -58,7 +58,7 @@ fn gather(state: &AppState) -> Vec<LibEntry> {
 
 /// List all office files.
 pub async fn list(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    render_list(&state, None)
+    render_list(&state, None).await
 }
 
 /// Search files by name.
@@ -69,15 +69,15 @@ pub async fn search(
     if q.q.as_ref().is_some_and(|s| s.len() > MAX_QUERY_LEN) {
         return (axum::http::StatusCode::BAD_REQUEST, "query too long").into_response();
     }
-    render_list(&state, q.q.as_deref())
+    render_list(&state, q.q.as_deref()).await
 }
 
-fn render_list(state: &AppState, filter: Option<&str>) -> Response {
-    rebuild(state, filter, filter.unwrap_or(""))
+async fn render_list(state: &Arc<AppState>, filter: Option<&str>) -> Response {
+    rebuild(state, filter, filter.unwrap_or("")).await
 }
 
 /// Rebuild the table with correct type segments in the action links.
-fn rebuild(state: &AppState, filter: Option<&str>, q_val: &str) -> Response {
+async fn rebuild(state: &Arc<AppState>, filter: Option<&str>, q_val: &str) -> Response {
     let all = gather(state);
     let filtered: Vec<&LibEntry> = match filter {
         Some(q) if !q.trim().is_empty() => {
@@ -131,7 +131,9 @@ fn rebuild(state: &AppState, filter: Option<&str>, q_val: &str) -> Response {
 
     Response::builder()
         .status(200)
-        .body(Body::from(layout_as("Biblioteca", "biblioteca", &body)))
+        .body(Body::from(
+            templates::layout_as_shelled(&state, "Biblioteca", "biblioteca", &body).await,
+        ))
         .unwrap()
 }
 

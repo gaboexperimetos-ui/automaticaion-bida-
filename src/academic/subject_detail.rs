@@ -134,21 +134,35 @@ pub async fn view(State(state): State<Arc<AppState>>, Path(code): Path<String>) 
         // lo dice ("Notas no disponibles") en vez de inventar enlaces.
         let notes = load_note_index(&state.db).await;
 
-        Html(subject_page_html(
-            connected,
-            &materia,
-            &code,
-            promedio_fallback,
-            maximo_fallback,
-            trimestre_display,
-            bloqueada_fallback,
-            &detalle,
-            &submenus,
-            notes.as_ref(),
-        ))
+        // La página ya lleva su `page_ext`; relleno aquí el shell para no
+        // servir placeholders `<!--SLOT:SHELL_*-->`.
+        Html(
+            subject_detail_fill(
+                &state,
+                subject_page_html(
+                    connected,
+                    &materia,
+                    &code,
+                    promedio_fallback,
+                    maximo_fallback,
+                    trimestre_display,
+                    bloqueada_fallback,
+                    &detalle,
+                    &submenus,
+                    notes.as_ref(),
+                ),
+            )
+            .await,
+        )
     } else {
-        Html(not_found_page(&code, connected))
+        Html(subject_detail_fill(&state, not_found_page(&code, connected)).await)
     }
+}
+
+/// Rellena el shell de un HTML de `page_ext` con los datos reales del shell.
+async fn subject_detail_fill(state: &Arc<AppState>, html: String) -> String {
+    let shell = crate::handlers::stitch_panel::fetch_shell_data(state).await;
+    crate::handlers::stitch_panel::fill_shell(&html, &shell)
 }
 
 // ── Resolution from student_full promedios ────────────────────────────

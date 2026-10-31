@@ -61,7 +61,7 @@ pub async fn list(State(state): State<Arc<AppState>>) -> impl IntoResponse {
         count = files.len(),
         cards = cards,
     );
-    layout_as("Hojas de cálculo", "hojas", &body)
+    templates::layout_as_shelled(&state, "Hojas de cálculo", "hojas", &body).await
 }
 
 /// New-sheet form.

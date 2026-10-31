@@ -1745,7 +1745,10 @@ pub async fn index(
     if life.connected {
         cache_guardar(&life);
     }
-    Html(page_html(&life))
+    // La página completa usa `page_ext` (sin estado); aquí relleno el shell.
+    let html = page_html(&life);
+    let shell = crate::handlers::stitch_panel::fetch_shell_data(&state).await;
+    Html(crate::handlers::stitch_panel::fill_shell(&html, &shell))
 }
 
 /// Query params: `?partial=<sección>` recarga sólo esa sección vía HTMX.

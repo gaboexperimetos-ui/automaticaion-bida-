@@ -10,6 +10,7 @@ pub mod handlers;
 pub mod modelos;
 pub mod openrouter;
 pub mod quiz;
+pub mod rag;
 pub mod streaming;
 
 pub use chat::AiAssistant;

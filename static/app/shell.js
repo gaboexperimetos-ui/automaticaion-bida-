@@ -930,7 +930,10 @@
 
   function initVaultActions() {
     var importButton = document.getElementById("btn-import-vault");
-    if (importButton) {
+    // El flujo del botón es exclusivo: si la página trae el modal de
+    // importación segura (double-confirm), el propio modal es el propietario
+    // del clic y aquí no se registra un selector directo.
+    if (importButton && !document.getElementById("import-vault-modal")) {
       once(importButton, "spVaultImport", function (button) {
         button.addEventListener("click", function (event) {
           event.preventDefault();
@@ -1375,7 +1378,7 @@
   }
 
   /* =================================================================
-   *  ASISTENTE: selector de modelo free de OpenRouter
+   *  ASISTENTE: selector de modelo de OpenRouter (free y de pago)
    * ================================================================= */
   function initModelPicker() {
     var chips = document.querySelectorAll("#modelo-chip, [data-sp-modelo]");
@@ -1386,6 +1389,60 @@
         var span = c.querySelector("[data-sp-modelo-nombre]") || c;
         span.textContent = mensaje;
       });
+    }
+
+    // Precio real del catálogo (por 1M tokens). Si OpenRouter no reporta un
+    // precio, no se inventa: se omite ese componente.
+    function precioEtiqueta(modelo) {
+      if (!modelo) { return ""; }
+      var fmt = function (v) {
+        var n = parseFloat(v);
+        if (!isFinite(n)) { return null; }
+        var porMillon = n * 1000000;
+        if (!porMillon) { return "$0"; }
+        return "$" + (porMillon >= 0.01 ? porMillon.toFixed(2) : Number(porMillon.toPrecision(2)));
+      };
+      var entrada = modelo.pricing_prompt != null ? fmt(modelo.pricing_prompt) : null;
+      var salida = modelo.pricing_completion != null ? fmt(modelo.pricing_completion) : null;
+      var partes = [];
+      if (entrada) { partes.push("entrada " + entrada); }
+      if (salida) { partes.push("salida " + salida); }
+      if (!partes.length) { return ""; }
+      return " · " + partes.join(" / ") + " (por 1M tokens)";
+    }
+
+    function subDeModelo(modelo) {
+      if (!modelo) { return ""; }
+      var estado = modelo.free ? "Gratis" : "De pago";
+      return estado + precioEtiqueta(modelo);
+    }
+
+    function esAvisoDePago(id, modelo) {
+      if (/^[\s\S]*:free$/.test(id)) { return false; }
+      if (modelo && modelo.free === true) { return false; }
+      return true; // ID desconocido o con free === false: pedir confirmación.
+    }
+
+    function aplicarConConfirmacion(id, modelo) {
+      var guardar = function () {
+        SP.api("/api/ai/model", { method: "PUT", json: { model: id } }).then(function () {
+          SP.toast("Modelo cambiado a " + id, "ok", 4000);
+          activo = id;
+          pintar(id);
+        }).catch(function (err) { SP.toast(msgErr(err), "err"); });
+      };
+      if (!esAvisoDePago(id, modelo)) { guardar(); return; }
+      var precio = precioEtiqueta(modelo);
+      var aviso = "El modelo " + id + " es de pago: puede generar cargos en tu cuenta de OpenRouter."
+        + (precio ? " Referencia del catálogo" + precio + "." : " OpenRouter no reporta precio para este ID: el gasto solo queda registrado en la app como estimado (límite inferior).")
+        + " El presupuesto interno OPENROUTER_MAX_COST_USD limita el gasto anotado por la app, pero no sustituye la facturación del proveedor.";
+      SP.confirm("Confirmar modelo de pago", aviso, "Aplicar modelo")
+        .then(function (confirmado) {
+          // El diálogo resuelve `null` al cancelar (Escape / velo / botón):
+          // solo con valor explícito se aplica el PUT.
+          if (confirmado) { guardar(); }
+        })
+        .catch(function () { /* cancelado: no se cambia el modelo */ });
     }
 
     SP.api("/api/ai/models").then(function (d) {
@@ -1399,24 +1456,20 @@
         once(c, "spModelo", function (chip) {
           chip.addEventListener("click", function (e) {
             e.preventDefault();
+            var buscar = function (id) {
+              for (var i = 0; i < modelos.length; i++) { if (modelos[i].id === id) { return modelos[i]; } }
+              return null;
+            };
             var items = modelos.map(function (x) {
               return {
                 label: x.name,
-                sub: x.id,
+                sub: subDeModelo(x),
                 icon: x.id === activo ? "check_circle" : "memory",
                 value: x.id
               };
             });
             // Opción para escribir cualquier modelo de OpenRouter (gratuito o de pago).
             items.push({ label: "Escribir otro modelo de OpenRouter", icon: "edit", value: "custom" });
-            function aplicar(id) {
-              if (!id || id === activo) { return; }
-              SP.api("/api/ai/model", { method: "PUT", json: { model: id } }).then(function () {
-                SP.toast("Modelo cambiado a " + id, "ok", 4000);
-                activo = id;
-                pintar(id);
-              }).catch(function (err) { SP.toast(msgErr(err), "err"); });
-            }
             SP.dialog({ title: "Modelo de IA (OpenRouter - gratuito y de pago)", items: items }).then(function (id) {
               if (!id || id === activo) { return; }
               if (id === "custom") {
@@ -1431,11 +1484,11 @@
                 }).then(function (txt) {
                   if (!txt) { return; }
                   txt = txt.trim();
-                  aplicar(txt);
+                  aplicarConConfirmacion(txt, buscar(txt));
                 });
                 return;
               }
-              aplicar(id);
+              aplicarConConfirmacion(id, buscar(id));
             });
           });
         });

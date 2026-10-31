@@ -44,7 +44,16 @@
         <label for="prompt-input" class="sr-only">Mensaje para el asistente</label>
         <textarea id="prompt-input" placeholder="Pregunta sobre tus materias o pega una idea para trabajarla…" rows="2"></textarea>
         <div class="nx-composer-bottom">
-          <div class="nx-composer-attachments"><button type="button" title="Adjuntar archivo o nota" aria-label="Adjuntar archivo o nota"><span class="material-symbols-outlined">attach_file</span></button><button type="button" title="Vincular apunte" aria-label="Vincular apunte"><span class="material-symbols-outlined">add_link</span></button><button type="button" title="Dictado por voz" aria-label="Dictado por voz"><span class="material-symbols-outlined">mic</span></button><span><!--SLOT:CHAT_COMPOSER_MODE--></span></div>
+          <div class="nx-composer-attachments nx-rag-picker">
+            <span class="material-symbols-outlined" aria-hidden="true">database</span>
+            <label class="sr-only" for="rag-mode">Información que puede usar el asistente</label>
+            <select id="rag-mode" name="mode" aria-describedby="rag-mode-help">
+              <option value="hybrid" selected>Notas + web</option>
+              <option value="notes">Solo mis notas</option>
+              <option value="general">Sin notas</option>
+            </select>
+            <span id="rag-mode-help">Notas primero; web si hace falta</span>
+          </div>
           <button class="nx-send-button" id="send-btn" type="button"><span>Enviar</span><span class="material-symbols-outlined">arrow_upward</span></button>
         </div>
       </div>
@@ -54,8 +63,8 @@
 
   <aside class="nx-chat-sources hidden" id="sources-sidebar" aria-label="Fuentes y contexto">
     <header><div><p class="nx-eyebrow">Contexto</p><h2>Fuentes</h2></div><button class="nx-icon-button" id="close-sources-btn" type="button" aria-label="Cerrar fuentes"><span class="material-symbols-outlined">close</span></button></header>
-    <p>Material relacionado con esta conversación.</p>
-    <div class="nx-sources-list"><!--SLOT:CHAT_SOURCES--></div>
+    <p id="sources-summary" aria-live="polite">Las fuentes aparecen después de enviar una pregunta.</p>
+    <div class="nx-sources-list" id="sources-list"><!--SLOT:CHAT_SOURCES--></div>
   </aside>
 </div>
 

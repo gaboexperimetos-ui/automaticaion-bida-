@@ -4,8 +4,10 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::ai::openrouter::{
-    chat_completion, persistent_summary, AiError, ChatMessage, CostTracker,
+    chat_completion, chat_completion_detailed, persistent_summary, AiError, ChatMessage,
+    CostTracker,
 };
+use crate::ai::rag::{PreparedContext, RagSource, RetrievalMode};
 use crate::config::Config;
 
 /// A conversation record persisted in the database.
@@ -16,6 +18,14 @@ pub struct Conversation {
     pub role: String,
     pub content: String,
     pub created_at: String,
+}
+
+/// Respuesta del chat con las fuentes realmente recuperadas o citadas.
+#[derive(Debug)]
+pub struct GroundedAnswer {
+    pub content: String,
+    pub mode: RetrievalMode,
+    pub sources: Vec<RagSource>,
 }
 
 /// AI assistant providing chat, summarization, quiz, and study sheet generation.
@@ -65,23 +75,27 @@ impl AiAssistant {
         }
     }
 
-    /// Send a chat message and get a response.
+    /// Send a chat message and get a response (modo general, contrato previo).
     pub async fn chat(&self, message: &str, subject: &str) -> Result<String, AiError> {
+        self.chat_grounded(message, subject, PreparedContext::general())
+            .await
+            .map(|answer| answer.content)
+    }
+
+    /// Chat con un contexto ya recuperado. La preparación ocurre en el handler
+    /// para que SSE y buffered compartan exactamente las mismas fuentes.
+    pub async fn chat_grounded(
+        &self,
+        message: &str,
+        subject: &str,
+        prepared: PreparedContext,
+    ) -> Result<GroundedAnswer, AiError> {
         let config = &self.state.config;
         let max_tokens = config.openrouter_max_tokens;
+        let messages = prepared.messages(message, subject, None);
 
-        let messages = vec![
-            ChatMessage {
-                role: "system".to_string(),
-                content: format!("Eres un asistente académico especializado en {}. Responde en español de forma concisa y útil.", subject),
-            },
-            ChatMessage {
-                role: "user".to_string(),
-                content: message.to_string(),
-            },
-        ];
-
-        // Track conversation in DB
+        // Track conversation in DB. El system sigue fuera de los listados,
+        // que sólo seleccionan roles user/assistant.
         self.save_conversation("assistant", "system", &messages[0].content, subject)
             .await
             .ok();
@@ -90,21 +104,27 @@ impl AiAssistant {
             .ok();
 
         let mut t = self.cost_tracker.lock().await;
-        let response = chat_completion(
+        let completion = chat_completion_detailed(
             &self.state.db,
             config,
             &mut *t,
             "chat",
             messages,
             max_tokens,
+            prepared.web_enabled(),
         )
         .await?;
+        drop(t);
 
-        // Save assistant response
-        self.save_conversation("assistant", "assistant", &response, subject)
+        self.save_conversation("assistant", "assistant", &completion.content, subject)
             .await
             .ok();
-        Ok(response)
+        let prepared = prepared.with_web_annotations(&completion.annotations);
+        Ok(GroundedAnswer {
+            content: completion.content,
+            mode: prepared.mode,
+            sources: prepared.sources,
+        })
     }
 
     /// Generate a summary from text content.

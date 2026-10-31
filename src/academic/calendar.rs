@@ -399,7 +399,7 @@ fn inject_event_badges(
 fn outside_cell_html(day: u32, bucket: Option<&DayBucket>) -> String {
     let badge = bucket.map(badge_html).unwrap_or_default();
     format!(
-        r###"<div class="{} agenda-outside relative h-28 border border-outline/20 rounded-lg p-space-xs opacity-50">{badge}<span class="calendar-day-number block font-label-sm text-[10px] text-on-surface-variant">{}</span></div>"###,
+        r###"<div class="{} agenda-outside relative h-32 border border-outline/20 rounded-lg p-space-xs bg-surface-container/30 opacity-50">{badge}<span class="calendar-day-number block font-label-sm text-[10px] text-on-surface-variant">{}</span></div>"###,
         OUTSIDE_CELL_CLASS, day
     )
 }
@@ -670,12 +670,16 @@ pub async fn monthly(
         timeline,
     );
 
-    Html(templates::page_ext(
-        "Calendario — Study Platform",
-        "Mi agenda",
-        "/dashboard/calendar",
-        &content,
-    ))
+    Html(
+        templates::page_ext_shelled(
+            &state,
+            "Calendario — Study Platform",
+            "Mi agenda",
+            "/dashboard/calendar",
+            &content,
+        )
+        .await,
+    )
 }
 
 /// One event of the selected day, with the timing data the list needs.
@@ -993,12 +997,16 @@ pub async fn daily(
         band,
         list,
     );
-    Html(templates::page_ext(
-        "Calendario Diario — Study Platform",
-        "Mi agenda",
-        "/dashboard/calendar",
-        &content,
-    ))
+    Html(
+        templates::page_ext_shelled(
+            &state,
+            "Calendario Diario — Study Platform",
+            "Mi agenda",
+            "/dashboard/calendar",
+            &content,
+        )
+        .await,
+    )
 }
 
 /// GET /dashboard/calendar/weekly — weekly view.
@@ -1057,12 +1065,16 @@ pub async fn weekly(State(state): State<Arc<AppState>>) -> Html<String> {
         status,
         columns.join(""),
     );
-    Html(templates::page_ext(
-        "Semana — Study Platform",
-        "Mi agenda",
-        "/dashboard/calendar",
-        &content,
-    ))
+    Html(
+        templates::page_ext_shelled(
+            &state,
+            "Semana — Study Platform",
+            "Mi agenda",
+            "/dashboard/calendar",
+            &content,
+        )
+        .await,
+    )
 }
 
 #[cfg(test)]
@@ -1087,7 +1099,7 @@ mod tests {
     /// Cell markup as rendered by the shared month-grid template.
     fn cell_html(day: u32) -> String {
         format!(
-            r#"<div class="calendar-cell relative h-28 border border-outline/40 rounded-lg p-space-xs"><span class="block font-label-sm text-[10px] text-on-surface-variant mb-space-xs">{}</span><div class="mt-space-xs space-y-0.5 overflow-hidden"></div></div>"#,
+            r#"<div class="calendar-cell relative h-32 border border-outline/20 rounded-lg p-space-xs bg-surface-container/30"><span class="block font-label-sm text-[10px] text-on-surface-variant mb-space-xs">{}</span><div class="mt-space-xs space-y-0.5 overflow-hidden"></div></div>"#,
             day
         )
     }

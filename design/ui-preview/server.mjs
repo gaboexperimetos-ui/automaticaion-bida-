@@ -157,8 +157,29 @@ const json = (res, value) => {
   res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
   res.end(JSON.stringify(value));
 };
+const readJson = (req) => new Promise((resolve) => {
+  let raw = '';
+  req.setEncoding('utf8');
+  req.on('data', (chunk) => { if (raw.length < 16384) raw += chunk; });
+  req.on('end', () => {
+    try { resolve(JSON.parse(raw || '{}')); } catch { resolve({}); }
+  });
+  req.on('error', () => resolve({}));
+});
+const previewRag = (mode) => {
+  const noteSources = mode === 'hybrid' || mode === 'notes' ? [{
+    type: 'note', title: 'Concurrencia y semáforos', url: '/app/notes/concurrencia',
+    snippet: 'Un semáforo coordina el acceso a recursos compartidos.',
+  }] : [];
+  const webSources = mode === 'hybrid' ? [{
+    type: 'web', title: 'Semáforo (informática) — Wikipedia',
+    url: 'https://es.wikipedia.org/wiki/Sem%C3%A1foro_(inform%C3%A1tica)',
+    snippet: 'Referencia web ficticia para comprobar la presentación de citas.',
+  }] : [];
+  return { mode, web: mode === 'hybrid', noteSources, webSources };
+};
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   if (url.pathname === '/health') {
     json(res, { status: 'ok', components: { openrouter: true, mikareno: true } });
@@ -214,17 +235,28 @@ const server = http.createServer((req, res) => {
     return;
   }
   if (url.pathname === '/api/ai/chat/stream' && req.method === 'POST') {
+    const body = await readJson(req);
+    const mode = ['hybrid', 'notes', 'general'].includes(body.mode) ? body.mode : 'general';
+    const rag = previewRag(mode);
     res.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-store' });
+    res.write(`event: context\ndata: ${JSON.stringify({ mode, web: rag.web, sources: rag.noteSources })}\n\n`);
     res.write('event: delta\ndata: {"content":"Respuesta ficticia de la preview: repasa la idea y contrástala con tus apuntes."}\n\n');
     setTimeout(() => {
+      if (rag.webSources.length) res.write(`event: sources\ndata: ${JSON.stringify({ sources: rag.webSources })}\n\n`);
       res.write('event: done\ndata: {"usage":{"input":18,"output":24,"cost":0.001}}\n\n');
       res.end();
     }, 30);
     return;
   }
   if (url.pathname === '/api/ai/chat' && req.method === 'POST') {
-    res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
-    res.end('Respuesta ficticia de la preview: repasa la idea y contrástala con tus apuntes.');
+    const body = await readJson(req);
+    const mode = ['hybrid', 'notes', 'general'].includes(body.mode) ? body.mode : 'general';
+    const rag = previewRag(mode);
+    json(res, {
+      content: 'Respuesta ficticia de la preview: repasa la idea y contrástala con tus apuntes.',
+      mode,
+      sources: [...rag.noteSources, ...rag.webSources],
+    });
     return;
   }
   if (url.pathname === '/dashboard/calendar' && url.searchParams.get('partial') === 'grid') {
@@ -243,9 +275,10 @@ const server = http.createServer((req, res) => {
     res.end(authPages.get(url.pathname));
     return;
   }
-  if (pages.has(url.pathname)) {
+  const pageRoute = url.pathname === '/app/notes/concurrencia' ? '/dashboard/notes' : url.pathname;
+  if (pages.has(pageRoute)) {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
-    res.end(shell(pages.get(url.pathname), url.pathname));
+    res.end(shell(pages.get(pageRoute), url.pathname));
     return;
   }
   const assets = {

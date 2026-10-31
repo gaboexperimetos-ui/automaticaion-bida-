@@ -1,9 +1,20 @@
 # AGENTS.md — Study Platform (styp)
 
-App web personal de productividad académica (un solo usuario): backend Rust/axum en
-un binario único + SQLite (sqlx, bundled, WAL, FTS5), frontend server-rendered
-(HTML + Tailwind + HTMX), shell Stitch v2.4. NO es React/Vite/Docker: un resumen
-generado por IA con ese stack quedó archivado en `docs/archive/` — ignorar.
+App web personal de productividad académica (un solo usuario): backend funcional
+Rust/axum en un binario único + SQLite (WAL, FTS5), frontend server-rendered
+(HTML + Tailwind + HTMX). NO es React/Vite/Docker. El usuario ha elegido migrar
+el backend a C por fases; `c_backend/` es la implementación C opt-in y Rust sigue
+siendo la referencia hasta la paridad completa.
+
+## Migración a C (vigente desde 2026-10-31)
+- Alcance y puertas obligatorias: `docs/C_MIGRATION.md`. No declarar 100 % por
+  líneas portadas ni eliminar Rust con endpoints o comportamientos pendientes.
+- Build/pruebas: `make -C c_backend ci` (C17, ASan/UBSan, HTTP y `-fanalyzer`).
+- Ejecutar C solo con BD temporal y `SP_STATIC_ROOT` apuntando al repositorio;
+  nunca contra `data/app.db` local o de la Dell durante las fases incompletas.
+- El binario C no invoca Rust. No añadir wrappers que aparenten cobertura.
+- `c_backend/build/` no se commitea. No instalar paquetes de sistema ni desplegar
+  el binario C sin autorización explícita.
 
 ## Repos y máquinas
 - Repositorio canónico: `/home/gabo/proyectos/styp` (consolidado el 2026-10-20).
@@ -48,7 +59,11 @@ generado por IA con ese stack quedó archivado en `docs/archive/` — ignorar.
 - IA: sin `OPENROUTER_API_KEY` ⇒ modo demo (todo funciona menos IA). Modelo hoy
   `minimax/minimax-m3.1-flash:free` (default en código:
   `cohere/north-mini-code:free`) — no cambiar sin permiso. Presupuesto mensual
-  $2 (`OPENROUTER_MAX_COST_USD`): gate que deja de llamar al proveedor al agotarse.
+  $2 (`OPENROUTER_MAX_COST_USD`): gate que deja de llamar al proveedor al
+  agotarse. Y ojo: es techo de gasto ANOTADO por la app, no factura del
+  proveedor. El selector de `/dashboard/ai` puede listar modelos de pago
+  (`free === false`): la UI pide confirmación SP.confirm (aviso de cargos) y
+  sin confirmar no se aplica el PUT; los free se aplican directamente.
 - `POST /register` exige `REGISTRATION_TOKEN` (sin esa variable responde 403).
 - `CUSTOM_MCP_API_KEY` vacía ⇒ el servidor MCP propio (`/mcp`, `/mcp/sse`,
   header `X-API-Key`) queda deshabilitado.
@@ -105,9 +120,10 @@ generado por IA con ese stack quedó archivado en `docs/archive/` — ignorar.
   el local de dev encima.
 
 ## Seguridad (invariantes — no se negocian)
-- NUNCA secrets en código ni logs. Queda una key de OpenRouter vieja en el
-  árbol (`design/stitch-reference/**/code.html`) y en el historial (`aa193d0`);
-  rotación pendiente: no usarla, no imprimirla.
+- NUNCA secrets en código ni logs. La key de OpenRouter vieja fue retirada
+  del árbol actual (design/**/centro_mcp_configuraci_n_openrouter/code.html,
+  `value=` vaciado); el historial (aa193d0) sigue considerándose expuesto y
+  la rotación queda PENDIENTE si esa clave fue real: no usarla, no imprimirla.
 - No exponer puertos a internet: acceso solo vía Tailscale.
 - No tocar firewall, Tailscale, GenOffice MCP ni config de OpenCode; no
   instalar paquetes de sistema sin autorización; confirmar antes de
