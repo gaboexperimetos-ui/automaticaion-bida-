@@ -2,6 +2,11 @@
 
 **Plataforma web de productividad académica personal**: panel académico con datos escolares reales, segundo cerebro de notas en Markdown, asistente IA con streaming, generación de material de estudio, suite ofimática y panel de administración con backups automáticos. Un usuario, un binario, una base SQLite.
 
+> **Migración del backend a C en curso (2026-10-31).** `c_backend/` contiene la
+> fase 1, opt-in y todavía incompleta. Rust/Axum sigue siendo el backend funcional
+> y de producción hasta la paridad total descrita en [`docs/C_MIGRATION.md`](docs/C_MIGRATION.md);
+> no se ha desplegado ni sustituido el servicio actual.
+
 > Verificado en vivo el **2026-10-20**: `GET /health` responde
 > `{"status":"healthy","components":{"database":true,"genoffice_mcp":true,"mikareno_mcp":true,"openrouter":true},"version":"0.1.0"}`.
 
@@ -41,7 +46,8 @@ Rust + Axum (study-platform, un solo binario)  ──►  SQLite (WAL, FTS5)
 
 | Componente | Tecnología | Detalle |
 |---|---|---|
-| Backend | Rust, Axum 0.8 + Tokio | 73 ficheros `src/*.rs`, binario único |
+| Backend actual | Rust, Axum 0.8 + Tokio | Implementación funcional y de producción |
+| Backend en migración | C17/POSIX + SQLite C ABI | `c_backend/`, fase 1 opt-in; [estado y puertas de paridad](docs/C_MIGRATION.md) |
 | BD | SQLite + sqlx (WAL, FTS5) | `data/app.db`, migraciones embebidas en `migrations/` |
 | Frontend | HTML servidor + HTMX + Tailwind | Shell Stitch v2.4, interfaz legacy accesible en `/legacy` |
 | Auth | Argon2 (contraseñas) + tokens de sesión opacos | ver [Seguridad](#seguridad) |
@@ -170,7 +176,7 @@ Cualquier ruta no registrada responde 404 estilizado (JSON `{"error":"not_found"
 
 ## Calidad y pruebas
 
-- 28 suites de integración en `tests/` + tests de librería. Última corrida completa: **562 en verde, 0 fallos** (2026-10-19 21:32, con nota: el árbol siguió moviéndose después, re-ejecutar antes de dar por buena una cifra).
+- 28 suites de integración en `tests/` + tests de librería. Última corrida completa verificada en esta rama (arena, 2026-10-25): **620 tests en verde, 0 fallos** (`cargo test --no-fail-fast`; 3 `#[ignore]` con su motivo). La cifra de 562 del 2026-10-19 es histórica y ya no es la medida vigente.
 - `cargo fmt --check` PASS · `cargo clippy --all-targets` sin errores.
 - Tests marcados con `#[ignore]` tienen el motivo escrito en el propio test.
 

@@ -1199,7 +1199,7 @@ pub async fn page(
 fn render_model(d: &ChatPanelData) -> String {
     let nombre = model_display(&d.model);
     format!(
-        r#"<button type="button" id="modelo-chip" data-sp-modelo class="flex items-center gap-1 hover:underline transition-colors" title="Cambiar de modelo de IA (solo modelos free de OpenRouter)"><span data-sp-modelo-nombre>{nombre}</span><span aria-hidden="true">▾</span></button>"#
+        r#"<button type="button" id="modelo-chip" data-sp-modelo class="flex items-center gap-1 hover:underline transition-colors" title="Cambiar de modelo de IA (OpenRouter: modelos gratis y de pago, con confirmación antes de usar uno de pago)"><span data-sp-modelo-nombre>{nombre}</span><span aria-hidden="true">▾</span></button>"#
     )
 }
 

@@ -215,7 +215,7 @@ export function createPages(dashboardContent) {
     ADMIN_SPEND: '$0.42', ADMIN_BUDGET: '$25.00', ADMIN_REQUESTS: '128', ADMIN_BUDGET_BAR: '<div class="nova-quota-track"><div style="width:2%;height:100%;background:var(--nova-violet)"></div></div>', ADMIN_BUDGET_PCT: '2',
     ADMIN_LAST_BACKUP_DATE: '23/10/2026 03:00', ADMIN_LAST_BACKUP_PATH: 'data/backups/app-demo.db', ADMIN_LAST_BACKUP_NAME: 'app-demo.db · 2,4 MB', ADMIN_LAST_BACKUP_MS: '1792713600000', ADMIN_NEXT_BACKUP: 'en 6 h 12 min', ADMIN_BACKUP_COUNT: '4',
     ADMIN_BACKUP_ROWS: '<tr><td>app-demo.db</td><td>23/10/2026 03:00</td><td>2,4 MB</td><td><a class="nova-text-link" href="#">Descargar</a></td></tr>',
-    ADMIN_MCP_ICON: 'cloud_done', ADMIN_MCP_STATUS: 'Conectado', ADMIN_MCP_LATENCY: '<code>42 ms</code>', ADMIN_OR_ICON: 'auto_awesome', ADMIN_OR_STATUS_COLOR: 'text-green-400', ADMIN_OR_STATUS: 'Conectado', ADMIN_OR_MODEL: 'minimax-m2',
+    ADMIN_MCP_ICON: 'cloud_done', ADMIN_MCP_STATUS: 'Conectado', ADMIN_MCP_LATENCY: '<code>42 ms</code>', ADMIN_OR_ICON: 'auto_awesome', ADMIN_OR_STATUS_COLOR: 'text-green-400', ADMIN_OR_STATUS: 'Conectado', ADMIN_OR_MODEL: 'minimax-m2', ADMIN_OR_CATALOG_STATE: 'Actualizado',
   }));
 
   add('/dashboard/subjects', fmt(rawContaining('src/academic/subjects.rs', 'nova-subjects-page', 3), ['Parcial 2 · 4 asignaturas · datos reales de Mikareno', status, subjectGrid]));

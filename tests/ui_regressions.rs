@@ -141,13 +141,19 @@ fn la_captura_de_tareas_y_la_importacion_conservan_sus_controles() {
 
 #[test]
 fn la_interfaz_principal_mantiene_la_identidad_en_espanol() {
-    for texto in ["Tu espacio académico", "Panel principal", "Segundo cerebro"] {
+    // Identidad NOVA: el nav lleva "Inicio" (no "Panel principal") y el
+    // resumen de almacenamiento es "Vault local".
+    for texto in ["Tu espacio académico", "Inicio", "Segundo cerebro"] {
         assert!(
             PORTADA.contains(texto) || NAVEGACION.contains(texto) || BARRA_SUPERIOR.contains(texto),
             "falta una etiqueta española esperada: {texto}"
         );
     }
-    assert!(NAVEGACION.contains("Espacio de almacenamiento"));
+    assert!(NAVEGACION.contains("Vault local"));
+    assert!(
+        BARRA_SUPERIOR.contains("NOVA") && NAVEGACION.contains("3.0"),
+        "el shell debe identificar a NOVA 3.0"
+    );
 }
 
 #[test]

@@ -84,12 +84,16 @@ pub async fn weekly(
         let content = format!(
             r###"<div class="nx-page nx-planner nova-page nova-planner-page"><header class="nx-page-header nova-page-head"><div><p class="nx-eyebrow">Espacio de trabajo · Planificador</p><h1>Tu semana,<br>paso a paso.</h1><p>Organiza el trabajo real sin perder de vista lo que vence después.</p></div><a class="nx-button nx-button-secondary" href="/dashboard/calendar">Abrir calendario</a></header><section class="nx-planner-week nova-planner-week">{banner}{vacio}</section></div>"###
         );
-        return Html(templates::page_ext(
-            "Planificador — Study Platform",
-            "Planificador",
-            RUTA,
-            &content,
-        ));
+        return Html(
+            templates::page_ext_shelled(
+                &state,
+                "Planificador — Study Platform",
+                "Planificador",
+                RUTA,
+                &content,
+            )
+            .await,
+        );
     }
 
     // Reparto de las tareas por día de la semana seleccionada. Lo que vence
@@ -200,12 +204,16 @@ pub async fn weekly(
         </div>"###
     );
 
-    Html(templates::page_ext(
-        "Planificador — Study Platform",
-        "Planificador",
-        RUTA,
-        &content,
-    ))
+    Html(
+        templates::page_ext_shelled(
+            &state,
+            "Planificador — Study Platform",
+            "Planificador",
+            RUTA,
+            &content,
+        )
+        .await,
+    )
 }
 
 /// Trae las tareas del MCP con presupuesto acotado.
