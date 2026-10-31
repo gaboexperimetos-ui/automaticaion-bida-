@@ -40,6 +40,18 @@ fn json_post(uri: &str, json: &str) -> Request<Body> {
         .unwrap()
 }
 
+/// Authenticated POST that negotiates the structured chat response.
+fn json_post_structured(uri: &str, json: &str) -> Request<Body> {
+    Request::builder()
+        .method("POST")
+        .uri(uri)
+        .header("content-type", "application/json")
+        .header("accept", "application/json")
+        .header("cookie", TEST_SESSION)
+        .body(Body::from(json.to_string()))
+        .unwrap()
+}
+
 /// Build an UNAUTHENTICATED POST request with a JSON body (for 401 tests).
 fn raw_json_post(uri: &str, json: &str) -> Request<Body> {
     Request::builder()
@@ -112,6 +124,19 @@ async fn setup_test_state() -> Arc<AppState> {
             summary TEXT,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS note_versions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            note_id INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+            content TEXT NOT NULL,
+            word_count INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
         );",
     )
     .execute(&pool)
@@ -920,6 +945,109 @@ async fn test_mock_chat_records_zero_cost_row() {
             .unwrap();
     assert_eq!(row.0, 1);
     assert_eq!(row.1, "chat");
+}
+
+/// El modo anterior no recupera notas; el modo notes devuelve la fuente real.
+#[tokio::test]
+async fn test_structured_chat_modes_control_note_retrieval() {
+    let state = setup_test_state().await;
+    std::fs::write(
+        state.config.notes_dir.join("test.md"),
+        "# Test\n\nUn semáforo coordina procesos y protege recursos compartidos.",
+    )
+    .unwrap();
+
+    let prepared = study_platform::ai::rag::prepare(
+        state.clone(),
+        "Test semáforo",
+        study_platform::ai::rag::RetrievalMode::Notes,
+    )
+    .await
+    .unwrap();
+    assert_eq!(prepared.sources.len(), 1);
+    assert!(prepared
+        .messages("Test semáforo", "general", None)
+        .iter()
+        .any(|message| message.content.contains("coordina procesos")));
+
+    let app = study_platform::handlers::router(state);
+    let legacy = serde_json::json!({"message":"Test semáforo","subject":"general"});
+    let response = app
+        .clone()
+        .oneshot(json_post_structured(
+            "/api/ai/chat",
+            &legacy.to_string(),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let legacy: serde_json::Value =
+        serde_json::from_str(&body_string(response).await).unwrap();
+    assert_eq!(legacy["mode"], "general");
+    assert_eq!(legacy["sources"].as_array().unwrap().len(), 0);
+
+    let grounded = serde_json::json!({
+        "message":"Test semáforo",
+        "subject":"general",
+        "mode":"notes"
+    });
+    let response = app
+        .oneshot(json_post_structured(
+            "/api/ai/chat",
+            &grounded.to_string(),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let grounded: serde_json::Value =
+        serde_json::from_str(&body_string(response).await).unwrap();
+    assert_eq!(grounded["mode"], "notes");
+    assert_eq!(grounded["sources"][0]["type"], "note");
+    assert_eq!(grounded["sources"][0]["url"], "/app/notes/test");
+}
+
+/// El stream explícito envía primero el manifiesto y luego el done de demo.
+#[tokio::test]
+async fn test_stream_notes_mode_emits_context_and_sources() {
+    let state = setup_test_state().await;
+    std::fs::write(
+        state.config.notes_dir.join("test.md"),
+        "# Test\n\nUn semáforo coordina procesos.",
+    )
+    .unwrap();
+    let app = study_platform::handlers::router(state);
+    let body = serde_json::json!({
+        "message":"Test semáforo",
+        "subject":"general",
+        "mode":"notes"
+    });
+    let response = app
+        .oneshot(json_post("/api/ai/chat/stream", &body.to_string()))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let raw = body_string(response).await;
+    let context = raw.find("event: context").unwrap();
+    let done = raw.find("event: done").unwrap();
+    assert!(context < done);
+    assert!(raw.contains("\"mode\":\"notes\""));
+    assert!(raw.contains("/app/notes/test"));
+}
+
+#[tokio::test]
+async fn test_stream_rejects_unknown_retrieval_mode() {
+    let state = setup_test_state().await;
+    let app = study_platform::handlers::router(state);
+    let body = serde_json::json!({
+        "message":"Test",
+        "subject":"general",
+        "mode":"everything"
+    });
+    let response = app
+        .oneshot(json_post("/api/ai/chat/stream", &body.to_string()))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 }
 
 /// Exhausted month rejects (even mock) with 429 and records nothing.

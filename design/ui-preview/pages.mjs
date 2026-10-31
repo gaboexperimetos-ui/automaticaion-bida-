@@ -176,13 +176,13 @@ export function createPages(dashboardContent) {
   }));
 
   add('/dashboard/ai', slots(read('static/stitch-v2/_content/clean/asistente.html'), {
-    CHAT_FCOUNT: '2', CHAT_FILTERS: '<select id="chat-subject-select" class="nx-chat-subject-select" title="Materia de la conversación"><option>Sistemas operativos</option><option>Redes</option><option value="__new__">+ Nueva materia…</option></select><input id="chat-subject-new" class="nx-chat-subject-new" style="display:none" placeholder="Nombre de la materia">',
+    CHAT_FCOUNT: '0', CHAT_FILTERS: '<select id="chat-subject-select" class="nx-chat-subject-select" title="Materia de la conversación"><option>Sistemas operativos</option><option>Redes</option><option value="__new__">+ Nueva materia…</option></select><input id="chat-subject-new" class="nx-chat-subject-new" style="display:none" placeholder="Nombre de la materia">',
     CHAT_SESSIONS: chatSessionsDemo,
     CHAT_MODE_DOT: '<span style="color:var(--nova-lime)">●</span>', CHAT_MODEL: 'MiniMax M3', CHAT_QUOTA_PCT: '12 %',
     CHAT_QUOTA_BAR: '<div style="width:12%;height:100%;background:var(--nova-violet)"></div>', CHAT_COSTS: '$0.42 / $25.00', CHAT_MODE: 'Conectado',
     CHAT_CONTEXT: '<span class="nx-context-subject">Sistemas operativos</span><span class="nx-context-count">2 mensajes</span>',
     CHAT_MESSAGES: chatMessagesDemo,
-    CHAT_COMPOSER_MODE: 'Respuesta detallada', CHAT_SOURCES: '<article class="nova-task-card">Apuntes de concurrencia</article><article class="nova-task-card">Guía de semáforos</article>',
+    CHAT_COMPOSER_MODE: 'Respuesta detallada', CHAT_SOURCES: '<div><strong>Aún no hay fuentes</strong><p>Envía una pregunta para recuperar las notas y citas del modo elegido.</p></div>',
   }) + `<script>${previewStreamScript}</script>`);
 
   add('/ai', rawContaining('src/ai/handlers.rs', 'nova-conversations-page', 2)

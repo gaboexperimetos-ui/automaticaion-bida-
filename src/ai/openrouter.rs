@@ -33,6 +33,7 @@
 //!   with an unknown cost contribute 0.0, never a made-up number.
 
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use sqlx::pool::PoolConnection;
 use sqlx::SqlitePool;
 use std::time::Duration;
@@ -198,6 +199,27 @@ pub struct ChatMessage {
     pub content: String,
 }
 
+/// Respuesta completa: texto y anotaciones de citas del proveedor.
+#[derive(Debug, Clone)]
+pub struct Completion {
+    pub content: String,
+    pub annotations: Vec<Value>,
+}
+
+/// Herramienta web actual de OpenRouter, con límites por petición.
+/// No se incluye en modos general/solo-notas ni en las demás operaciones de IA.
+pub fn web_search_tools() -> Value {
+    json!([{
+        "type": "openrouter:web_search",
+        "parameters": {
+            "max_uses": 2,
+            "max_results": 5,
+            "max_total_results": 10,
+            "max_characters": 4000
+        }
+    }])
+}
+
 /// OpenRouter request
 #[derive(Debug, Serialize)]
 struct OrRequest {
@@ -205,6 +227,8 @@ struct OrRequest {
     messages: Vec<ChatMessage>,
     max_tokens: Option<u32>,
     temperature: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tools: Option<Value>,
 }
 
 /// OpenRouter response
@@ -233,6 +257,8 @@ struct OrMessage {
     content: Option<String>,
     #[serde(default)]
     reasoning: Option<String>,
+    #[serde(default)]
+    annotations: Vec<Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -531,6 +557,22 @@ pub async fn chat_completion(
     messages: Vec<ChatMessage>,
     max_tokens: u32,
 ) -> Result<String, AiError> {
+    chat_completion_detailed(db, config, tracker, endpoint, messages, max_tokens, false)
+        .await
+        .map(|completion| completion.content)
+}
+
+/// Variante del chat que puede activar web y conserva las citas del proveedor.
+/// Las demás operaciones siguen usando [`chat_completion`], sin herramientas.
+pub async fn chat_completion_detailed(
+    db: &SqlitePool,
+    config: &Config,
+    tracker: &mut CostTracker,
+    endpoint: &str,
+    messages: Vec<ChatMessage>,
+    max_tokens: u32,
+    web_search: bool,
+) -> Result<Completion, AiError> {
     let model = modelo_configurado(db, config).await;
     let api_key: Option<String> = match &config.openrouter_api_key {
         Some(k) if !k.is_empty() => Some(k.clone()),
@@ -567,15 +609,19 @@ pub async fn chat_completion(
             })
             .await?;
         tracker.requests_count += 1;
-        return Ok(response);
+        return Ok(Completion {
+            content: response,
+            annotations: Vec::new(),
+        });
     };
 
-    // Build request
+    // Build request. La herramienta web sólo aparece en el modo híbrido.
     let req_body = OrRequest {
         model: model.clone(),
         messages,
         max_tokens: Some(max_tokens),
         temperature: Some(0.7),
+        tools: web_search.then(web_search_tools),
     };
 
     // Make HTTP request (with reqwest — requires network). The budget write
@@ -628,12 +674,14 @@ pub async fn chat_completion(
             return Err(AiError::Api("No choices in response".to_string()));
         }
     };
+    let OrMessage {
+        content,
+        reasoning,
+        annotations,
+    } = or_message;
     // Contenido del mensaje: `content` o, en modelos de razonamiento, el
     // propio `reasoning` (Ambos pueden venir `null`; cadena vacía entonces).
-    let response = or_message
-        .content
-        .or(or_message.reasoning)
-        .unwrap_or_default();
+    let response = content.or(reasoning).unwrap_or_default();
 
     // Actual usage: tokens from the provider when present else 0s; cost from
     // the provider when present, else 0.0 with `estimated = true` (no $/token
@@ -653,7 +701,10 @@ pub async fn chat_completion(
     tracker.requests_count += 1;
     tracker.total_cost += cost_usd;
 
-    Ok(response)
+    Ok(Completion {
+        content: response,
+        annotations,
+    })
 }
 
 #[allow(dead_code)]
@@ -696,6 +747,15 @@ mod tests {
             .connect("sqlite::memory:")
             .await
             .unwrap()
+    }
+
+    #[test]
+    fn test_web_tool_is_current_and_bounded() {
+        let tools = web_search_tools();
+        assert_eq!(tools[0]["type"], "openrouter:web_search");
+        assert_eq!(tools[0]["parameters"]["max_uses"], 2);
+        assert_eq!(tools[0]["parameters"]["max_results"], 5);
+        assert_eq!(tools[0]["parameters"]["max_total_results"], 10);
     }
 
     #[test]

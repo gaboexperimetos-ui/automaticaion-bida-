@@ -232,6 +232,8 @@ const SUBJECTS_LIMIT: i64 = 50;
 /// los frames a mano por `\n\n` (`event:`/`data:`).
 ///
 /// Contrato de frames (ver `src/ai/streaming.rs`):
+///   - `context`  → modo y notas recuperadas antes de generar la respuesta
+///   - `sources`  → citas web reales, deduplicadas por URL en el panel
 ///   - `delta`    → `{"content":"..."}`  se añade al texto de la respuesta
 ///   - `reasoning`→ `{"reasoning":"..."}` texto gris plegable ("Pensando…")
 ///   - `done`     → `{"usage":{"input":N,"output":N,"cost":0.0}}` y, en modo
@@ -264,6 +266,11 @@ const STREAM_SCRIPT: &str = r##"(function () {
   var sendBtn = document.getElementById("send-btn");
   var subjectSelect = document.getElementById("chat-subject-select");
   var newSubjectInput = document.getElementById("chat-subject-new");
+  var modeSelect = document.getElementById("rag-mode");
+  var modeHelp = document.getElementById("rag-mode-help");
+  var sourcesList = document.getElementById("sources-list");
+  var sourcesSummary = document.getElementById("sources-summary");
+  var sourcesToggle = document.getElementById("toggle-sources-btn");
   if (!chatContainer || !promptInput || !sendBtn) { return; }
 
   var busy = false;
@@ -274,6 +281,80 @@ const STREAM_SCRIPT: &str = r##"(function () {
     if (cls) { n.className = cls; }
     if (text !== undefined && text !== null) { n.textContent = text; }
     return n;
+  }
+
+  var sourceUrls = Object.create(null);
+  var noteSourceCount = 0;
+
+  function selectedMode() {
+    var value = modeSelect ? modeSelect.value : "general";
+    return value === "hybrid" || value === "notes" || value === "general" ? value : "general";
+  }
+
+  function updateModeHelp() {
+    if (!modeHelp) { return; }
+    var mode = selectedMode();
+    modeHelp.textContent = mode === "hybrid"
+      ? "Notas primero; web si hace falta"
+      : mode === "notes"
+        ? "Responde solo con tus apuntes"
+        : "No consulta tu vault ni la web";
+  }
+
+  function updateSourceSummary(mode) {
+    var count = sourcesList ? sourcesList.querySelectorAll(".nx-rag-source").length : 0;
+    var countNode = sourcesToggle ? sourcesToggle.querySelector("b") : null;
+    if (countNode) { countNode.textContent = String(count); }
+    if (!sourcesSummary) { return; }
+    if (count) {
+      sourcesSummary.textContent = count + (count === 1 ? " fuente recuperada" : " fuentes recuperadas");
+    } else if (mode === "notes") {
+      sourcesSummary.textContent = "No se encontraron notas legibles para esta pregunta.";
+    } else if (mode === "hybrid") {
+      sourcesSummary.textContent = "Sin notas recuperadas; las citas web aparecerán si se consulta la web.";
+    } else {
+      sourcesSummary.textContent = "Modo sin notas: no se han consultado fuentes.";
+    }
+  }
+
+  function appendSources(payload) {
+    if (!sourcesList || !payload || !Array.isArray(payload.sources)) { return; }
+    var mode = payload.mode || selectedMode();
+    payload.sources.forEach(function (source) {
+      if (!source || !source.url || sourceUrls[source.url]) { return; }
+      var isNote = source.type === "note" && source.url.indexOf("/app/notes/") === 0;
+      var isWeb = source.type === "web" && /^https?:\/\//i.test(source.url);
+      if (!isNote && !isWeb) { return; }
+      sourceUrls[source.url] = true;
+      if (isNote) { noteSourceCount += 1; }
+      var link = el("a", "nx-rag-source");
+      link.href = source.url;
+      if (isWeb) {
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+      }
+      link.appendChild(el("span", "material-symbols-outlined", isNote ? "menu_book" : "public"));
+      var copy = el("span", "nx-rag-source-copy");
+      copy.appendChild(el("small", "", isNote ? "Nota N" + noteSourceCount : "Fuente web"));
+      copy.appendChild(el("strong", "", String(source.title || source.url)));
+      if (source.snippet) {
+        copy.appendChild(el("span", "nx-rag-source-snippet", String(source.snippet)));
+      }
+      link.appendChild(copy);
+      sourcesList.appendChild(link);
+    });
+    updateSourceSummary(mode);
+  }
+
+  function applyContext(payload) {
+    if (!payload) { return; }
+    sourceUrls = Object.create(null);
+    noteSourceCount = 0;
+    if (sourcesList) {
+      while (sourcesList.firstChild) { sourcesList.removeChild(sourcesList.firstChild); }
+    }
+    updateSourceSummary(payload.mode || selectedMode());
+    appendSources(payload);
   }
 
   function scroll() {
@@ -288,6 +369,7 @@ const STREAM_SCRIPT: &str = r##"(function () {
 
   function setBusy(flag) {
     sendBtn.disabled = !!flag;
+    if (modeSelect) { modeSelect.disabled = !!flag; }
     sendBtn.classList.toggle("opacity-60", !!flag);
     var lbl = sendBtn.querySelector("span:not(.material-symbols-outlined)");
     if (lbl) { lbl.textContent = flag ? "Generando…" : "Enviar"; }
@@ -595,7 +677,11 @@ const STREAM_SCRIPT: &str = r##"(function () {
     if (!ev || !data) { return; }
     var payload = null;
     try { payload = JSON.parse(data); } catch (e) { return; }
-    if (ev === "delta") {
+    if (ev === "context") {
+      applyContext(payload);
+    } else if (ev === "sources") {
+      appendSources(payload);
+    } else if (ev === "delta") {
       appendDelta(b, payload ? payload.content : "");
     } else if (ev === "reasoning") {
       appendReasoning(b, payload ? payload.reasoning : "");
@@ -613,11 +699,11 @@ const STREAM_SCRIPT: &str = r##"(function () {
            typeof window.Promise === "function";
   }
 
-  function streamChat(message, b) {
+  function streamChat(message, b, mode) {
     return window.fetch("/api/ai/chat/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: message, subject: SUBJECT, content: "" })
+      body: JSON.stringify({ message: message, subject: SUBJECT, content: "", mode: mode })
     }).then(function (resp) {
       if (!resp.ok) {
         return resp.text().then(function (raw) {
@@ -658,15 +744,18 @@ const STREAM_SCRIPT: &str = r##"(function () {
   }
 
   // Fallback: sin ReadableStream (o sin TextDecoder) se usa el POST normal.
-  function sendBuffered(message, b) {
+  function sendBuffered(message, b, mode) {
     return window.fetch("/api/ai/chat", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: message, subject: SUBJECT })
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({ message: message, subject: SUBJECT, mode: mode })
     }).then(function (resp) {
       return resp.text().then(function (text) {
         if (!resp.ok) { throw new Error(text || ("HTTP " + resp.status)); }
-        finish(b, { content: text });
+        var payload = { content: text };
+        try { payload = JSON.parse(text); } catch (e) { /* contrato antiguo: texto plano */ }
+        applyContext(payload);
+        finish(b, payload);
       });
     });
   }
@@ -681,10 +770,11 @@ const STREAM_SCRIPT: &str = r##"(function () {
     chatContainer.querySelectorAll("[data-chat-empty]").forEach(function (node) { node.remove(); });
     buildUser(message, "Ahora");
     var b = renderAssistant();
+    var mode = selectedMode();
     busy = true;
     setBusy(true);
 
-    var run = canStream() ? streamChat(message, b) : sendBuffered(message, b);
+    var run = canStream() ? streamChat(message, b, mode) : sendBuffered(message, b, mode);
     run.then(function () {
       currentCount += 2;
       updateContext(SUBJECT, currentCount);
@@ -715,6 +805,11 @@ const STREAM_SCRIPT: &str = r##"(function () {
       sendMessage();
     }
   }, true);
+
+  if (modeSelect) {
+    modeSelect.addEventListener("change", updateModeHelp);
+    updateModeHelp();
+  }
 
   // --- cableado del selector de materia ----------------------------------
 
@@ -1440,8 +1535,8 @@ fn empty_state() -> String {
         .to_string()
 }
 
-/// Panel derecho: estado honesto (la app no conecta fuentes a esta vista aún)
-/// con los valores reales de configuración.
+/// Panel derecho: estado vacío inicial y valores reales de configuración.
+/// Al enviar, el script sustituye este bloque por las fuentes recuperadas.
 fn render_sources(d: &ChatPanelData) -> String {
     let (mode_text, mode_class) = if d.api_configured {
         ("API activa", "text-secondary")
@@ -1457,9 +1552,9 @@ fn render_sources(d: &ChatPanelData) -> String {
         r#"<div class="p-space-sm rounded-lg bg-surface-container space-y-1">
 <div class="flex items-center gap-2">
 <span class="material-symbols-outlined text-[18px] text-outline">source</span>
-<span class="font-label-md text-label-md font-semibold text-on-surface">Sin fuentes conectadas</span>
+<span class="font-label-md text-label-md font-semibold text-on-surface">Aún no hay fuentes</span>
 </div>
-<p class="font-body-sm text-body-sm text-outline">El contexto de notas y material de Mikareno todavía no está conectado a esta vista.</p>
+<p class="font-body-sm text-body-sm text-outline">Elige Notas + web, Solo mis notas o Sin notas y envía una pregunta.</p>
 </div>
 <div class="p-space-sm rounded-lg bg-surface-container space-y-space-xs">
 <span class="font-label-sm text-[10px] uppercase tracking-wider text-outline block">Ajuste de Asistente</span>

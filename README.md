@@ -19,7 +19,7 @@
 - **Dashboard académico**: horario de 7 días (cache-first 30 s), planner semanal, calendario mensual/diario + exportación `.ics`, asignaturas con notas y detalle por código, exámenes con cuenta atrás, vida escolar (6 secciones) y biblioteca.
 - **Notas (segundo cerebro)**: Markdown + frontmatter YAML, TOC automático, wikilinks resueltos (los rotos quedan como texto), backlinks, tags, historial de versiones con restauración, exportación por nota e importación segura desde Obsidian.
 - **Búsqueda**: FTS5 sobre las notas con fallback a `LIKE` (`GET /api/search`, página en `/dashboard/search`).
-- **Asistente IA**: chat por asignatura con **streaming SSE real** (frames `delta` / `reasoning` / `done` / `error`), historial persistido por asignatura, generación de **resúmenes, cuestionarios y hojas de estudio**, y presupuesto mensual con tope duro.
+- **Asistente IA**: chat por asignatura con **streaming SSE real** (frames `context` / `sources` / `delta` / `reasoning` / `done` / `error`), RAG híbrido sobre notas con web opcional, historial persistido, generación de **resúmenes, cuestionarios y hojas de estudio**, y presupuesto mensual con tope duro.
 - **Suite ofimática** (`/office`, respaldada en ficheros): documentos `.md`, hojas `.csv`, presentaciones `.json`, informes y biblioteca de archivos.
 - **Administración**: panel `/admin` con métricas del sistema, presupuesto OpenRouter y gestión de backups.
 - **Backups automáticos**: tarea diaria (primer volcado 60 s tras arrancar, luego cada 24 h), rotación con retención 5 en `data/backups/`, sidecar `.sha256` con `integrity_check`.

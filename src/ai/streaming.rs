@@ -7,6 +7,8 @@
 //!
 //! | event       | data                                          | when                                        |
 //! |-------------|-----------------------------------------------|---------------------------------------------|
+//! | `context`   | `{"mode":"...","web":bool,"sources":[]}`      | initial RAG manifest when `mode` is sent    |
+//! | `sources`   | `{"sources":[...]}`                           | real web citations received from provider   |
 //! | `delta`     | `{"content":"..."}`                           | one `choices[0].delta.content` chunk        |
 //! | `reasoning` | `{"reasoning":"..."}`                         | one `choices[0].delta.reasoning` chunk      |
 //! | `done`      | `{"usage":{"input":N,"output":N,"cost":0.0}}` | terminal frame (the stream finished)         |
@@ -58,6 +60,7 @@
 //! The persistence is best-effort: a failing INSERT is logged with
 //! `tracing::warn!` and never breaks the stream that was already emitted.
 
+use std::collections::HashSet;
 use std::convert::Infallible;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -71,7 +74,8 @@ use serde_json::{json, Value};
 use tracing::{debug, warn};
 
 use crate::ai::handlers::{MAX_CONTENT_CHARS, MAX_MESSAGE_CHARS, MAX_SUBJECT_CHARS};
-use crate::ai::openrouter::{ensure_usage_metrics_table, AiError, ChatMessage, UsageEntry};
+use crate::ai::openrouter::{ensure_usage_metrics_table, web_search_tools, AiError, UsageEntry};
+use crate::ai::rag::{RagSource, RetrievalMode};
 use crate::AppState;
 
 /// Upstream chat-completions endpoint (same base as [`crate::ai::openrouter`]).
@@ -306,14 +310,28 @@ enum Dispatch {
 /// database (see [`persist_turn`]) right before the terminal frame, so a
 /// turn is never lost because the client disconnected after the last
 /// delta.
-async fn pump_stream(mut response: reqwest::Response, mut tx: Tx, turn: StreamTurn) {
+async fn pump_stream(
+    mut response: reqwest::Response,
+    mut tx: Tx,
+    turn: StreamTurn,
+    initial_context: Option<Value>,
+) {
     let mut buffer = String::new();
     let mut data_lines: Vec<String> = Vec::new();
     let mut usage = Usage::default();
     let mut failure: Option<AiError> = None;
     let mut content = String::new();
     let mut reasoning = String::new();
+    let mut seen_web_sources = HashSet::new();
     let started_at = Instant::now();
+
+    // Las notas se conocen antes de llamar al proveedor: la UI puede abrir
+    // el panel de fuentes mientras la respuesta todavía se está generando.
+    if let Some(context) = initial_context {
+        if !send_frame(&mut tx, "context", &context).await {
+            return;
+        }
+    }
 
     'relay: loop {
         let chunk = match tokio::time::timeout(CHUNK_IDLE_TIMEOUT, response.chunk()).await {
@@ -349,6 +367,7 @@ async fn pump_stream(mut response: reqwest::Response, mut tx: Tx, turn: StreamTu
                         &mut usage,
                         &mut content,
                         &mut reasoning,
+                        &mut seen_web_sources,
                         &mut data_lines,
                     )
                     .await
@@ -386,6 +405,7 @@ async fn pump_stream(mut response: reqwest::Response, mut tx: Tx, turn: StreamTu
             &mut usage,
             &mut content,
             &mut reasoning,
+            &mut seen_web_sources,
             &mut data_lines,
         )
         .await;
@@ -419,6 +439,7 @@ async fn dispatch_event(
     usage: &mut Usage,
     content: &mut String,
     reasoning: &mut String,
+    seen_web_sources: &mut HashSet<String>,
     data_lines: &mut Vec<String>,
 ) -> Dispatch {
     let joined = data_lines.join("\n");
@@ -429,14 +450,33 @@ async fn dispatch_event(
     }
 
     match serde_json::from_str::<Value>(&joined) {
-        Ok(value) => relay_chunk(tx, usage, content, reasoning, &value).await,
+        Ok(value) => {
+            relay_chunk(
+                tx,
+                usage,
+                content,
+                reasoning,
+                seen_web_sources,
+                &value,
+            )
+            .await
+        }
         Err(e) => {
             // Recovery: providers that emit one JSON object per `data:` line
             // without blank-line delimiters — retry each line on its own.
             let mut relayed = false;
             for line in joined.split('\n') {
                 if let Ok(value) = serde_json::from_str::<Value>(line) {
-                    match relay_chunk(tx, usage, content, reasoning, &value).await {
+                    match relay_chunk(
+                        tx,
+                        usage,
+                        content,
+                        reasoning,
+                        seen_web_sources,
+                        &value,
+                    )
+                    .await
+                    {
                         Dispatch::Continue => relayed = true,
                         Dispatch::Aborted => return Dispatch::Aborted,
                         Dispatch::Done => return Dispatch::Done,
@@ -464,16 +504,33 @@ async fn relay_chunk(
     usage: &mut Usage,
     content_buf: &mut String,
     reasoning_buf: &mut String,
+    seen_web_sources: &mut HashSet<String>,
     value: &Value,
 ) -> Dispatch {
     if let Some(u) = value.get("usage").filter(|u| u.is_object()) {
         usage.capture(u);
     }
 
-    let delta = value
-        .get("choices")
-        .and_then(|choices| choices.get(0))
-        .and_then(|choice| choice.get("delta"));
+    let choice = value.get("choices").and_then(|choices| choices.get(0));
+    let delta = choice.and_then(|choice| choice.get("delta"));
+    let annotations = delta
+        .and_then(|delta| delta.get("annotations"))
+        .or_else(|| {
+            choice
+                .and_then(|choice| choice.get("message"))
+                .and_then(|message| message.get("annotations"))
+        })
+        .and_then(Value::as_array);
+    if let Some(annotations) = annotations {
+        for source in annotations.iter().filter_map(RagSource::from_web_annotation) {
+            if seen_web_sources.insert(source.url.clone())
+                && !send_frame(tx, "sources", &json!({ "sources": [source] })).await
+            {
+                return Dispatch::Aborted;
+            }
+        }
+    }
+
     let Some(delta) = delta else {
         // Provider bookkeeping frames (role-only deltas, usage-only chunks)
         // produce no client-visible content.
@@ -528,13 +585,35 @@ pub async fn stream_chat(
     max_tokens: u64,
     turn: StreamTurn,
 ) -> Result<Response, AiError> {
-    let payload = json!({
+    stream_chat_grounded(
+        http, api_key, model, messages, max_tokens, turn, None, false,
+    )
+    .await
+}
+
+/// Streaming con manifiesto de fuentes y web opcional. El wrapper anterior se
+/// conserva para los consumidores que no envían un modo RAG.
+#[allow(clippy::too_many_arguments)]
+pub async fn stream_chat_grounded(
+    http: reqwest::Client,
+    api_key: &str,
+    model: &str,
+    messages: Value,
+    max_tokens: u64,
+    turn: StreamTurn,
+    initial_context: Option<Value>,
+    web_search: bool,
+) -> Result<Response, AiError> {
+    let mut payload = json!({
         "model": model,
         "messages": messages,
         "max_tokens": max_tokens,
         "temperature": 0.7,
         "stream": true,
     });
+    if web_search {
+        payload["tools"] = web_search_tools();
+    }
 
     let response = http
         .post(OPENROUTER_URL)
@@ -555,7 +634,7 @@ pub async fn stream_chat(
     // The 30s total timeout of the buffered proxy would kill a long-lived
     // SSE body; the pump owns its own idle/total timeouts instead.
     let (tx, rx) = tokio::sync::mpsc::channel::<String>(CHANNEL_BUFFER);
-    tokio::spawn(pump_stream(response, tx, turn));
+    tokio::spawn(pump_stream(response, tx, turn, initial_context));
 
     sse_response(Body::new(SseBody { rx }))
 }
@@ -637,6 +716,24 @@ pub async fn chat_stream_handler(
         .unwrap_or("general");
     let subject: String = subject.chars().take(MAX_SUBJECT_CHARS).collect();
 
+    let mode_requested = req.get("mode").is_some();
+    let mode = match req.get("mode") {
+        None => RetrievalMode::General,
+        Some(value) => match serde_json::from_value::<RetrievalMode>(value.clone()) {
+            Ok(mode) => mode,
+            Err(_) => {
+                return bad_request("Invalid request: mode must be hybrid, notes or general.");
+            }
+        },
+    };
+    let prepared = match crate::ai::rag::prepare(state.clone(), message, mode).await {
+        Ok(context) => context,
+        Err(error) => {
+            warn!(detail = %error.log_detail(), "chat/stream: context retrieval failed");
+            return error_response(&error);
+        }
+    };
+
     let stream_id = ChatStreamId::generate();
 
     // The turn to store when the stream ends. The relay task owns a clone
@@ -658,32 +755,17 @@ pub async fn chat_stream_handler(
         // The mock turn is a real turn too: it is stored like any other
         // one, so the dashboard is not empty after a reload.
         persist_turn(&turn, MOCK_STREAM_MESSAGE, "", &Usage::default(), true).await;
-        return mock_stream_response(&stream_id);
+        return if mode_requested {
+            mock_stream_response_with_context(&stream_id, prepared.manifest())
+        } else {
+            mock_stream_response(&stream_id)
+        };
     };
 
     // --- live mode --------------------------------------------------------
-    // Prompt composition mirrors the buffered path (`AiAssistant::chat`):
-    // one system prompt specialized on the subject, with the optional
-    // reference material attached as an extra user message.
-    let mut messages = vec![ChatMessage {
-        role: "system".to_string(),
-        content: format!(
-            "Eres un asistente académico especializado en {subject}. \
-             Responde en español de forma concisa y útil."
-        ),
-    }];
-    if let Some(content) = content {
-        messages.push(ChatMessage {
-            role: "user".to_string(),
-            content: content.to_string(),
-        });
-    }
-    messages.push(ChatMessage {
-        role: "user".to_string(),
-        content: message.to_string(),
-    });
-
-    let messages = serde_json::to_value(&messages).unwrap_or_else(|_| Value::Array(Vec::new()));
+    // La misma composición alimenta buffered y SSE, incluidas las notas.
+    let messages = serde_json::to_value(prepared.messages(message, &subject, content))
+        .unwrap_or_else(|_| Value::Array(Vec::new()));
 
     // El modelo puede haberlo cambiado el usuario en la interfaz (se guarda
     // en `app_config`); el del `.env` es sólo el valor por defecto.
@@ -706,7 +788,22 @@ pub async fn chat_stream_handler(
     };
 
     debug!(stream_id = %stream_id, "chat/stream: live mode");
-    match stream_chat(http, api_key, &model, messages, max_tokens, turn).await {
+    let result = if mode_requested {
+        stream_chat_grounded(
+            http,
+            api_key,
+            &model,
+            messages,
+            max_tokens,
+            turn,
+            Some(prepared.manifest()),
+            prepared.web_enabled(),
+        )
+        .await
+    } else {
+        stream_chat(http, api_key, &model, messages, max_tokens, turn).await
+    };
+    match result {
         Ok(resp) => with_stream_id(resp, stream_id.as_str()),
         Err(e) => {
             warn!(stream_id = %stream_id, detail = %e.log_detail(), "chat/stream: request failed");
@@ -718,11 +815,26 @@ pub async fn chat_stream_handler(
 /// Mock-mode reply: a single `done` frame stating that streaming needs an
 /// API key. No content is fabricated and no usage is invented.
 fn mock_stream_response(stream_id: &ChatStreamId) -> Response {
+    mock_stream_response_inner(stream_id, None)
+}
+
+fn mock_stream_response_with_context(stream_id: &ChatStreamId, context: Value) -> Response {
+    mock_stream_response_inner(stream_id, Some(context))
+}
+
+fn mock_stream_response_inner(stream_id: &ChatStreamId, context: Option<Value>) -> Response {
+    let mut frame = String::new();
+    if let Some(context) = context {
+        if let Some(initial) = sse_frame("context", &context) {
+            frame.push_str(&initial);
+        }
+    }
     let payload = json!({ "content": MOCK_STREAM_MESSAGE });
-    let frame = sse_frame("done", &payload).unwrap_or_else(|| {
+    let done = sse_frame("done", &payload).unwrap_or_else(|| {
         "event: error\ndata: {\"error\":\"AI response could not be processed. Please try again later.\"}\n\n"
             .to_string()
     });
+    frame.push_str(&done);
     match sse_response(Body::from(frame)) {
         Ok(resp) => with_stream_id(resp, stream_id.as_str()),
         Err(e) => error_response(&e),
@@ -934,6 +1046,57 @@ mod tests {
                     .to_string()
             )
         );
+    }
+
+    #[tokio::test]
+    async fn test_web_annotations_emit_one_deduplicated_sources_frame() {
+        let (mut tx, mut rx) = tokio::sync::mpsc::channel(4);
+        let mut usage = Usage::default();
+        let mut content = String::new();
+        let mut reasoning = String::new();
+        let mut seen = HashSet::new();
+        let chunk = json!({
+            "choices": [{
+                "delta": {
+                    "content": "Respuesta",
+                    "annotations": [
+                        {"type":"url_citation","url_citation":{
+                            "url":"https://example.com/fuente","title":"Fuente"
+                        }},
+                        {"type":"url_citation","url_citation":{
+                            "url":"https://example.com/fuente","title":"Fuente"
+                        }}
+                    ]
+                }
+            }]
+        });
+        assert_eq!(
+            relay_chunk(
+                &mut tx,
+                &mut usage,
+                &mut content,
+                &mut reasoning,
+                &mut seen,
+                &chunk,
+            )
+            .await,
+            Dispatch::Continue
+        );
+        drop(tx);
+        let mut frames = Vec::new();
+        while let Some(frame) = rx.recv().await {
+            frames.push(frame);
+        }
+        assert_eq!(
+            frames
+                .iter()
+                .filter(|frame| frame.starts_with("event: sources"))
+                .count(),
+            1
+        );
+        assert!(frames.iter().any(|frame| frame.starts_with("event: delta")));
+        assert!(frames[0].contains("https://example.com/fuente"));
+        assert_eq!(content, "Respuesta");
     }
 
     #[test]

@@ -336,6 +336,12 @@ a { text-decoration: none; }
 .nx-composer-attachments > span { margin-left: 6px; color: var(--nx-muted); font-size: 8px; }
 .nx-composer-attachments > label { color: var(--nx-muted); font-size: 9px; }
 .nx-composer-attachments > input { width: 150px; height: 30px; padding: 4px 8px; background: var(--nx-surface); border: 1px solid var(--nx-line); border-radius: 7px; font-size: 10px; }
+.nx-rag-picker { min-width: 0; gap: 6px; }
+.nx-rag-picker > .material-symbols-outlined { margin-left: 0; color: var(--nx-muted); }
+.nx-rag-picker select { min-height: 30px; max-width: 150px; padding: 4px 25px 4px 8px; color: var(--nx-text-2); background: var(--nx-surface); border: 1px solid var(--nx-line); border-radius: 7px; font: inherit; font-size: 10px; color-scheme: dark; cursor: pointer; }
+.nx-rag-picker select:hover, .nx-rag-picker select:focus-visible { color: var(--nx-text); border-color: var(--nx-accent); outline: none; }
+.nx-rag-picker select:disabled { opacity: .55; cursor: wait; }
+.nx-rag-picker #rag-mode-help { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nx-send-button { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 0 12px; color: #140d26; background: var(--nx-accent); border-radius: 8px; font-size: 10px; font-weight: 700; }
 .nx-send-button:hover { background: var(--nx-accent-strong); }
 .nx-send-button .material-symbols-outlined { font-size: 15px; }
@@ -347,6 +353,13 @@ a { text-decoration: none; }
 .nx-chat-sources > p { color: var(--nx-muted); font-size: 10px; line-height: 1.5; }
 .nx-sources-list { display: grid; gap: 8px; margin-top: 16px; }
 .nx-sources-list > * { padding: 12px; color: var(--nx-text-2); background: var(--nx-surface); border: 1px solid var(--nx-line); border-radius: 9px; font-size: 11px; }
+.nx-sources-list > .nx-rag-source { display: flex; align-items: flex-start; gap: 10px; text-decoration: none; transition: border-color .15s, background .15s; }
+.nx-sources-list > .nx-rag-source:hover { background: var(--nx-surface-2); border-color: var(--nx-accent); }
+.nx-rag-source > .material-symbols-outlined { flex: none; margin-top: 2px; color: var(--nx-accent); font-size: 18px; }
+.nx-rag-source-copy { display: grid; min-width: 0; gap: 4px; }
+.nx-rag-source-copy small { color: var(--nx-muted); font-size: 9px; text-transform: uppercase; letter-spacing: .04em; }
+.nx-rag-source-copy strong { overflow-wrap: anywhere; color: var(--nx-text); font-size: 11px; font-weight: 600; }
+.nx-rag-source-snippet { display: -webkit-box; overflow: hidden; color: var(--nx-muted); font-size: 10px; line-height: 1.5; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 .nx-chat-scrim { display: none; }
 
 /* Material de estudio ---------------------------------------------------- */

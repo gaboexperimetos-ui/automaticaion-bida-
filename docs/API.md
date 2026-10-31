@@ -92,8 +92,8 @@ simulado** (p. ej. el chat empieza por `[Modo simulado]`); no inventa contenido.
 
 | Método | Ruta | Auth | Body | Respuesta típica |
 |---|---|---|---|---|
-| POST | `/api/ai/chat` | Sí | JSON: `{message (1..8000 chars), subject (≤200 chars, opcional → "general")}` | `200` **text/plain** con la respuesta del asistente. `400` texto plano `Invalid request: message must be 1..=8000 characters.` / `subject must be at most 200 characters.`; `500 {"error":"…"}` en error de proveedor. |
-| POST | `/api/ai/chat/stream` | Sí | JSON: `{message (obligatorio, 1..8000), content? (≤20000), subject? (≤200, por defecto "general")}` | `200` `text/event-stream` + `cache-control: no-cache` + cabecera `x-chat-stream-id`. Ver el formato de frames más abajo. `400 {"error":"Invalid request: message is required."}` (o por longitud); `5xx` `{"error":"…"}` si falla OpenRouter antes del stream. |
+| POST | `/api/ai/chat` | Sí | JSON: `{message (1..8000 chars), subject (≤200 chars, opcional → "general"), mode? ("hybrid"\|"notes"\|"general")}` | Sin `mode`, comportamiento previo y `200` **text/plain**. Con `Accept: application/json`: `200 {"content":"…","mode":"…","sources":[…]}`. `400` por mensaje/materia inválidos; `422` si `mode` no pertenece al enum; `5xx` en error de recuperación/proveedor. |
+| POST | `/api/ai/chat/stream` | Sí | JSON: `{message (obligatorio, 1..8000), content? (≤20000), subject? (≤200, por defecto "general"), mode?}` | `200` `text/event-stream` + `cache-control: no-cache` + cabecera `x-chat-stream-id`. Ver el formato de frames más abajo. `400 {"error":"Invalid request: message is required."}` (o por longitud/modo); `5xx` `{"error":"…"}` si falla la recuperación u OpenRouter antes del stream. |
 | POST | `/api/ai/summary` | Sí | JSON: `{content (1..20000)}` | `200 {"summary":"…"}`; `400 {"error":"Invalid request: content must be 1..=20000 characters."}`; `500 {"error":"Internal error"}`. |
 | POST | `/api/ai/quiz` | Sí | JSON: `{content (1..20000), num_questions? (por defecto 5, clamp 1..10)}` | `200` JSON `Quiz` = `{title, questions:[{question, options:[…], correct_answer:índice}]}`; mismos `400`/`500` que summary. |
 | POST | `/api/ai/study-sheet` | Sí | JSON: `{content (1..20000)}` | `200 {"study_sheet":"<markdown>"}`; mismos `400`/`500`. |
@@ -102,6 +102,28 @@ simulado** (p. ej. el chat empieza por `[Modo simulado]`); no inventa contenido.
 | GET | `/api/ai/conversations/{subject}/messages` | Sí | — | `200 {"subject":"…", "messages":[{"role","content","created_at"}]}` (solo roles `user`/`assistant`, orden ascendente). `400` "Invalid subject" si el path contiene separadores o `..`; `500` "Internal error". |
 | GET | `/ai` | Sí | — | `200` HTML (UI de chat a tres paneles). |
 
+### Modos de recuperación y fuentes
+
+`mode` ausente equivale a `general`, por compatibilidad con clientes anteriores.
+El chat de `/dashboard/ai` selecciona `hybrid` por defecto:
+
+| Modo | Notas | Web | Comportamiento |
+|---|---|---|---|
+| `hybrid` | Sí, primero | Sí, si el modelo decide que hace falta | Añade los fragmentos recuperados al prompt y habilita la herramienta `openrouter:web_search`. |
+| `notes` | Sí | No | Exige responder sólo con el contexto recuperado y reconocer cuándo no es suficiente. |
+| `general` | No | No | Conserva el par system/user anterior; no lee el vault. |
+
+La recuperación usa el `KnowledgeService` existente (FTS5/BM25 con fallback),
+no genera resultados simulados. Como máximo incorpora 5 notas, 2.400 caracteres
+por nota y 12.000 en total. Un error de BD se propaga; una nota que no pueda
+leerse se registra y se omite. La búsqueda web está limitada a 2 usos y 10
+resultados totales por petición, y sólo se activa en `hybrid`.
+
+Cada fuente tiene `{type,title,url,snippet}`, con `type` = `note` o `web`.
+Las notas enlazan a `/app/notes/{slug}`; las citas web proceden de anotaciones
+`url_citation` del proveedor y sólo se aceptan con URL HTTP(S). No hay fuentes
+inventadas en modo demo.
+
 ### Formato de frames SSE (`POST /api/ai/chat/stream`)
 
 Cada frame es `event: <nombre>\ndata: <json>\n\n` (un solo campo `data:` por frame,
@@ -109,6 +131,8 @@ separador en línea en blanco):
 
 | Evento | `data` | Cuándo |
 |---|---|---|
+| `context` | `{"mode":"…","web":bool,"sources":[…]}` | Sólo si el body incluye `mode`; frame inicial con las notas efectivamente recuperadas. |
+| `sources` | `{"sources":[…]}` | Citas web reales recibidas durante el stream, deduplicadas por URL. |
 | `delta` | `{"content":"…"}` | Cada trozo de `choices[0].delta.content` del proveedor. |
 | `reasoning` | `{"reasoning":"…"}` | Cada trozo de `choices[0].delta.reasoning`. |
 | `done` | `{"usage":{"input":N,"output":N,"cost":0.0}}` | Frame terminal: el stream terminó. |
