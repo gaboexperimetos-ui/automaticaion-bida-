@@ -17,6 +17,7 @@
 | [`PORTS.md`](PORTS.md) | es | Mapa de puertos por máquina y función (app prod/dev, MCP, debug) y reglas fijas | 2026-10-23 |
 | [`DEPLOY.md`](DEPLOY.md) | es | Runbook de despliegue a la homelab Dell (procedimiento verificado) | 2026-10-19 |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | es | Diagrama de componentes y flujos | 2026-10-19 |
+| [`C_MIGRATION.md`](C_MIGRATION.md) | es | Migración del backend a C, fases verificables y criterios para retirar Rust | 2026-10-31 |
 | [`UI_REDESIGN.md`](UI_REDESIGN.md) | es | Rediseño oscuro, contratos preservados y validación de la interfaz | 2026-10-23 |
 | [`ROADMAP.md`](ROADMAP.md) | es | Fases de desarrollo y plan pendiente | 2026-10-19 |
 
@@ -46,8 +47,8 @@
 
 | Pregunta | Mirar |
 |---|---|
-| Variables de entorno | `src/config.rs` y `.env.example` |
-| Rutas HTTP | `src/handlers/mod.rs` + `register_routes()` de cada módulo; forma completa en `API.md` |
+| Variables de entorno | Backend actual: `src/config.rs` + `.env.example`; port C: `c_backend/src/config.c` |
+| Rutas HTTP | `src/handlers/mod.rs` + `register_routes()` de cada módulo; forma completa en `API.md`; cobertura C en `C_MIGRATION.md` |
 | Seguridad | `src/middleware/auth.rs`, `rate_limit.rs`, `src/handlers/auth.rs` |
 | Backups | `src/backup/` |
 | Estado del último sprint | `SESSION_HANDOFF.md` |

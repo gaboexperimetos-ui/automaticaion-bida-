@@ -1,9 +1,20 @@
 # AGENTS.md — Study Platform (styp)
 
-App web personal de productividad académica (un solo usuario): backend Rust/axum en
-un binario único + SQLite (sqlx, bundled, WAL, FTS5), frontend server-rendered
-(HTML + Tailwind + HTMX), shell Stitch v2.4. NO es React/Vite/Docker: un resumen
-generado por IA con ese stack quedó archivado en `docs/archive/` — ignorar.
+App web personal de productividad académica (un solo usuario): backend funcional
+Rust/axum en un binario único + SQLite (WAL, FTS5), frontend server-rendered
+(HTML + Tailwind + HTMX). NO es React/Vite/Docker. El usuario ha elegido migrar
+el backend a C por fases; `c_backend/` es la implementación C opt-in y Rust sigue
+siendo la referencia hasta la paridad completa.
+
+## Migración a C (vigente desde 2026-10-31)
+- Alcance y puertas obligatorias: `docs/C_MIGRATION.md`. No declarar 100 % por
+  líneas portadas ni eliminar Rust con endpoints o comportamientos pendientes.
+- Build/pruebas: `make -C c_backend ci` (C17, ASan/UBSan, HTTP y `-fanalyzer`).
+- Ejecutar C solo con BD temporal y `SP_STATIC_ROOT` apuntando al repositorio;
+  nunca contra `data/app.db` local o de la Dell durante las fases incompletas.
+- El binario C no invoca Rust. No añadir wrappers que aparenten cobertura.
+- `c_backend/build/` no se commitea. No instalar paquetes de sistema ni desplegar
+  el binario C sin autorización explícita.
 
 ## Repos y máquinas
 - Repositorio canónico: `/home/gabo/proyectos/styp` (consolidado el 2026-10-20).
