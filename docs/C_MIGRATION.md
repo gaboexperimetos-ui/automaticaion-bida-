@@ -41,9 +41,11 @@ Directorio: [`c_backend/`](../c_backend/).
 | Alta de administrador | Pendiente; falla cerrado |
 | Todo lo protegido y demás dominios | Pendiente |
 
-Validación local de esta fase: 32 comprobaciones unitarias + 48 comprobaciones
-HTTP, ASan/UBSan y GCC `-fanalyzer`. La CI de C debe confirmar el mismo resultado
-en cada push antes de considerar válido un cambio posterior.
+Validación local de esta fase tras la pasada de calidad: 43 comprobaciones
+unitarias + 85 comprobaciones HTTP, ASan/UBSan y GCC `-fanalyzer`. Incluye fuzz
+smoke determinista, headers/binarios malformados, límites, concurrencia, `.env` y
+SQLite en memoria. La CI de C debe confirmar el mismo resultado en cada push
+antes de considerar válido un cambio posterior.
 
 ## Fases restantes
 

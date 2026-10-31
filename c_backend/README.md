@@ -43,8 +43,9 @@ se leen los assets. `C_WORKERS` o `--workers` fija entre 1 y 64 workers.
 - Apertura SQLite con `FULLMUTEX`, `busy_timeout`, claves foráneas, caché
   acotada, WAL autocheckpoint y `SELECT 1` real para health.
 - Servidor HTTP con pool acotado, IP del socket, timeouts, límites de headers y
-  body, rechazo de `Transfer-Encoding`, rechazo de `Content-Length`
-  contradictorios y cierre sin perder respuestas de error.
+  body, query disponible para handlers, validación estricta de métodos/headers,
+  rechazo de `Transfer-Encoding` y de `Content-Length` inválidos o
+  contradictorios, y cierre sin perder respuestas de error.
 - Sondeos MCP `initialize` por HTTP, timeout de 2,5 s y caché de 30 s.
 - Once contratos GET públicos:
   - `/health`, `/api/config`, `/api/public-config`;

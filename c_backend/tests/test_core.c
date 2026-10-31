@@ -72,7 +72,8 @@ static void test_config(void) {
     file = fopen(path, "w");
     CHECK(file != NULL);
     if (file != NULL) {
-        fputs("PORT=9000\nDB_MAX_CONNECTIONS=0\nOPENROUTER_API_KEY=\"   \"\n",
+        fputs("PORT=9000\nDB_MAX_CONNECTIONS=0\nOPENROUTER_API_KEY=\"   \"\n"
+              "MCP_TIMEOUT_MS=2500 # tiempo real\nRUST_LOG=\"nova\\tdebug\" # comentario\n",
               file);
         (void)fclose(file);
     }
@@ -84,6 +85,8 @@ static void test_config(void) {
     CHECK(error == NULL);
     CHECK(config.port == 9000);
     CHECK(config.db_max_connections == 1);
+    CHECK(config.mcp_timeout_ms == 2500);
+    CHECK(strcmp(config.rust_log, "nova\tdebug") == 0);
     CHECK(config.openrouter_api_key == NULL);
     CHECK(strcmp(config.session_secret,
                  "0123456789abcdef0123456789abcdef-environment") == 0);
@@ -98,6 +101,22 @@ static void test_config(void) {
     CHECK(setenv("MCP_TIMEOUT_MS", "-1", 1) == 0);
     CHECK(sp_config_from_env(&config, &error) != 0);
     CHECK(error != NULL);
+    free(error);
+    error = NULL;
+    CHECK(setenv("MCP_TIMEOUT_MS", " 5", 1) == 0);
+    CHECK(sp_config_from_env(&config, NULL) != 0);
+    CHECK(setenv("MCP_TIMEOUT_MS", "5000", 1) == 0);
+    CHECK(sp_config_from_env(&config, NULL) == 0);
+    sp_config_destroy(&config);
+
+    file = fopen(path, "w");
+    CHECK(file != NULL);
+    if (file != NULL) {
+        fputs("PORT=\"9000\"texto-no-valido\n", file);
+        (void)fclose(file);
+    }
+    CHECK(sp_config_load_dotenv(path, &error) != 0);
+    CHECK(error != NULL && strstr(error, "inválido") != NULL);
     free(error);
     error = NULL;
     (void)unlink(path);
@@ -117,6 +136,9 @@ static void test_database(void) {
     CHECK(sp_db_ping(&db));
     sp_db_close(&db);
     CHECK(!sp_db_ping(&db));
+    CHECK(sp_db_open(&db, ":memory:", &error) == 0);
+    CHECK(sp_db_ping(&db));
+    sp_db_close(&db);
     free(error);
     (void)unlink(path);
     CHECK(!sp_probe_mcp_http("https://127.0.0.1/mcp", 1));

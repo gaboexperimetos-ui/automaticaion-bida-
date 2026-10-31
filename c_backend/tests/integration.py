@@ -170,11 +170,39 @@ def main() -> None:
                 b"POST /health HTTP/1.1\r\nContent-Length: 1\r\nContent-Length: 2\r\n\r\n",
             )
             check(conflicting_lengths.startswith(b"HTTP/1.1 400 "), "Se aceptaron Content-Length contradictorios")
+            signed_length = raw_request(
+                port, b"POST /health HTTP/1.1\r\nContent-Length: +4\r\n\r\ntest"
+            )
+            check(signed_length.startswith(b"HTTP/1.1 400 "), "Se aceptó un Content-Length con signo")
             body_first_header = raw_request(
                 port,
                 b"POST /health HTTP/1.1\r\nContent-Length: 4\r\nHost: local\r\n\r\ntest",
             )
             check(body_first_header.startswith(b"HTTP/1.1 405 "), "No se leyó el body declarado en el primer header")
+            bad_header_name = raw_request(
+                port, b"GET /health HTTP/1.1\r\nContent-Length : 0\r\n\r\n"
+            )
+            check(bad_header_name.startswith(b"HTTP/1.1 400 "), "Se aceptó un nombre de header inválido")
+            incomplete_header = raw_request(
+                port, b"GET /health HTTP/1.1\r\nHeader-Sin-Dos-Puntos\r\n\r\n"
+            )
+            check(incomplete_header.startswith(b"HTTP/1.1 400 "), "Se aceptó un header incompleto")
+            nul_header = raw_request(
+                port, b"GET /health HTTP/1.1\r\nX-Test: a\x00b\r\n\r\n"
+            )
+            check(nul_header.startswith(b"HTTP/1.1 400 "), "Se aceptó un NUL en headers")
+
+            # Fuzz smoke determinista: métodos binarios/tokenizados con un
+            # header bien delimitado. Toda respuesta debe ser HTTP y el
+            # servidor tiene que seguir atendiendo después de cada entrada.
+            for value in range(32):
+                response = raw_request(
+                    port,
+                    b"X" + bytes([value]) + b" / HTTP/1.1\r\nX-Test: value\r\n\r\n",
+                )
+                check(response.startswith(b"HTTP/1.1 "), f"Sin respuesta HTTP para byte {value}")
+            status, _, _ = request(port, "/api/config")
+            check(status == 200, "El servidor no sobrevivió al fuzz smoke")
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=12) as executor:
                 results = list(executor.map(lambda _: request(port, "/api/public-config"), range(24)))

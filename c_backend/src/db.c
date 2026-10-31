@@ -56,7 +56,6 @@ int sp_db_open(sp_db *db, const char *path, char **error) {
     int code;
     static const char *pragmas[] = {
         "PRAGMA foreign_keys=ON;",
-        "PRAGMA busy_timeout=5000;",
         "PRAGMA cache_size=-2000;",
         "PRAGMA mmap_size=0;",
         "PRAGMA temp_store=FILE;",
@@ -78,7 +77,13 @@ int sp_db_open(sp_db *db, const char *path, char **error) {
         sp_db_close(db);
         return -1;
     }
-    (void)sqlite3_busy_timeout(db->connection, 5000);
+    code = sqlite3_busy_timeout(db->connection, 5000);
+    if (code != SQLITE_OK) {
+        sp_set_error(error, "no se pudo configurar busy_timeout: %s",
+                     sp_db_last_error(db));
+        sp_db_close(db);
+        return -1;
+    }
     for (index = 0; index < sizeof(pragmas) / sizeof(pragmas[0]); index++) {
         if (exec_pragma(db, pragmas[index], error) != 0) {
             sp_db_close(db);

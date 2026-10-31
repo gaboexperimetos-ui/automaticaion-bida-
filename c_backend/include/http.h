@@ -12,6 +12,7 @@ typedef struct {
     char method[16];
     char target[SP_HTTP_MAX_TARGET];
     char path[SP_HTTP_MAX_PATH];
+    const char *query;
     char remote_ip[SP_HTTP_IP_TEXT];
     unsigned char *body;
     size_t body_len;

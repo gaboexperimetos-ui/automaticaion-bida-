@@ -64,16 +64,26 @@ static int valid_env_key(const char *key) {
     return 1;
 }
 
-static char *unquote_env_value(char *value) {
-    char quote = *value;
+static int parse_env_value(char *raw, char **result) {
+    char quote = *raw;
     char *read_cursor;
     char *write_cursor;
 
     if (quote != '\'' && quote != '"') {
-        return trim(value);
+        read_cursor = raw;
+        while (*read_cursor != '\0') {
+            if (*read_cursor == '#' && read_cursor > raw &&
+                isspace((unsigned char)read_cursor[-1])) {
+                *read_cursor = '\0';
+                break;
+            }
+            read_cursor++;
+        }
+        *result = trim(raw);
+        return 0;
     }
-    read_cursor = value + 1;
-    write_cursor = value;
+    read_cursor = raw + 1;
+    write_cursor = raw;
     while (*read_cursor != '\0' && *read_cursor != quote) {
         if (quote == '"' && *read_cursor == '\\' && read_cursor[1] != '\0') {
             read_cursor++;
@@ -98,10 +108,18 @@ static char *unquote_env_value(char *value) {
         read_cursor++;
     }
     if (*read_cursor != quote) {
-        return NULL;
+        return -1;
+    }
+    read_cursor++;
+    while (isspace((unsigned char)*read_cursor)) {
+        read_cursor++;
+    }
+    if (*read_cursor != '\0' && *read_cursor != '#') {
+        return -1;
     }
     *write_cursor = '\0';
-    return value;
+    *result = raw;
+    return 0;
 }
 
 int sp_config_load_dotenv(const char *path, char **error) {
@@ -147,9 +165,9 @@ int sp_config_load_dotenv(const char *path, char **error) {
             result = -1;
             break;
         }
-        value = unquote_env_value(value);
-        if (value == NULL) {
-            sp_set_error(error, "%s:%zu: comillas sin cerrar", path, line_number);
+        if (parse_env_value(value, &value) != 0) {
+            sp_set_error(error, "%s:%zu: valor .env inválido o comillas sin cerrar",
+                         path, line_number);
             result = -1;
             break;
         }
@@ -198,8 +216,9 @@ static int parse_u64(const char *key, uint64_t min, uint64_t max,
     }
     errno = 0;
     parsed = strtoull(value, &end, 10);
-    if (errno != 0 || *value == '\0' || *value == '-' || *end != '\0' ||
-        parsed < min || parsed > max) {
+    if (errno != 0 || *value == '\0' || *value == '-' ||
+        isspace((unsigned char)*value) || *end != '\0' || parsed < min ||
+        parsed > max) {
         sp_set_error(error, "%s debe ser un entero entre %llu y %llu", key,
                      (unsigned long long)min, (unsigned long long)max);
         return -1;
@@ -217,7 +236,8 @@ static int parse_double(const char *key, double *target, char **error) {
     }
     errno = 0;
     parsed = strtod(value, &end);
-    if (errno != 0 || *value == '\0' || *end != '\0' || !isfinite(parsed)) {
+    if (errno != 0 || *value == '\0' || isspace((unsigned char)*value) ||
+        *end != '\0' || !isfinite(parsed)) {
         sp_set_error(error, "%s debe ser un número válido", key);
         return -1;
     }
@@ -225,18 +245,19 @@ static int parse_double(const char *key, double *target, char **error) {
     return 0;
 }
 
-static char *optional_trimmed_env(const char *key, char **error) {
+static int optional_trimmed_env(const char *key, char **target, char **error) {
     const char *value = getenv(key);
     char *copy;
     char *start;
     char *end;
+    *target = NULL;
     if (value == NULL) {
-        return NULL;
+        return 0;
     }
     copy = sp_strdup(value);
     if (copy == NULL) {
         sp_set_error(error, "memoria insuficiente leyendo %s", key);
-        return NULL;
+        return -1;
     }
     start = copy;
     while (isspace((unsigned char)*start)) {
@@ -249,12 +270,13 @@ static char *optional_trimmed_env(const char *key, char **error) {
     *end = '\0';
     if (*start == '\0') {
         free(copy);
-        return NULL;
+        return 0;
     }
     if (start != copy) {
         memmove(copy, start, strlen(start) + 1U);
     }
-    return copy;
+    *target = copy;
+    return 0;
 }
 
 static bool env_truth(const char *key) {
@@ -298,16 +320,12 @@ int sp_config_from_env(sp_config *config, char **error) {
         sp_set_error(error, "SESSION_SECRET debe tener al menos 32 caracteres");
         goto done;
     }
-    config->openrouter_api_key = optional_trimmed_env("OPENROUTER_API_KEY", error);
-    if (*error != NULL) {
-        goto done;
-    }
-    config->custom_mcp_api_key = optional_trimmed_env("CUSTOM_MCP_API_KEY", error);
-    if (*error != NULL) {
-        goto done;
-    }
-    config->registration_token = optional_trimmed_env("REGISTRATION_TOKEN", error);
-    if (*error != NULL) {
+    if (optional_trimmed_env("OPENROUTER_API_KEY",
+                             &config->openrouter_api_key, error) != 0 ||
+        optional_trimmed_env("CUSTOM_MCP_API_KEY",
+                             &config->custom_mcp_api_key, error) != 0 ||
+        optional_trimmed_env("REGISTRATION_TOKEN",
+                             &config->registration_token, error) != 0) {
         goto done;
     }
 

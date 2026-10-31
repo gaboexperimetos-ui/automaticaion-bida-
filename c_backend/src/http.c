@@ -174,6 +174,20 @@ static size_t header_end(const unsigned char *data, size_t len) {
     return 0;
 }
 
+static int valid_token(const char *text) {
+    const unsigned char *cursor = (const unsigned char *)text;
+    if (*cursor == '\0') {
+        return 0;
+    }
+    while (*cursor != '\0') {
+        if (!(isalnum(*cursor) || strchr("!#$%&'*+-.^_`|~", *cursor) != NULL)) {
+            return 0;
+        }
+        cursor++;
+    }
+    return 1;
+}
+
 static int parse_content_length(char *headers, size_t *body_len) {
     char *save = NULL;
     char *line;
@@ -186,9 +200,12 @@ static int parse_content_length(char *headers, size_t *body_len) {
         char *end;
         unsigned long long parsed;
         if (colon == NULL) {
-            continue;
+            return 400;
         }
         *colon = '\0';
+        if (!valid_token(line)) {
+            return 400;
+        }
         value = colon + 1;
         while (isspace((unsigned char)*value)) {
             value++;
@@ -199,7 +216,7 @@ static int parse_content_length(char *headers, size_t *body_len) {
         if (strcasecmp(line, "Content-Length") != 0) {
             continue;
         }
-        if (*value == '-' || *value == '\0') {
+        if (!isdigit((unsigned char)*value)) {
             return 400;
         }
         errno = 0;
@@ -249,7 +266,7 @@ static int read_request(int fd, sp_http_request *request) {
         }
         used += (size_t)received;
     }
-    if (end < 4 || end > HEADER_LIMIT) {
+    if (end < 4 || end > HEADER_LIMIT || memchr(input, '\0', end) != NULL) {
         return 400;
     }
     input[end] = '\0';
@@ -261,7 +278,8 @@ static int read_request(int fd, sp_http_request *request) {
     *line_end = '\0';
     if (sscanf(headers, "%15s %2047s %15s %1s", request->method,
                request->target, version, extra) != 3 ||
-        (strcmp(version, "HTTP/1.1") != 0 && strcmp(version, "HTTP/1.0") != 0)) {
+        (strcmp(version, "HTTP/1.1") != 0 && strcmp(version, "HTTP/1.0") != 0) ||
+        !valid_token(request->method)) {
         return 400;
     }
     *line_end = '\r';
@@ -275,6 +293,7 @@ static int read_request(int fd, sp_http_request *request) {
     query = strchr(request->target, '?');
     if (query != NULL) {
         *query = '\0';
+        request->query = query + 1;
     }
     if (strlen(request->target) >= sizeof(request->path)) {
         return 400;
@@ -500,6 +519,9 @@ int sp_http_serve(const char *address, unsigned int workers,
     struct sigaction action;
     unsigned int index;
     int listener;
+    int mutex_ready;
+    int available_ready;
+    int space_ready;
     int result = -1;
 
     memset(&pool, 0, sizeof(pool));
@@ -515,9 +537,17 @@ int sp_http_serve(const char *address, unsigned int workers,
     if (listener < 0) {
         return -1;
     }
-    if (pthread_mutex_init(&pool.mutex, NULL) != 0 ||
-        pthread_cond_init(&pool.available, NULL) != 0 ||
-        pthread_cond_init(&pool.space, NULL) != 0) {
+    mutex_ready = pthread_mutex_init(&pool.mutex, NULL) == 0;
+    available_ready =
+        mutex_ready && pthread_cond_init(&pool.available, NULL) == 0;
+    space_ready = available_ready && pthread_cond_init(&pool.space, NULL) == 0;
+    if (!space_ready) {
+        if (available_ready) {
+            (void)pthread_cond_destroy(&pool.available);
+        }
+        if (mutex_ready) {
+            (void)pthread_mutex_destroy(&pool.mutex);
+        }
         sp_set_error(error, "no se pudieron iniciar las primitivas de hilos");
         (void)close(listener);
         return -1;
@@ -525,6 +555,7 @@ int sp_http_serve(const char *address, unsigned int workers,
     pool.threads = calloc(workers, sizeof(*pool.threads));
     if (pool.threads == NULL) {
         sp_set_error(error, "memoria insuficiente para workers");
+        pool_destroy(&pool);
         (void)close(listener);
         return -1;
     }
@@ -541,6 +572,7 @@ int sp_http_serve(const char *address, unsigned int workers,
         if (pthread_create(&pool.threads[index], NULL, worker_main, &pool) != 0) {
             sp_set_error(error, "no se pudo crear worker %u", index);
             pool.thread_count = index;
+            listen_fd_for_signal = -1;
             pool_destroy(&pool);
             (void)close(listener);
             return -1;
