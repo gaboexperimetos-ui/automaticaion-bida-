@@ -1,0 +1,49 @@
+name: Backend real para preview
+
+on:
+  push:
+    branches:
+      - "arena/**"
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "migrations/**"
+      - "src/**"
+      - "static/**"
+      - ".github/workflows/preview-backend.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Compilar binario Linux para Arena
+    # Debian 12 (Arena) tiene glibc 2.36; Ubuntu 22.04 genera un binario
+    # compatible sin convertir el artefacto en parte del repositorio.
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar Rust estable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Guardar caché de compilación
+        uses: Swatinem/rust-cache@v2
+
+      - name: Compilar backend real
+        run: cargo build --release --locked
+
+      - name: Publicar artefacto temporal
+        uses: actions/upload-artifact@v4
+        with:
+          name: nova-backend-preview-${{ github.sha }}
+          path: target/release/study-platform
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 3
