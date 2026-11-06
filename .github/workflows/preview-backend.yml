@@ -39,15 +39,30 @@ jobs:
       - name: Compilar backend real
         run: cargo build --release --locked
 
-      - name: Publicar activo de prerelease borrador
+      - name: Publicar objeto temporal de prerelease
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          python3 - <<'PY'
+          import base64
+          import json
+
+          with open('target/release/study-platform', 'rb') as source:
+              payload = {
+                  'encoding': 'base64',
+                  'content': base64.b64encode(source.read()).decode('ascii'),
+              }
+          with open('/tmp/nova-preview-blob.json', 'w') as target:
+              json.dump(payload, target)
+          PY
+          blob_sha=$(gh api --method POST "repos/${{ github.repository }}/git/blobs" \
+            --input /tmp/nova-preview-blob.json --jq '.sha')
+          test -n "$blob_sha"
           tag="preview-backend-${GITHUB_SHA}"
-          gh release create "$tag" target/release/study-platform \
+          gh release create "$tag" \
             --repo "${{ github.repository }}" \
             --target "$GITHUB_SHA" \
             --draft \
             --prerelease \
             --title "Backend de preview ${GITHUB_SHA::8}" \
-            --notes "Binario temporal para ejecutar la app real en Arena. No es un release de producción."
+            --notes "Binario temporal para Arena; no es producción. Blob SHA: ${blob_sha}"
