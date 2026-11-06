@@ -653,7 +653,7 @@ async fn test_fts5_available_true_initially() {
     let (_state, svc, _notes_dir) = setup_knowledge().await;
     assert!(
         svc.is_fts5_available().await,
-        "notes_fts should exist after migrations"
+        "notes_search_fts should exist after migrations"
     );
 }
 
@@ -674,11 +674,21 @@ async fn test_search_like_fallback_when_fts_missing() {
     let fts_hits = svc.search("larkspur", 10).await.expect("fts search");
     assert!(fts_hits.iter().any(|r| r.note.title == "Fallback Meadow"));
 
-    // Simulate missing FTS5 (no new migrations): drop the virtual table.
-    sqlx::query("DROP TABLE notes_fts")
-        .execute(&state.db)
-        .await
-        .expect("drop notes_fts");
+    // Simula una BD anterior a la migración de búsqueda web: no existían ni
+    // la tabla canónica ni sus triggers. Quitar sólo la tabla dejaría triggers
+    // rotos que impedirían crear notas, algo distinto del caso a validar.
+    for statement in [
+        "DROP TRIGGER IF EXISTS notes_search_fts_ai",
+        "DROP TRIGGER IF EXISTS notes_search_fts_au",
+        "DROP TRIGGER IF EXISTS notes_search_fts_ad",
+        "DROP TRIGGER IF EXISTS notes_search_fts_vi",
+        "DROP TABLE notes_search_fts",
+    ] {
+        sqlx::query(statement)
+            .execute(&state.db)
+            .await
+            .expect("drop notes_search_fts objects");
+    }
 
     assert!(
         !svc.is_fts5_available().await,

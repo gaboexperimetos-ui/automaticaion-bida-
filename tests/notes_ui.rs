@@ -324,7 +324,80 @@ async fn listar_notas_muestra_el_titulo_creado() {
     );
 }
 
-// --- 5. Actualización por API: contador e historial coherentes con el Markdown ---
+// --- 5. Alta JSON: versión inicial, índice de contenido y fuente RAG ---
+
+#[tokio::test]
+async fn api_create_indexa_el_contenido_para_rag() {
+    let t = setup_app().await;
+    let app = study_platform::handlers::router(t.state.clone());
+    let content = "Un lapicero cuántico almacena tinta de demostración.";
+
+    let created = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/notes")
+                .header("content-type", "application/json")
+                .header("cookie", &t.cookie)
+                .header("x-forwarded-for", "192.0.2.38")
+                .body(Body::from(format!(
+                    r#"{{"title":"Nota JSON para RAG","content":"{content}"}}"#
+                )))
+                .expect("construir alta JSON"),
+        )
+        .await
+        .expect("respuesta de alta JSON");
+    assert_eq!(created.status(), StatusCode::CREATED);
+
+    let note_id: i64 = sqlx::query_scalar("SELECT id FROM notes WHERE slug = ?")
+        .bind("nota-json-para-rag")
+        .fetch_one(&t.state.db)
+        .await
+        .expect("leer id de la nota JSON");
+    let initial: String = sqlx::query_scalar(
+        "SELECT content FROM note_versions WHERE note_id = ? ORDER BY id DESC LIMIT 1",
+    )
+    .bind(note_id)
+    .fetch_one(&t.state.db)
+    .await
+    .expect("la nota JSON debe tener versión inicial");
+    assert_eq!(initial, content);
+
+    let indexed: String =
+        sqlx::query_scalar("SELECT content FROM notes_search_fts WHERE rowid = ?")
+            .bind(note_id)
+            .fetch_one(&t.state.db)
+            .await
+            .expect("la nota JSON debe estar indexada");
+    assert!(indexed.contains("lapicero"));
+
+    // El término sólo está en el cuerpo, no en el título ni en las etiquetas:
+    // la fuente demuestra que el RAG recuperó el contenido indexado.
+    let answer = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/ai/chat")
+                .header("content-type", "application/json")
+                .header("accept", "application/json")
+                .header("cookie", &t.cookie)
+                .header("x-forwarded-for", "192.0.2.39")
+                .body(Body::from(
+                    r#"{"message":"¿Qué es un lapicero?","subject":"general","mode":"notes"}"#,
+                ))
+                .expect("construir consulta RAG"),
+        )
+        .await
+        .expect("respuesta RAG");
+    assert_eq!(answer.status(), StatusCode::OK);
+    let answer: serde_json::Value =
+        serde_json::from_str(&body_text(answer).await).expect("JSON de respuesta RAG");
+    assert_eq!(answer["mode"], "notes");
+    assert_eq!(answer["sources"][0]["url"], "/app/notes/nota-json-para-rag");
+}
+
+// --- 6. Actualización por API: contador e historial coherentes con el Markdown ---
 
 #[tokio::test]
 async fn api_update_actualiza_word_count_archivo_y_versiones() {
