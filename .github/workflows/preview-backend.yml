@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: preview-backend-${{ github.ref }}
@@ -39,11 +39,15 @@ jobs:
       - name: Compilar backend real
         run: cargo build --release --locked
 
-      - name: Publicar artefacto temporal
-        uses: actions/upload-artifact@v4
-        with:
-          name: nova-backend-preview-${{ github.sha }}
-          path: target/release/study-platform
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 3
+      - name: Publicar activo de prerelease borrador
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="preview-backend-${GITHUB_SHA}"
+          gh release create "$tag" target/release/study-platform \
+            --repo "${{ github.repository }}" \
+            --target "$GITHUB_SHA" \
+            --draft \
+            --prerelease \
+            --title "Backend de preview ${GITHUB_SHA::8}" \
+            --notes "Binario temporal para ejecutar la app real en Arena. No es un release de producción."
