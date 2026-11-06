@@ -1,0 +1,68 @@
+name: Backend real para preview
+
+on:
+  push:
+    branches:
+      - "arena/**"
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "migrations/**"
+      - "src/**"
+      - "static/**"
+      - ".github/workflows/preview-backend.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: preview-backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Compilar binario Linux para Arena
+    # Debian 12 (Arena) tiene glibc 2.36; Ubuntu 22.04 genera un binario
+    # compatible sin convertir el artefacto en parte del repositorio.
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar Rust estable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Guardar caché de compilación
+        uses: Swatinem/rust-cache@v2
+
+      - name: Compilar backend real
+        run: cargo build --release --locked
+
+      - name: Publicar objeto temporal de prerelease
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import base64
+          import json
+
+          with open('target/release/study-platform', 'rb') as source:
+              payload = {
+                  'encoding': 'base64',
+                  'content': base64.b64encode(source.read()).decode('ascii'),
+              }
+          with open('/tmp/nova-preview-blob.json', 'w') as target:
+              json.dump(payload, target)
+          PY
+          blob_sha=$(gh api --method POST "repos/${{ github.repository }}/git/blobs" \
+            --input /tmp/nova-preview-blob.json --jq '.sha')
+          test -n "$blob_sha"
+          tag="preview-backend-${GITHUB_SHA}"
+          gh release create "$tag" \
+            --repo "${{ github.repository }}" \
+            --target "$GITHUB_SHA" \
+            --draft \
+            --prerelease \
+            --title "Backend de preview ${GITHUB_SHA::8}" \
+            --notes "Binario temporal para Arena; no es producción. Blob SHA: ${blob_sha}"

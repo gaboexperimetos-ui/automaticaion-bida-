@@ -68,6 +68,8 @@ jobs:
         if: failure()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
           {
             echo "### Diagnóstico de la validación Rust"
@@ -83,7 +85,12 @@ jobs:
               echo '```'
             done
           } > /tmp/nova-validation-comment.md
-          pr_number=$(gh pr list --head "$GITHUB_REF_NAME" --state open --json number --jq '.[0].number // empty')
+          # En pull_request, GITHUB_REF_NAME es "<n>/merge", no la rama.
+          # El evento ya trae el número; en push se busca por la rama real.
+          pr_number="$EVENT_PR_NUMBER"
+          if [ -z "$pr_number" ]; then
+            pr_number=$(gh pr list --head "$HEAD_BRANCH" --state open --json number --jq '.[0].number // empty')
+          fi
           if [ -n "$pr_number" ]; then
             gh pr comment "$pr_number" --body-file /tmp/nova-validation-comment.md
           fi

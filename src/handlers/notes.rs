@@ -1133,7 +1133,20 @@ pub async fn api_create(
     .await;
 
     match result {
-        Ok(_) => (StatusCode::CREATED, Json(json!({ "slug": slug }))),
+        Ok(res) => {
+            // La primera versión también alimenta `notes_search_fts` mediante
+            // su trigger. Sin ella, las notas creadas por JSON sólo indexaban
+            // título/etiquetas y el RAG no podía encontrar su contenido.
+            snapshot_version(
+                &state.db,
+                res.last_insert_rowid(),
+                payload.content.as_deref().unwrap_or(""),
+                word_count,
+                &now,
+            )
+            .await;
+            (StatusCode::CREATED, Json(json!({ "slug": slug })))
+        }
         Err(e) => {
             tracing::error!(
                 slug_len = slug.len(),

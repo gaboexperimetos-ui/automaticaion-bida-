@@ -1,6 +1,6 @@
 //! FTS5 full-text search with LIKE-based fallback.
 //!
-//! FTS5 is compiled into the bundled SQLite (verified). If the `notes_fts`
+//! FTS5 is compiled into the bundled SQLite (verified). If the `notes_search_fts`
 //! virtual table is missing or a MATCH query fails, the service transparently
 //! falls back to `LIKE`-based search on the `notes` table and `note_versions`
 //! content.
@@ -22,24 +22,24 @@ impl KnowledgeService {
     /// `updated_at` for the LIKE fallback).
     /// Check whether the FTS5 virtual table exists and is queryable at runtime.
     ///
-    /// Returns `true` when `notes_fts` is present in `sqlite_master` and a
+    /// Returns `true` when `notes_search_fts` is present in `sqlite_master` and a
     /// trivial `SELECT` against it succeeds. Returns `false` when FTS5 was
     /// not created (e.g. older DB without the knowledge migration) or the
     /// bundled SQLite was built without FTS5. No migrations are created here;
     /// callers must use the LIKE fallback when this returns `false`.
     pub async fn is_fts5_available(&self) -> bool {
         let name: Option<String> = sqlx::query_scalar(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='notes_fts'",
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='notes_search_fts'",
         )
         .fetch_optional(&self.state.db)
         .await
         .unwrap_or(None);
-        if name.as_deref() != Some("notes_fts") {
+        if name.as_deref() != Some("notes_search_fts") {
             return false;
         }
         // Verify the virtual table is actually queryable (catches a build
         // without FTS5 support where CREATE VIRTUAL TABLE would have failed).
-        sqlx::query("SELECT rowid FROM notes_fts LIMIT 0")
+        sqlx::query("SELECT rowid FROM notes_search_fts LIMIT 0")
             .fetch_all(&self.state.db)
             .await
             .is_ok()
@@ -50,10 +50,10 @@ impl KnowledgeService {
             return Ok(Vec::new());
         }
 
-        // Runtime availability check: skip FTS5 entirely when notes_fts is
+        // Runtime availability check: skip FTS5 entirely when notes_search_fts is
         // missing so we go straight to the LIKE fallback (no new migrations).
         if !self.is_fts5_available().await {
-            tracing::warn!("notes_fts missing at runtime, using LIKE fallback");
+            tracing::warn!("notes_search_fts missing at runtime, using LIKE fallback");
             return self.search_like(query, limit).await;
         }
 
@@ -69,17 +69,17 @@ impl KnowledgeService {
 
     /// FTS5 search implementation.
     ///
-    /// Returns ranked results with snippets. Uses the standalone `notes_fts`
+    /// Returns ranked results with snippets. Uses the standalone `notes_search_fts`
     /// table joined to `notes` on `rowid = notes.id`.
     async fn search_fts5(&self, query: &str, limit: usize) -> Result<Vec<SearchResult>, String> {
         let sql = r#"
             SELECT n.id, n.title, n.slug, n.filename, n.tags,
                    n.word_count, n.summary, n.created_at, n.updated_at,
                    rank as fts_rank,
-                   snippet(notes_fts, 1, '[', ']', '...', 10) as fts_snippet
-            FROM notes_fts
-            JOIN notes n ON n.id = notes_fts.rowid
-            WHERE notes_fts MATCH ?
+                   snippet(notes_search_fts, 1, '[', ']', '...', 10) as fts_snippet
+            FROM notes_search_fts
+            JOIN notes n ON n.id = notes_search_fts.rowid
+            WHERE notes_search_fts MATCH ?
             ORDER BY rank
             LIMIT ?
         "#;
