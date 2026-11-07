@@ -3,6 +3,14 @@
 All notable changes to this project are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 
+## [No publicado] — Consolidación de ramas
+
+- Se incorpora al historial la rama antigua `ui/polish-study-platform`. Sus
+  cambios de interfaz y traducción preceden al rediseño NOVA 3.0 actual, por lo
+  que la fusión conserva los archivos de `main` para evitar recuperar una UI
+  obsoleta o alterar controles y lógica actuales. Los ocho commits originales
+  siguen disponibles en el historial para consultar sus diferencias.
+
 ## [0.1.0] - 2026-10-09 — Planning Phase
 
 ### Added
