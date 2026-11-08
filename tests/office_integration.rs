@@ -550,6 +550,9 @@ async fn test_spreadsheet_create_import_export_formulas() {
     assert_eq!(response.status(), StatusCode::OK);
     let html = body_string(response).await;
     assert!(html.contains("Valores calculados"));
+    assert!(
+        html.contains("hx-on::config-request=\"event.detail.parameters.csv_data = serializeGrid()\"")
+    );
 }
 
 // ---------------------------------------------------------------------------
