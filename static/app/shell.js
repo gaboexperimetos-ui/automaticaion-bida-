@@ -1301,6 +1301,10 @@
         '<label class="sp-field"><span class="sp-field-label">Nota</span>' +
         '<textarea class="sp-input" id="sp-anot-cuerpo" rows="4" maxlength="4000" placeholder="Detalles, material que llevar, recordatorios..."></textarea></label>' +
         '<div class="sp-anot-lista" id="sp-anot-lista"></div>';
+      if (anotacion) {
+        cuerpo.querySelector("#sp-anot-titulo").value = anotacion.title || "";
+        cuerpo.querySelector("#sp-anot-cuerpo").value = anotacion.body || "";
+      }
       SP.dialog({
         title: anotacion ? "Editar anotación" : "Anotar el " + fecha,
         html: cuerpo,
@@ -1308,7 +1312,12 @@
         onOk: function (box) {
           var t = box.querySelector("#sp-anot-titulo");
           var c = box.querySelector("#sp-anot-cuerpo");
-          return { title: t ? t.value : "", body: c ? c.value : "" };
+          if (!(t.value.trim() || c.value.trim())) {
+            SP.toast("Escribe un título o una nota", "err");
+            t.focus();
+            return false;
+          }
+          return { title: t.value, body: c.value };
         }
       }).then(function (res) {
         if (!res) { return; }
@@ -1318,7 +1327,7 @@
           : SP.api("/api/calendar/annotations", { method: "POST", json: { date: fecha, title: json.title, body: json.body } });
         p.then(function () {
           SP.toast(anotacion ? "Anotación actualizada" : "Anotación guardada", "ok");
-          setTimeout(function () { window.location.reload(); }, 500);
+          setTimeout(function () { window.location.assign("/dashboard/calendar?month=" + fecha.slice(0, 7)); }, 500);
         }).catch(function (err) { SP.toast(msgErr(err), "err"); });
       });
     }
@@ -1328,13 +1337,28 @@
         var lista = (d && d.annotations) || [];
         if (!lista.length) { dialogoAnotacion(fecha, null); return; }
         var items = lista.map(function (a) {
-          return { label: a.title || a.body.slice(0, 40) || "Anotación", sub: a.body ? a.body.slice(0, 60) : "", icon: "sticky_note_2", value: a };
+          return { label: a.title || (a.body || "").slice(0, 40) || "Anotación", sub: a.body ? a.body.slice(0, 60) : "", icon: "sticky_note_2", value: a };
         });
         items.push({ label: "Añadir otra anotación", icon: "add", value: "new" });
         SP.dialog({ title: "Anotaciones del " + fecha, items: items }).then(function (v) {
           if (!v) { return; }
           if (v === "new") { dialogoAnotacion(fecha, null); return; }
-          if (typeof v === "object" && v.id) { dialogoAnotacion(fecha, v); }
+          if (typeof v === "object" && v.id) {
+            SP.dialog({ title: v.title || "Anotación", items: [
+              { label: "Editar", icon: "edit", value: "edit" },
+              { label: "Eliminar", icon: "delete", value: "delete" }
+            ] }).then(function (action) {
+              if (action === "edit") { dialogoAnotacion(fecha, v); }
+              if (action === "delete") {
+                SP.confirm("Eliminar anotación", "Esta acción no se puede deshacer.", "Eliminar").then(function (confirmed) {
+                  if (!confirmed) { return; }
+                  SP.api("/api/calendar/annotations/" + v.id, { method: "DELETE" }).then(function () {
+                    window.location.assign("/dashboard/calendar?month=" + fecha.slice(0, 7));
+                  }).catch(function (err) { SP.toast(msgErr(err), "err"); });
+                });
+              }
+            });
+          }
         });
       }).catch(function (err) { SP.toast(msgErr(err), "err"); });
     }
@@ -1348,32 +1372,17 @@
       listar(fecha);
     }
 
-    grid.addEventListener("click", function (e) {
-      var cell = e.target.closest ? e.target.closest(".calendar-cell") : null;
+    // El grid se sustituye con outerHTML al cambiar de mes. La delegación en
+    // document conserva el comportamiento después de cada navegación HTMX.
+    document.addEventListener("click", function (e) {
+      var cell = e.target.closest ? e.target.closest("#calendar-grid .calendar-cell[data-date]") : null;
       abrirCelda(cell, e);
     });
 
-    grid.addEventListener("keydown", function (e) {
+    document.addEventListener("keydown", function (e) {
       if (e.key !== "Enter" && e.key !== " ") { return; }
-      var cell = e.target.closest ? e.target.closest(".calendar-cell") : null;
+      var cell = e.target.closest ? e.target.closest("#calendar-grid .calendar-cell[data-date]") : null;
       abrirCelda(cell, e);
-    });
-
-    // Clic derecho: borrar anotación directamente (atajo para limpiar).
-    grid.addEventListener("contextmenu", function (e) {
-      var cell = e.target.closest ? e.target.closest(".calendar-cell") : null;
-      if (!cell) { return; }
-      var fecha = cell.getAttribute("data-date");
-      if (!fecha) { return; }
-      e.preventDefault();
-      SP.api("/api/calendar/annotations?from=" + fecha + "&to=" + fecha).then(function (d) {
-        var lista = (d && d.annotations) || [];
-        if (!lista.length) { return; }
-        SP.api("/api/calendar/annotations/" + lista[0].id, { method: "DELETE" }).then(function () {
-          SP.toast("Anotación borrada", "ok");
-          setTimeout(function () { window.location.reload(); }, 400);
-        }).catch(function (err) { SP.toast(msgErr(err), "err"); });
-      }).catch(function () { });
     });
   }
 
