@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use axum::{
     extract::{Request, State},
-    http::StatusCode,
+    http::{header, HeaderValue, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
     Json, Router,
@@ -215,7 +215,8 @@ pub fn register_routes(
         .route_layer(axum::middleware::from_fn_with_state(
             state.clone(),
             require_auth_state,
-        ));
+        ))
+        .route_layer(axum::middleware::from_fn(office_html_content_type));
 
     // Endpoints JSON de la suite de oficina (descargas). Viven aparte porque
     // `require_auth_state` redirige a `/login` (HTML) en las rutas que no
@@ -230,6 +231,24 @@ pub fn register_routes(
         ));
 
     router.merge(office).merge(json_api)
+}
+
+/// Los handlers HTML de Oficina devuelven `String`, que Axum etiqueta como
+/// texto plano. Sin este ajuste el navegador muestra código en vez del editor.
+/// Las descargas conservan su Content-Type y Content-Disposition originales.
+async fn office_html_content_type(req: Request, next: Next) -> Response {
+    let mut response = next.run(req).await;
+    let is_plain = response
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .is_some_and(|value| value == "text/plain; charset=utf-8");
+    if is_plain && !response.headers().contains_key(header::CONTENT_DISPOSITION) {
+        response.headers_mut().insert(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static("text/html; charset=utf-8"),
+        );
+    }
+    response
 }
 
 /// Autenticación para los endpoints JSON de la suite de oficina.

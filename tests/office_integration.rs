@@ -259,6 +259,10 @@ async fn test_office_home_with_auth() {
     let response = app.clone().oneshot(authed_get("/office")).await.unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get("content-type").unwrap(),
+        "text/html; charset=utf-8"
+    );
     let html = body_string(response).await;
     assert!(html.contains("gen-office-home"));
     assert!(html.contains("NOVA Office"));
@@ -277,6 +281,17 @@ async fn test_office_home_with_auth() {
 async fn test_document_crud_lifecycle() {
     let (state, _work_dir) = setup().await;
     let app = study_platform::handlers::router(state);
+
+    let new_page = app
+        .clone()
+        .oneshot(authed_get("/office/docs/new"))
+        .await
+        .unwrap();
+    assert_eq!(new_page.status(), StatusCode::OK);
+    assert_eq!(
+        new_page.headers().get("content-type").unwrap(),
+        "text/html; charset=utf-8"
+    );
 
     // Create a document
     let body = form(&[
@@ -320,6 +335,10 @@ async fn test_document_crud_lifecycle() {
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get("content-type").unwrap(),
+        "text/html; charset=utf-8"
+    );
     let html = body_string(response).await;
     assert!(html.contains("Guardar"));
     assert!(html.contains("# Hello World"));
