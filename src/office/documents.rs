@@ -231,7 +231,7 @@ pub async fn edit(
 
     let editor = doc_editor(&slug, &content);
     let ai_content = format!(
-        r##"<div class="gen-office-tool-list"><button type="button" onclick="closeOfficeAi();document.getElementById('editor').focus()"><span class="material-symbols-outlined">edit</span><span><strong>Continuar escribiendo</strong><small>Volver al lienzo del documento</small></span></button><a href="/office/docs/{slug}/preview"><span class="material-symbols-outlined">visibility</span><span><strong>Revisar resultado</strong><small>Abrir la vista previa renderizada</small></span></a><a href="/office/docs/{slug}/export?fmt=html"><span class="material-symbols-outlined">download</span><span><strong>Exportar como HTML</strong><small>Descargar una página independiente</small></span></a></div>"##,
+        r##"<form id="office-doc-ai-form" class="gen-office-ai-compose"><label for="office-doc-ai-prompt">Pide ayuda con este documento</label><textarea id="office-doc-ai-prompt" rows="3" maxlength="1000" placeholder="Ej. Resume el documento o propone una introducción" required></textarea><p>Al enviar, se comparte con el asistente hasta el inicio del documento. Revisa la respuesta antes de insertarla.</p><button type="submit" class="gen-office-primary-button"><span class="material-symbols-outlined">auto_awesome</span>Generar propuesta</button><p id="office-doc-ai-status" role="status" aria-live="polite"></p><label for="office-doc-ai-result">Propuesta</label><textarea id="office-doc-ai-result" rows="7" readonly placeholder="La propuesta aparecerá aquí"></textarea><button type="button" id="office-doc-ai-insert" class="gen-office-secondary-button" disabled>Insertar al final</button></form><div class="gen-office-tool-list"><button type="button" onclick="closeOfficeAi();document.getElementById('editor').focus()"><span class="material-symbols-outlined">edit</span><span><strong>Continuar escribiendo</strong><small>Volver al lienzo del documento</small></span></button><a href="/office/docs/{slug}/preview"><span class="material-symbols-outlined">visibility</span><span><strong>Revisar resultado</strong><small>Abrir la vista previa renderizada</small></span></a><a href="/office/docs/{slug}/export?fmt=html"><span class="material-symbols-outlined">download</span><span><strong>Exportar como HTML</strong><small>Descargar una página independiente</small></span></a></div>"##,
         slug = templates::html_escape(&slug),
     );
     let body = format!(
@@ -243,7 +243,7 @@ pub async fn edit(
         slug = templates::html_escape(&slug),
         saved = saved_banner,
         ai_toggle = templates::OFFICE_AI_TOGGLE,
-        ai = templates::office_ai_panel("Herramientas del documento", "Revisa, exporta o continúa editando. NOVA AI se abre aparte para no alterar tu archivo sin confirmación.", &ai_content),
+        ai = templates::office_ai_panel("Asistente del documento", "Pide una propuesta, revísala y decide si deseas insertarla. Guarda después tus cambios.", &ai_content),
         title = templates::html_escape(&slug.replace('-', " ")),
         editor = editor,
         mcp = mcp_banner,

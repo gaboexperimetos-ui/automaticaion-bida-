@@ -323,6 +323,11 @@ async fn test_document_crud_lifecycle() {
     let html = body_string(response).await;
     assert!(html.contains("Guardar"));
     assert!(html.contains("# Hello World"));
+    assert!(html.contains("id=\"office-doc-ai-form\""));
+    assert!(html.contains("id=\"office-doc-ai-result\""));
+    assert!(html.contains("id=\"office-doc-ai-insert\""));
+    assert!(html.contains("se comparte con el asistente"));
+    assert!(html.contains("/vendor/htmx-2.0.3.min.js"));
 
     // Update the document
     let body = form(&[

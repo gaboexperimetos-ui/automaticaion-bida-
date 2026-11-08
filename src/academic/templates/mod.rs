@@ -153,7 +153,7 @@ pub fn head(title: &str) -> String {
     <title>{}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <script src="https://unpkg.com/htmx.org@2.0.3/dist/htmx.min.js"></script>
+    <script src="/vendor/htmx-2.0.3.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/shell.js" defer></script>
     <script id="tailwind-config">
@@ -1377,7 +1377,7 @@ mod tests {
     fn test_head_includes_meta() {
         let h = head("Test");
         assert!(h.contains("<meta name=\"viewport\""));
-        assert!(h.contains("htmx.org"));
+        assert!(h.contains("/vendor/htmx-2.0.3.min.js"));
         assert!(h.contains("tailwindcss.com"));
     }
 

@@ -1771,6 +1771,57 @@
     return frag;
   }
 
+  // El documento sólo se envía al asistente cuando el usuario lo solicita.
+  // La propuesta nunca sustituye el contenido ni se guarda automáticamente.
+  function initOfficeDocAi() {
+    var form = document.getElementById("office-doc-ai-form");
+    var editor = document.getElementById("editor");
+    if (!form || !editor) { return; }
+    var prompt = document.getElementById("office-doc-ai-prompt");
+    var result = document.getElementById("office-doc-ai-result");
+    var status = document.getElementById("office-doc-ai-status");
+    var insert = document.getElementById("office-doc-ai-insert");
+    var submit = form.querySelector('button[type="submit"]');
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var instruction = prompt.value.trim();
+      if (!instruction) { prompt.focus(); return; }
+      var text = Array.from(editor.value).slice(0, 6000).join("");
+      var truncated = Array.from(editor.value).length > 6000;
+      var message = "Ayúdame con este documento en Markdown. Instrucción: " + instruction +
+        "\n\nDocumento" + (truncated ? " (primeros 6000 caracteres)" : "") + ":\n" + text;
+      submit.disabled = true;
+      insert.disabled = true;
+      result.value = "";
+      status.textContent = "Consultando al asistente…";
+      fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json", "accept": "application/json" },
+        body: JSON.stringify({ message: message, subject: "Oficina", mode: "general" })
+      }).then(function (response) {
+        return response.json().catch(function () { return {}; }).then(function (data) {
+          if (!response.ok) { throw new Error(data.error || data.message || "No se pudo consultar al asistente."); }
+          if (typeof data.content !== "string" || !data.content.trim()) { throw new Error("El asistente no devolvió contenido."); }
+          result.value = data.content;
+          insert.disabled = false;
+          status.textContent = data.content.indexOf("[Modo simulado]") !== -1
+            ? "Modo simulado: no se ha consultado un modelo real."
+            : "Propuesta lista. Revísala antes de insertarla.";
+        });
+      }).catch(function (err) {
+        status.textContent = msgErr(err);
+      }).finally(function () { submit.disabled = false; });
+    });
+    insert.addEventListener("click", function () {
+      if (!result.value) { return; }
+      editor.value += (editor.value ? "\n\n" : "") + result.value;
+      editor.dispatchEvent(new Event("input", { bubbles: true }));
+      insert.disabled = true;
+      status.textContent = "Insertado al final. Pulsa Guardar cambios para conservarlo.";
+      editor.focus();
+    });
+  }
+
   function boot() {
     injectCss();
     initSearch();
@@ -1780,6 +1831,7 @@
     initCollectionsSafe();
     initVaultActions();
     initCalendar();
+    initOfficeDocAi();
     initModelPicker();
     initNotesEditor();
     initChatWorkspace();

@@ -46,6 +46,12 @@ pub async fn serve_shell_js(State(_state): State<Arc<AppState>>) -> Response<Bod
     make_response_with_cache(content, "application/javascript; charset=utf-8")
 }
 
+/// HTMX local para que los formularios funcionen sin depender de un CDN.
+pub async fn serve_htmx(State(_state): State<Arc<AppState>>) -> Response<Body> {
+    let content = include_bytes!("../../static/vendor/htmx-2.0.3.min.js");
+    make_response_with_cache(content, "application/javascript; charset=utf-8")
+}
+
 /// Favicon (SVG) en `/favicon.ico` y `/favicon.svg`: evita el 404 que dispara
 /// el navegador por defecto. Un SVG declarado con su content-type sirve como
 /// icono de pestaña en los navegadores actuales.
