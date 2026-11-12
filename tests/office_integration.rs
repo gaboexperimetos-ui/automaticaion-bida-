@@ -552,6 +552,42 @@ async fn test_spreadsheet_create_import_export_formulas() {
     assert!(html.contains("Valores calculados"));
     assert!(html.contains("hx-on::config-request"));
     assert!(html.contains("event.detail.parameters.csv_data = serializeGrid()"));
+    assert!(html.contains("id=\"office-xlsx-file\""));
+    assert!(html.contains("id=\"office-xlsx-import\""));
+    assert!(html.contains("id=\"office-xlsx-export\""));
+    assert!(html.contains("/vendor/xlsx-0.20.3.full.min.js"));
+    assert!(html.contains("Se importa una hoja por vez"));
+}
+
+#[tokio::test]
+async fn test_spreadsheet_assets_are_served_locally() {
+    let (state, _work_dir) = setup().await;
+    let app = study_platform::handlers::router(state);
+
+    let response = app
+        .clone()
+        .oneshot(authed_get("/vendor/xlsx-0.20.3.full.min.js"))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok()),
+        Some("application/javascript; charset=utf-8")
+    );
+    let bundle = body_string(response).await;
+    assert!(bundle.contains("0.20.3"));
+
+    let response = app
+        .oneshot(authed_get("/office-sheets.js"))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let helper = body_string(response).await;
+    assert!(helper.contains("worksheetToAoa"));
+    assert!(helper.contains("MAX_WORKSHEET_CELLS"));
 }
 
 // ---------------------------------------------------------------------------

@@ -38,6 +38,9 @@ jobs:
             exit 1
           fi
 
+      - name: Probar interoperabilidad de hojas Excel
+        run: node --test tests/office_xlsx.test.cjs
+
       - name: Instalar Rust estable
         uses: dtolnay/rust-toolchain@stable
         with:
