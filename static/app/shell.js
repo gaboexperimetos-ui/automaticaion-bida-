@@ -135,9 +135,10 @@
       init.body = JSON.stringify(opts.json);
     } else if (opts.form) {
       init.method = "POST";
-      var fd = new FormData();
-      Object.keys(opts.form).forEach(function (k) { fd.append(k, opts.form[k]); });
-      init.body = fd;
+      var params = new URLSearchParams();
+      Object.keys(opts.form).forEach(function (k) { params.append(k, String(opts.form[k])); });
+      init.headers["content-type"] = "application/x-www-form-urlencoded";
+      init.body = params.toString();
     }
     return fetch(path, init).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (data) {
@@ -476,6 +477,7 @@
         { label: "Documento", icon: "article", sub: "programas de oficina", fn: function () { newOffice("docs", "Documento"); } },
         { label: "Hoja de cálculo", icon: "table_chart", sub: "csv", fn: function () { newOffice("sheets", "Hoja de cálculo"); } },
         { label: "Presentación", icon: "slideshow", fn: function () { newOffice("presentations", "Presentación"); } },
+        { label: "Página HTML", icon: "code", fn: function () { newOffice("html", "Página HTML"); } },
         { label: "Importar desde Obsidian", icon: "file_open", sub: "carpeta de archivos Markdown", fn: importObsidian },
         "-",
         { head: "Académico" },
@@ -513,24 +515,31 @@
     }).then(function (title) {
       if (!title) { return; }
       var path = "/office/" + kind;
-      SP.api(path, { form: { title: title, content: "" } })
-        .then(function () {
-          SP.toast(label + " creada", "ok");
-          var slug = sluginator(title);
-          setTimeout(function () {
-            if (kind === "docs") { window.location.href = "/office/docs/" + slug; }
-            else if (kind === "sheets") { window.location.href = "/office/sheets"; }
-            else { window.location.href = "/office/presentations/" + slug; }
-          }, 600);
-        })
-        .catch(function (err) {
-          if (err.status === 409) {
-            SP.toast("Ya existía un elemento con ese título", "info");
-            setTimeout(function () { window.location.href = path; }, 600);
-            return;
-          }
-          SP.toast(msgErr(err), "err");
-        });
+      var params = new URLSearchParams({ title: title, content: "" });
+      fetch(path, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: params.toString()
+      }).then(function (response) {
+        if (!response.ok) {
+          throw { status: response.status, message: response.status + " " + (response.statusText || "") };
+        }
+        var redirect = response.headers.get("HX-Redirect");
+        if (!redirect || redirect.charAt(0) !== "/" || redirect.indexOf("//") === 0) {
+          throw new Error("El servidor no indicó dónde abrir el archivo.");
+        }
+        return redirect;
+      }).then(function (redirect) {
+        SP.toast(label + " creada", "ok");
+        setTimeout(function () { window.location.href = redirect; }, 600);
+      }).catch(function (err) {
+        if (err.status === 409) {
+          SP.toast("Ya existía un elemento con ese título", "info");
+          setTimeout(function () { window.location.href = path; }, 600);
+          return;
+        }
+        SP.toast(msgErr(err), "err");
+      });
     });
   }
 
@@ -1782,13 +1791,14 @@
     var status = document.getElementById("office-doc-ai-status");
     var insert = document.getElementById("office-doc-ai-insert");
     var submit = form.querySelector('button[type="submit"]');
+    var officeFormat = editor.getAttribute("data-office-format") || "Markdown";
     form.addEventListener("submit", function (event) {
       event.preventDefault();
       var instruction = prompt.value.trim();
       if (!instruction) { prompt.focus(); return; }
       var text = Array.from(editor.value).slice(0, 6000).join("");
       var truncated = Array.from(editor.value).length > 6000;
-      var message = "Ayúdame con este documento en Markdown. Instrucción: " + instruction +
+      var message = "Ayúdame con este documento en formato " + officeFormat + ". Instrucción: " + instruction +
         "\n\nDocumento" + (truncated ? " (primeros 6000 caracteres)" : "") + ":\n" + text;
       submit.disabled = true;
       insert.disabled = true;

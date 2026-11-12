@@ -1,8 +1,8 @@
-//! Web office suite: documents, spreadsheets, presentations, and file library.
+//! Web office suite: documents, spreadsheets, presentations, HTML pages, and file library.
 //!
 //! All persistence is filesystem-based so **no external services are required**.
-//! Office artifacts live under `data/office/{docs,sheets,presentations}` (the
-//! `office` subdirectory next to the SQLite database, derived from
+//! Office artifacts live under `data/office/{docs,sheets,presentations,html}`
+//! (the `office` subdirectory next to the SQLite database, derived from
 //! `AppState.config.db_path`).
 //!
 //! Routes are all auth-protected via `crate::middleware::auth::require_auth_state`.
@@ -24,6 +24,7 @@ use crate::AppState;
 
 pub mod documents;
 pub mod genoffice;
+pub mod html;
 pub mod library;
 pub mod presentations;
 pub mod report;
@@ -59,9 +60,19 @@ pub(crate) fn pres_dir(state: &AppState) -> PathBuf {
     office_root(state).join("presentations")
 }
 
-/// Ensure the three office directories exist.
+/// Directory holding standalone HTML pages (`*.html`).
+pub(crate) fn html_dir(state: &AppState) -> PathBuf {
+    office_root(state).join("html")
+}
+
+/// Ensure the office directories exist.
 pub(crate) fn ensure_dirs(state: &AppState) {
-    for dir in [docs_dir(state), sheets_dir(state), pres_dir(state)] {
+    for dir in [
+        docs_dir(state),
+        sheets_dir(state),
+        pres_dir(state),
+        html_dir(state),
+    ] {
         if let Err(e) = std::fs::create_dir_all(&dir) {
             // Los handlers devuelven 500 al escribir; deja además una pista
             // operativa clara en lugar de ocultar el fallo de inicialización.
@@ -76,6 +87,7 @@ pub(crate) fn type_ext(ty: &str) -> Option<&'static str> {
         "docs" => Some("md"),
         "sheets" => Some("csv"),
         "presentations" => Some("json"),
+        "html" => Some("html"),
         _ => None,
     }
 }
@@ -86,6 +98,7 @@ pub(crate) fn type_dir(state: &AppState, ty: &str) -> Option<PathBuf> {
         "docs" => Some(docs_dir(state)),
         "sheets" => Some(sheets_dir(state)),
         "presentations" => Some(pres_dir(state)),
+        "html" => Some(html_dir(state)),
         _ => None,
     }
 }
@@ -117,6 +130,26 @@ pub fn register_routes(
         "office routes registered; root={}",
         office_root(&state).display()
     );
+
+    // Form-urlencoded HTML can expand to roughly three bytes per source byte;
+    // leave room for the 1 MiB decoded document limit plus encoding overhead.
+    let html_routes: Router<Arc<AppState>> = Router::new()
+        .route(
+            "/office/html",
+            axum::routing::get(html::list).post(html::create),
+        )
+        .route("/office/html/new", axum::routing::get(html::new_page))
+        .route(
+            "/office/html/{slug}",
+            axum::routing::get(html::edit)
+                .put(html::update)
+                .delete(html::delete),
+        )
+        .route(
+            "/office/html/{slug}/export",
+            axum::routing::get(html::export),
+        )
+        .route_layer(axum::extract::DefaultBodyLimit::max(4 * 1024 * 1024));
 
     let office: Router<Arc<AppState>> = Router::new()
         .route("/office", axum::routing::get(documents::office_home))
@@ -194,6 +227,8 @@ pub fn register_routes(
             "/office/presentations/{slug}/slides/reorder",
             axum::routing::post(presentations::reorder),
         )
+        // HTML pages use a larger body limit for URL-encoded UTF-8 content.
+        .merge(html_routes)
         // Library
         .route("/office/library", axum::routing::get(library::list))
         .route(

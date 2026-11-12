@@ -64,6 +64,12 @@ pub async fn serve_office_sheets_js(State(_state): State<Arc<AppState>>) -> Resp
     make_response_with_cache(content, "application/javascript; charset=utf-8")
 }
 
+/// Editor HTML con preview local sandboxed.
+pub async fn serve_office_html_js(State(_state): State<Arc<AppState>>) -> Response<Body> {
+    let content = include_bytes!("../../static/app/office-html.js");
+    make_response_with_cache(content, "application/javascript; charset=utf-8")
+}
+
 /// Favicon (SVG) en `/favicon.ico` y `/favicon.svg`: evita el 404 que dispara
 /// el navegador por defecto. Un SVG declarado con su content-type sirve como
 /// icono de pestaña en los navegadores actuales.

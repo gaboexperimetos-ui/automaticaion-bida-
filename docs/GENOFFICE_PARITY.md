@@ -19,10 +19,10 @@ web.
 | Hojas | `.xlsx` multípestaña, fórmulas recalculables, formato, gráficos y round-trip | Cuadrícula CSV de una hoja con `SUM`/`AVG`; en este avance se añade importación de una pestaña y descarga `.xlsx`. No preserva estilos, gráficos ni macros |
 | Presentaciones | Crear/editar diapositivas y abrir/guardar `.pptx` real | Diapositivas JSON y modo presentación; sin importación/exportación PPTX |
 | PDF | Abrir y leer, búsqueda, anotación/edición y conversión | No implementado |
-| HTML | Editor de código/diseño, vista aislada en vivo y exportación | No implementado |
+| HTML | Editor de código/diseño, vista aislada en vivo y exportación | Editor de fuente HTML con vista en vivo aislada, guardado y exportación `.html`. Sin constructor visual/CodeMirror; scripts bloqueados y cargas remotas denegadas en la preview |
 | Markdown | Edición estructurada, vista previa, enlaces, imágenes y exportación | Editor de texto con Markdown, vista previa HTML y exportación; sin paridad de bloques |
 | IA en editores | Contexto del archivo bajo solicitud, operaciones revisables, diffs, deshacer y cambios rastreados | Panel de propuesta para Markdown; simulación si no hay proveedor. No hay operaciones/diffs de documentos ni paneles completos por app |
-| Biblioteca y búsqueda | Archivos indexados por nombre y contenido; favoritos, preguntas con fuentes y conversaciones | Biblioteca local de los tres tipos actuales y búsqueda limitada por nombre |
+| Biblioteca y búsqueda | Archivos indexados por nombre y contenido; favoritos, preguntas con fuentes y conversaciones | Biblioteca local de cuatro tipos y búsqueda limitada por nombre |
 | Conversiones | Conversiones locales reales entre formatos compatibles | Exportaciones `.md`, HTML y CSV; informes `.docx` dependen del MCP de GenOffice configurado |
 | Integraciones de agentes | CLI/MCP capaces de leer/crear/editar los archivos reales | Hay MCP propio y conexión limitada al MCP de GenOffice; no existe paridad de su CLI/skill |
 

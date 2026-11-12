@@ -80,6 +80,7 @@ pub fn router(state: Arc<AppState>) -> Router {
             get(static_ui::serve_xlsx),
         )
         .route("/office-sheets.js", get(static_ui::serve_office_sheets_js))
+        .route("/office-html.js", get(static_ui::serve_office_html_js))
         .route("/polish.css", get(static_ui::serve_polish_css))
         .route("/nova.css", get(static_ui::serve_nova_css))
         .route("/favicon.ico", get(static_ui::serve_favicon))
