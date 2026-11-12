@@ -153,7 +153,7 @@ pub fn head(title: &str) -> String {
     <title>{}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <script src="https://unpkg.com/htmx.org@2.0.3/dist/htmx.min.js"></script>
+    <script src="/vendor/htmx-2.0.3.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/shell.js" defer></script>
     <script id="tailwind-config">
@@ -736,7 +736,7 @@ pub fn calendar_grid_html(
         };
 
         cells.push(format!(
-            r#"<div class="calendar-cell agenda-cell relative h-32 {}{}" tabindex="0" role="button" aria-label="Añadir o editar anotaciones del {fecha}" title="Añadir o editar anotaciones · {fecha}"><span class="calendar-day-number {} mb-space-xs">{}</span><div class="calendar-day-items mt-space-xs space-y-0.5 overflow-hidden">{}</div></div>"#,
+            r#"<div class="calendar-cell agenda-cell relative h-32 {}"{} tabindex="0" role="button" aria-label="Añadir o editar anotaciones del {fecha}" title="Añadir o editar anotaciones · {fecha}"><span class="calendar-day-number {} mb-space-xs">{}</span><div class="calendar-day-items mt-space-xs space-y-0.5 overflow-hidden">{}</div></div>"#,
             cell_cls, atributos_celda, num_cls, d, contenido
         ));
     }
@@ -1350,6 +1350,24 @@ mod tests {
     use super::*;
 
     #[test]
+    fn calendar_days_have_clickable_date_attributes() {
+        let focus = chrono::NaiveDate::from_ymd_opt(2026, 11, 1).unwrap();
+        let html = calendar_grid_html(&[], focus, None, None);
+        let cells: Vec<&str> = html
+            .split("<div class=\"calendar-cell ")
+            .skip(1)
+            .map(|cell| cell.split('>').next().unwrap())
+            .collect();
+        assert_eq!(cells.len(), 30);
+        for (index, cell) in cells.iter().enumerate() {
+            let date = format!("2026-11-{:02}", index + 1);
+            let attributes = cell.split_once('"').unwrap().1;
+            assert!(attributes.contains(&format!(" data-date=\"{date}\"")));
+            assert!(attributes.contains(" role=\"button\""));
+        }
+    }
+
+    #[test]
     fn test_html_escape() {
         assert_eq!(html_escape("<script>"), "&lt;script&gt;");
         assert_eq!(html_escape("a & b"), "a &amp; b");
@@ -1359,7 +1377,7 @@ mod tests {
     fn test_head_includes_meta() {
         let h = head("Test");
         assert!(h.contains("<meta name=\"viewport\""));
-        assert!(h.contains("htmx.org"));
+        assert!(h.contains("/vendor/htmx-2.0.3.min.js"));
         assert!(h.contains("tailwindcss.com"));
     }
 

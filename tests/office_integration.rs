@@ -259,6 +259,10 @@ async fn test_office_home_with_auth() {
     let response = app.clone().oneshot(authed_get("/office")).await.unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get("content-type").unwrap(),
+        "text/html; charset=utf-8"
+    );
     let html = body_string(response).await;
     assert!(html.contains("gen-office-home"));
     assert!(html.contains("NOVA Office"));
@@ -277,6 +281,17 @@ async fn test_office_home_with_auth() {
 async fn test_document_crud_lifecycle() {
     let (state, _work_dir) = setup().await;
     let app = study_platform::handlers::router(state);
+
+    let new_page = app
+        .clone()
+        .oneshot(authed_get("/office/docs/new"))
+        .await
+        .unwrap();
+    assert_eq!(new_page.status(), StatusCode::OK);
+    assert_eq!(
+        new_page.headers().get("content-type").unwrap(),
+        "text/html; charset=utf-8"
+    );
 
     // Create a document
     let body = form(&[
@@ -320,9 +335,18 @@ async fn test_document_crud_lifecycle() {
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers().get("content-type").unwrap(),
+        "text/html; charset=utf-8"
+    );
     let html = body_string(response).await;
     assert!(html.contains("Guardar"));
     assert!(html.contains("# Hello World"));
+    assert!(html.contains("id=\"office-doc-ai-form\""));
+    assert!(html.contains("id=\"office-doc-ai-result\""));
+    assert!(html.contains("id=\"office-doc-ai-insert\""));
+    assert!(html.contains("se comparte con el asistente"));
+    assert!(html.contains("/vendor/htmx-2.0.3.min.js"));
 
     // Update the document
     let body = form(&[
@@ -526,6 +550,273 @@ async fn test_spreadsheet_create_import_export_formulas() {
     assert_eq!(response.status(), StatusCode::OK);
     let html = body_string(response).await;
     assert!(html.contains("Valores calculados"));
+    assert!(html.contains("hx-on::config-request"));
+    assert!(html.contains("event.detail.parameters.csv_data = serializeGrid()"));
+    assert!(html.contains("id=\"office-xlsx-file\""));
+    assert!(html.contains("id=\"office-xlsx-import\""));
+    assert!(html.contains("id=\"office-xlsx-export\""));
+    assert!(html.contains("/vendor/xlsx-0.20.3.full.min.js"));
+    assert!(html.contains("Se importa una hoja por vez"));
+}
+
+#[tokio::test]
+async fn test_spreadsheet_assets_are_served_locally() {
+    let (state, _work_dir) = setup().await;
+    let app = study_platform::handlers::router(state);
+
+    let response = app
+        .clone()
+        .oneshot(authed_get("/vendor/xlsx-0.20.3.full.min.js"))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok()),
+        Some("application/javascript; charset=utf-8")
+    );
+    let bundle = body_string(response).await;
+    assert!(bundle.contains("0.20.3"));
+
+    let response = app.oneshot(authed_get("/office-sheets.js")).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let helper = body_string(response).await;
+    assert!(helper.contains("worksheetToAoa"));
+    assert!(helper.contains("MAX_WORKSHEET_CELLS"));
+}
+
+#[tokio::test]
+async fn test_html_page_create_edit_preview_export_and_delete() {
+    let (state, work_dir) = setup().await;
+    let app = study_platform::handlers::router(state);
+    let body = form(&[("title", "Landing Page"), ("content", "")]);
+
+    let response = app
+        .clone()
+        .oneshot(authed_post_form("/office/html", &body))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response
+            .headers()
+            .get("HX-Redirect")
+            .and_then(|value| value.to_str().ok()),
+        Some("/office/html/landing-page")
+    );
+    let path = work_dir.path().join("office/html/landing-page.html");
+    let starter = std::fs::read_to_string(&path).unwrap();
+    assert!(starter.contains("<h1>Landing Page</h1>"));
+
+    let response = app
+        .clone()
+        .oneshot(authed_get("/office/html/landing-page"))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response
+            .headers()
+            .get("content-type")
+            .and_then(|value| value.to_str().ok()),
+        Some("text/html; charset=utf-8")
+    );
+    let editor = body_string(response).await;
+    assert!(editor.contains("id=\"office-html-preview-frame\""));
+    assert!(editor.contains("sandbox=\"\""));
+    assert!(editor.contains("referrerpolicy=\"no-referrer\""));
+    assert!(editor.contains("/office-html.js"));
+    assert!(editor.contains("data-office-format=\"HTML\""));
+
+    let source = "<!doctype html><html><head><title>Actualizado</title></head><body><h1>Actualizado</h1><script>window.top.location='https://example.invalid'</script></body></html>";
+    let response = app
+        .clone()
+        .oneshot(authed_put_form(
+            "/office/html/landing-page",
+            &form(&[("content", source)]),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), source);
+
+    let response = app
+        .clone()
+        .oneshot(authed_get("/office/html/landing-page/export"))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response
+            .headers()
+            .get("content-disposition")
+            .and_then(|value| value.to_str().ok()),
+        Some("attachment; filename=\"landing-page.html\"")
+    );
+    assert_eq!(body_string(response).await, source);
+
+    let response = app
+        .clone()
+        .oneshot(authed_get("/office/library"))
+        .await
+        .unwrap();
+    assert!(body_string(response)
+        .await
+        .contains("/office/html/landing-page"));
+
+    let response = app
+        .oneshot(authed_delete("/office/html/landing-page"))
+        .await
+        .unwrap();
+    assert_eq!(
+        response
+            .headers()
+            .get("HX-Redirect")
+            .and_then(|value| value.to_str().ok()),
+        Some("/office/html")
+    );
+    assert!(!path.exists());
+}
+
+#[tokio::test]
+async fn test_html_create_redirect_percent_encodes_unicode_slug() {
+    let (state, _work_dir) = setup().await;
+    let app = study_platform::handlers::router(state);
+    let response = app
+        .clone()
+        .oneshot(authed_post_form(
+            "/office/html",
+            &form(&[("title", "Página Inicial"), ("content", "")]),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response
+            .headers()
+            .get("HX-Redirect")
+            .and_then(|value| value.to_str().ok()),
+        Some("/office/html/p%C3%A1gina-inicial")
+    );
+
+    let response = app
+        .oneshot(authed_get("/office/html/p%C3%A1gina-inicial"))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn test_html_preview_script_is_served_from_local_asset() {
+    let (state, _work_dir) = setup().await;
+    let app = study_platform::handlers::router(state);
+    let response = app.oneshot(authed_get("/office-html.js")).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let script = body_string(response).await;
+    assert!(script.contains("default-src 'none'"));
+    assert!(script.contains("navigate-to 'none'"));
+}
+
+#[tokio::test]
+async fn test_library_import_download_and_delete_html_page() {
+    let (state, work_dir) = setup().await;
+    let app = study_platform::handlers::router(state);
+    let source = "<!doctype html><html><body><h1>Importado</h1></body></html>";
+    let response = app
+        .clone()
+        .oneshot(authed_post_form(
+            "/office/library/import/html",
+            &form(&[("name", "Imported Page"), ("content", source)]),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response
+            .headers()
+            .get("HX-Redirect")
+            .and_then(|value| value.to_str().ok()),
+        Some("/office/library")
+    );
+
+    let path = work_dir.path().join("office/html/imported-page.html");
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), source);
+
+    let response = app
+        .clone()
+        .oneshot(authed_get("/office/library/html/imported-page/download"))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response
+            .headers()
+            .get("content-type")
+            .and_then(|value| value.to_str().ok()),
+        Some("text/html; charset=utf-8")
+    );
+    assert_eq!(body_string(response).await, source);
+
+    let response = app
+        .clone()
+        .oneshot(authed_get("/office/library"))
+        .await
+        .unwrap();
+    let library = body_string(response).await;
+    assert!(library.contains("Página HTML"));
+    assert!(library.contains("/office/html/imported-page"));
+    assert!(library.contains("value=\"html\">Página HTML</option>"));
+
+    let response = app
+        .oneshot(authed_post_form(
+            "/office/library/html/imported-page/delete",
+            "",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(
+        response
+            .headers()
+            .get("HX-Redirect")
+            .and_then(|value| value.to_str().ok()),
+        Some("/office/library")
+    );
+    assert!(!path.exists());
+}
+
+#[tokio::test]
+async fn test_html_page_enforces_one_mib_limit_in_bytes() {
+    let (state, work_dir) = setup().await;
+    let app = study_platform::handlers::router(state);
+    let response = app
+        .clone()
+        .oneshot(authed_post_form(
+            "/office/html",
+            &form(&[("title", "Size Limit"), ("content", "")]),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let path = work_dir.path().join("office/html/size-limit.html");
+
+    let exact_limit = format!("content={}", "%3C".repeat(1024 * 1024));
+    let response = app
+        .clone()
+        .oneshot(authed_put_form("/office/html/size-limit", &exact_limit))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(std::fs::metadata(&path).unwrap().len(), 1024 * 1024);
+
+    let too_large = format!("content={}", "%3C".repeat(1024 * 1024 + 1));
+    let response = app
+        .oneshot(authed_put_form("/office/html/size-limit", &too_large))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(std::fs::metadata(&path).unwrap().len(), 1024 * 1024);
 }
 
 // ---------------------------------------------------------------------------

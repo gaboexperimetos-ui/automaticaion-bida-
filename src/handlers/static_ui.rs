@@ -46,6 +46,30 @@ pub async fn serve_shell_js(State(_state): State<Arc<AppState>>) -> Response<Bod
     make_response_with_cache(content, "application/javascript; charset=utf-8")
 }
 
+/// HTMX local para que los formularios funcionen sin depender de un CDN.
+pub async fn serve_htmx(State(_state): State<Arc<AppState>>) -> Response<Body> {
+    let content = include_bytes!("../../static/vendor/htmx-2.0.3.min.js");
+    make_response_with_cache(content, "application/javascript; charset=utf-8")
+}
+
+/// SheetJS CE local para importar/exportar hojas XLSX sin una CDN.
+pub async fn serve_xlsx(State(_state): State<Arc<AppState>>) -> Response<Body> {
+    let content = include_bytes!("../../static/vendor/xlsx-0.20.3.full.min.js");
+    make_response_with_cache(content, "application/javascript; charset=utf-8")
+}
+
+/// Puente web de importación/exportación XLSX de NOVA Office.
+pub async fn serve_office_sheets_js(State(_state): State<Arc<AppState>>) -> Response<Body> {
+    let content = include_bytes!("../../static/app/office-sheets.js");
+    make_response_with_cache(content, "application/javascript; charset=utf-8")
+}
+
+/// Editor HTML con preview local sandboxed.
+pub async fn serve_office_html_js(State(_state): State<Arc<AppState>>) -> Response<Body> {
+    let content = include_bytes!("../../static/app/office-html.js");
+    make_response_with_cache(content, "application/javascript; charset=utf-8")
+}
+
 /// Favicon (SVG) en `/favicon.ico` y `/favicon.svg`: evita el 404 que dispara
 /// el navegador por defecto. Un SVG declarado con su content-type sirve como
 /// icono de pestaña en los navegadores actuales.

@@ -135,9 +135,10 @@
       init.body = JSON.stringify(opts.json);
     } else if (opts.form) {
       init.method = "POST";
-      var fd = new FormData();
-      Object.keys(opts.form).forEach(function (k) { fd.append(k, opts.form[k]); });
-      init.body = fd;
+      var params = new URLSearchParams();
+      Object.keys(opts.form).forEach(function (k) { params.append(k, String(opts.form[k])); });
+      init.headers["content-type"] = "application/x-www-form-urlencoded";
+      init.body = params.toString();
     }
     return fetch(path, init).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (data) {
@@ -476,6 +477,7 @@
         { label: "Documento", icon: "article", sub: "programas de oficina", fn: function () { newOffice("docs", "Documento"); } },
         { label: "Hoja de cálculo", icon: "table_chart", sub: "csv", fn: function () { newOffice("sheets", "Hoja de cálculo"); } },
         { label: "Presentación", icon: "slideshow", fn: function () { newOffice("presentations", "Presentación"); } },
+        { label: "Página HTML", icon: "code", fn: function () { newOffice("html", "Página HTML"); } },
         { label: "Importar desde Obsidian", icon: "file_open", sub: "carpeta de archivos Markdown", fn: importObsidian },
         "-",
         { head: "Académico" },
@@ -513,24 +515,31 @@
     }).then(function (title) {
       if (!title) { return; }
       var path = "/office/" + kind;
-      SP.api(path, { form: { title: title, content: "" } })
-        .then(function () {
-          SP.toast(label + " creada", "ok");
-          var slug = sluginator(title);
-          setTimeout(function () {
-            if (kind === "docs") { window.location.href = "/office/docs/" + slug; }
-            else if (kind === "sheets") { window.location.href = "/office/sheets"; }
-            else { window.location.href = "/office/presentations/" + slug; }
-          }, 600);
-        })
-        .catch(function (err) {
-          if (err.status === 409) {
-            SP.toast("Ya existía un elemento con ese título", "info");
-            setTimeout(function () { window.location.href = path; }, 600);
-            return;
-          }
-          SP.toast(msgErr(err), "err");
-        });
+      var params = new URLSearchParams({ title: title, content: "" });
+      fetch(path, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: params.toString()
+      }).then(function (response) {
+        if (!response.ok) {
+          throw { status: response.status, message: response.status + " " + (response.statusText || "") };
+        }
+        var redirect = response.headers.get("HX-Redirect");
+        if (!redirect || redirect.charAt(0) !== "/" || redirect.indexOf("//") === 0) {
+          throw new Error("El servidor no indicó dónde abrir el archivo.");
+        }
+        return redirect;
+      }).then(function (redirect) {
+        SP.toast(label + " creada", "ok");
+        setTimeout(function () { window.location.href = redirect; }, 600);
+      }).catch(function (err) {
+        if (err.status === 409) {
+          SP.toast("Ya existía un elemento con ese título", "info");
+          setTimeout(function () { window.location.href = path; }, 600);
+          return;
+        }
+        SP.toast(msgErr(err), "err");
+      });
     });
   }
 
@@ -1301,6 +1310,10 @@
         '<label class="sp-field"><span class="sp-field-label">Nota</span>' +
         '<textarea class="sp-input" id="sp-anot-cuerpo" rows="4" maxlength="4000" placeholder="Detalles, material que llevar, recordatorios..."></textarea></label>' +
         '<div class="sp-anot-lista" id="sp-anot-lista"></div>';
+      if (anotacion) {
+        cuerpo.querySelector("#sp-anot-titulo").value = anotacion.title || "";
+        cuerpo.querySelector("#sp-anot-cuerpo").value = anotacion.body || "";
+      }
       SP.dialog({
         title: anotacion ? "Editar anotación" : "Anotar el " + fecha,
         html: cuerpo,
@@ -1308,7 +1321,12 @@
         onOk: function (box) {
           var t = box.querySelector("#sp-anot-titulo");
           var c = box.querySelector("#sp-anot-cuerpo");
-          return { title: t ? t.value : "", body: c ? c.value : "" };
+          if (!(t.value.trim() || c.value.trim())) {
+            SP.toast("Escribe un título o una nota", "err");
+            t.focus();
+            return false;
+          }
+          return { title: t.value, body: c.value };
         }
       }).then(function (res) {
         if (!res) { return; }
@@ -1318,7 +1336,7 @@
           : SP.api("/api/calendar/annotations", { method: "POST", json: { date: fecha, title: json.title, body: json.body } });
         p.then(function () {
           SP.toast(anotacion ? "Anotación actualizada" : "Anotación guardada", "ok");
-          setTimeout(function () { window.location.reload(); }, 500);
+          setTimeout(function () { window.location.assign("/dashboard/calendar?month=" + fecha.slice(0, 7)); }, 500);
         }).catch(function (err) { SP.toast(msgErr(err), "err"); });
       });
     }
@@ -1328,13 +1346,28 @@
         var lista = (d && d.annotations) || [];
         if (!lista.length) { dialogoAnotacion(fecha, null); return; }
         var items = lista.map(function (a) {
-          return { label: a.title || a.body.slice(0, 40) || "Anotación", sub: a.body ? a.body.slice(0, 60) : "", icon: "sticky_note_2", value: a };
+          return { label: a.title || (a.body || "").slice(0, 40) || "Anotación", sub: a.body ? a.body.slice(0, 60) : "", icon: "sticky_note_2", value: a };
         });
         items.push({ label: "Añadir otra anotación", icon: "add", value: "new" });
         SP.dialog({ title: "Anotaciones del " + fecha, items: items }).then(function (v) {
           if (!v) { return; }
           if (v === "new") { dialogoAnotacion(fecha, null); return; }
-          if (typeof v === "object" && v.id) { dialogoAnotacion(fecha, v); }
+          if (typeof v === "object" && v.id) {
+            SP.dialog({ title: v.title || "Anotación", items: [
+              { label: "Editar", icon: "edit", value: "edit" },
+              { label: "Eliminar", icon: "delete", value: "delete" }
+            ] }).then(function (action) {
+              if (action === "edit") { dialogoAnotacion(fecha, v); }
+              if (action === "delete") {
+                SP.confirm("Eliminar anotación", "Esta acción no se puede deshacer.", "Eliminar").then(function (confirmed) {
+                  if (!confirmed) { return; }
+                  SP.api("/api/calendar/annotations/" + v.id, { method: "DELETE" }).then(function () {
+                    window.location.assign("/dashboard/calendar?month=" + fecha.slice(0, 7));
+                  }).catch(function (err) { SP.toast(msgErr(err), "err"); });
+                });
+              }
+            });
+          }
         });
       }).catch(function (err) { SP.toast(msgErr(err), "err"); });
     }
@@ -1348,32 +1381,17 @@
       listar(fecha);
     }
 
-    grid.addEventListener("click", function (e) {
-      var cell = e.target.closest ? e.target.closest(".calendar-cell") : null;
+    // El grid se sustituye con outerHTML al cambiar de mes. La delegación en
+    // document conserva el comportamiento después de cada navegación HTMX.
+    document.addEventListener("click", function (e) {
+      var cell = e.target.closest ? e.target.closest("#calendar-grid .calendar-cell[data-date]") : null;
       abrirCelda(cell, e);
     });
 
-    grid.addEventListener("keydown", function (e) {
+    document.addEventListener("keydown", function (e) {
       if (e.key !== "Enter" && e.key !== " ") { return; }
-      var cell = e.target.closest ? e.target.closest(".calendar-cell") : null;
+      var cell = e.target.closest ? e.target.closest("#calendar-grid .calendar-cell[data-date]") : null;
       abrirCelda(cell, e);
-    });
-
-    // Clic derecho: borrar anotación directamente (atajo para limpiar).
-    grid.addEventListener("contextmenu", function (e) {
-      var cell = e.target.closest ? e.target.closest(".calendar-cell") : null;
-      if (!cell) { return; }
-      var fecha = cell.getAttribute("data-date");
-      if (!fecha) { return; }
-      e.preventDefault();
-      SP.api("/api/calendar/annotations?from=" + fecha + "&to=" + fecha).then(function (d) {
-        var lista = (d && d.annotations) || [];
-        if (!lista.length) { return; }
-        SP.api("/api/calendar/annotations/" + lista[0].id, { method: "DELETE" }).then(function () {
-          SP.toast("Anotación borrada", "ok");
-          setTimeout(function () { window.location.reload(); }, 400);
-        }).catch(function (err) { SP.toast(msgErr(err), "err"); });
-      }).catch(function () { });
     });
   }
 
@@ -1762,6 +1780,58 @@
     return frag;
   }
 
+  // El documento sólo se envía al asistente cuando el usuario lo solicita.
+  // La propuesta nunca sustituye el contenido ni se guarda automáticamente.
+  function initOfficeDocAi() {
+    var form = document.getElementById("office-doc-ai-form");
+    var editor = document.getElementById("editor");
+    if (!form || !editor) { return; }
+    var prompt = document.getElementById("office-doc-ai-prompt");
+    var result = document.getElementById("office-doc-ai-result");
+    var status = document.getElementById("office-doc-ai-status");
+    var insert = document.getElementById("office-doc-ai-insert");
+    var submit = form.querySelector('button[type="submit"]');
+    var officeFormat = editor.getAttribute("data-office-format") || "Markdown";
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var instruction = prompt.value.trim();
+      if (!instruction) { prompt.focus(); return; }
+      var text = Array.from(editor.value).slice(0, 6000).join("");
+      var truncated = Array.from(editor.value).length > 6000;
+      var message = "Ayúdame con este documento en formato " + officeFormat + ". Instrucción: " + instruction +
+        "\n\nDocumento" + (truncated ? " (primeros 6000 caracteres)" : "") + ":\n" + text;
+      submit.disabled = true;
+      insert.disabled = true;
+      result.value = "";
+      status.textContent = "Consultando al asistente…";
+      fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json", "accept": "application/json" },
+        body: JSON.stringify({ message: message, subject: "Oficina", mode: "general" })
+      }).then(function (response) {
+        return response.json().catch(function () { return {}; }).then(function (data) {
+          if (!response.ok) { throw new Error(data.error || data.message || "No se pudo consultar al asistente."); }
+          if (typeof data.content !== "string" || !data.content.trim()) { throw new Error("El asistente no devolvió contenido."); }
+          result.value = data.content;
+          insert.disabled = false;
+          status.textContent = data.content.indexOf("[Modo simulado]") !== -1
+            ? "Modo simulado: no se ha consultado un modelo real."
+            : "Propuesta lista. Revísala antes de insertarla.";
+        });
+      }).catch(function (err) {
+        status.textContent = msgErr(err);
+      }).finally(function () { submit.disabled = false; });
+    });
+    insert.addEventListener("click", function () {
+      if (!result.value) { return; }
+      editor.value += (editor.value ? "\n\n" : "") + result.value;
+      editor.dispatchEvent(new Event("input", { bubbles: true }));
+      insert.disabled = true;
+      status.textContent = "Insertado al final. Pulsa Guardar cambios para conservarlo.";
+      editor.focus();
+    });
+  }
+
   function boot() {
     injectCss();
     initSearch();
@@ -1771,6 +1841,7 @@
     initCollectionsSafe();
     initVaultActions();
     initCalendar();
+    initOfficeDocAi();
     initModelPicker();
     initNotesEditor();
     initChatWorkspace();

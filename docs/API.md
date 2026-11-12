@@ -262,6 +262,10 @@ descarga, no una página).
 | POST | `/office/presentations/{slug}/slides` | Sí | datos de la diapositiva | Añade una diapositiva. |
 | PUT, DELETE | `/office/presentations/{slug}/slides/{index}` | Sí | PUT: contenido de la diapositiva | Actualiza / borra la diapositiva. |
 | POST | `/office/presentations/{slug}/slides/reorder` | Sí | nuevo orden | Reordena las diapositivas. |
+| GET, POST | `/office/html` | Sí | POST: `title` y `content` (≤ 1 MiB) | `200` HTML (listado) / `HX-Redirect` al editor tras crear. |
+| GET | `/office/html/new` | Sí | — | `200` HTML (formulario de creación). |
+| GET, PUT, DELETE | `/office/html/{slug}` | Sí | PUT: `content` (≤ 1 MiB) | Editor HTML con preview sandbox / `HX-Redirect` tras guardar o borrar. |
+| GET | `/office/html/{slug}/export` | Sí | — | `200` descarga `.html` sin transformar el código fuente. |
 | GET | `/office/library` | Sí | — | `200` HTML (biblioteca de archivos). |
 | GET | `/office/library/search` | Sí | Query `q` (≤ 200 chars) | `200` HTML con los resultados; `400` "query too long". |
 | POST | `/office/library/import/{type}` | Sí | archivo a importar | Importa un archivo a la biblioteca. |
