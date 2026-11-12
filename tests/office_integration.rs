@@ -580,10 +580,7 @@ async fn test_spreadsheet_assets_are_served_locally() {
     let bundle = body_string(response).await;
     assert!(bundle.contains("0.20.3"));
 
-    let response = app
-        .oneshot(authed_get("/office-sheets.js"))
-        .await
-        .unwrap();
+    let response = app.oneshot(authed_get("/office-sheets.js")).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     let helper = body_string(response).await;
     assert!(helper.contains("worksheetToAoa"));
