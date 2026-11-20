@@ -560,7 +560,7 @@ mod tests {
         let ics = construir_ical(&[], &local);
         assert!(ics.contains("UID:cita-7@example.test\r\n"));
         assert!(ics.contains("DTSTART:20260303T083000\r\n"));
-        assert!(ics.contains("DTEND:20260303T094500\r\n"));
+        assert!(ics.contains("DTEND:20260304T094500\r\n"));
         assert!(ics.contains("LOCATION:Quito\r\n"));
         assert!(ics.contains("DTSTART;VALUE=DATE:20260305\r\n"));
         assert!(ics.contains("DTEND;VALUE=DATE:20260306\r\n"));

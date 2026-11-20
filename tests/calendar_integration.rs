@@ -187,7 +187,8 @@ async fn monthly_calendar_renders_the_selected_day_panel_and_adjacent_dates() {
         .await
         .unwrap();
     let html = String::from_utf8(bytes.to_vec()).unwrap();
-    assert!(html.contains("id=\"selected-day-panel\" data-date=\"2026-10-19\""));
+    assert!(html
+        .contains("id=\"selected-day-panel\" class=\"agenda-day-panel\" data-date=\"2026-10-19\""));
     assert!(html.contains("Proyecto NOVA"));
     assert!(html.contains("data-date=\"2026-09-28\""));
     assert!(html.contains("role=\"gridcell\""));
