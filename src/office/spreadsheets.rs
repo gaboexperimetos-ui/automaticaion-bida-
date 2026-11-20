@@ -46,22 +46,26 @@ pub async fn list(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     } else {
         files.iter().map(|f| {
             format!(
-                r##"<article class="gen-office-file-card sheets"><a class="gen-office-file-preview" href="/office/sheets/{slug}"><span class="material-symbols-outlined">table_chart</span><small>CSV</small></a><div class="gen-office-file-copy"><a href="/office/sheets/{slug}">{display}</a><span>{modified} · {size}</span></div><footer><a href="/office/sheets/{slug}/export">Exportar CSV</a><form hx-post="/office/sheets/{slug}/delete"><button type="submit" onclick="return confirm('¿Borrar?')" class="gen-office-icon-button danger" aria-label="Borrar {display}"><span class="material-symbols-outlined">delete</span></button></form></footer></article>"##,
+                r##"<article class="gen-office-file-card sheets"><a class="gen-office-file-preview" href="/office/sheets/{slug}" aria-label="Abrir {display}"><span class="material-symbols-outlined">table_chart</span></a><div class="gen-office-file-copy"><a href="/office/sheets/{slug}">{display}</a><span>Hoja de cálculo · {modified} · {size}</span></div><div class="gen-office-doc-actions"><a class="gen-office-chip" href="/office/sheets/{slug}/export">CSV</a><form hx-post="/office/sheets/{slug}/delete" hx-confirm="¿Borrar «{display}»?"><button type="submit" class="gen-office-icon-button danger" aria-label="Borrar {display}"><span class="material-symbols-outlined">delete</span></button></form></div></article>"##,
                 slug = templates::html_escape(&f.name),
                 display = templates::html_escape(&f.display),
                 size = templates::human_size(f.size),
-                modified = templates::html_escape(&f.modified),
+                modified = templates::html_escape(&templates::human_date(&f.modified)),
             )
         }).collect::<Vec<_>>().join("\n")
     };
 
     let body = format!(
-        r##"<div class="nova-page gen-office-page gen-office-manager-page">{tabs}<header class="gen-office-manager-head"><div><span>HOJAS DE CÁLCULO · CSV</span><h1>Datos que puedes trabajar.</h1><p>{count} hoja(s) con cuadrícula editable y fórmulas SUM / AVG.</p></div><a href="/office/sheets/new" class="gen-office-primary-button"><span class="material-symbols-outlined">add</span>Nueva hoja</a></header><nav class="gen-office-appnav" aria-label="Aplicaciones de oficina"><a href="/office/docs"><span class="material-symbols-outlined">description</span>Documentos</a><a class="is-active sheets" href="/office/sheets"><span class="material-symbols-outlined">table_chart</span>Hojas</a><a href="/office/presentations"><span class="material-symbols-outlined">present_to_all</span>Presentaciones</a><a href="/office/library"><span class="material-symbols-outlined">folder_open</span>Biblioteca</a></nav><section class="gen-office-file-grid">{cards}</section><footer class="gen-office-home-footer"><span><span class="material-symbols-outlined">hard_drive</span> CSV local</span><span>Fórmulas calculadas al exportar</span></footer></div>"##,
+        r##"<div class="nova-page gen-office-page gen-office-manager-page">{tabs}<header class="gen-office-manager-head"><div><span>HOJAS DE CÁLCULO · CSV</span><h1>Datos que puedes trabajar.</h1><p>{summary}</p></div><a href="/office/sheets/new" class="gen-office-primary-button"><span class="material-symbols-outlined">add</span>Nueva hoja</a></header><nav class="gen-office-appnav" aria-label="Aplicaciones de oficina"><a href="/office/docs"><span class="material-symbols-outlined">description</span>Documentos</a><a class="is-active sheets" href="/office/sheets"><span class="material-symbols-outlined">table_chart</span>Hojas</a><a href="/office/presentations"><span class="material-symbols-outlined">present_to_all</span>Presentaciones</a><a href="/office/library"><span class="material-symbols-outlined">folder_open</span>Biblioteca</a></nav><section class="gen-office-file-grid gen-office-docs-grid">{cards}</section><footer class="gen-office-home-footer"><span><span class="material-symbols-outlined">hard_drive</span> CSV local</span><span>Fórmulas calculadas al exportar</span></footer></div>"##,
         tabs = templates::office_tab_strip("sheets", "Hojas", "/office/sheets/new"),
-        count = files.len(),
+        summary = match files.len() {
+            0 => "Sin hojas todavía.".to_string(),
+            1 => "1 hoja con cuadrícula editable y fórmulas SUM / AVG.".to_string(),
+            n => format!("{} hojas con cuadrícula editable y fórmulas SUM / AVG.", n),
+        },
         cards = cards,
     );
-    templates::layout_as_shelled(&state, "Hojas de cálculo", "hojas", &body).await
+    templates::layout_as_shelled(&state, "Hojas de cálculo", "hojas-de-calculo", &body).await
 }
 
 /// New-sheet form.
@@ -70,7 +74,7 @@ pub async fn new_sheet() -> impl IntoResponse {
         r##"<div class="nova-page gen-office-page gen-office-create-page">{tabs}<main class="gen-office-create-shell"><div class="gen-office-create-heading"><span class="gen-office-launcher-icon sheets"><span class="material-symbols-outlined">table_chart</span></span><div><span>NUEVA HOJA DE CÁLCULO</span><h1>Una cuadrícula lista para tus datos.</h1><p>Crearemos cinco filas y cinco columnas; después puedes ampliarlas desde el editor.</p></div></div><form hx-post="/office/sheets" hx-swap="outerHTML" class="gen-office-create-form compact"><div class="gen-office-create-fields"><label for="new-sheet-title">Nombre de la hoja</label><input id="new-sheet-title" type="text" name="title" placeholder="Ej. Presupuesto del trimestre" required autofocus></div><div class="gen-office-create-facts"><span><strong>5 × 5</strong> cuadrícula inicial</span><span><strong>SUM / AVG</strong> fórmulas</span><span><strong>CSV</strong> exportación</span></div><footer><a href="/office/sheets" class="gen-office-secondary-button">Cancelar</a><span>Se guardará como .csv</span><button type="submit" class="gen-office-primary-button">Crear hoja<span class="material-symbols-outlined">arrow_forward</span></button></footer></form></main></div>"##,
         tabs = templates::office_tab_strip("sheets", "Nueva hoja", "/office/sheets/new"),
     );
-    layout_as("Nueva hoja", "hojas", &body)
+    layout_as("Nueva hoja", "hojas-de-calculo", &body)
 }
 
 /// Create a spreadsheet (empty grid).
@@ -173,7 +177,7 @@ pub async fn edit(
         slug = templates::html_escape(&slug),
     );
     let body = format!(
-        r##"<div class="nova-page gen-office-page gen-office-editor-page">{tabs}<header class="gen-office-ribbon"><nav class="gen-office-menubar" aria-label="Acciones de la hoja"><a class="is-active" href="/office/sheets/{slug}">Inicio</a><button type="button" onclick="addOfficeGridRow()">Insertar fila</button><button type="button" onclick="addOfficeGridColumn()">Insertar columna</button><a href="/office/sheets/{slug}/export">Exportar CSV</a></nav><div class="gen-office-ribbon-actions">{ai_toggle}<a class="gen-office-primary-button" href="/office/sheets/{slug}/export"><span class="material-symbols-outlined">download</span>CSV</a></div></header><div class="gen-office-workspace">{ai}<main class="gen-office-editor-main"><div class="gen-office-canvas-head"><div><span>HOJA DE CÁLCULO</span><strong>{title}</strong></div><span class="gen-office-local-badge"><span class="material-symbols-outlined">hard_drive</span>CSV local</span></div><section class="gen-office-sheet-workspace">{grid}</section></main></div><footer class="gen-office-statusbar"><span><span class="material-symbols-outlined">table_chart</span> Hoja1</span><span>Editable · SUM / AVG</span><span>NOVA Office</span></footer></div><script>{workspace_js}</script>"##,
+        r##"<div class="nova-page gen-office-page gen-office-editor-page">{tabs}<header class="gen-office-ribbon"><nav class="gen-office-menubar" aria-label="Acciones de la hoja"><a class="is-active" href="/office/sheets/{slug}">Inicio</a><button type="button" onclick="addOfficeGridRow()">Insertar fila</button><button type="button" onclick="addOfficeGridColumn()">Insertar columna</button><a href="/office/sheets/{slug}/export">Exportar CSV</a></nav><div class="gen-office-ribbon-actions">{ai_toggle}<a class="gen-office-primary-button" href="/office/sheets/{slug}/export"><span class="material-symbols-outlined">download</span>CSV</a></div></header><div class="gen-office-workspace ai-hidden">{ai}<main class="gen-office-editor-main"><div class="gen-office-canvas-head"><div><span>HOJA DE CÁLCULO</span><strong>{title}</strong></div><span class="gen-office-local-badge"><span class="material-symbols-outlined">hard_drive</span>CSV local</span></div><section class="gen-office-sheet-workspace">{grid}</section></main></div><footer class="gen-office-statusbar"><span><span class="material-symbols-outlined">table_chart</span> Hoja1</span><span>Editable · SUM / AVG</span><span>NOVA Office</span></footer></div><script>{workspace_js}</script>"##,
         tabs = templates::office_tab_strip("sheets", &slug.replace('-', " "), "/office/sheets/new"),
         slug = templates::html_escape(&slug),
         ai_toggle = templates::OFFICE_AI_TOGGLE,
@@ -182,7 +186,7 @@ pub async fn edit(
         grid = grid_html,
         workspace_js = templates::OFFICE_WORKSPACE_JS,
     );
-    layout_as(&format!("Hoja: {}", slug), "hojas", &body).into_response()
+    layout_as(&format!("Hoja: {}", slug), "hojas-de-calculo", &body).into_response()
 }
 
 /// Import CSV (or save the grid). Accepts `csv_data` (the grid is serialized
@@ -234,7 +238,37 @@ pub async fn import(
         )
             .into_response();
     }
+    templates::mirror_to_genoffice(&file_path);
     hx_redirect(&format!("/office/sheets/{}", slug))
+}
+
+/// Autoguardado de la cuadrícula: guarda el CSV serializado y responde 204.
+pub async fn autosave(
+    State(state): State<Arc<AppState>>,
+    Path(slug): Path<String>,
+    Form(form): Form<ImportForm>,
+) -> axum::response::Response {
+    use axum::http::StatusCode;
+    if !crate::office::is_safe_slug(&slug) {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    let file_path = sheets_dir(&state).join(format!("{}.csv", slug));
+    if !file_path.exists() {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    if form.csv_data.len() > MAX_CSV_LEN {
+        return StatusCode::PAYLOAD_TOO_LARGE.into_response();
+    }
+    if let Err(e) = templates::write_text(&file_path, &form.csv_data) {
+        tracing::error!(
+            slug_len = slug.len(),
+            "office sheets autosave: write failed: {}",
+            e
+        );
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    }
+    templates::mirror_to_genoffice(&file_path);
+    StatusCode::NO_CONTENT.into_response()
 }
 
 /// Export the spreadsheet as CSV with `SUM`/`AVG` formulas evaluated.
@@ -325,11 +359,15 @@ pub async fn delete(
 // ---------------------------------------------------------------------------
 
 fn render_grid(slug: &str, rows: &[Vec<String>], computed: &[Vec<String>]) -> String {
-    let cols = rows.iter().map(|r| r.len()).max().unwrap_or(0).max(5);
-    let display_rows = if rows.is_empty() { 5 } else { rows.len() };
+    // Una hoja real no termina en la última fila escrita: el lienzo muestra
+    // una retícula viva de 20×8 aunque solo haya datos en la esquina. El
+    // autoguardado recorta las filas vacías del final para no ensuciar el CSV.
+    let cols = rows.iter().map(|r| r.len()).max().unwrap_or(0).max(8);
+    let display_rows = rows.len().max(20);
 
-    let mut editable = String::from(
-        r##"<table id="grid" class="gen-office-sheet-grid" aria-label="Cuadrícula editable"><thead><tr><th class="gen-office-row-corner"></th>"##,
+    let mut editable = format!(
+        r##"<table id="grid" class="gen-office-sheet-grid" data-autosave="/office/sheets/{}/autosave" aria-label="Cuadrícula editable"><thead><tr><th class="gen-office-row-corner"></th>"##,
+        templates::html_escape(slug)
     );
     for c in 0..cols {
         editable.push_str(&format!("<th scope=\"col\">{}</th>", row_to_header(c)));
@@ -369,13 +407,12 @@ fn render_grid(slug: &str, rows: &[Vec<String>], computed: &[Vec<String>]) -> St
 
     let header = (0..cols).map(row_to_header).collect::<Vec<_>>().join(" ");
     format!(
-        r##"<div class="gen-office-sheet-head"><div><span>HOJA1 · CUADRÍCULA EDITABLE</span><p id="sheet-grid-count">{row_count} filas · {col_count} columnas</p></div><form hx-post="/office/sheets/{slug}/import" hx-on::before-request="serializeGrid()"><input type="hidden" name="csv_data" id="csv_data" value=""><button type="submit" id="save-grid-button" class="gen-office-primary-button"><span class="material-symbols-outlined">save</span>Guardar cuadrícula</button></form></div>
+        r##"<div class="gen-office-sheet-head"><div><span>HOJA1 · CUADRÍCULA EDITABLE</span><p id="sheet-grid-count">{row_count} filas · {col_count} columnas</p></div><div class="gen-office-sheet-save"><span class="gen-office-save-status"><span class="material-symbols-outlined">cloud_done</span><span id="office-save-status" data-state="saved">Guardado automático</span></span><button type="button" id="save-grid-button" onclick="saveOfficeGridNow()" class="gen-office-primary-button"><span class="material-symbols-outlined">save</span>Guardar cuadrícula</button></div></div>
         <div class="gen-office-formula-bar"><span id="active-cell">A1</span><span class="gen-office-fx">fx</span><label class="sr-only" for="formula-input">Contenido de la celda seleccionada</label><input id="formula-input" type="text" autocomplete="off" placeholder="Selecciona una celda o escribe una fórmula"></div>
         <div class="gen-office-sheet-grid-wrap">{editable}</div>
         <details class="gen-office-sheet-computed"><summary><span><span class="material-symbols-outlined">calculate</span>Valores calculados</span><span class="material-symbols-outlined">expand_more</span></summary><div>{values}<p>Columnas: {header}</p></div></details><script>{grid_js}</script>"##,
         row_count = display_rows,
         col_count = cols,
-        slug = slug,
         editable = editable,
         values = values,
         header = header,

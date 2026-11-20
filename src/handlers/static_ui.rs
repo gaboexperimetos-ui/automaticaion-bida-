@@ -54,6 +54,19 @@ pub async fn serve_favicon(State(_state): State<Arc<AppState>>) -> Response<Body
     make_response(content, "image/svg+xml")
 }
 
+/// Sistema de temas (`static/app/themes.css`) en `/themes.css`: las paletas
+/// portadas de Cortex que reescriben los tokens `--nx-*`, `--sp-*` y `--c-*`.
+pub async fn serve_themes_css(State(_state): State<Arc<AppState>>) -> Response<Body> {
+    let content = include_bytes!("../../static/app/themes.css");
+    make_response_with_cache(content, "text/css; charset=utf-8")
+}
+
+/// Reproductor de música (`static/app/music.css`) en `/music.css`.
+pub async fn serve_music_css(State(_state): State<Arc<AppState>>) -> Response<Body> {
+    let content = include_bytes!("../../static/app/music.css");
+    make_response_with_cache(content, "text/css; charset=utf-8")
+}
+
 /// Capa de pulido transversal (`static/app/polish.css`) en `/polish.css`:
 /// superficies del navegador tematizadas, foco, selección, movimiento al
 /// cargar los swaps de HTMX. Va embebida como `shell.js`.

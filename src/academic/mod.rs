@@ -35,8 +35,6 @@ pub fn register_routes(
     let _ = state; // State is provided by the outer router
 
     let academic = Router::new()
-        .route("/calendar", get(calendar::monthly))
-        .route("/calendar/daily", get(calendar::daily))
         .route("/horario", get(crate::handlers::schedule::weekly))
         .route("/planner", get(planner::weekly))
         .route("/profile", get(profile::index))

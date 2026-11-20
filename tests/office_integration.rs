@@ -269,6 +269,111 @@ async fn test_office_home_with_auth() {
     assert!(html.contains("Biblioteca"));
 }
 
+/// Las páginas de Oficina deben servirse como `text/html`. Un `String` desnudo
+/// en axum se sirve como `text/plain`, y el navegador acaba mostrando el HTML
+/// como código fuente (regresión vista en Documentos).
+#[tokio::test]
+async fn test_office_pages_content_type_html() {
+    let (state, _work_dir) = setup().await;
+    let app = study_platform::handlers::router(state);
+
+    let rutas = [
+        "/office",
+        "/office/docs",
+        "/office/docs/new",
+        "/office/sheets",
+        "/office/sheets/new",
+        "/office/presentations",
+        "/office/presentations/new",
+        "/office/library",
+    ];
+    for uri in rutas {
+        let response = app.clone().oneshot(authed_get(uri)).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK, "{uri}");
+        let content_type = response
+            .headers()
+            .get(axum::http::header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("<sin content-type>");
+        assert!(
+            content_type.starts_with("text/html"),
+            "{uri} devolvió content-type {content_type}"
+        );
+    }
+}
+
+/// El autoguardado de documentos debe escribir el archivo sin redirigir (204).
+#[tokio::test]
+async fn test_office_docs_autosave_persists() {
+    let (state, _work_dir) = setup().await;
+    let app = study_platform::handlers::router(state);
+
+    let create = app
+        .clone()
+        .oneshot(authed_post_form(
+            "/office/docs",
+            "title=Autosave+Test&content=inicial",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(create.status(), StatusCode::OK);
+
+    let saved = app
+        .clone()
+        .oneshot(authed_post_form(
+            "/office/docs/autosave-test/autosave",
+            "content=segunda+version",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(saved.status(), StatusCode::NO_CONTENT);
+
+    let page = app
+        .oneshot(authed_get("/office/docs/autosave-test"))
+        .await
+        .unwrap();
+    assert_eq!(page.status(), StatusCode::OK);
+    let html = body_string(page).await;
+    assert!(
+        html.contains("segunda version"),
+        "el autosave no se reflejó"
+    );
+    assert!(html.contains("/office/docs/autosave-test/autosave"));
+}
+
+/// El autoguardado de hojas debe escribir el CSV sin redirigir (204).
+#[tokio::test]
+async fn test_office_sheets_autosave_persists() {
+    let (state, _work_dir) = setup().await;
+    let app = study_platform::handlers::router(state);
+
+    let create = app
+        .clone()
+        .oneshot(authed_post_form("/office/sheets", "title=Sheet+Autosave"))
+        .await
+        .unwrap();
+    assert_eq!(create.status(), StatusCode::OK);
+
+    // csv_data = "nombre,nota\nAna,9"
+    let saved = app
+        .clone()
+        .oneshot(authed_post_form(
+            "/office/sheets/sheet-autosave/autosave",
+            "csv_data=nombre%2Cnota%0AAna%2C9",
+        ))
+        .await
+        .unwrap();
+    assert_eq!(saved.status(), StatusCode::NO_CONTENT);
+
+    let page = app
+        .oneshot(authed_get("/office/sheets/sheet-autosave"))
+        .await
+        .unwrap();
+    assert_eq!(page.status(), StatusCode::OK);
+    let html = body_string(page).await;
+    assert!(html.contains(">Ana<"), "el autosave no escribió la celda");
+}
+
 // ---------------------------------------------------------------------------
 // Documents tests
 // ---------------------------------------------------------------------------
@@ -308,7 +413,8 @@ async fn test_document_crud_lifecycle() {
     assert_eq!(response.status(), StatusCode::OK);
     let html = body_string(response).await;
     assert!(html.contains("my-first-document"));
-    assert!(html.contains("my first document"));
+    // El nombre visible sale del primer H1 del Markdown, no del slug.
+    assert!(html.contains("Hello World"));
     assert!(html.contains("gen-office-manager-page"));
     assert!(html.contains("<title>Documentos — NOVA Office</title>"));
     assert!(!html.contains("No hay documentos aún"));

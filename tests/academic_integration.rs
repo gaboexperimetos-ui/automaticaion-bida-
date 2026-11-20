@@ -320,6 +320,8 @@ async fn test_daily_calendar_requires_auth() {
     let state = setup_test_state().await;
     let app = study_platform::handlers::router(state);
 
+    // Old academic calendar routes (/daily, /weekly) removed in favor of Stitch v2 calendar.
+    // The new calendar only exposes /dashboard/calendar (monthly view).
     let response = app
         .oneshot(
             Request::builder()
@@ -330,14 +332,7 @@ async fn test_daily_calendar_requires_auth() {
         .await
         .unwrap();
 
-    assert_eq!(response.status(), StatusCode::FOUND);
-    assert_eq!(
-        response
-            .headers()
-            .get("location")
-            .and_then(|v| v.to_str().ok()),
-        Some("/login")
-    );
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
 // --- Template function tests ---

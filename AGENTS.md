@@ -17,27 +17,33 @@ generado por IA con ese stack quedó archivado en `docs/archive/` — ignorar.
 - `.env` y sus backups (ya en `.gitignore`) contienen secrets: nunca commitearlos.
 
 ## Comandos
-- Orden de trabajo: `cargo check` → `cargo test` → build. Antes de cerrar tarea:
-  `cargo fmt --check && cargo clippy --all-targets`.
-- UN archivo de tests: `cargo test --test auth_sessions` (sin `<>`);
-  28 suites de integración en `tests/`.
-- Dev: `cargo run` (lee `.env`). Sin dependencias externas: SQLite bundled.
-- Última suite completa: 562 en verde (2026-10-19); si el árbol se movió desde
-  entonces, re-ejecutar antes de dar por buena la cifra.
-- CLI real (verificado 2026-10-22 con `--help` del binario): `study-platform
-  [--addr ADDR] [--migrate] [--create-admin USER]`. Servir es el modo por
-  defecto; NO existe subcomando `serve`.
-- El bind lo decide `--addr` (default `0.0.0.0:8090`); `HOST`/`PORT` del `.env`
-  son solo informativos (se muestran en la UI).
+- Orden: `cargo fmt --all --check` → `cargo clippy --all-targets` → `cargo check
+  --all-targets` → `cargo test --no-fail-fast`. La CI ejecuta los 4 en ese orden
+  (ver `.github/workflows/`). Antes de cerrar tarea, correr los 4.
+- Tests: `cargo test` (suite completa) · `cargo test --test auth_sessions` (una
+  suite, sin `<>`) · `cargo test --no-fail-fast` (como la CI, no para en el primer
+  fallo). 28 suites en `tests/`, 209 `fn test_` + `#[tokio::test]`. Última
+  corrida verificada: **620 tests en verde, 0 fallos** (arena, 2026-10-25). La
+  cifra de 562 del 2026-10-19 es histórica. Si el árbol se movió desde entonces,
+  re-ejecutar antes de dar por buena la cifra.
+- Hay 3 tests `#[ignore]` con el motivo escrito en el test (p. ej.
+  `tests/academic_integration.rs:515` exige el MCP de Mikareno parado;
+  `tests/security.rs:1066` cubre auth legacy). No habilitar sin leer el motivo.
+- `tests/openrouter_live.rs` llama al proveedor real de OpenRouter dentro de la
+  suite (modelo free, respeta el budget gate): requiere key válida en `.env`.
+- **Dev**: la única instancia dev viva es la del **puerto 3000** (desde
+  2026-10-23; el 8095 fue retirado). Arrancar con
+  `./target/debug/study-platform --addr 127.0.0.1:3000` (lee `.env`). Matar por
+  **pid real** de `ss -tlnp | grep 3000`, nunca `pkill -x` (puede matar la
+  producción si se corre en la Dell). Mapa completo: `docs/PORTS.md`.
+- CLI real (verificado con `--help`): `study-platform [--addr ADDR] [--migrate]
+  [--create-admin USER]`. Servir es el modo por defecto; NO existe subcomando
+  `serve`. El bind lo decide `--addr` (default `0.0.0.0:8090`); `HOST`/`PORT` del
+  `.env` son solo informativos (se muestran en la UI).
 - `--create-admin` genera contraseña aleatoria y NO la imprime; el mensaje que
   sugiere `study-platform set-password` está desfasado (ese subcomando no
   existe). Camino real: arrancar con `AUTH_DISABLED=true` y cambiar la
   contraseña en `/settings/password`.
-- `tests/openrouter_live.rs` llama al proveedor real de OpenRouter dentro de la
-  suite (modelo free, respeta el budget gate): requiere key válida en `.env`.
-- Hay 3 tests `#[ignore]` con el motivo escrito en el test (p. ej.
-  `tests/academic_integration.rs:515` exige el MCP de Mikareno parado;
-  `tests/security.rs:1066` cubre auth legacy). No habilitar sin leer el motivo.
 - Varias sesiones pueden estar editando a la vez: una compilación a medias puede
   fallar aunque el código esté bien. Reintentar mirando qué ficheros están sucios.
 
@@ -83,19 +89,30 @@ generado por IA con ese stack quedó archivado en `docs/archive/` — ignorar.
   ("Overlapping method route") y el servicio entra en crash-loop. Ante loop,
   leer el panic del journal antes de reintentar deploy.
 
-## Infra
-- Puerto 8091 en la Dell SIEMPRE (el 8090 de esa máquina está ocupado por otro
-  servicio). Unidad `study-platform` es **de sistema** (`/etc/systemd/system`):
-  `systemctl --user` da "unit not found". Dell pequeña: MemoryMax=1G.
+## Ramas de trabajo
+- `main` — línea principal. Solo mergea ramas validadas (CI obligatoria).
+- `arena/**` — sesiones de trabajo activas (la rama actual es
+  `arena/d7d8b0fe-automaticaion-bida`). Los tests se corren aquí.
+- `quality/**` — ramas de calidad; la CI también las valida.
+- Nunca hagas push directo a `main`; usa PR (la CI falla si hay marcadores de
+  conflicto sin resolver en el árbol).
+
+## Infra (mapa completo: `docs/PORTS.md`)
+- Puerto **8091** en la Dell SIEMPRE (el 8090 de esa máquina está ocupado por
+  otro servicio). Unidad `study-platform` es **de sistema**
+  (`/etc/systemd/system`): `systemctl --user` da "unit not found". Dell pequeña:
+  MemoryMax=1G.
+- **Dev** (asus-tuf, esta máquina): única instancia en el **puerto 3000**
+  (desde 2026-10-23). El 8090 es el default del binario pero no se usa en dev.
+  Matar solo por pid real de `ss -tlnp`.
 - mikareno-mcp (datos escolares): FastMCP/Python en ESTA máquina (systemd
-  `--user`, `mikareno-mcp.service`, `0.0.0.0:8080`, 18 tools; verificado
-  escuchando 2026-10-22). La Dell lo ve en `http://100.115.62.97:8080/mcp`;
-  local: `http://127.0.0.1:8080/mcp`. Issue conocido: algunas tools se cuelgan
-  y el lock compartido bloquea a las demás; la app degrada a error por sus
-  deadlines (no es bug de la app). Recovery: `systemctl --user restart
-  mikareno-mcp.service`.
+  `--user`, `mikareno-mcp.service`, `0.0.0.0:8080`, 18 tools). La Dell lo ve en
+  `http://100.115.62.97:8080/mcp`; local `http://127.0.0.1:8080/mcp`. Issue
+  conocido: algunas tools se cuelgan y el lock compartido bloquea a las demás;
+  la app degrada a error por sus deadlines (no es bug de la app). Recovery:
+  `systemctl --user restart mikareno-mcp.service`.
 - GenOffice MCP: `127.0.0.1:8453` en la Dell; también escucha en esta máquina
-  (verificado 2026-10-22, proceso `genoffice`).
+  (proceso `genoffice`).
 - BD: la que cuenta es la de la DELL (`~/study-platform/data/app.db`, ~1.5 MB).
   La `data/app.db` local (~100 KB) es dev/stale: no mezclar. Notas: contenido
   en ficheros `.md` de `NOTES_DIR`; en BD solo metadatos.
@@ -123,7 +140,7 @@ generado por IA con ese stack quedó archivado en `docs/archive/` — ignorar.
 ## Debugging
 - App prod (Dell): `ssh homelab 'journalctl -u study-platform -n 50 --no-pager'`.
 - mikareno-mcp (esta máquina): `journalctl --user -u mikareno-mcp`.
-- Puertos: `ss -tln | grep -E ':(8080|8090|8091|8453)'`.
+- Puertos: `ss -tln | grep -E ':(3000|8080|8090|8091|8453)'`.
 - No asumir: verificar con `curl` o test directo.
 
 ## Docs y convenciones

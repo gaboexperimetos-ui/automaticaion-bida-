@@ -1,5 +1,139 @@
 # SESSION_HANDOFF — Study Platform (Misión 9, 2026-10-10)
 
+## Estado de HOY — 2026-11-20 (rediseño StudyDesk · Nébula violeta)
+
+Dirección de arte final: **ambiente violeta-plum con glows radiales, superficies
+de vidrio, tipografía display grande y elevación real**, tomando el *ambiente*
+de StudyDesk (no solo su paleta sobria). El primer re-skin había quedado en gris
+neutro plano y se percibía como panel de administración; esta pasada recupera
+personalidad. No se tocó lógica, rutas ni contratos HTMX: solo tokens, CSS y la
+posición de la franja de resumen.
+
+- Tokens canónicos: `src/handlers/stitch_v2.rs` (`./static/stitch-v2/shell/head.html`
+  para Tailwind) y `static/app/nova.css` / `static/app/polish.css`.
+- Paleta: fondo `#14101c`, superficie `#1c1727`, elevada `#241d31`, borde
+  `rgba(196,181,253,.12)`, texto `#f0ecfa`, secundario `#b8b0cc`, acento
+  `#a88af5` (degradado `#d6c6ff → #bba2ff → #a88af5`). Semánticos: éxito
+  `#5cc39a`, aviso `#e6b866`, error `#f0788b`, info `#7cb8e8`.
+- Tipografía: **Inter**, escala base 15 px, títulos display con
+  `letter-spacing: -.055em`. El login (`src/handlers/auth.rs`) sigue la misma
+  estética.
+- Shell: sidebar y topbar flotantes con vidrio y sombra; el menú lateral tiene
+  más enlaces de los que caben a 1080p, así que se desplaza con un degradado al
+  pie (no parece un corte roto).
+- Inicio: la franja "Próxima clase / Próximas tareas" se inyecta dentro de
+  `.nx-page` (tras el hero, antes de la semana) vía
+  `insert_day_cards` en `src/handlers/stitch_v2.rs`; la tarjeta de saludo se
+  oculta porque duplica el hero.
+- Estados vacíos intencionales (borde punteado violeta) en vez de cajas grises;
+  paneles `exam`/`focus` sin datos se ocultan y Notas ocupa la fila completa.
+- En móvil (<620 px) los 7 días de la semana caben sin scroll horizontal.
+- Los CSS van embebidos con `include_bytes!`: **cualquier cambio exige
+  recompilar** para verse.
+- Verificado 2026-11-20: `/`, `/login`, `/dashboard`, `/dashboard/horario`,
+  `/dashboard/notes`, `/dashboard/material`, `/dashboard/mcp`, `/dashboard/ai`
+  y `/dashboard/search` a 200; capturas headless desktop y móvil; suite
+  completa en verde (fmt, clippy, check, test).
+
+### Temas y música (2026-11-20)
+
+- **11 paletas** seleccionables: **Nébula** (default, conserva la dirección de
+  arte violeta anterior) + las 10 de Cortex (`osaka-jade`, `tokyo-night`,
+  `catppuccin`, `gruvbox`, `nord`, `dracula`, `rose-pine`, `everforest`,
+  `solarized`, `kanagawa`). Las paletas de Cortex aplican además una capa
+  *skin* (mono JetBrains, superficies planas, densidad) que Nébula no usa.
+- `static/app/themes.css`: cada `html[data-theme]` reescribe `--nx-*`,
+  `--sp-*` y los colores `--c-*` que consume Tailwind; incluye los estilos del
+  selector. `static/stitch-v2/shell/head.html` hace el prepaint del tema desde
+  `localStorage["nova.theme"]` (sin flash) y carga `/themes.css`.
+- Selector en **Ajustes → Tema de la interfaz** (11 opciones) y popover rápido
+  con el icono `palette` del topbar. La elección persiste en el navegador y
+  actualiza `meta[theme-color]`.
+- **Reproductor de música** flotante (`static/app/music.css` +
+  `initMusicPlayer` en `static/app/shell.js`): play/pausa, anterior/siguiente,
+  volumen, lista y Media Session. Acepta URLs de audio (persisten en
+  `localStorage["nova.music.tracks"]`) y archivos locales vía `<input
+  type=file>` (duran hasta recargar). No depende de mpv/Tauri como Cortex.
+  Queda vacío a propósito hasta que el usuario aporte sus pistas.
+- Rutas nuevas en `src/handlers/mod.rs` / `static_ui.rs`: `/themes.css` y
+  `/music.css` (`include_bytes!`, requieren `cargo build`).
+- Verificado 2026-11-20: cambio y persistencia de tema tras recarga, paletas
+  Nébula/Gruvbox/Osaka Jade/Solarized/Kanagawa en capturas desktop y móvil,
+  alta de URL y de WAV local con reproducción real, volumen persistido, 0
+  errores JS; fmt, clippy, check y suite completa en verde (0 fallos).
+- **Refinamiento tipográfico**: en los temas de Cortex la monoespaciada se
+  reserva para títulos, eyebrows, badges, cifras y tablas; cuerpo, navegación
+  y botones vuelven a Inter (14.5 px). El subtítulo de marca ahora muestra el
+  tema activo (`PERSONAL OS · GRUVBOX`, etc.) en vez de decir siempre NÉBULA.
+- **Fix Documentos (misma fecha)**: `templates::layout_as` y
+  `layout_as_shelled` devuelven `Html<String>` en vez de `String`; axum sirve
+  un `String` desnudo como `text/plain` y el navegador mostraba el HTML como
+  código fuente. `library::rebuild` usa `.into_response()` y se añadió
+  `test_office_pages_content_type_html` en `tests/office_integration.rs` para
+  blindar `/office*` (621 tests en verde, 3 ignorados).
+- **Autoguardado de Oficina (2026-11-20)**: documentos
+  (`POST /office/docs/{slug}/autosave`), hojas
+  (`POST /office/sheets/{slug}/autosave`) y diapositivas
+  (`POST /office/presentations/{slug}/slides/{index}/autosave`) guardan con
+  debounce de 1.2 s (204 sin redirección) y muestran el estado en
+  `#office-save-status` (`dirty` / `saving` / `saved` / `error`). Al ocultar
+  la pestaña se envía el último cambio con `sendBeacon`. Tests:
+  `test_office_docs_autosave_persists` y `test_office_sheets_autosave_persists`.
+- **GenOffice auto-vinculado (2026-11-20)**: el servicio de usuario
+  `genoffice-mcp` queda habilitado y escuchando en `127.0.0.1:8453` (antes
+  `0.0.0.0`, expuesto a la LAN); el banner de Oficina muestra
+  `GenOffice MCP: activo`. Cada guardado espeja el archivo en
+  `~/Documentos/GenOffice/NOVA` (override: `GENOFFICE_DOCS_DIR`) y el editor tiene
+  un botón **GenOffice** que abre la copia con el CLI (`genoffice open`).
+  Helper: `templates::{mirror_to_genoffice, open_in_genoffice}`.
+- **Piel GenOffice (2026-11-20)**: `.gen-office-page` redefine los tokens
+  `--nova-*`/`--nx-*` a los neutros de GenOffice (`#1e1e1e`, `#242424`,
+  `#3a3a3a`, acento `#3f99ff`), tipografía Inter y radios de 8 px; la sección
+  deja de heredar el violeta de Nébula sin tocar el resto del shell.
+- **Tema a prueba de botones (2026-11-20)**: se guarda también en cookie
+  (`nova_theme`), el prepaint la usa como respaldo y `htmx:afterSwap` /
+  `pageshow` reaplican el tema si un swap deja el `<html>` sin él.
+- **Interfaz de Documentos rehecha (2026-11-20)**: el editor deja el textarea
+  suelto sobre fondo oscuro y pasa a una hoja blanca centrada (760 px, Inter
+  15.5/1.75) sobre lienzo neutro, con barra de formato agrupada, contador de
+  palabras en vivo y pie con estado de guardado + botón manual. La lista de
+  documentos usa una fila por archivo con icono, fecha legible en español
+  (`hoy 11:03`, `ayer`, `20 nov`) y chips HTML/MD/borrar; el resumen dice
+  `1 documento` / `N documentos`. La vista previa recupera viñetas y
+  numeración (`list-style` que el reset del shell anulaba), ritmo de
+  títulos/párrafos y bloque de código neutro. El panel de herramientas de la
+  derecha queda plegado por defecto (`ai-hidden`).
+- **Slugs ASCII y nombres reales (2026-11-20)**: `templates::slugify`
+  translitera acentos (`Verificación final` → `verificacion-final`). Un slug
+  Unicode acababa en la cabecera `HX-Redirect`, que es ISO-8859-1, el
+  navegador la re-codificaba y la URL no coincidía con el archivo. Además,
+  el listado de Markdown usa el primer `# Título` del archivo como nombre
+  visible, no el slug.
+- **Espejo solo bajo el HOME (2026-11-20)**: `mirror_to_genoffice` resuelve
+  rutas absolutas y no copia archivos fuera de `$HOME`; así la suite de tests
+  (que trabaja en `/tmp`) deja de escribir basura en
+  `~/Documentos/GenOffice/NOVA`. En producción el `db_path` es relativo, por
+  eso se canonicalizan ambos lados.
+- **Oficina completa con lienzo real (2026-11-20)**: el tratamiento de hoja
+  blanca del editor Markdown se extendió a Hojas y Presentaciones.
+  - Hojas: cuadrícula blanca con cabeceras grises (`#f3f3f3`), selección azul
+    `inset 0 0 0 2px #1a73e8`, tipografía monoespaciada para coordenadas y
+    fórmula, barra de fórmula y panel de valores calculados sobre blanco. El
+    cromo (pestañas, botones) sigue oscuro.
+  - Presentaciones: miniaturas y diapositiva 16:9 blancas, título casi negro y
+    cuerpo gris; el modo presentación usa el mismo lienzo blanco, con controles
+    oscuros al pie. Listas (`ul`/`ol`) re-declaradas dentro del lienzo por el
+    reset del shell.
+  - Listas de Hojas y Presentaciones: mismas filas que Documentos
+    (`gen-office-docs-grid`), metadatos legibles (`Hoja de cálculo · hoy ·
+    12:17 · 142 B`, `3 diapositivas · …`) y chips de acción (`CSV`,
+    `Presentar`) + borrar con `hx-confirm`. Los títulos de presentación salen
+    del JSON real, no del slug.
+  - Inicio de Oficina: los archivos recientes usan fecha humana y etiqueta por
+    tipo (`DOC`/`CSV`/`PPT`).
+  - Las pestañas activas de Hojas usan la clave real del rail
+    (`hojas-de-calculo`), así el shell marca bien la sección.
+
 ## Estado de HOY — 2026-10-19 (sprint cerrado, todo verificado)
 
 Cierre del sprint. Todo lo de esta sección está verificado contra el código
@@ -327,3 +461,112 @@ el registro original del sprint:
 
 Ver la sección **"Estado de HOY — 2026-10-19"** al principio de este documento
 (qué se entregó por área, estado de despliegue y **PENDIENTES REALES**).
+
+---
+
+## 2026-11-20 — Oficina: hoja que se vaciaba y vistas «raras»
+
+**Bug raíz (Hojas)**: `serializeGrid()` devolvía `''` porque leía el valor
+desde el input oculto `#csv_data`, que se eliminó al convertir el guardado en
+un botón directo. Cada autoguardado o guardado manual escribía un CSV vacío y
+borraba la hoja. Ahora la función devuelve `lines.join('\n')` y usa el input
+oculto solo si existe. Verificado en navegador: editar B2 → guardar manual,
+editar C3 → autoguardado, recargar → ambos valores persisten y el CSV conserva
+el contenido.
+
+**Presentación**: el guardado ya era correcto (autoguardado y botón). El fallo
+era de layout: `min-height: 320px` junto a `aspect-ratio: 16/9` forzaba un
+ancho de 568 px dentro de una columna de 492 px, y el lienzo se metía debajo
+del panel del editor. Ahora respeta su columna (492×277), el contenido se
+alinea arriba y escala para que la escena completa quepa.
+
+**Hoja**: retícula 20×8, cabeceras A–H visibles sin scroll horizontal en
+escritorio, celdas que reparten el ancho y scroll interno en móvil.
+
+**Verificado**: `cargo fmt --all --check`, `cargo clippy --all-targets`,
+`cargo check --all-targets` y `cargo test --no-fail-fast` (0 fallos); capturas
+en escritorio y móvil sin errores JS ni 4xx/5xx. Datos de prueba eliminados:
+`data/office/*` y `~/Documentos/GenOffice/NOVA` quedan limpios.
+
+## 2026-11-20 — Dashboard denso: gráficos, menú de 6, aviso único
+
+### Cambios
+1. **Dashboard reescrito** (`static/stitch-v2/_content/clean/dashboard.html` + `index.html`):
+   - Cabecera compacta: fecha/trimestre vivo + botones "Nueva tarea" + menú creación.
+   - Fila de 6 KPIs (clases hoy, entregas hoy, semana, media, notas, IA) con datos reales.
+   - Columna principal: Jornada (clases como líneas de tiempo), Prioridades (tabla densa 6 filas), Asignaturas (barras 0-10 ordenadas peor→mejor), Notas recientes.
+   - Columna lateral: Semana (7 días compactos), Acciones rápidas (6 botones), IA resume, Próximo evento, Examen.
+   - Sección «Analítica» con 3 SVG generados en servidor: Media por asignatura, Clases/Entregas por día, Ritmo de apuntes (8 sem).
+   - Índice plano «Todo tu espacio» con 28 destinos (sin menús escondidos).
+
+2. **Gráficos SVG sin dependencias** (`src/handlers/stitch_panel.rs`):
+   - `render_chart_subjects`: barras horizontales 0-10, color por umbral (<4 peligro, <7 naranja, ≥7 acento).
+   - `render_chart_week`: columnas apiladas (clases/entregas) por día L-D.
+   - `render_chart_notes`: columnas semanales últimas 8 semanas (desde `notes_activity` en `PanelData`).
+   - Estados vacíos honestos con CTA a la sección correspondiente.
+
+3. **Nav recortado a 6 secciones** (`static/stitch-v2/shell/aside.html`):
+   - Visibles: Inicio, Calendario, Asignaturas, Apuntes, Oficina, Ajustes.
+   - «Más herramientas» (details/summary) despliega los 17 restantes.
+   - `NAV_LINKS` inalterado → rutas y tests siguen pasando.
+
+4. **Aviso único de conexión** (`src/handlers/stitch_panel.rs` + CSS):
+   - `render_sync_banner` aparece solo si Mikareno no responde (`!connected || mcp_timeout`).
+   - Elimina 5 mensajes técnicos repetidos por tarjeta.
+   - Estados vacíos de tarjetas simplificados a una frase neutra.
+
+5. **Datos panel enriquecidos**:
+   - `notes_activity: Vec<u32>` (8 semanas) desde query SQL.
+   - `render_notes` soporta título/slug vacíos.
+   - `render_taskcount/taskfooter` sin mensajes técnicos repetidos.
+
+### Verificación
+- `cargo fmt --all --check` ✓
+- `cargo clippy --all-targets` (solo warnings preexistentes) ✓
+- `cargo check --all-targets` ✓
+- `cargo test --no-fail-fast` 22 tests ✓ (incluye identidad "Inicio", "Segundo cerebro", "Vault local", "NOVA 3.0")
+- Capturas desktop/móvil sin errores JS ni 4xx/5xx ✓
+- Dev server en 127.0.0.1:3000 operativo
+
+### Sin commitear
+- Cambios en `src/`, `static/`, `docs/SESSION_HANDOFF.md`.
+- Archivos de datos de prueba vacíos (`data/office/*`).
+
+## 2026-11-20 — Calendario denso (Stitch v2)
+
+### Cambios
+1. **Nuevo calendario mensual** (`/dashboard/calendar`) usando el diseño Stitch v2:
+   - Cabecera compacta con pestañas Mes/Semana/Día + exportar ICS
+   - 3 KPIs: días con horario, entregas del mes, eventos del mes
+   - Rejilla 7×6 densa (42 celdas) con navegación HTMX (prev/next mes)
+   - Chips por día: clases (violeta), tareas (naranja), eventos (azul), días no lectivos (outline)
+   - Aside "Próximos eventos" con 5 eventos futuros
+   - Banner de estado Mikareno unificado (igual que dashboard)
+   - Responsive: <760px rejilla compacta, aside debajo
+
+2. **Integración con PanelData real**:
+   - Usa `d.horario`, `d.tareas`, `d.eventos` del cliente Mikareno compartido
+   - Proyecta horario semanal a días del mes actual
+   - Filtra tareas/eventos por mes actual para KPIs y chips
+
+3. **HTMX partial reload**:
+   - Botones prev/next mes recargan solo la rejilla (`?partial=grid`)
+   - Endpoint `stitch_calendar` maneja partial grid sin shell completo
+   - Sin bucle infinito: grid inicial renderizado en servidor, HTMX solo en navegación
+
+4. **Rutas antiguas removidas**:
+   - `/dashboard/calendar/daily` y `/dashboard/calendar/weekly` eliminadas (tests actualizados)
+   - Tests `academic_integration` y `pages_smoke` actualizados
+
+5. **Fix test nav**: JS en aside.html usa variable para selector `aria-current="page"` → evita conteo doble en tests
+
+### Verificación
+- `cargo fmt --all --check` ✓
+- `cargo clippy --all-targets` ✓ (warnings preexistentes)
+- `cargo check --all-targets` ✓
+- `cargo test --no-fail-fast` 338 tests ✓
+- Páginas verificadas sin errores JS ni 4xx/5xx: `/dashboard`, `/dashboard/calendar`, `/dashboard/planner`, `/dashboard/notes`
+- Dev server en 127.0.0.1:3000 operativo
+
+### Sin commitear
+- Cambios en `src/`, `static/`, `tests/`, `docs/SESSION_HANDOFF.md`

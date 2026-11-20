@@ -235,7 +235,7 @@ fn main_open() -> String {
 /// (WCAG 2.4.7) en vez de dejarlos depender de los tokens del kit.
 const SHELL_CSS: &str = r##"
 /* NOVA 3.0 · shell de escritorio persistente y cajón móvil. */
-.skip-link{position:fixed;left:18px;top:12px;z-index:160;transform:translateY(-180%);padding:11px 16px;border-radius:10px;background:#a78bfa;color:#140d26;font:700 13px 'DM Sans',sans-serif;text-decoration:none;transition:transform .16s ease}
+.skip-link{position:fixed;left:18px;top:12px;z-index:160;transform:translateY(-180%);padding:11px 16px;border-radius:10px;background:#8b7cf8;color:#140d26;font:700 13px 'Inter',sans-serif;text-decoration:none;transition:transform .16s ease}
 .skip-link:focus{transform:translateY(0)}
 #app-rail-content{padding-left:286px!important;transition:padding-left .22s ease}
 #app-topbar{left:286px!important;transition:left .22s ease}
@@ -245,8 +245,8 @@ body.rail-collapsed #app-rail{transform:translateX(-104%);visibility:hidden}
 body.rail-collapsed #app-rail-content{padding-left:0!important}
 body.rail-collapsed #app-topbar{left:12px!important}
 #rail-backdrop{display:none;position:fixed;inset:0;background:rgba(3,5,7,.72);backdrop-filter:blur(5px);z-index:80}
-a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible,[tabindex]:focus-visible{outline:2px solid #a78bfa;outline-offset:3px;border-radius:6px}
-#contenido:focus-visible{outline:2px solid #a78bfa;outline-offset:-5px}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible,[tabindex]:focus-visible{outline:2px solid #8b7cf8;outline-offset:3px;border-radius:6px}
+#contenido:focus-visible{outline:2px solid #8b7cf8;outline-offset:-5px}
 #user-menu[hidden]{display:none!important}
 @media (max-width:1099px){
   #app-rail-content,body.rail-collapsed #app-rail-content{padding-left:0!important}
@@ -333,6 +333,7 @@ const CONTENT_ASISTENTE: &str =
     include_str!("../../static/stitch-v2/_content/clean/asistente.html");
 const CONTENT_NOTES: &str = include_str!("../../static/stitch-v2/_content/clean/notes.html");
 const CONTENT_MCP: &str = include_str!("../../static/stitch-v2/_content/clean/mcp.html");
+const CONTENT_CALENDAR: &str = include_str!("../../static/stitch-v2/_content/clean/calendar.html");
 
 /// Script del menú de usuario: abre y cierra el desplegable, lo cierra con
 /// Escape o al pulsar fuera, y mueve el foco entre los items con las
@@ -1578,10 +1579,23 @@ fn render_day_cards(d: &PanelData) -> String {
 /// (nunca se pierden ni rompen el HTML).
 fn insert_day_cards(content: &str, cards: &str) -> String {
     const ANCHOR: &str = "<!-- MAIN DENSE GRID -->";
+    const WEEK: &str = "<section class=\"nx-week-strip\"";
     if content.contains(ANCHOR) {
         content.replace(ANCHOR, &format!("{}\n{}", cards, ANCHOR))
+    } else if let Some(pos) = content.find(WEEK) {
+        // El kit limpio quitó el ancla `MAIN DENSE GRID`; en ese caso la franja
+        // de resumen va después del hero y antes de la semana, dentro del
+        // contenedor con padding (si se antepone al `.nx-page`, queda
+        // desalineada respecto al resto del contenido).
+        let mut out = String::with_capacity(content.len() + cards.len() + 4);
+        out.push_str(&content[..pos]);
+        out.push_str(cards);
+        out.push_str("\n  ");
+        out.push_str(&content[pos..]);
+        out
     } else {
-        format!("{}\n{}", cards, content)
+        // Sin ancla en el kit actual: no se inventan tarjetas extra al inicio.
+        content.to_string()
     }
 }
 
@@ -1594,6 +1608,31 @@ pub async fn stitch_index(
     let content = crate::handlers::stitch_panel::fill_panel(CONTENT_INDEX, &data);
     let authenticated = state.config.auth_disabled || extract_session_cookie(&req).is_some();
     let html = stitch_v2_page("panel-principal", &content, authenticated);
+    let shell = crate::handlers::stitch_panel::fetch_shell_data(&state).await;
+    let html = crate::handlers::stitch_panel::fill_shell(&html, &shell);
+    (StatusCode::OK, Html(html))
+}
+
+/// GET /dashboard/calendar -> calendario mensual (Stitch v2).
+pub async fn stitch_calendar(
+    State(state): State<Arc<AppState>>,
+    req: Request<Body>,
+) -> impl IntoResponse {
+    // HTMX partial: solo la rejilla del mes
+    if req
+        .uri()
+        .query()
+        .is_some_and(|q| q.contains("partial=grid"))
+    {
+        let data = crate::handlers::stitch_panel::fetch_panel_data(&state).await;
+        let grid_html = crate::handlers::stitch_panel::fill_panel_partial_grid(&data);
+        return (StatusCode::OK, Html(grid_html));
+    }
+
+    let data = crate::handlers::stitch_panel::fetch_panel_data(&state).await;
+    let content = crate::handlers::stitch_panel::fill_panel(CONTENT_CALENDAR, &data);
+    let authenticated = state.config.auth_disabled || extract_session_cookie(&req).is_some();
+    let html = stitch_v2_page("mi-agenda", &content, authenticated);
     let shell = crate::handlers::stitch_panel::fetch_shell_data(&state).await;
     let html = crate::handlers::stitch_panel::fill_shell(&html, &shell);
     (StatusCode::OK, Html(html))

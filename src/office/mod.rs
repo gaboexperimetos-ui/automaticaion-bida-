@@ -133,6 +133,14 @@ pub fn register_routes(
                 .delete(documents::delete),
         )
         .route(
+            "/office/docs/{slug}/autosave",
+            axum::routing::post(documents::autosave),
+        )
+        .route(
+            "/office/docs/{slug}/genoffice",
+            axum::routing::post(documents::open_in_genoffice),
+        )
+        .route(
             "/office/docs/{slug}/preview",
             axum::routing::get(documents::preview),
         )
@@ -152,6 +160,10 @@ pub fn register_routes(
         .route(
             "/office/sheets/{slug}",
             axum::routing::get(spreadsheets::edit),
+        )
+        .route(
+            "/office/sheets/{slug}/autosave",
+            axum::routing::post(spreadsheets::autosave),
         )
         .route(
             "/office/sheets/{slug}/import",
@@ -193,6 +205,10 @@ pub fn register_routes(
         .route(
             "/office/presentations/{slug}/slides/reorder",
             axum::routing::post(presentations::reorder),
+        )
+        .route(
+            "/office/presentations/{slug}/slides/{index}/autosave",
+            axum::routing::post(presentations::autosave_slide),
         )
         // Library
         .route("/office/library", axum::routing::get(library::list))

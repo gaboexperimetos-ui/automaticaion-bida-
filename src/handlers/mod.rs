@@ -56,6 +56,11 @@ pub fn router(state: Arc<AppState>) -> Router {
             "/dashboard/mcp",
             get(stitch_v2::stitch_mcp).layer(from_fn_with_state(state.clone(), require_auth_state)),
         )
+        .route(
+            "/dashboard/calendar",
+            get(stitch_v2::stitch_calendar)
+                .layer(from_fn_with_state(state.clone(), require_auth_state)),
+        )
         .route("/login", get(auth::login_form).post(auth::login_submit))
         .route("/register", post(auth::register))
         .route("/logout", post(auth::logout))
@@ -76,6 +81,8 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/shell.js", get(static_ui::serve_shell_js))
         .route("/polish.css", get(static_ui::serve_polish_css))
         .route("/nova.css", get(static_ui::serve_nova_css))
+        .route("/themes.css", get(static_ui::serve_themes_css))
+        .route("/music.css", get(static_ui::serve_music_css))
         .route("/favicon.ico", get(static_ui::serve_favicon))
         .route("/favicon.svg", get(static_ui::serve_favicon));
 

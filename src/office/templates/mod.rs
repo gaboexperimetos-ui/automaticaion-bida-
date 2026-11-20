@@ -11,7 +11,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 use axum::body::Body;
 use axum::http::StatusCode;
-use axum::response::Response;
+use axum::response::{Html, Response};
 use pulldown_cmark::{html, Options, Parser};
 
 /// HTTP client compartido para sondeos MCP (read-only `initialize`).
@@ -190,26 +190,49 @@ pub fn html_escape(s: &str) -> String {
 
 /// Slugify a title into a URL- and filename-safe identifier.
 pub fn slugify(title: &str) -> String {
-    let mut out: String = title
-        .to_lowercase()
-        .chars()
-        .map(|c| {
-            if c.is_alphanumeric() || c == '-' || c == '_' {
-                c
-            } else if c.is_whitespace() {
-                '-'
-            } else {
-                '\0'
-            }
-        })
-        .filter(|c| *c != '\0')
-        .collect();
-    out = out.trim_matches(|c| c == '-' || c == '_').to_string();
+    let mut out = String::with_capacity(title.len());
+    let mut last_sep = true;
+    for c in title.to_lowercase().chars() {
+        // Los slugs deben ser ASCII: un slug con acentos acaba en una cabecera
+        // `HX-Redirect` (ISO-8859-1) y el navegador la codifica dos veces, con
+        // lo que la URL deja de coincidir con el archivo en disco.
+        if c.is_ascii_alphanumeric() {
+            out.push(c);
+            last_sep = false;
+        } else if let Some(folded) = ascii_fold(c) {
+            out.push_str(folded);
+            last_sep = false;
+        } else if !last_sep {
+            out.push('-');
+            last_sep = true;
+        }
+    }
+    let out = out.trim_matches('-').to_string();
     if out.is_empty() {
         "untitled".to_string()
     } else {
         out
     }
+}
+
+/// Translitera los acentos latinos habituales a su letra base ASCII.
+fn ascii_fold(c: char) -> Option<&'static str> {
+    Some(match c {
+        'á' | 'à' | 'ä' | 'â' | 'ã' | 'å' | 'ā' => "a",
+        'é' | 'è' | 'ë' | 'ê' | 'ē' => "e",
+        'í' | 'ì' | 'ï' | 'î' | 'ī' => "i",
+        'ó' | 'ò' | 'ö' | 'ô' | 'õ' | 'ø' | 'ō' => "o",
+        'ú' | 'ù' | 'ü' | 'û' | 'ū' => "u",
+        'ñ' => "n",
+        'ç' => "c",
+        'ś' | 'š' => "s",
+        'ż' | 'ź' => "z",
+        'ý' | 'ÿ' => "y",
+        'ł' => "l",
+        'æ' => "ae",
+        'œ' => "oe",
+        _ => return None,
+    })
 }
 
 /// A file discovered in an office directory.
@@ -251,7 +274,22 @@ pub fn list_files(dir: &Path, ext: &str) -> Vec<FileInfo> {
             .and_then(|m| m.modified().ok())
             .map(format_rfc)
             .unwrap_or_default();
-        let display = name.replace('-', " ");
+        // Para Markdown, el título real es el primer encabezado H1; el slug
+        // pierde acentos y mayúsculas, así que no sirve como nombre visible.
+        let display = if ext == "md" {
+            fs::read_to_string(&path)
+                .ok()
+                .and_then(|body| {
+                    body.lines()
+                        .map(str::trim)
+                        .find(|line| line.starts_with("# "))
+                        .map(|line| line.trim_start_matches('#').trim().to_string())
+                })
+                .filter(|title| !title.is_empty())
+                .unwrap_or_else(|| name.replace('-', " "))
+        } else {
+            name.replace('-', " ")
+        };
         files.push(FileInfo {
             name,
             display,
@@ -280,6 +318,31 @@ fn format_rfc(t: SystemTime) -> String {
     }
 }
 
+/// Fecha legible en español para los listados: "hoy 16:03", "ayer 09:12",
+/// "20 nov" o "20 nov 2025". Si la entrada no es RFC 3339 se devuelve tal cual.
+pub fn human_date(rfc: &str) -> String {
+    use chrono::{DateTime, Datelike, Local};
+    let Ok(parsed) = DateTime::parse_from_rfc3339(rfc) else {
+        return rfc.to_string();
+    };
+    let when = parsed.with_timezone(&Local);
+    let now = Local::now();
+    let days = (now.date_naive() - when.date_naive()).num_days();
+    const MONTHS: [&str; 12] = [
+        "ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic",
+    ];
+    let month = MONTHS[(when.month0() as usize).min(11)];
+    if days == 0 {
+        format!("hoy · {}", when.format("%H:%M"))
+    } else if days == 1 {
+        format!("ayer · {}", when.format("%H:%M"))
+    } else if when.year() == now.year() {
+        format!("{} {}", when.day(), month)
+    } else {
+        format!("{} {} {}", when.day(), month, when.year())
+    }
+}
+
 /// Pretty human-readable size (KB / MB).
 pub fn human_size(bytes: u64) -> String {
     if bytes >= 1024 * 1024 {
@@ -293,12 +356,20 @@ pub fn human_size(bytes: u64) -> String {
 
 /// Envoltorio de Oficina unificado con Nova. Los editores conservan sus
 /// formularios, scripts y endpoints; desaparece la cabecera independiente.
-pub fn layout(title: &str, body: &str) -> String {
+///
+/// Devuelve [`Html`] y no `String`: en axum un `String` desnudo se sirve como
+/// `text/plain`, lo que hacía que el navegador mostrara el HTML como código.
+pub fn layout(title: &str, body: &str) -> Html<String> {
     layout_as(title, "", body)
 }
 
 /// Variante que marca la sección activa dentro del mapa Nova.
-pub fn layout_as(title: &str, active: &str, body: &str) -> String {
+pub fn layout_as(title: &str, active: &str, body: &str) -> Html<String> {
+    Html(layout_html(title, active, body))
+}
+
+/// Construcción del HTML sin la envoltura de respuesta.
+fn layout_html(title: &str, active: &str, body: &str) -> String {
     let html = crate::handlers::stitch_v2::stitch_v2_page(active, body, true);
     let Some(open) = html.find("<title>") else {
         return html;
@@ -325,10 +396,10 @@ pub async fn layout_as_shelled(
     title: &str,
     active: &str,
     body: &str,
-) -> String {
-    let html = layout_as(title, active, body);
+) -> Html<String> {
+    let html = layout_html(title, active, body);
     let shell = crate::handlers::stitch_panel::fetch_shell_data(state).await;
-    crate::handlers::stitch_panel::fill_shell(&html, &shell)
+    Html(crate::handlers::stitch_panel::fill_shell(&html, &shell))
 }
 
 /// Franja superior de la suite: inicio, archivo activo, creación y Biblioteca.
@@ -449,10 +520,208 @@ document.addEventListener('keydown', (event) => {
 });
 window.addEventListener('resize', syncOfficeAiToggle);
 syncOfficeAiToggle();
+
+// Autoguardado de los editores de Oficina. El endpoint se declara con
+// `data-autosave` en el textarea (documentos) o en la cuadrícula (hojas).
+function updateOfficeWordCount() {
+    var editor = document.getElementById('editor');
+    var out = document.getElementById('office-word-count');
+    if (!editor || !out) return;
+    var text = editor.value.trim();
+    var words = text ? text.split(/\s+/).filter(Boolean).length : 0;
+    out.textContent = words + (words === 1 ? ' palabra' : ' palabras');
+}
+function initOfficeAutosave() {
+    var status = document.getElementById('office-save-status');
+    var editor = document.getElementById('editor');
+    var grid = document.getElementById('grid');
+    var timer = null;
+    var last = editor ? editor.value : (grid ? null : '');
+    function setStatus(text, state) {
+        if (!status) return;
+        status.textContent = text;
+        status.setAttribute('data-state', state || '');
+    }
+    function payload(field, value) {
+        var body = new URLSearchParams();
+        body.set(field, value);
+        return body.toString();
+    }
+    function save(endpoint, field, value) {
+        setStatus('Guardando…', 'saving');
+        fetch(endpoint, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: payload(field, value)
+        }).then(function (response) {
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            last = value;
+            setStatus('Guardado automático', 'saved');
+        }).catch(function () {
+            setStatus('No se pudo guardar', 'error');
+        });
+    }
+    function schedule(endpoint, field, read) {
+        if (timer) window.clearTimeout(timer);
+        setStatus('Cambios sin guardar…', 'dirty');
+        timer = window.setTimeout(function () {
+            var value = read();
+            if (value === last) {
+                setStatus('Guardado automático', 'saved');
+                return;
+            }
+            save(endpoint, field, value);
+        }, 1200);
+    }
+    if (editor && editor.dataset.autosave) {
+        var docEndpoint = editor.dataset.autosave;
+        editor.addEventListener('input', function () {
+            schedule(docEndpoint, 'content', function () { return editor.value; });
+        });
+        updateOfficeWordCount();
+        editor.addEventListener('input', updateOfficeWordCount);
+    }
+    if (grid && grid.dataset.autosave && typeof serializeGrid === 'function') {
+        var gridEndpoint = grid.dataset.autosave;
+        var scheduleGrid = function () {
+            schedule(gridEndpoint, 'csv_data', serializeGrid);
+        };
+        grid.addEventListener('input', scheduleGrid);
+        grid.addEventListener('click', function (event) {
+            if (event.target.closest('button')) scheduleGrid();
+        });
+    }
+    function slidePayload(form) {
+        var body = new URLSearchParams();
+        var title = form.querySelector('[name="title"]');
+        var content = form.querySelector('[name="content"]');
+        body.set('title', title ? title.value : '');
+        body.set('content', content ? content.value : '');
+        return body.toString();
+    }
+    document.querySelectorAll('.gen-office-slide-form[data-autosave]').forEach(function (form) {
+        var endpoint = form.dataset.autosave;
+        var slideLast = slidePayload(form);
+        var slideTimer = null;
+        form.addEventListener('input', function () {
+            if (slideTimer) window.clearTimeout(slideTimer);
+            setStatus('Cambios sin guardar…', 'dirty');
+            slideTimer = window.setTimeout(function () {
+                var value = slidePayload(form);
+                if (value === slideLast) {
+                    setStatus('Guardado automático', 'saved');
+                    return;
+                }
+                setStatus('Guardando…', 'saving');
+                fetch(endpoint, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: value
+                }).then(function (response) {
+                    if (!response.ok) throw new Error('HTTP ' + response.status);
+                    slideLast = value;
+                    setStatus('Guardado automático', 'saved');
+                }).catch(function () {
+                    setStatus('No se pudo guardar', 'error');
+                });
+            }, 1200);
+        });
+    });
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState !== 'hidden' || !timer) return;
+        window.clearTimeout(timer);
+        timer = null;
+        if (editor && editor.dataset.autosave && editor.value !== last) {
+            var body = new Blob([payload('content', editor.value)], {type: 'application/x-www-form-urlencoded'});
+            if (navigator.sendBeacon) navigator.sendBeacon(editor.dataset.autosave, body);
+        }
+    });
+}
+initOfficeAutosave();
 "##;
 
+/// Carpeta de documentos de la app GenOffice. Se puede sobreescribir con
+/// `GENOFFICE_DOCS_DIR`; por defecto es `~/Documentos/GenOffice`.
+pub fn genoffice_docs_dir() -> Option<PathBuf> {
+    if let Some(dir) = std::env::var_os("GENOFFICE_DOCS_DIR") {
+        return Some(PathBuf::from(dir));
+    }
+    let base = std::env::var_os("HOME")
+        .map(|home| PathBuf::from(home).join("Documentos").join("GenOffice"))?;
+    // Subcarpeta propia para no pisar documentos del usuario con el mismo
+    // nombre; solo se usa si GenOffice ya está instalado (existe su carpeta).
+    base.is_dir().then(|| base.join("NOVA"))
+}
+
+/// Espeja un archivo de Oficina en la carpeta de GenOffice para que aparezca en
+/// la app de escritorio. Es best-effort: si la carpeta no existe o la copia
+/// falla, el guardado normal no se ve afectado.
+pub fn mirror_to_genoffice(path: &Path) {
+    // No espejar archivos de un espacio desechable (tests en /tmp, contenedores):
+    // solo tiene sentido para datos que viven bajo el HOME del usuario. El
+    // `db_path` puede ser relativo, así que se resuelven ambos lados.
+    let under_home = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .and_then(|home| {
+            let abs = std::fs::canonicalize(path).ok()?;
+            let home = std::fs::canonicalize(&home).unwrap_or(home);
+            Some(abs.starts_with(home))
+        })
+        .unwrap_or(false);
+    if !under_home {
+        return;
+    }
+    let Some(dir) = genoffice_docs_dir() else {
+        return;
+    };
+    if let Err(e) = fs::create_dir_all(&dir) {
+        tracing::debug!(
+            "office: no se pudo crear la carpeta NOVA de GenOffice: {}",
+            e
+        );
+        return;
+    }
+    let Some(name) = path.file_name() else { return };
+    let dest = dir.join(name);
+    if dest == path {
+        return;
+    }
+    let Ok(body) = fs::read(path) else { return };
+    if let Err(e) = fs::write(&dest, body) {
+        tracing::debug!("office: no se pudo espejar en GenOffice: {}", e);
+    }
+}
+
+/// Abre un archivo en la app GenOffice usando su CLI. Devuelve un mensaje de
+/// error legible si el binario no está instalado o no puede arrancar.
+pub fn open_in_genoffice(path: &Path) -> Result<(), String> {
+    let candidates = [
+        std::env::var_os("GENOFFICE_CLI").map(PathBuf::from),
+        Some(PathBuf::from("/home/gabo/.local/bin/genoffice")),
+        Some(PathBuf::from("/opt/GenOffice/resources/cli/genoffice")),
+        Some(PathBuf::from("genoffice")),
+    ];
+    let exe = candidates
+        .into_iter()
+        .flatten()
+        .find(|p| p.exists() || p.components().count() == 1);
+    let Some(exe) = exe else {
+        return Err("No se encontró el binario de GenOffice.".to_string());
+    };
+    match std::process::Command::new(exe)
+        .arg("open")
+        .arg(path)
+        .spawn()
+    {
+        Ok(_) => Ok(()),
+        Err(e) => Err(format!("No se pudo abrir GenOffice: {e}")),
+    }
+}
+
 /// Return an empty page (used when a document/slide editor has no row body).
-pub fn empty_layout() -> String {
+pub fn empty_layout() -> Html<String> {
     layout("NOVA Office", "")
 }
 
@@ -525,16 +794,51 @@ function officeCsvCell(value) {
 }
 function serializeGrid() {
     const lines = [];
+    const empty = [];
     document.querySelectorAll('#grid tbody tr').forEach((tr) => {
         const cells = tr.querySelectorAll('td[contenteditable]');
         if (!cells.length) return;
         const values = [];
-        cells.forEach((td) => values.push(officeCsvCell(td.textContent)));
+        let blank = true;
+        cells.forEach((td) => {
+            if (td.textContent.trim() !== '') blank = false;
+            values.push(officeCsvCell(td.textContent));
+        });
         lines.push(values.join(','));
+        empty.push(blank);
     });
+    // La retícula visual tiene 20 filas; el CSV solo guarda hasta la última
+    // fila con algo escrito. Así no se acumulan líneas vacías al editar.
+    while (lines.length && empty[lines.length - 1]) {
+        lines.pop();
+        empty.pop();
+    }
+    const value = lines.join('\n');
     const hidden = document.getElementById('csv_data');
-    if (hidden) hidden.value = lines.join('\n');
-    return hidden ? hidden.value : '';
+    if (hidden) hidden.value = value;
+    return value;
+}
+function saveOfficeGridNow() {
+    const grid = document.getElementById('grid');
+    if (!grid || !grid.dataset.autosave) return;
+    const status = document.getElementById('office-save-status');
+    const setStatus = (text, state) => {
+        if (!status) return;
+        status.textContent = text;
+        status.setAttribute('data-state', state);
+    };
+    setStatus('Guardando…', 'saving');
+    fetch(grid.dataset.autosave, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'csv_data=' + encodeURIComponent(serializeGrid())
+    }).then((response) => {
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        setStatus('Guardado automático', 'saved');
+    }).catch(() => {
+        setStatus('No se pudo guardar', 'error');
+    });
 }
 function officeColumnName(index) {
     let value = index + 1;

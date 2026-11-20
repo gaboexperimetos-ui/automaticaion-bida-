@@ -904,7 +904,7 @@ const LOGIN_PAGE_HTML: &str = r##"<!DOCTYPE html>
 <title>NOVA — Iniciar sesión</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined&family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -913,38 +913,38 @@ const LOGIN_PAGE_HTML: &str = r##"<!DOCTYPE html>
             theme: {
                 extend: {
                     colors: {
-                        background: '#090b11',
-                        'surface-container-lowest': '#090c12',
-                        'surface-container-low': '#0d1017',
-                        'surface-container': '#11151d',
-                        'surface-container-high': '#161b25',
-                        'surface-container-highest': '#1c2230',
-                        'on-surface': '#f2f4f8',
-                        'on-surface-variant': '#a2abbc',
-                        outline: '#747f93',
-                        'outline-variant': '#2a3242',
-                        primary: '#dce1ff',
-                        'on-primary': '#121728',
-                        'primary-container': '#a9b6ff',
-                        'on-primary-container': '#121728',
-                        secondary: '#76d7c0',
-                        'on-secondary': '#121728',
-                        'secondary-container': '#1f4a40',
+                        background: '#14141a',
+                        'surface-container-lowest': '#101015',
+                        'surface-container-low': '#1b1b22',
+                        'surface-container': '#22222b',
+                        'surface-container-high': '#262630',
+                        'surface-container-highest': '#2a2a35',
+                        'on-surface': '#eceaf2',
+                        'on-surface-variant': '#a8a6b8',
+                        outline: '#6a6a7e',
+                        'outline-variant': '#2e2e3a',
+                        primary: '#8b7cf8',
+                        'on-primary': '#14141a',
+                        'primary-container': '#8b7cf8',
+                        'on-primary-container': '#14141a',
+                        secondary: '#5cc39a',
+                        'on-secondary': '#0b2420',
+                        'secondary-container': '#17302a',
                         'on-secondary-container': '#d4f8ed',
-                        'surface-tint': '#a9b6ff',
-                        'text-primary': '#f2f4f8',
-                        'text-secondary': '#a2abbc',
-                        'text-muted': '#747f93',
-                        canvas: '#090c12',
-                        'input-bg': '#0c1017',
+                        'surface-tint': '#8b7cf8',
+                        'text-primary': '#eceaf2',
+                        'text-secondary': '#a8a6b8',
+                        'text-muted': '#8b8999',
+                        canvas: '#101015',
+                        'input-bg': '#101015',
                     },
                     fontFamily: {
-                        manrope: ['"Space Grotesk"', 'sans-serif'],
-                        hanken: ['"DM Sans"', 'sans-serif'],
+                        manrope: ['"Inter"', 'sans-serif'],
+                        hanken: ['"Inter"', 'sans-serif'],
                     },
                     boxShadow: {
-                        glow: '0 0 12px rgba(169, 182, 255, 0.22)',
-                        'glow-hover': '0 0 20px rgba(169, 182, 255, 0.35)',
+                        glow: '0 0 12px rgba(139, 124, 248, 0.22)',
+                        'glow-hover': '0 0 20px rgba(139, 124, 248, 0.35)',
                     },
                 },
             },

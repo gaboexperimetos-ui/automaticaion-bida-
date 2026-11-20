@@ -247,7 +247,6 @@ async fn smoke_paginas_registradas_responden_200_con_sesion() {
         "/settings".to_string(),
         // src/academic/mod.rs (anidadas bajo /dashboard)
         "/dashboard/calendar".to_string(),
-        "/dashboard/calendar/daily".to_string(),
         "/dashboard/horario".to_string(),
         "/dashboard/planner".to_string(),
         "/dashboard/profile".to_string(),

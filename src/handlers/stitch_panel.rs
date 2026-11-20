@@ -31,6 +31,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
+use chrono::Duration as ChronoDuration;
 use chrono::{Datelike, Timelike};
 
 use crate::integrations::mikareno::{
@@ -108,6 +109,9 @@ pub struct PanelData {
     /// Nº real de conversaciones (hilos distintos de `chat_history`). `None`
     /// si la consulta falló: nunca un 0 inventado.
     pub conversations_count: Option<u32>,
+    /// Apuntes creados en cada una de las últimas 8 semanas (la última es la
+    /// actual). Vacío si la consulta falló; el gráfico lo dice.
+    pub notes_activity: Vec<u32>,
     /// Próximo evento del calendario real (hoy o posterior). `None` si el
     /// calendario no trajo eventos o Mikareno no respondió.
     ///
@@ -177,7 +181,7 @@ pub async fn fetch_panel_data(state: &AppState) -> PanelData {
     // diferencia es la semántica: aquí son `Option`, porque una consulta
     // fallida debe dejar el dato en `None` ("no se pudo saber") y no en un
     // 0 inventado.
-    let (recientes, notas_total, conversaciones) = tokio::join!(
+    let (recientes, notas_total, conversaciones, actividad) = tokio::join!(
         sqlx::query_as::<_, (String, String)>(
             "SELECT title, slug FROM notes ORDER BY updated_at DESC LIMIT 3"
         )
@@ -185,12 +189,25 @@ pub async fn fetch_panel_data(state: &AppState) -> PanelData {
         sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM notes").fetch_one(&state.db),
         sqlx::query_scalar::<_, i64>("SELECT COUNT(DISTINCT subject) FROM chat_history")
             .fetch_one(&state.db),
+        sqlx::query_as::<_, (i64, i64)>(
+            "SELECT CAST((julianday('now') - julianday(created_at)) / 7 AS INTEGER) AS w, COUNT(*)              FROM notes GROUP BY w"
+        )
+        .fetch_all(&state.db),
     );
     if let Ok(rows) = recientes {
         d.recent_notes = rows;
     }
     d.notes_count = notas_total.ok().and_then(|n| u32::try_from(n).ok());
     d.conversations_count = conversaciones.ok().and_then(|n| u32::try_from(n).ok());
+    if let Ok(rows) = actividad {
+        let mut semanas = vec![0u32; 8];
+        for (w, n) in rows {
+            if (0..8).contains(&w) {
+                semanas[(7 - w) as usize] = u32::try_from(n).unwrap_or(0);
+            }
+        }
+        d.notes_activity = semanas;
+    }
 
     // MCP: sólo si la caché no lo cubre. Con el presupuesto agotado, los
     // campos quedan en `None` y el panel lo dice con claridad.
@@ -866,7 +883,7 @@ fn render_classes(d: &PanelData) -> String {
     let wd = weekday_es(now.weekday());
     let clases = classes_for(d, wd);
     if clases.is_empty() {
-        return r##"<div class="p-space-sm rounded-lg bg-surface-container text-body-sm text-body-sm text-outline">Sin clases programadas para hoy.</div>"##.to_string();
+        return r##"<div class="nx-empty">Sin clases programadas para hoy.</div>"##.to_string();
     }
     clases
         .iter()
@@ -907,16 +924,8 @@ fn render_taskcount(d: &PanelData) -> String {
     let n = match d.tasks_today {
         Some(n) if n > 0 => n as usize,
         Some(_) => tasks_today(d).len(),
-        // Mikareno no dio el dato: no se sabe si hay tareas o no.
-        None => {
-            return if d.connected {
-                "Mikareno no informó de las tareas".to_string()
-            } else if d.mcp_timeout {
-                "Mikareno no responde ahora".to_string()
-            } else {
-                "Mikareno sin conexión".to_string()
-            };
-        }
+        // El aviso global ya explica la falta de datos.
+        None => return "Sin detalle".to_string(),
     };
     if n == 0 {
         "Sin entregas hoy".to_string()
@@ -929,15 +938,14 @@ fn render_tasks_today(d: &PanelData) -> String {
     let tareas = tasks_today(d);
     if tareas.is_empty() {
         return match d.tasks_today {
-            Some(0) => r##"<div class="p-2 rounded-lg bg-surface-container text-body-sm text-body-sm text-outline">No hay entregas con vencimiento hoy.</div>"##.to_string(),
+            Some(0) => r##"<div class="nx-empty">Sin entregas para hoy.</div>"##.to_string(),
             Some(n) => format!(
-                r##"<div class="p-2 rounded-lg bg-surface-container text-body-sm text-body-sm text-outline">{n} tarea(s) para hoy. El detalle no está disponible en Mikareno ahora mismo.</div>"##,
-                n = n
+                r##"<div class="nx-empty">{} tarea(s) para hoy; el detalle llegará cuando Mikareno lo exponga.</div>"##,
+                n
             ),
-            // Sin el dato no se afirma que no haya tareas.
-            None if d.connected => r##"<div class="p-2 rounded-lg bg-surface-container text-body-sm text-body-sm text-outline">Mikareno no informó de las tareas de hoy: no se puede saber si hay entregas.</div>"##.to_string(),
-            None if d.mcp_timeout => r##"<div class="p-2 rounded-lg bg-surface-container text-body-sm text-body-sm text-outline">Mikareno no responde ahora: no se puede saber si hay entregas hoy.</div>"##.to_string(),
-            None => r##"<div class="p-2 rounded-lg bg-surface-container text-body-sm text-body-sm text-outline">Mikareno no respondió: no se puede saber si hay entregas hoy.</div>"##.to_string(),
+            None => {
+                r##"<div class="nx-empty">Sin detalle de entregas ahora mismo.</div>"##.to_string()
+            }
         };
     }
     tareas
@@ -965,16 +973,29 @@ fn render_notes(d: &PanelData) -> String {
     d.recent_notes
         .iter()
         .map(|(title, slug)| {
+            let title = title.trim();
+            let title = if title.is_empty() { "Sin título" } else { title };
+            let name = if slug.trim().is_empty() {
+                format!(
+                    r##"<span class="font-code-inline text-[12px] text-on-surface-variant truncate block">{}</span>"##,
+                    esc(title)
+                )
+            } else {
+                format!(
+                    r##"<a href="/app/notes/{slug}" class="font-code-inline text-[12px] text-primary-fixed-dim hover:underline cursor-pointer truncate block">{}</a>"##,
+                    esc(title),
+                    slug = esc(slug)
+                )
+            };
             format!(
                 r##"<div class="p-2.5 rounded-lg bg-surface-container hover:bg-surface-container-high transition-colors flex items-center justify-between">
                 <div class="flex items-start gap-2 min-w-0">
                     <span class="material-symbols-outlined text-[18px] text-tertiary-fixed-dim mt-0.5">draft</span>
-                    <a href="/app/notes/{slug}" class="font-code-inline text-[12px] text-primary-fixed-dim hover:underline cursor-pointer truncate block">{title}</a>
+                    {name}
                 </div>
                 <span class="font-code-inline text-[10px] px-1.5 py-0.5 rounded bg-surface-container-lowest text-outline">nota</span>
             </div>"##,
-                slug = esc(slug),
-                title = esc(title)
+                name = name
             )
         })
         .collect::<Vec<_>>()
@@ -1005,18 +1026,11 @@ fn render_tasktable(d: &PanelData) -> String {
     if d.tareas.is_empty() {
         let msg = match d.tasks_week {
             Some(n) if n > 0 => format!(
-                "{} tarea(s) esta semana. Mikareno no expone el detalle ahora mismo.",
+                "{} tarea(s) esta semana. El detalle llegará cuando Mikareno lo exponga.",
                 n
             ),
             Some(_) => "Sin tareas pendientes.".to_string(),
-            // Sin el dato no se afirma que no haya tareas.
-            None if d.connected => {
-                "Mikareno no informó de las tareas: no se puede saber cuántas hay.".to_string()
-            }
-            None if d.mcp_timeout => {
-                "Mikareno no responde ahora: no se puede saber cuántas tareas hay.".to_string()
-            }
-            None => "Mikareno no respondió: no se puede saber cuántas tareas hay.".to_string(),
+            None => "Sin detalle de tareas ahora mismo.".to_string(),
         };
         return format!(
             r##"<tr><td colspan="6" class="py-4 text-center font-body-sm text-body-sm text-outline">{}</td></tr>"##,
@@ -1070,10 +1084,7 @@ fn render_taskfooter(d: &PanelData) -> String {
     if total == 0 {
         match d.tasks_week {
             Some(_) => "Sin tareas activas".to_string(),
-            // Sin el dato no se afirma que no haya tareas.
-            None if d.connected => "Mikareno no informó de las tareas".to_string(),
-            None if d.mcp_timeout => "Mikareno no responde ahora".to_string(),
-            None => "Mikareno sin conexión".to_string(),
+            None => "Detalle no disponible".to_string(),
         }
     } else {
         format!("Mostrando {} de {} tareas activas", shown, total)
@@ -1249,6 +1260,684 @@ fn render_subject_options(d: &PanelData) -> String {
         .join("")
 }
 
+// ── KPIs compactos del inicio denso ───────────────────────────────────────
+
+fn kpi(value: &str, meta: &str) -> String {
+    format!(
+        "<strong>{}</strong><small>{}</small>",
+        esc(value),
+        esc(meta)
+    )
+}
+
+fn render_kpi_classes(d: &PanelData) -> String {
+    let now = chrono::Local::now();
+    if d.horario.is_none() {
+        return kpi("—", "sin horario");
+    }
+    let clases = classes_for(d, weekday_es(now.weekday()));
+    let now_min = now.hour() * 60 + now.minute();
+    let rest = clases
+        .iter()
+        .filter(|l| slot_start_minutes(l).map(|m| m >= now_min).unwrap_or(false))
+        .count();
+    kpi(&clases.len().to_string(), &format!("{} restantes", rest))
+}
+
+fn render_kpi_tasks_today(d: &PanelData) -> String {
+    match d.tasks_today {
+        Some(n) if n == 1 => kpi("1", "pendiente"),
+        Some(n) => kpi(&n.to_string(), "pendientes"),
+        None if d.mcp_timeout => kpi("—", "sin respuesta"),
+        None => kpi("—", "sin dato"),
+    }
+}
+
+fn render_kpi_tasks_week(d: &PanelData) -> String {
+    match d.tasks_week {
+        Some(n) if n == 1 => kpi("1", "pendiente"),
+        Some(n) => kpi(&n.to_string(), "pendientes"),
+        None if d.mcp_timeout => kpi("—", "sin respuesta"),
+        None => kpi("—", "sin dato"),
+    }
+}
+
+fn render_kpi_avg(d: &PanelData) -> String {
+    if d.notas.is_empty() {
+        return kpi("—", "sin notas");
+    }
+    let total: f64 = d.notas.iter().map(|n| n.nota).sum();
+    let avg = total / d.notas.len() as f64;
+    kpi(&format!("{:.2}", avg), "sobre 10")
+}
+
+fn render_kpi_notes(d: &PanelData) -> String {
+    match d.notes_count {
+        Some(n) => kpi(&n.to_string(), "en el vault"),
+        None => kpi("—", "sin dato"),
+    }
+}
+
+fn render_kpi_conv(d: &PanelData) -> String {
+    match d.conversations_count {
+        Some(n) => kpi(&n.to_string(), "hilos"),
+        None => kpi("—", "sin dato"),
+    }
+}
+
+fn render_trimester(d: &PanelData) -> String {
+    d.notas
+        .first()
+        .map(|n| n.trimestre.to_string())
+        .unwrap_or_else(|| "—".to_string())
+}
+
+/// Barras de todas las asignaturas, ordenadas de menor a mayor nota para que
+/// lo que necesita atención quede arriba.
+fn render_subject_bars(d: &PanelData) -> String {
+    if d.notas.is_empty() {
+        return r##"<p class="nx-empty">Mikareno no trajo notas de asignaturas todavía.</p>"##
+            .to_string();
+    }
+    let mut sorted: Vec<&Nota> = d.notas.iter().collect();
+    sorted.sort_by(|a, b| {
+        a.nota
+            .partial_cmp(&b.nota)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    sorted
+        .iter()
+        .map(|n| {
+            let pct = (n.nota * 10.0).clamp(0.0, 100.0) as u32;
+            let tone = if n.nota < 4.0 {
+                "is-low"
+            } else if n.nota < 7.0 {
+                "is-mid"
+            } else {
+                "is-high"
+            };
+            format!(
+                r##"<div class="nx-subject-row"><span class="nx-subject-name">{materia}</span><span class="nx-subject-bar {tone}"><i style="width:{pct}%"></i></span><span class="nx-subject-note">{nota:.2}</span></div>"##,
+                materia = esc(&n.materia),
+                tone = tone,
+                pct = pct,
+                nota = n.nota
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("")
+}
+
+fn render_next_event(d: &PanelData) -> String {
+    match &d.next_event {
+        Some(ev) => format!(
+            r##"<section class="nx-card nx-card-next"><header class="nx-card-head"><div><p class="nx-eyebrow">Próximo en el calendario</p><h2>{evento}</h2></div><span class="nx-badge">{fecha}</span></header><p class="nx-card-next-meta">{tipo}</p></section>"##,
+            evento = esc(&ev.evento),
+            fecha = esc(&ev.fecha),
+            tipo = if ev.tipo == "SCHOOL_DAY" {
+                "Día de clases"
+            } else if ev.tipo == "NON_SCHOOL_DAY" {
+                "Día no lectivo"
+            } else {
+                "Evento del calendario"
+            }
+        ),
+        None => r##"<section class="nx-card nx-card-next"><header class="nx-card-head"><div><p class="nx-eyebrow">Próximo en el calendario</p><h2>Sin eventos próximos</h2></div></header><p class="nx-card-next-meta"><a class="nx-text-link" href="/dashboard/calendar">Abrir calendario<span class="material-symbols-outlined">arrow_forward</span></a></p></section>"##.to_string(),
+    }
+}
+
+// ── Gráficos SVG (sin dependencias, con datos reales) ─────────────────────
+
+fn chart_empty(title: &str, body: &str, href: &str, cta: &str) -> String {
+    format!(
+        r##"<div class="nx-chart-empty"><p>{title}</p><span>{body}</span><a href="{href}">{cta}<span class="material-symbols-outlined">arrow_forward</span></a></div>"##,
+        title = esc(title),
+        body = esc(body),
+        href = href,
+        cta = esc(cta)
+    )
+}
+
+fn weekday_of_iso(fecha: &str) -> Option<chrono::Weekday> {
+    let dia = fecha.get(0..10)?;
+    chrono::NaiveDate::parse_from_str(dia, "%Y-%m-%d")
+        .ok()
+        .map(|d| d.weekday())
+}
+
+/// Barras horizontales de la media por asignatura (0–10).
+fn render_chart_subjects(d: &PanelData) -> String {
+    if d.notas.is_empty() {
+        return chart_empty(
+            "Sin notas todavía",
+            "Conecta Mikareno para llenar este gráfico con tus asignaturas.",
+            "/dashboard/subjects",
+            "Ver asignaturas",
+        );
+    }
+    let mut items: Vec<&Nota> = d.notas.iter().collect();
+    items.sort_by(|a, b| {
+        b.nota
+            .partial_cmp(&a.nota)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    items.truncate(7);
+    let row = 24;
+    let top = 6;
+    let label_w = 106;
+    let bar_x = 114;
+    let bar_w = 168;
+    let value_w = 30;
+    let width = bar_x + bar_w + value_w;
+    let height = top * 2 + row * items.len() as i32;
+    let mut bars = String::new();
+    for (i, n) in items.iter().enumerate() {
+        let y = top + i as i32 * row;
+        let pct = (n.nota / 10.0).clamp(0.0, 1.0);
+        let bw = (bar_w as f64 * pct).round() as i32;
+        let fill = if n.nota < 4.0 {
+            "var(--nx-danger)"
+        } else if n.nota < 7.0 {
+            "var(--nx-orange)"
+        } else {
+            "var(--nx-accent)"
+        };
+        bars.push_str(&format!(
+            r##"<g><title>{name}: {nota:.2}</title><text class="nx-chart-t" x="0" y="{ty}" dominant-baseline="middle">{name}</text><rect x="{bar_x}" y="{ry}" width="{bar_w}" height="7" rx="3.5" fill="var(--nx-surface-3)"/><rect x="{bar_x}" y="{ry}" width="{bw}" height="7" rx="3.5" fill="{fill}"/><text class="nx-chart-v" x="{vx}" y="{ty}" dominant-baseline="middle">{nota:.2}</text></g>"##,
+            name = esc(&n.materia),
+            nota = n.nota,
+            ty = y + row / 2,
+            ry = y + (row - 8) / 2,
+            bw = bw,
+            fill = fill,
+            vx = bar_x + bar_w + 8,
+        ));
+    }
+    format!(
+        r##"<svg class="nx-chart" viewBox="0 0 {width} {height}" role="img" aria-label="Media por asignatura">{bars}</svg>"##,
+        width = width,
+        height = height,
+        bars = bars
+    )
+}
+
+/// Clases y entregas por día de la semana actual.
+fn render_chart_week(d: &PanelData) -> String {
+    let dias = [
+        ("L", chrono::Weekday::Mon),
+        ("M", chrono::Weekday::Tue),
+        ("X", chrono::Weekday::Wed),
+        ("J", chrono::Weekday::Thu),
+        ("V", chrono::Weekday::Fri),
+        ("S", chrono::Weekday::Sat),
+        ("D", chrono::Weekday::Sun),
+    ];
+    let clases: Vec<i32> = dias
+        .iter()
+        .map(|(_, wd)| classes_for(d, weekday_es(*wd)).len() as i32)
+        .collect();
+    let tareas: Vec<i32> = dias
+        .iter()
+        .map(|(_, wd)| {
+            d.tareas
+                .iter()
+                .filter(|t| weekday_of_iso(&t.vencimiento) == Some(*wd))
+                .count() as i32
+        })
+        .collect();
+    let max = clases
+        .iter()
+        .chain(tareas.iter())
+        .copied()
+        .max()
+        .unwrap_or(0);
+    if max == 0 {
+        return chart_empty(
+            "Sin carga esta semana",
+            "Cuando haya clases o entregas, aquí verás cómo se reparten.",
+            "/dashboard/planner",
+            "Abrir planificador",
+        );
+    }
+    let width = 340;
+    let height = 148;
+    let left = 26;
+    let bottom = 20;
+    let top = 12;
+    let plot_h = height - top - bottom;
+    let plot_w = width - left - 8;
+    let slot = plot_w / 7;
+    let bar_w = 9;
+    let group_w = bar_w * 2 + 3;
+    let mut out = String::new();
+    for frac in [0.0, 0.5, 1.0] {
+        let y = top + plot_h - (plot_h as f64 * frac) as i32;
+        out.push_str(&format!(
+            r##"<line x1="{left}" y1="{y}" x2="{}" y2="{y}" stroke="var(--nx-line)" stroke-width="1"/><text class="nx-chart-axis" x="{x}" y="{ty}">{val}</text>"##,
+            width - 8,
+            x = left - 6,
+            ty = y + 3,
+            val = (max as f64 * frac).round() as i32
+        ));
+    }
+    for (i, (label, _)) in dias.iter().enumerate() {
+        let cx = left + slot * i as i32 + slot / 2;
+        let gx = cx - group_w / 2;
+        let day_label = top + plot_h + 13;
+        out.push_str(&format!(
+            r##"<text class="nx-chart-axis" x="{cx}" y="{day_label}" text-anchor="middle">{label}</text>"##,
+            cx = cx,
+            day_label = day_label,
+            label = label
+        ));
+        let values = [
+            (clases[i], "var(--nx-accent)"),
+            (tareas[i], "var(--nx-orange)"),
+        ];
+        for (j, (value, color)) in values.iter().enumerate() {
+            let h = (plot_h as f64 * (*value as f64 / max as f64)).round() as i32;
+            let x = gx + j as i32 * (bar_w + 3);
+            let y = top + plot_h - h;
+            if *value > 0 {
+                out.push_str(&format!(
+                    r##"<rect x="{x}" y="{y}" width="{bar_w}" height="{h}" rx="2" fill="{color}"><title>{value}</title></rect>"##,
+                    x = x,
+                    y = y,
+                    h = h,
+                    color = color,
+                    value = value
+                ));
+            }
+        }
+    }
+    format!(
+        r##"<svg class="nx-chart" viewBox="0 0 {width} {height}" role="img" aria-label="Clases y entregas por día">{out}</svg><p class="nx-chart-legend"><span class="is-class"></span>Clases<span class="is-task"></span>Entregas</p>"##,
+        width = width,
+        height = height,
+        out = out
+    )
+}
+
+/// Apuntes creados por semana en las últimas 8 semanas.
+fn render_chart_notes(d: &PanelData) -> String {
+    if d.notes_activity.is_empty() || d.notes_activity.iter().all(|n| *n == 0) {
+        return chart_empty(
+            "Aún sin actividad",
+            "Crea apuntes y verás aquí tu ritmo de las últimas 8 semanas.",
+            "/dashboard/notes",
+            "Escribir una nota",
+        );
+    }
+    let width = 340;
+    let height = 148;
+    let left = 26;
+    let bottom = 20;
+    let top = 12;
+    let plot_h = height - top - bottom;
+    let plot_w = width - left - 8;
+    let max = d.notes_activity.iter().copied().max().unwrap_or(1).max(1);
+    let slot = plot_w / 8;
+    let bar_w = (slot - 6).max(6);
+    let mut out = String::new();
+    for frac in [0.0, 1.0] {
+        let y = top + plot_h - (plot_h as f64 * frac) as i32;
+        out.push_str(&format!(
+            r##"<line x1="{left}" y1="{y}" x2="{}" y2="{y}" stroke="var(--nx-line)" stroke-width="1"/><text class="nx-chart-axis" x="{x}" y="{ty}">{val}</text>"##,
+            width - 8,
+            x = left - 6,
+            ty = y + 3,
+            val = (max as f64 * frac).round() as i32
+        ));
+    }
+    for (i, value) in d.notes_activity.iter().enumerate() {
+        let h = (plot_h as f64 * (*value as f64 / max as f64)).round() as i32;
+        let x = left + slot * i as i32 + (slot - bar_w) / 2;
+        let y = top + plot_h - h;
+        if *value > 0 {
+            out.push_str(&format!(
+                r##"<rect x="{x}" y="{y}" width="{bar_w}" height="{h}" rx="2" fill="var(--nx-accent)"><title>{value} apuntes</title></rect>"##,
+                x = x,
+                y = y,
+                h = h,
+                bar_w = bar_w,
+                value = value
+            ));
+        }
+    }
+    out.push_str(&format!(
+        r##"<text class="nx-chart-axis" x="{x}" y="{y}">hace 8 sem</text><text class="nx-chart-axis" x="{x2}" y="{y}" text-anchor="end">hoy</text>"##,
+        x = left,
+        y = top + plot_h + 13,
+        x2 = width - 8
+    ));
+    format!(
+        r##"<svg class="nx-chart" viewBox="0 0 {width} {height}" role="img" aria-label="Apuntes por semana">{out}</svg>"##,
+        width = width,
+        height = height,
+        out = out
+    )
+}
+
+/// Aviso único cuando Mikareno no está disponible. Evita repetir el mismo
+/// estado técnico en cada tarjeta.
+fn render_sync_banner(d: &PanelData) -> String {
+    if d.connected && !d.mcp_timeout {
+        return String::new();
+    }
+    let msg = if d.mcp_timeout {
+        "Mikareno está tardando en responder. Las tareas y notas pueden aparecer incompletas."
+    } else {
+        "Sin conexión con Mikareno. Las tareas y notas pueden aparecer incompletas."
+    };
+    format!(
+        r##"<div class="nx-sync-banner" role="status"><span class="material-symbols-outlined">cloud_off</span><p>{}</p><a href="/dashboard/mcp">Revisar conexión<span class="material-symbols-outlined">arrow_forward</span></a></div>"##,
+        esc(msg)
+    )
+}
+
+// Calendario denso (Stitch v2)
+
+fn month_name_es(month: u32) -> &'static str {
+    match month {
+        1 => "Enero",
+        2 => "Febrero",
+        3 => "Marzo",
+        4 => "Abril",
+        5 => "Mayo",
+        6 => "Junio",
+        7 => "Julio",
+        8 => "Agosto",
+        9 => "Septiembre",
+        10 => "Octubre",
+        11 => "Noviembre",
+        12 => "Diciembre",
+        _ => "",
+    }
+}
+
+fn weekday_es_short(wd: chrono::Weekday) -> &'static str {
+    match wd {
+        chrono::Weekday::Mon => "L",
+        chrono::Weekday::Tue => "M",
+        chrono::Weekday::Wed => "X",
+        chrono::Weekday::Thu => "J",
+        chrono::Weekday::Fri => "V",
+        chrono::Weekday::Sat => "S",
+        chrono::Weekday::Sun => "D",
+    }
+}
+
+fn render_cal_sync_banner(d: &PanelData) -> String {
+    if d.connected && !d.mcp_timeout {
+        return String::new();
+    }
+    let msg = if d.mcp_timeout {
+        "Mikareno esta tardando en responder. El calendario puede mostrar datos desactualizados."
+    } else {
+        "Sin conexion con Mikareno. El calendario se muestra sin datos de la plataforma."
+    };
+    format!(
+        r##"<div class="nx-sync-banner nx-cal-banner" role="status"><span class="material-symbols-outlined">cloud_off</span><p>{}</p></div>"##,
+        esc(msg)
+    )
+}
+
+fn render_cal_days_with_class(d: &PanelData) -> String {
+    let mut unique_days: std::collections::HashSet<String> = std::collections::HashSet::new();
+    if let Some(h) = &d.horario {
+        for dia in &h.dias {
+            unique_days.insert(dia.dia.clone());
+        }
+    }
+    unique_days.len().to_string()
+}
+
+fn render_cal_tasks_month(d: &PanelData) -> String {
+    let today = chrono::Local::now().date_naive();
+    let first = today.with_day(1).unwrap_or(today);
+    let last = first + chrono::Months::new(1) - chrono::Days::new(1);
+    let first_s = first.format("%Y-%m-%d").to_string();
+    let last_s = last.format("%Y-%m-%d").to_string();
+    let count = d
+        .tareas
+        .iter()
+        .filter(|t| {
+            !t.vencimiento.is_empty() && t.vencimiento >= first_s && t.vencimiento <= last_s
+        })
+        .count();
+    count.to_string()
+}
+
+fn render_cal_events_month(d: &PanelData) -> String {
+    let today = chrono::Local::now().date_naive();
+    let first = today.with_day(1).unwrap_or(today);
+    let last = first + chrono::Months::new(1) - chrono::Days::new(1);
+    let first_s = first.format("%Y-%m-%d").to_string();
+    let last_s = last.format("%Y-%m-%d").to_string();
+    let count = d
+        .eventos
+        .iter()
+        .filter(|e| e.fecha >= first_s && e.fecha <= last_s)
+        .count();
+    count.to_string()
+}
+
+fn render_cal_grid(d: &PanelData) -> String {
+    let today = chrono::Local::now().date_naive();
+    let focus = today.with_day(1).unwrap_or(today);
+    let first_weekday = focus.weekday();
+    let days_in_month = {
+        let m = focus.month();
+        let y = focus.year();
+        if m == 2 {
+            if y % 4 == 0 && (y % 100 != 0 || y % 400 == 0) {
+                29
+            } else {
+                28
+            }
+        } else {
+            [31, 0, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][(m - 1) as usize]
+        }
+    };
+
+    let mut eventos_by_day: std::collections::HashMap<String, Vec<&CalendarioEvent>> =
+        std::collections::HashMap::new();
+    for e in &d.eventos {
+        eventos_by_day.entry(e.fecha.clone()).or_default().push(e);
+    }
+    let mut tareas_by_day: std::collections::HashMap<String, Vec<&Tarea>> =
+        std::collections::HashMap::new();
+    for t in &d.tareas {
+        if !t.vencimiento.is_empty() {
+            let day = t.vencimiento.get(0..10).unwrap_or(&t.vencimiento);
+            tareas_by_day.entry(day.to_string()).or_default().push(t);
+        }
+    }
+    let mut clases_by_day: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
+    if let Some(h) = &d.horario {
+        for dia in &h.dias {
+            let wd = match dia.dia.as_str() {
+                "lunes" => chrono::Weekday::Mon,
+                "martes" => chrono::Weekday::Tue,
+                "miercoles" => chrono::Weekday::Wed,
+                "jueves" => chrono::Weekday::Thu,
+                "viernes" => chrono::Weekday::Fri,
+                "sabado" => chrono::Weekday::Sat,
+                "domingo" => chrono::Weekday::Sun,
+                _ => continue,
+            };
+            let mut dcur = focus;
+            while dcur.weekday() != wd {
+                dcur += chrono::Duration::days(1);
+            }
+            while dcur.month() == focus.month() {
+                let key = dcur.format("%Y-%m-%d").to_string();
+                for c in &dia.clases {
+                    clases_by_day
+                        .entry(key.clone())
+                        .or_default()
+                        .push(c.clone());
+                }
+                dcur += ChronoDuration::days(7);
+            }
+        }
+    }
+
+    let mut out = String::new();
+    out.push_str(&format!(
+        r##"<div class="nx-cal-nav"><button hx-get="/dashboard/calendar?partial=grid&month={prev}" hx-target="#calendar-grid" hx-swap="innerHTML" class="nx-cal-nav-btn" aria-label="Mes anterior"><span class="material-symbols-outlined">chevron_left</span></button><div class="nx-cal-title"><span class="nx-cal-month">{month} {year}</span><span class="nx-cal-badge">Mes actual</span></div><button hx-get="/dashboard/calendar?partial=grid&month={next}" hx-target="#calendar-grid" hx-swap="innerHTML" class="nx-cal-nav-btn" aria-label="Mes siguiente"><span class="material-symbols-outlined">chevron_right</span></button></div>"##,
+        prev = (focus - chrono::Duration::days(28)).format("%Y-%m"),
+        next = (focus + chrono::Duration::days(28)).format("%Y-%m"),
+        month = month_name_es(focus.month()),
+        year = focus.year(),
+    ));
+    out.push_str(r##"<div class="nx-cal-weekdays">"##);
+    for wd in [
+        chrono::Weekday::Mon,
+        chrono::Weekday::Tue,
+        chrono::Weekday::Wed,
+        chrono::Weekday::Thu,
+        chrono::Weekday::Fri,
+        chrono::Weekday::Sat,
+        chrono::Weekday::Sun,
+    ] {
+        out.push_str(&format!("<div>{}</div>", weekday_es_short(wd)));
+    }
+    out.push_str("</div>");
+    out.push_str(r##"<div class="nx-cal-days">"##);
+
+    let start_offset = match first_weekday {
+        chrono::Weekday::Mon => 0,
+        chrono::Weekday::Tue => 1,
+        chrono::Weekday::Wed => 2,
+        chrono::Weekday::Thu => 3,
+        chrono::Weekday::Fri => 4,
+        chrono::Weekday::Sat => 5,
+        chrono::Weekday::Sun => 6,
+    };
+    for _ in 0..start_offset {
+        out.push_str(r##"<div class="nx-cal-day nx-cal-outside"></div>"##);
+    }
+
+    for day in 1..=days_in_month {
+        let date = focus.with_day(day).unwrap();
+        let key = date.format("%Y-%m-%d").to_string();
+        let is_today = date == today;
+        let evs = eventos_by_day.get(&key).cloned().unwrap_or_default();
+        let tas = tareas_by_day.get(&key).cloned().unwrap_or_default();
+        let cls = clases_by_day.get(&key).cloned().unwrap_or_default();
+
+        let mut classes = vec!["nx-cal-day"];
+        if is_today {
+            classes.push("nx-cal-today");
+        }
+
+        out.push_str(&format!("<div class=\"{}\">", classes.join(" ")));
+        out.push_str(&format!(
+            "<span class=\"nx-cal-day-num\"{0}>{day}</span>",
+            if is_today {
+                " aria-current=\"date\""
+            } else {
+                ""
+            }
+        ));
+
+        if !cls.is_empty() || !evs.is_empty() || !tas.is_empty() {
+            out.push_str("<div class=\"nx-cal-chips\">");
+            for c in &cls {
+                let short = if c.len() > 22 {
+                    format!("{}...", &c[..19])
+                } else {
+                    c.clone()
+                };
+                out.push_str(&format!(
+                    "<span class=\"nx-cal-chip class\" title=\"{}\">{}</span>",
+                    esc(c),
+                    esc(&short)
+                ));
+            }
+            for e in &evs {
+                let short = if e.evento.len() > 22 {
+                    format!("{}...", &e.evento[..19])
+                } else {
+                    e.evento.clone()
+                };
+                let color = if e.tipo == "NON_SCHOOL_DAY" {
+                    "event non-school"
+                } else {
+                    "event"
+                };
+                out.push_str(&format!(
+                    "<span class=\"nx-cal-chip {color}\" title=\"{}\">{}</span>",
+                    esc(&e.evento),
+                    esc(&short)
+                ));
+            }
+            for t in tas {
+                let short = if t.titulo.len() > 22 {
+                    format!("{}...", &t.titulo[..19])
+                } else {
+                    t.titulo.clone()
+                };
+                out.push_str(&format!(
+                    "<span class=\"nx-cal-chip task\" title=\"{}\">{}</span>",
+                    esc(&t.titulo),
+                    esc(&short)
+                ));
+            }
+            out.push_str("</div>");
+        }
+        out.push_str("</div>");
+    }
+
+    let total_cells = start_offset + days_in_month;
+    let trailing = (42 - total_cells).max(0);
+    for _ in 0..trailing {
+        out.push_str(r##"<div class="nx-cal-day nx-cal-outside"></div>"##);
+    }
+
+    out.push_str("</div>");
+    out
+}
+
+fn render_cal_upcoming(d: &PanelData) -> String {
+    let today = chrono::Local::now().date_naive();
+    let today_s = today.format("%Y-%m-%d").to_string();
+    let mut upcoming: Vec<&CalendarioEvent> =
+        d.eventos.iter().filter(|e| e.fecha >= today_s).collect();
+    upcoming.sort_by(|a, b| a.fecha.cmp(&b.fecha));
+    upcoming.truncate(5);
+    if upcoming.is_empty() {
+        return r##"<p class="nx-cal-up-empty">Sin eventos proximos</p>"##.to_string();
+    }
+    let mut out = String::new();
+    for e in upcoming {
+        let fecha_fmt = match chrono::NaiveDate::parse_from_str(&e.fecha[..10], "%Y-%m-%d") {
+            Ok(d) => format!("{:02}/{:02}", d.day(), d.month()),
+            Err(_) => e.fecha.clone(),
+        };
+        let badge = if e.tipo == "NON_SCHOOL_DAY" {
+            "non-school"
+        } else {
+            "event"
+        };
+        out.push_str(&format!(
+            r##"<div class="nx-cal-up-item"><span class="nx-cal-up-date">{fecha}</span><span class="nx-cal-up-title">{evento}</span><span class="nx-cal-up-badge {badge}">{tipo}</span></div>"##,
+            fecha = fecha_fmt,
+            evento = esc(&e.evento),
+            tipo = if e.tipo == "NON_SCHOOL_DAY" { "No lectivo" } else { "Evento" },
+            badge = badge,
+        ));
+    }
+    out
+}
+
+/// Devuelve solo la rejilla del calendario para HTMX partial reload.
+pub fn fill_panel_partial_grid(d: &PanelData) -> String {
+    render_cal_grid(d)
+}
+
 /// Reemplaza los marcadores `<!--SLOT:...-->` por HTML con datos reales.
 pub fn fill_panel(content: &str, d: &PanelData) -> String {
     content
@@ -1269,6 +1958,28 @@ pub fn fill_panel(content: &str, d: &PanelData) -> String {
         .replace("<!--SLOT:WEEKCAL-->", &render_weekcal(d))
         .replace("<!--SLOT:EXAM-->", &render_exam(d))
         .replace("<!--SLOT:FOCUS-->", &render_focus(d))
+        .replace("<!--SLOT:KPI_CLASSES-->", &render_kpi_classes(d))
+        .replace("<!--SLOT:KPI_TASKS_TODAY-->", &render_kpi_tasks_today(d))
+        .replace("<!--SLOT:KPI_TASKS_WEEK-->", &render_kpi_tasks_week(d))
+        .replace("<!--SLOT:KPI_AVG-->", &render_kpi_avg(d))
+        .replace("<!--SLOT:KPI_NOTES-->", &render_kpi_notes(d))
+        .replace("<!--SLOT:KPI_CONV-->", &render_kpi_conv(d))
+        .replace("<!--SLOT:SUBJECT_BARS-->", &render_subject_bars(d))
+        .replace("<!--SLOT:TRIMESTER-->", &render_trimester(d))
+        .replace("<!--SLOT:NEXT_EVENT-->", &render_next_event(d))
+        .replace("<!--SLOT:CHART_SUBJECTS-->", &render_chart_subjects(d))
+        .replace("<!--SLOT:CHART_WEEK-->", &render_chart_week(d))
+        .replace("<!--SLOT:CHART_NOTES-->", &render_chart_notes(d))
+        .replace("<!--SLOT:SYNC_BANNER-->", &render_sync_banner(d))
+        .replace("<!--SLOT:CAL_SYNC_BANNER-->", &render_cal_sync_banner(d))
+        .replace(
+            "<!--SLOT:CAL_DAYS_WITH_CLASS-->",
+            &render_cal_days_with_class(d),
+        )
+        .replace("<!--SLOT:CAL_TASKS_MONTH-->", &render_cal_tasks_month(d))
+        .replace("<!--SLOT:CAL_EVENTS_MONTH-->", &render_cal_events_month(d))
+        .replace("<!--SLOT:CAL_GRID-->", &render_cal_grid(d))
+        .replace("<!--SLOT:CAL_UPCOMING-->", &render_cal_upcoming(d))
 }
 
 // ── shell (topbar + aside): datos reales en todas las páginas ──────────────
@@ -1538,10 +2249,10 @@ mod tests {
     #[test]
     fn sin_datos_de_mikareno_no_se_inventa_ningun_cero() {
         let d = PanelData::default();
-        // El conteo de tareas dice "sin conexión", no "0 pendientes".
-        assert_eq!(render_taskcount(&d), "Mikareno sin conexión");
+        // El conteo de tareas dice "Sin detalle", no "0 pendientes".
+        assert_eq!(render_taskcount(&d), "Sin detalle");
         // La tabla de tareas lo dice con claridad y sin afirmar que no haya.
-        assert!(render_tasktable(&d).contains("no se puede saber"));
+        assert!(render_tasktable(&d).contains("Sin detalle de tareas"));
     }
 
     #[test]
@@ -1664,17 +2375,16 @@ mod tests {
         let mut d = PanelData::default();
         d.mcp_timeout = true;
         assert_eq!(render_sync(&d), "Mikareno: no responde ahora");
-        assert_eq!(render_taskcount(&d), "Mikareno no responde ahora");
+        assert_eq!(render_taskcount(&d), "Sin detalle");
         // Sin inventar ceros: sigue diciendo que no se puede saber.
-        assert!(render_tasktable(&d).contains("no se puede saber"));
-        assert!(render_tasktable(&d).contains("no responde ahora"));
-        assert!(render_tasks_today(&d).contains("no se puede saber"));
+        assert!(render_tasktable(&d).contains("Sin detalle de tareas"));
+        assert!(render_tasks_today(&d).contains("Sin detalle"));
     }
 
     #[test]
     fn sin_timeout_el_panel_sigue_diciendo_sin_conexion() {
         let d = PanelData::default();
         assert_eq!(render_sync(&d), "Mikareno: sin conexión");
-        assert_eq!(render_taskcount(&d), "Mikareno sin conexión");
+        assert_eq!(render_taskcount(&d), "Sin detalle");
     }
 }

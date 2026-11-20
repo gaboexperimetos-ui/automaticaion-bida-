@@ -92,25 +92,38 @@ pub async fn list(State(state): State<Arc<AppState>>) -> impl IntoResponse {
         files.iter().map(|f| {
             let p = Presentation::load_from(&dir.join(format!("{}.json", f.name)));
             let slide_count = p.as_ref().map(|p| p.slides.len()).unwrap_or(0);
+            let display = p
+                .as_ref()
+                .map(|p| p.title.trim().to_string())
+                .filter(|title| !title.is_empty())
+                .unwrap_or_else(|| f.display.clone());
             format!(
-                r##"<article class="gen-office-file-card presentations"><a class="gen-office-file-preview" href="/office/presentations/{slug}"><span class="material-symbols-outlined">present_to_all</span><small>{n} DIAPOSITIVA(S)</small></a><div class="gen-office-file-copy"><a href="/office/presentations/{slug}">{display}</a><span>{modified} · {size}</span></div><footer><a href="/office/presentations/{slug}/present" target="_blank">Presentar</a><form hx-delete="/office/presentations/{slug}"><button type="submit" onclick="return confirm('¿Borrar?')" class="gen-office-icon-button danger" aria-label="Borrar {display}"><span class="material-symbols-outlined">delete</span></button></form></footer></article>"##,
+                r##"<article class="gen-office-file-card presentations"><a class="gen-office-file-preview" href="/office/presentations/{slug}" aria-label="Abrir {display}"><span class="material-symbols-outlined">present_to_all</span></a><div class="gen-office-file-copy"><a href="/office/presentations/{slug}">{display}</a><span>{slides} · {modified} · {size}</span></div><div class="gen-office-doc-actions"><a class="gen-office-chip" href="/office/presentations/{slug}/present" target="_blank">Presentar</a><form hx-delete="/office/presentations/{slug}" hx-confirm="¿Borrar «{display}»?"><button type="submit" class="gen-office-icon-button danger" aria-label="Borrar {display}"><span class="material-symbols-outlined">delete</span></button></form></div></article>"##,
                 slug = templates::html_escape(&f.name),
-                display = templates::html_escape(&f.display),
-                n = slide_count,
+                display = templates::html_escape(&display),
+                slides = if slide_count == 1 {
+                    "1 diapositiva".to_string()
+                } else {
+                    format!("{} diapositivas", slide_count)
+                },
                 size = templates::human_size(f.size),
-                modified = templates::html_escape(&f.modified),
+                modified = templates::html_escape(&templates::human_date(&f.modified)),
             )
         }).collect::<Vec<_>>().join("\n")
     };
 
     let body = format!(
-        r##"<div class="nova-page gen-office-page gen-office-manager-page">{tabs}<header class="gen-office-manager-head"><div><span>PRESENTACIONES · MARKDOWN</span><h1>Ideas listas para presentar.</h1><p>{count} presentación(es) editables en tu espacio local.</p></div><a href="/office/presentations/new" class="gen-office-primary-button"><span class="material-symbols-outlined">add</span>Nueva presentación</a></header><nav class="gen-office-appnav" aria-label="Aplicaciones de oficina"><a href="/office/docs"><span class="material-symbols-outlined">description</span>Documentos</a><a href="/office/sheets"><span class="material-symbols-outlined">table_chart</span>Hojas</a><a class="is-active presentations" href="/office/presentations"><span class="material-symbols-outlined">present_to_all</span>Presentaciones</a><a href="/office/library"><span class="material-symbols-outlined">folder_open</span>Biblioteca</a></nav><section class="gen-office-file-grid">{cards}</section><footer class="gen-office-home-footer"><span><span class="material-symbols-outlined">hard_drive</span> Presentaciones locales</span><span>Edición y modo presentación</span></footer></div>"##,
+        r##"<div class="nova-page gen-office-page gen-office-manager-page">{tabs}<header class="gen-office-manager-head"><div><span>PRESENTACIONES · MARKDOWN</span><h1>Ideas listas para presentar.</h1><p>{summary}</p></div><a href="/office/presentations/new" class="gen-office-primary-button"><span class="material-symbols-outlined">add</span>Nueva presentación</a></header><nav class="gen-office-appnav" aria-label="Aplicaciones de oficina"><a href="/office/docs"><span class="material-symbols-outlined">description</span>Documentos</a><a href="/office/sheets"><span class="material-symbols-outlined">table_chart</span>Hojas</a><a class="is-active presentations" href="/office/presentations"><span class="material-symbols-outlined">present_to_all</span>Presentaciones</a><a href="/office/library"><span class="material-symbols-outlined">folder_open</span>Biblioteca</a></nav><section class="gen-office-file-grid gen-office-docs-grid">{cards}</section><footer class="gen-office-home-footer"><span><span class="material-symbols-outlined">hard_drive</span> Presentaciones locales</span><span>Edición y modo presentación</span></footer></div>"##,
         tabs = templates::office_tab_strip(
             "presentations",
             "Presentaciones",
             "/office/presentations/new"
         ),
-        count = files.len(),
+        summary = match files.len() {
+            0 => "Sin presentaciones todavía.".to_string(),
+            1 => "1 presentación editable en tu espacio local.".to_string(),
+            n => format!("{} presentaciones editables en tu espacio local.", n),
+        },
         cards = cards,
     );
     templates::layout_as_shelled(&state, "Presentaciones", "presentaciones", &body).await
@@ -230,7 +243,7 @@ pub async fn edit(
             content = content_esc,
         ));
         editors.push_str(&format!(
-            r##"<section class="gen-office-slide-editor" data-slide-panel="{i}" {hidden}><div class="gen-office-slide-canvas" id="slide-preview-{i}"><div class="gen-office-slide-brand">NOVA · ESCENA {number}</div><h2>{title}</h2><div class="gen-office-slide-content" data-preview-content>{preview}</div><footer>{deck_title}</footer></div><form hx-put="/office/presentations/{slug}/slides/{i}" class="gen-office-slide-form"><div><label for="slide-title-{i}">Título</label><input id="slide-title-{i}" name="title" value="{title}" placeholder="Título de la diapositiva" oninput="syncOfficeSlidePreview({i})" required></div><div><label for="slide-content-{i}">Contenido Markdown</label><textarea id="slide-content-{i}" name="content" rows="6" oninput="syncOfficeSlidePreview({i})">{content}</textarea></div><footer><span>La vista se actualiza al escribir</span><button type="submit" class="gen-office-primary-button"><span class="material-symbols-outlined">save</span>Guardar diapositiva</button></footer></form></section>"##,
+            r##"<section class="gen-office-slide-editor" data-slide-panel="{i}" {hidden}><div class="gen-office-slide-canvas" id="slide-preview-{i}"><div class="gen-office-slide-brand">NOVA · ESCENA {number}</div><h2>{title}</h2><div class="gen-office-slide-content" data-preview-content>{preview}</div><footer>{deck_title}</footer></div><form hx-put="/office/presentations/{slug}/slides/{i}" data-autosave="/office/presentations/{slug}/slides/{i}/autosave" class="gen-office-slide-form"><div class="gen-office-slide-form-head"><span>Editar escena</span><small>Autoguardado</small></div><div><label for="slide-title-{i}">Título</label><input id="slide-title-{i}" name="title" value="{title}" placeholder="Título de la diapositiva" oninput="syncOfficeSlidePreview({i})" required></div><div><label for="slide-content-{i}">Contenido Markdown</label><textarea id="slide-content-{i}" name="content" rows="6" oninput="syncOfficeSlidePreview({i})">{content}</textarea></div><footer><span>La vista se actualiza al escribir</span><button type="submit" class="gen-office-primary-button"><span class="material-symbols-outlined">save</span>Guardar diapositiva</button></footer></form></section>"##,
             i = i,
             number = number,
             hidden = hidden,
@@ -309,7 +322,7 @@ function moveSlide(idx, delta) {
 "##.replace("__SLUG__", &slug_js);
 
     let body = format!(
-        r##"<div class="nova-page gen-office-page gen-office-editor-page">{tabs}<header class="gen-office-ribbon"><nav class="gen-office-menubar" aria-label="Acciones de la presentación"><a class="is-active" href="/office/presentations/{slug}">Inicio</a><button type="button" onclick="openNewSlide()">Nueva diapositiva</button><a href="/office/presentations/{slug}/present" target="_blank">Presentar</a></nav><div class="gen-office-ribbon-actions">{ai_toggle}<a class="gen-office-primary-button" href="/office/presentations/{slug}/present" target="_blank"><span class="material-symbols-outlined">play_arrow</span>Presentar</a><form hx-delete="/office/presentations/{slug}"><button type="submit" onclick="return confirm('¿Borrar presentación?')" class="gen-office-icon-button danger" aria-label="Borrar presentación"><span class="material-symbols-outlined">delete</span></button></form></div></header><div class="gen-office-workspace">{ai}<main class="gen-office-editor-main"><div class="gen-office-canvas-head"><div><span>PRESENTACIÓN</span><strong>{title}</strong></div><span class="gen-office-local-badge"><span class="material-symbols-outlined">hard_drive</span>Archivo local</span></div><section class="gen-office-deck-stage"><aside class="gen-office-thumbnails"><header><span>DIAPOSITIVAS</span><button type="button" class="gen-office-icon-button" onclick="openNewSlide()" aria-label="Añadir diapositiva"><span class="material-symbols-outlined">add</span></button></header><div id="slides" class="gen-office-slide-list">{thumbnails}</div><form hx-post="/office/presentations/{slug}/slides/reorder" hx-on::before-request="buildOrder()" class="gen-office-reorder-form"><input type="hidden" name="order" id="order" value=""><button type="submit" class="gen-office-secondary-button"><span class="material-symbols-outlined">swap_vert</span>Aplicar orden</button></form></aside><div class="gen-office-slide-stage">{editors}</div></section></main></div><footer class="gen-office-statusbar"><span id="slide-position">{position}</span><span>{total} diapositiva(s)</span><span>NOVA Office</span></footer></div><script>{workspace_js}</script><script>{deck_js}</script>"##,
+        r##"<div class="nova-page gen-office-page gen-office-editor-page">{tabs}<header class="gen-office-ribbon"><nav class="gen-office-menubar" aria-label="Acciones de la presentación"><a class="is-active" href="/office/presentations/{slug}">Inicio</a><button type="button" onclick="openNewSlide()">Nueva diapositiva</button><a href="/office/presentations/{slug}/present" target="_blank">Presentar</a></nav><div class="gen-office-ribbon-actions">{ai_toggle}<a class="gen-office-primary-button" href="/office/presentations/{slug}/present" target="_blank"><span class="material-symbols-outlined">play_arrow</span>Presentar</a><form hx-delete="/office/presentations/{slug}"><button type="submit" onclick="return confirm('¿Borrar presentación?')" class="gen-office-icon-button danger" aria-label="Borrar presentación"><span class="material-symbols-outlined">delete</span></button></form></div></header><div class="gen-office-workspace ai-hidden">{ai}<main class="gen-office-editor-main"><div class="gen-office-canvas-head"><div><span>PRESENTACIÓN</span><strong>{title}</strong></div><span class="gen-office-local-badge"><span class="material-symbols-outlined">hard_drive</span>Archivo local</span></div><section class="gen-office-deck-stage"><aside class="gen-office-thumbnails"><header><span>DIAPOSITIVAS</span><button type="button" class="gen-office-icon-button" onclick="openNewSlide()" aria-label="Añadir diapositiva"><span class="material-symbols-outlined">add</span></button></header><div id="slides" class="gen-office-slide-list">{thumbnails}</div><form hx-post="/office/presentations/{slug}/slides/reorder" hx-on::before-request="buildOrder()" class="gen-office-reorder-form"><input type="hidden" name="order" id="order" value=""><button type="submit" class="gen-office-secondary-button"><span class="material-symbols-outlined">swap_vert</span>Aplicar orden</button></form></aside><div class="gen-office-slide-stage">{editors}</div></section></main></div><footer class="gen-office-statusbar"><span id="slide-position">{position}</span><span class="gen-office-save-status"><span class="material-symbols-outlined">cloud_done</span><span id="office-save-status" data-state="saved">Guardado automático</span></span><span>{total} diapositiva(s)</span><span>NOVA Office</span></footer></div><script>{workspace_js}</script><script>{deck_js}</script>"##,
         tabs = templates::office_tab_strip("presentations", &pres.title, "/office/presentations/new"),
         slug = templates::html_escape(&slug),
         ai_toggle = templates::OFFICE_AI_TOGGLE,
@@ -416,6 +429,39 @@ pub async fn update_slide(
             .into_response();
     }
     hx_redirect(&format!("/office/presentations/{}", slug))
+}
+
+/// Autoguardado de una diapositiva (sin redirección; 204 al guardar).
+pub async fn autosave_slide(
+    State(state): State<Arc<AppState>>,
+    Path((slug, index)): Path<(String, usize)>,
+    Form(form): Form<SlideForm>,
+) -> axum::response::Response {
+    use axum::http::StatusCode;
+    if !crate::office::is_safe_slug(&slug) {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    if form.title.len() > MAX_TITLE_LEN || form.content.len() > MAX_CONTENT_LEN {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    let file_path = pres_dir(&state).join(format!("{}.json", slug));
+    if !file_path.exists() {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let mut pres = match Presentation::load_from(&file_path) {
+        Some(p) => p,
+        None => return StatusCode::NOT_FOUND.into_response(),
+    };
+    if index >= pres.slides.len() {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    pres.slides[index].title = form.title;
+    pres.slides[index].content = form.content;
+    if let Err(e) = pres.save_to(&file_path) {
+        tracing::error!("office presentations autosave_slide: save failed: {}", e);
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    }
+    StatusCode::NO_CONTENT.into_response()
 }
 
 /// Delete a slide.

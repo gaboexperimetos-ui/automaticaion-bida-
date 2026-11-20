@@ -1,0 +1,59 @@
+<div class="nx-page nx-calendar-page">
+  <header class="nx-cal-head">
+    <div class="nx-cal-head-main">
+      <p class="nx-cal-eyebrow">Agenda académica · 2026—2027</p>
+      <h1>Calendario</h1>
+      <p class="nx-cal-sub">Clases, entregas y eventos en un solo lugar</p>
+    </div>
+    <div class="nx-cal-head-actions">
+      <nav class="nx-cal-tabs" aria-label="Vista del calendario">
+        <a aria-current="page" href="/dashboard/calendar">Mes</a>
+        <a href="/dashboard/calendar/weekly">Semana</a>
+        <a href="/dashboard/calendar/daily">Día</a>
+      </nav>
+      <a class="nx-cal-export" href="/dashboard/calendar.ics" download title="Descargar calendario ICS">
+        <span class="material-symbols-outlined">download</span>
+        <span>Exportar</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Banner de estado Mikareno -->
+  <!--SLOT:CAL_SYNC_BANNER-->
+
+  <div class="nx-cal-kpis" aria-label="Resumen del mes">
+    <span class="nx-cal-kpi"><strong><!--SLOT:CAL_DAYS_WITH_CLASS--></strong><small>días con horario</small></span>
+    <span class="nx-cal-kpi"><strong><!--SLOT:CAL_TASKS_MONTH--></strong><small>entregas</small></span>
+    <span class="nx-cal-kpi"><strong><!--SLOT:CAL_EVENTS_MONTH--></strong><small>eventos</small></span>
+  </div>
+
+  <section class="nx-card nx-cal-month" aria-label="Calendario mensual">
+    <header class="nx-cal-month-head">
+      <div class="nx-cal-legend" aria-label="Tipos de elemento">
+        <span class="is-class"><i></i>Horario</span>
+        <span class="is-task"><i></i>Entregas</span>
+        <span class="is-event"><i></i>Eventos</span>
+        <span class="is-note"><i></i>Notas</span>
+      </div>
+      <a class="nx-cal-today" href="/dashboard/calendar"><span class="material-symbols-outlined">today</span>Mes actual</a>
+    </header>
+
+    <div id="calendar-grid" class="nx-cal-grid">
+      <!--SLOT:CAL_GRID-->
+    </div>
+
+    <footer class="nx-cal-foot">
+      <span><span class="material-symbols-outlined">edit_calendar</span>Selecciona un día para añadir o editar anotaciones.</span>
+      <a href="/dashboard/horario">Abrir mi horario<span class="material-symbols-outlined">arrow_outward</span></a>
+    </footer>
+  </section>
+
+  <aside class="nx-cal-upcoming" aria-label="Próximos eventos">
+    <header class="nx-cal-up-head">
+      <div><p>A continuación</p><h2>Próximos eventos</h2></div>
+      <span class="material-symbols-outlined">upcoming</span>
+    </header>
+    <!--SLOT:CAL_UPCOMING-->
+    <a class="nx-cal-up-link" href="/dashboard/calendar/weekly">Ver la semana completa<span class="material-symbols-outlined">arrow_forward</span></a>
+  </aside>
+</div>

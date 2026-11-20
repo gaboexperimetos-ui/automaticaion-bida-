@@ -70,16 +70,23 @@ pub const MAX_RETRIES: u32 = 3;
 pub const BACKOFF_BASE_MS: u64 = 500;
 /// Deadline total por llamada MCP (tools/list, tools/call). Con el servidor
 /// colgado (acepta HTTP pero no responde), la página degrada a estado vacío
-/// en este plazo en vez de quedarse clavada en retries (3 × 30 s).
-pub const CALL_DEADLINE_SECS: u64 = 6;
+/// en este plazo en vez de quedarse clavada en retries.
+///
+/// Se incrementó de 6s a 60s para acomodar el tiempo de scrape del servidor
+/// (~60s con Playwright). Ahora la llamada espera lo suficiente como para
+/// obtener datos frescos sin tiempo out premature.
+pub const CALL_DEADLINE_SECS: u64 = 60;
 /// Deadline del handshake `initialize` (POST + reintentos). Evita que un
-/// servidor MCP colgado bloquee un handler durante 3 × 30 s de reintentos.
-pub const INIT_DEADLINE_SECS: u64 = 8;
+/// servidor MCP colgado bloquee un handler durante reintentos.
+///
+/// Se incrementó de 8s a 30s para dar tiempo suficiente al handshake
+/// incluido el intercambio de sesión, sin bloquear la petición principal.
+pub const INIT_DEADLINE_SECS: u64 = 30;
 /// Deadline del *primer* fetch (cache fría): incluye `initialize` + la
-/// llamada. Es corto a propósito: si no hay nada cacheado se devuelve un
-/// error honesto en vez de dejar la página colgada un minuto esperando el
-/// re-scrape del servidor.
-pub const FIRST_FETCH_DEADLINE_SECS: u64 = 8;
+/// llamada. Ya no es artificialmente corto: el servidor puede tardar ~60 s
+/// en re-scrapear, así que el cliente espera lo suficiente como para obtener
+/// datos frescos en lugar de fallar rápido y dejar la página sin datos.
+pub const FIRST_FETCH_DEADLINE_SECS: u64 = 60;
 /// Deadline del refresco en background (stale-while-revalidate). Generoso:
 /// el servidor puede tardar ~60 s en re-scrapear.
 pub const REFRESH_DEADLINE_SECS: u64 = 120;

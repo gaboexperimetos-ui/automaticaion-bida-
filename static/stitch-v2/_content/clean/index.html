@@ -1,16 +1,13 @@
-<div class="nx-page nx-dashboard">
-  <header class="nx-dashboard-hero" aria-labelledby="dashboard-greeting">
-    <div class="nx-dashboard-hero-copy">
-      <p class="nx-eyebrow"><span></span>Tu espacio · <!--SLOT:TODAYLINE--></p>
+<div class="nx-page nx-home">
+  <header class="nx-home-head">
+    <div class="nx-home-id">
+      <p class="nx-home-eyebrow"><span class="nx-home-live" aria-hidden="true"></span><!--SLOT:TODAYLINE--></p>
       <h1 id="dashboard-greeting"><!--SLOT:GREETING--></h1>
-      <p>Empieza por lo importante. Tu jornada, tus pendientes y tus ideas están aquí.</p>
     </div>
-    <div class="nx-dashboard-hero-actions">
-      <a class="nx-sync-link" href="/dashboard/mcp"><i></i><span><strong><!--SLOT:SYNC--></strong><small>Datos académicos · solo lectura</small></span><span class="material-symbols-outlined">arrow_outward</span></a>
-      <div class="nx-button-row">
-        <button class="nx-button nx-button-primary" id="quick-create-btn" type="button"><span class="material-symbols-outlined">add_task</span>Nueva tarea</button>
-        <button class="nx-button nx-button-secondary" id="toggle-create-menu" type="button" aria-controls="create-modal-popover" aria-expanded="false"><span class="material-symbols-outlined">add</span>Crear<span class="material-symbols-outlined">expand_more</span></button>
-      </div>
+    <div class="nx-home-actions">
+      <a class="nx-home-sync" href="/dashboard/mcp"><span class="nx-home-dot" aria-hidden="true"></span><!--SLOT:SYNC--></a>
+      <button class="nx-home-button primary" id="quick-create-btn" type="button"><span class="material-symbols-outlined">add_task</span>Nueva tarea</button>
+      <button class="nx-home-button" id="toggle-create-menu" type="button" aria-controls="create-modal-popover" aria-expanded="false"><span class="material-symbols-outlined">add</span>Crear<span class="material-symbols-outlined">expand_more</span></button>
     </div>
     <div class="nx-create-menu hidden" id="create-modal-popover" aria-label="Centro de creación">
       <header><div><p class="nx-eyebrow">Centro de creación</p><h2>¿Qué quieres empezar?</h2></div><button class="nx-icon-button" id="close-create-menu" type="button" aria-label="Cerrar"><span class="material-symbols-outlined">close</span></button></header>
@@ -23,41 +20,106 @@
     </div>
   </header>
 
-  <section class="nx-week-strip" aria-labelledby="week-card-title">
-    <div class="nx-week-title"><span>AHORA</span><h2 id="week-card-title"><!--SLOT:WEEKTITLE--></h2><a href="/dashboard/calendar">Abrir calendario<span class="material-symbols-outlined">arrow_forward</span></a></div>
-    <div class="nx-week-days"><!--SLOT:WEEKCAL--></div>
+  <!--SLOT:SYNC_BANNER-->
+
+  <section class="nx-kpis" aria-label="Resumen de tu día">
+    <a class="nx-kpi" href="/dashboard/calendar"><span class="nx-kpi-label">Clases hoy</span><span class="nx-kpi-body"><!--SLOT:KPI_CLASSES--></span></a>
+    <a class="nx-kpi" href="/dashboard/planner"><span class="nx-kpi-label">Entregas hoy</span><span class="nx-kpi-body"><!--SLOT:KPI_TASKS_TODAY--></span></a>
+    <a class="nx-kpi" href="/dashboard/planner"><span class="nx-kpi-label">Esta semana</span><span class="nx-kpi-body"><!--SLOT:KPI_TASKS_WEEK--></span></a>
+    <a class="nx-kpi" href="/dashboard/subjects"><span class="nx-kpi-label">Media general</span><span class="nx-kpi-body"><!--SLOT:KPI_AVG--></span></a>
+    <a class="nx-kpi" href="/dashboard/notes"><span class="nx-kpi-label">Apuntes</span><span class="nx-kpi-body"><!--SLOT:KPI_NOTES--></span></a>
+    <a class="nx-kpi" href="/dashboard/ai"><span class="nx-kpi-label">Conversaciones</span><span class="nx-kpi-body"><!--SLOT:KPI_CONV--></span></a>
   </section>
 
-  <div class="nx-dashboard-grid">
-    <section class="nx-panel nx-dashboard-agenda" aria-labelledby="today-card-title">
-      <header class="nx-panel-head"><div><p class="nx-eyebrow">Tu jornada</p><h2 id="today-card-title">Lo siguiente</h2></div><span class="nx-badge"><!--SLOT:CLASSCOUNT--></span></header>
-      <div class="nx-class-list"><!--SLOT:CLASSES--></div>
-      <div class="nx-deliveries"><div class="nx-subhead"><h3>Entregas de hoy</h3><span><!--SLOT:TASKCOUNT--></span></div><!--SLOT:TASKTODAY--></div>
-      <footer class="nx-panel-foot"><span class="material-symbols-outlined">lock</span>Mikareno · lectura en vivo</footer>
-    </section>
+  <div class="nx-home-grid">
+    <div class="nx-home-main">
+      <section class="nx-card nx-card-today" aria-labelledby="today-card-title">
+        <header class="nx-card-head"><div><p class="nx-eyebrow">Tu jornada</p><h2 id="today-card-title">Hoy</h2></div><span class="nx-badge"><!--SLOT:CLASSCOUNT--></span></header>
+        <div class="nx-clase-list"><!--SLOT:CLASSES--></div>
+        <div class="nx-deliveries"><div class="nx-subhead"><h3>Entregas de hoy</h3><span><!--SLOT:TASKCOUNT--></span></div><!--SLOT:TASKTODAY--></div>
+      </section>
 
-    <section class="nx-panel nx-dashboard-ai" aria-labelledby="ai-card-title">
-      <header class="nx-panel-head"><div><p class="nx-eyebrow">NOVA AI</p><h2 id="ai-card-title">Aprende con contexto</h2></div><span class="nx-ai-orb material-symbols-outlined">auto_awesome</span></header>
-      <p class="nx-panel-intro">Pregunta, contrasta una idea o convierte tus apuntes en práctica.</p>
-      <div class="nx-ai-resume"><!--SLOT:AI_RESUME--></div>
-      <span class="nx-model-label"><!--SLOT:AI_MODEL--></span>
-      <div class="nx-dashboard-ai-actions">
-        <button type="button"><span class="material-symbols-outlined">summarize</span><span><strong>Resumir</strong><small>Extrae las ideas clave</small></span><span class="material-symbols-outlined">arrow_forward</span></button>
-        <button type="button"><span class="material-symbols-outlined">quiz</span><span><strong>Practicar</strong><small>Genera un cuestionario</small></span><span class="material-symbols-outlined">arrow_forward</span></button>
-        <button type="button"><span class="material-symbols-outlined">calendar_clock</span><span><strong>Organizar</strong><small>Prepara tu repaso</small></span><span class="material-symbols-outlined">arrow_forward</span></button>
-      </div>
-    </section>
+      <section class="nx-card" aria-labelledby="tasks-card-title">
+        <header class="nx-card-head"><div><p class="nx-eyebrow">Prioridades</p><h2 id="tasks-card-title">Lo que necesita tu atención</h2></div><a class="nx-text-link" href="/dashboard/planner">Ver planificador<span class="material-symbols-outlined">arrow_forward</span></a></header>
+        <div class="nx-table-wrap"><table class="nx-table"><thead><tr><th>Estado</th><th>Actividad</th><th>Materia</th><th>Límite</th><th>Prioridad</th><th aria-label="Acciones"></th></tr></thead><tbody><!--SLOT:TASKTABLE--></tbody></table></div>
+        <footer class="nx-card-foot"><span><!--SLOT:TASKFOOTER--></span><a href="/dashboard/planner">Ver todas<span class="material-symbols-outlined">chevron_right</span></a></footer>
+      </section>
 
-    <section class="nx-panel nx-dashboard-tasks" aria-labelledby="tasks-card-title">
-      <header class="nx-panel-head"><div><p class="nx-eyebrow">Prioridades</p><h2 id="tasks-card-title">Lo que necesita tu atención</h2></div><a class="nx-text-link" href="/dashboard/planner">Ver planificador<span class="material-symbols-outlined">arrow_forward</span></a></header>
-      <div class="nx-table-wrap"><table class="nx-table"><thead><tr><th>Estado</th><th>Actividad</th><th>Materia</th><th>Límite</th><th>Prioridad</th><th aria-label="Acciones"></th></tr></thead><tbody><!--SLOT:TASKTABLE--></tbody></table></div>
-      <footer class="nx-panel-foot"><span><!--SLOT:TASKFOOTER--></span><a href="/dashboard/planner">Ver todas<span class="material-symbols-outlined">chevron_right</span></a></footer>
-    </section>
+      <section class="nx-card" aria-labelledby="subjects-card-title">
+        <header class="nx-card-head"><div><p class="nx-eyebrow">Rendimiento · Trimestre <!--SLOT:TRIMESTER--></p><h2 id="subjects-card-title">Asignaturas</h2></div><a class="nx-text-link" href="/dashboard/subjects">Ver todas<span class="material-symbols-outlined">arrow_forward</span></a></header>
+        <div class="nx-subject-list"><!--SLOT:SUBJECT_BARS--></div>
+      </section>
 
-    <section class="nx-panel nx-dashboard-notes" aria-labelledby="notes-card-title"><header class="nx-panel-head"><div><p class="nx-eyebrow">Conocimiento</p><h2 id="notes-card-title">Notas recientes</h2></div><a class="nx-icon-button" href="/dashboard/notes" aria-label="Abrir notas"><span class="material-symbols-outlined">arrow_outward</span></a></header><div class="nx-notes-list"><!--SLOT:NOTES--></div></section>
-    <section class="nx-panel nx-dashboard-exam"><!--SLOT:EXAM--></section>
-    <section class="nx-panel nx-dashboard-focus"><!--SLOT:FOCUS--></section>
+      <section class="nx-card" aria-labelledby="notes-card-title">
+        <header class="nx-card-head"><div><p class="nx-eyebrow">Conocimiento</p><h2 id="notes-card-title">Notas recientes</h2></div><a class="nx-icon-button" href="/dashboard/notes" aria-label="Abrir notas"><span class="material-symbols-outlined">arrow_outward</span></a></header>
+        <div class="nx-notes-list"><!--SLOT:NOTES--></div>
+      </section>
+    </div>
+
+    <aside class="nx-home-side">
+      <section class="nx-card nx-card-week" aria-labelledby="week-card-title">
+        <header class="nx-card-head"><div><p class="nx-eyebrow">Ahora</p><h2 id="week-card-title"><!--SLOT:WEEKTITLE--></h2></div><a class="nx-text-link" href="/dashboard/calendar">Calendario<span class="material-symbols-outlined">arrow_forward</span></a></header>
+        <div class="nx-week-days"><!--SLOT:WEEKCAL--></div>
+      </section>
+
+      <section class="nx-card">
+        <header class="nx-card-head"><div><p class="nx-eyebrow">Acciones</p><h2>Crear rápido</h2></div></header>
+        <div class="nx-quick-grid">
+          <button type="button" id="quick-create-btn-2"><span class="material-symbols-outlined">task_alt</span>Tarea</button>
+          <a href="/dashboard/notes"><span class="material-symbols-outlined">edit_note</span>Nota</a>
+          <a href="/office/docs/new"><span class="material-symbols-outlined">article</span>Documento</a>
+          <a href="/office/sheets/new"><span class="material-symbols-outlined">table_chart</span>Hoja</a>
+          <a href="/office/presentations/new"><span class="material-symbols-outlined">slideshow</span>Diapositiva</a>
+          <a href="/dashboard/ai"><span class="material-symbols-outlined">auto_awesome</span>Asistente</a>
+        </div>
+      </section>
+
+      <section class="nx-card nx-card-ai" aria-labelledby="ai-card-title">
+        <header class="nx-card-head"><div><p class="nx-eyebrow">NOVA AI</p><h2 id="ai-card-title">Aprende con contexto</h2></div><span class="nx-ai-orb material-symbols-outlined">auto_awesome</span></header>
+        <!--SLOT:AI_RESUME-->
+      </section>
+
+      <!--SLOT:NEXT_EVENT-->
+      <!--SLOT:EXAM-->
+    </aside>
   </div>
+
+  <section class="nx-home-charts" aria-labelledby="charts-title">
+    <header class="nx-card-head"><div><p class="nx-eyebrow">Analítica</p><h2 id="charts-title">Tus datos, en gráficos</h2></div><span class="nx-home-all-hint">Trimestre actual · últimas 8 semanas</span></header>
+    <div class="nx-chart-grid">
+      <article class="nx-card nx-chart-card"><header class="nx-chart-head"><h3>Media por asignatura</h3><span>0–10</span></header><!--SLOT:CHART_SUBJECTS--></article>
+      <article class="nx-card nx-chart-card"><header class="nx-chart-head"><h3>Clases y entregas</h3><span>Semana actual</span></header><!--SLOT:CHART_WEEK--></article>
+      <article class="nx-card nx-chart-card"><header class="nx-chart-head"><h3>Ritmo de apuntes</h3><span>8 semanas</span></header><!--SLOT:CHART_NOTES--></article>
+    </div>
+  </section>
+
+  <section class="nx-home-all" aria-labelledby="all-title">
+    <header class="nx-card-head"><div><p class="nx-eyebrow">Mapa completo</p><h2 id="all-title">Todo tu espacio</h2></div><span class="nx-home-all-hint">Sin menús escondidos</span></header>
+    <div class="nx-home-all-grid">
+      <a href="/dashboard"><span class="material-symbols-outlined">home</span>Inicio</a>
+      <a href="/dashboard/calendar"><span class="material-symbols-outlined">calendar_month</span>Calendario</a>
+      <a href="/dashboard/planner"><span class="material-symbols-outlined">checklist</span>Planificador</a>
+      <a href="/dashboard/planner"><span class="material-symbols-outlined">task_alt</span>Tareas</a>
+      <a href="/dashboard/subjects"><span class="material-symbols-outlined">menu_book</span>Asignaturas</a>
+      <a href="/dashboard/examenes"><span class="material-symbols-outlined">quiz</span>Evaluaciones</a>
+      <a href="/dashboard/horario"><span class="material-symbols-outlined">schedule</span>Horario</a>
+      <a href="/dashboard/vida-escolar"><span class="material-symbols-outlined">diversity_1</span>Vida escolar</a>
+      <a href="/dashboard/ai"><span class="material-symbols-outlined">auto_awesome</span>NOVA AI</a>
+      <a href="/ai"><span class="material-symbols-outlined">forum</span>Conversaciones</a>
+      <a href="/dashboard/material"><span class="material-symbols-outlined">magic_button</span>Material</a>
+      <a href="/dashboard/notes"><span class="material-symbols-outlined">edit_note</span>Notas</a>
+      <a href="/dashboard/notes"><span class="material-symbols-outlined">neurology</span>Segundo cerebro</a>
+      <a href="/office/docs"><span class="material-symbols-outlined">description</span>Documentos</a>
+      <a href="/office/sheets"><span class="material-symbols-outlined">table_chart</span>Hojas de cálculo</a>
+      <a href="/office/presentations"><span class="material-symbols-outlined">present_to_all</span>Presentaciones</a>
+      <a href="/office/library"><span class="material-symbols-outlined">folder_open</span>Biblioteca</a>
+      <a href="/dashboard/mcp"><span class="material-symbols-outlined">hub</span>Integraciones</a>
+      <a href="/dashboard/mcp"><span class="material-symbols-outlined">monitor_heart</span>Estado</a>
+      <a href="/admin"><span class="material-symbols-outlined">monitoring</span>Administración</a>
+      <a href="/settings"><span class="material-symbols-outlined">settings</span>Configuración</a>
+      <a href="/dashboard/search"><span class="material-symbols-outlined">search</span>Buscar</a>
+    </div>
+  </section>
 
   <div class="nx-task-modal hidden" id="quick-task-modal" role="dialog" aria-modal="true" aria-labelledby="quick-task-title-heading">
     <div class="nx-task-dialog">
@@ -80,6 +142,7 @@
   var menuPopover = document.getElementById('create-modal-popover');
   var closeMenuBtn = document.getElementById('close-create-menu');
   var quickTaskBtn = document.getElementById('quick-create-btn');
+  var quickTaskBtn2 = document.getElementById('quick-create-btn-2');
   var taskModal = document.getElementById('quick-task-modal');
   var closeModalBtn = document.getElementById('close-modal-btn');
   var cancelModalBtn = document.getElementById('cancel-modal-btn');
@@ -89,6 +152,7 @@
   if (toggleBtn) toggleBtn.addEventListener('click', function (event) { event.stopPropagation(); setMenu(menuPopover && menuPopover.classList.contains('hidden')); });
   if (closeMenuBtn) closeMenuBtn.addEventListener('click', function () { setMenu(false); });
   if (quickTaskBtn) quickTaskBtn.addEventListener('click', function () { setMenu(false); setModal(true); });
+  if (quickTaskBtn2) quickTaskBtn2.addEventListener('click', function () { setMenu(false); setModal(true); });
   if (closeModalBtn) closeModalBtn.addEventListener('click', function () { setModal(false); });
   if (cancelModalBtn) cancelModalBtn.addEventListener('click', function () { setModal(false); });
   if (taskModal) taskModal.addEventListener('click', function (event) { if (event.target === taskModal) setModal(false); });

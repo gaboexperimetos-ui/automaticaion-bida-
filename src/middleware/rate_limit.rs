@@ -182,6 +182,26 @@ fn client_ip(req: &Request<Body>) -> String {
         .unwrap_or_else(|| "unknown".to_string())
 }
 
+/// Assets estáticos que el navegador pide en cada carga de página. No cuentan
+/// para el presupuesto: un dashboard hace ~7 peticiones de este tipo y, con el
+/// límite antiguo, navegar rápido dejaba algún CSS en 429 y la página caía al
+/// tema por defecto (o se veía rota).
+fn is_static_asset(path: &str) -> bool {
+    matches!(
+        path,
+        "/styles.css"
+            | "/app.js"
+            | "/shell.js"
+            | "/polish.css"
+            | "/nova.css"
+            | "/themes.css"
+            | "/music.css"
+            | "/favicon.ico"
+            | "/favicon.svg"
+            | "/dashboard/calendar"
+    )
+}
+
 /// Middleware: rate limit per client IP
 pub async fn rate_limit_middleware(req: Request<Body>, next: Next) -> Response {
     // SSE streams are long-lived: the per-minute window would abort them
@@ -189,6 +209,14 @@ pub async fn rate_limit_middleware(req: Request<Body>, next: Next) -> Response {
     // concurrency cap.
     if req.uri().path() == AI_CHAT_STREAM_PATH {
         return stream_limited(req, next).await;
+    }
+
+    if matches!(
+        *req.method(),
+        axum::http::Method::GET | axum::http::Method::HEAD
+    ) && is_static_asset(req.uri().path())
+    {
+        return next.run(req).await;
     }
 
     let limiter = get_limiter();

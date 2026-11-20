@@ -129,12 +129,9 @@ async fn rebuild(state: &Arc<AppState>, filter: Option<&str>, q_val: &str) -> Re
         rows = rows,
     );
 
-    Response::builder()
-        .status(200)
-        .body(Body::from(
-            templates::layout_as_shelled(&state, "Biblioteca", "biblioteca", &body).await,
-        ))
-        .unwrap()
+    templates::layout_as_shelled(&state, "Biblioteca", "biblioteca", &body)
+        .await
+        .into_response()
 }
 
 /// Download a file by type + name (slug).

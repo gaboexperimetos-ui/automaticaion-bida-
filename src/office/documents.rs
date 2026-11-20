@@ -72,7 +72,11 @@ pub async fn office_home(State(state): State<Arc<AppState>>) -> impl IntoRespons
     ] {
         for file in templates::list_files(&dir, ext) {
             let href = format!("/office/{kind}/{}", file.name);
-            let meta = format!("{} · {}", file.modified, templates::human_size(file.size));
+            let meta = format!(
+                "{} · {}",
+                templates::human_date(&file.modified),
+                templates::human_size(file.size)
+            );
             recent.push((file.modified, file.display, href, icon, kind, meta));
         }
     }
@@ -84,9 +88,15 @@ pub async fn office_home(State(state): State<Arc<AppState>>) -> impl IntoRespons
             .iter()
             .take(6)
             .map(|(_, display, href, icon, kind, meta)| {
+                let label = match *kind {
+                    "docs" => "DOC",
+                    "sheets" => "CSV",
+                    _ => "PPT",
+                };
                 format!(
-                    r##"<article class="gen-office-file-card {kind}"><a class="gen-office-file-preview" href="{href}" aria-label="Abrir {display}"><span class="material-symbols-outlined">{icon}</span><small>{kind}</small></a><div class="gen-office-file-copy"><a href="{href}">{display}</a><span>{meta}</span></div><a class="gen-office-file-arrow" href="{href}" aria-label="Abrir {display}"><span class="material-symbols-outlined">arrow_outward</span></a></article>"##,
+                    r##"<article class="gen-office-file-card {kind}"><a class="gen-office-file-preview" href="{href}" aria-label="Abrir {display}"><span class="material-symbols-outlined">{icon}</span><small>{label}</small></a><div class="gen-office-file-copy"><a href="{href}">{display}</a><span>{meta}</span></div><a class="gen-office-file-arrow" href="{href}" aria-label="Abrir {display}"><span class="material-symbols-outlined">arrow_outward</span></a></article>"##,
                     kind = kind,
+                    label = label,
                     href = templates::html_escape(href),
                     display = templates::html_escape(display),
                     icon = icon,
@@ -147,22 +157,26 @@ pub async fn list(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     } else {
         files.iter().map(|f| {
             format!(
-                r##"<article class="gen-office-file-card docs"><a class="gen-office-file-preview" href="/office/docs/{slug}"><span class="material-symbols-outlined">description</span><small>MARKDOWN</small></a><div class="gen-office-file-copy"><a href="/office/docs/{slug}">{display}</a><span>{modified} · {size}</span></div><footer><a href="/office/docs/{slug}/export?fmt=html">HTML</a><a href="/office/docs/{slug}/export?fmt=md">MD</a><form hx-delete="/office/docs/{slug}"><button type="submit" onclick="return confirm('¿Borrar?')" class="gen-office-icon-button danger" aria-label="Borrar {display}"><span class="material-symbols-outlined">delete</span></button></form></footer></article>"##,
+                r##"<article class="gen-office-file-card docs"><a class="gen-office-file-preview" href="/office/docs/{slug}" aria-label="Abrir {display}"><span class="material-symbols-outlined">description</span></a><div class="gen-office-file-copy"><a href="/office/docs/{slug}">{display}</a><span>Markdown · {modified} · {size}</span></div><div class="gen-office-doc-actions"><a class="gen-office-chip" href="/office/docs/{slug}/export?fmt=html">HTML</a><a class="gen-office-chip" href="/office/docs/{slug}/export?fmt=md">MD</a><form hx-delete="/office/docs/{slug}" hx-confirm="¿Borrar «{display}»?"><button type="submit" class="gen-office-icon-button danger" aria-label="Borrar {display}"><span class="material-symbols-outlined">delete</span></button></form></div></article>"##,
                 slug = templates::html_escape(&f.name),
                 display = templates::html_escape(&f.display),
                 size = templates::human_size(f.size),
-                modified = templates::html_escape(&f.modified),
+                modified = templates::html_escape(&templates::human_date(&f.modified)),
             )
         }).collect::<Vec<_>>().join("\n")
     };
 
     let body = format!(
         r##"<div class="nova-page gen-office-page gen-office-manager-page">{tabs}
-        <header class="gen-office-manager-head"><div><span>DOCUMENTOS · MARKDOWN</span><h1>Tus documentos</h1><p>{count} archivo(s) guardados en tu espacio local.</p></div><a href="/office/docs/new" class="gen-office-primary-button"><span class="material-symbols-outlined">add</span>Nuevo documento</a></header>
+        <header class="gen-office-manager-head"><div><span>DOCUMENTOS · MARKDOWN</span><h1>Tus documentos</h1><p>{summary}</p></div><a href="/office/docs/new" class="gen-office-primary-button"><span class="material-symbols-outlined">add</span>Nuevo documento</a></header>
         <nav class="gen-office-appnav" aria-label="Aplicaciones de oficina"><a class="is-active docs" href="/office/docs"><span class="material-symbols-outlined">description</span>Documentos</a><a href="/office/sheets"><span class="material-symbols-outlined">table_chart</span>Hojas</a><a href="/office/presentations"><span class="material-symbols-outlined">present_to_all</span>Presentaciones</a><a href="/office/library"><span class="material-symbols-outlined">folder_open</span>Biblioteca</a></nav>
-        <section class="gen-office-file-grid">{cards}</section><footer class="gen-office-home-footer"><span><span class="material-symbols-outlined">hard_drive</span> Markdown local</span>{mcp}</footer></div>"##,
+        <section class="gen-office-file-grid gen-office-docs-grid">{cards}</section><footer class="gen-office-home-footer"><span><span class="material-symbols-outlined">hard_drive</span> Markdown local</span>{mcp}</footer></div>"##,
         tabs = templates::office_tab_strip("docs", "Documentos", "/office/docs/new"),
-        count = files.len(),
+        summary = match files.len() {
+            0 => "Sin documentos todavía.".to_string(),
+            1 => "1 documento guardado en tu espacio local.".to_string(),
+            n => format!("{} documentos guardados en tu espacio local.", n),
+        },
         cards = cards,
         mcp = mcp_banner,
     );
@@ -236,8 +250,8 @@ pub async fn edit(
     );
     let body = format!(
         r##"<div class="nova-page gen-office-page gen-office-editor-page">{tabs}
-        <header class="gen-office-ribbon"><nav class="gen-office-menubar" aria-label="Acciones del documento"><a class="is-active" href="/office/docs/{slug}">Inicio</a><a href="/office/docs/{slug}/preview">Vista previa</a><a href="/office/docs/{slug}/export?fmt=md">Exportar .md</a></nav><div class="gen-office-ribbon-actions">{saved}{ai_toggle}<a class="gen-office-primary-button" href="/office/docs/{slug}/export?fmt=html"><span class="material-symbols-outlined">download</span>HTML</a></div></header>
-        <div class="gen-office-workspace">{ai}<main class="gen-office-editor-main"><div class="gen-office-canvas-head"><div><span>DOCUMENTO MARKDOWN</span><strong>{title}</strong></div><span class="gen-office-local-badge"><span class="material-symbols-outlined">hard_drive</span>Archivo local</span></div><section class="gen-office-doc-workspace">{editor}</section></main></div>
+        <header class="gen-office-ribbon"><nav class="gen-office-menubar" aria-label="Acciones del documento"><a class="is-active" href="/office/docs/{slug}">Inicio</a><a href="/office/docs/{slug}/preview">Vista previa</a><a href="/office/docs/{slug}/export?fmt=md">Exportar .md</a></nav><div class="gen-office-ribbon-actions">{saved}{ai_toggle}<form hx-post="/office/docs/{slug}/genoffice" hx-swap="none" class="gen-office-genoffice-form"><button type="submit" class="gen-office-secondary-button"><span class="material-symbols-outlined">open_in_new</span>GenOffice</button></form><a class="gen-office-primary-button" href="/office/docs/{slug}/export?fmt=html"><span class="material-symbols-outlined">download</span>HTML</a></div></header>
+        <div class="gen-office-workspace ai-hidden">{ai}<main class="gen-office-editor-main"><div class="gen-office-canvas-head"><div class="gen-office-canvas-title"><span class="material-symbols-outlined">description</span><div><small>Documento</small><strong>{title}</strong></div></div><div class="gen-office-canvas-actions"><span class="gen-office-local-badge"><span class="material-symbols-outlined">hard_drive</span>Archivo local</span></div></div><section class="gen-office-doc-workspace">{editor}</section></main></div>
         <footer class="gen-office-statusbar"><span><span class="material-symbols-outlined">description</span> .md · UTF-8</span>{mcp}<span>NOVA Office</span></footer></div><script>{workspace_js}</script>"##,
         tabs = templates::office_tab_strip("docs", &slug.replace('-', " "), "/office/docs/new"),
         slug = templates::html_escape(&slug),
@@ -257,24 +271,26 @@ pub async fn edit(
 fn doc_editor(slug: &str, content: &str) -> String {
     format!(
         r##"<div class="gen-office-doc-toolbar" role="toolbar" aria-label="Formato Markdown">
-            <span class="gen-office-tool-label">FORMATO</span>
-            <button type="button" onclick="insertMd('**','**')" title="Negrita" aria-label="Negrita"><span class="material-symbols-outlined">format_bold</span></button>
-            <button type="button" onclick="insertMd('*','*')" title="Cursiva" aria-label="Cursiva"><span class="material-symbols-outlined">format_italic</span></button>
-            <button type="button" onclick="appendMd('## ')" title="Encabezado" aria-label="Encabezado"><span class="material-symbols-outlined">title</span></button>
-            <span class="gen-office-tool-separator"></span>
-            <button type="button" onclick="appendMd('- ')" title="Lista" aria-label="Lista con viñetas"><span class="material-symbols-outlined">format_list_bulleted</span></button>
-            <button type="button" onclick="appendMd('1. ')" title="Lista numerada" aria-label="Lista numerada"><span class="material-symbols-outlined">format_list_numbered</span></button>
-            <button type="button" onclick="appendMd('&gt; ')" title="Cita" aria-label="Cita"><span class="material-symbols-outlined">format_quote</span></button>
-            <span class="gen-office-tool-separator"></span>
-            <button type="button" onclick="insertMd('`','`')" title="Código" aria-label="Código en línea"><span class="material-symbols-outlined">code</span></button>
-            <button type="button" onclick="appendMd('```\n\n```')" title="Bloque de código" aria-label="Bloque de código"><span class="material-symbols-outlined">data_object</span></button>
-            <button type="button" onclick="insertMd('[', '](url)')" title="Enlace" aria-label="Insertar enlace"><span class="material-symbols-outlined">link</span></button>
-            <span class="gen-office-toolbar-format">Markdown</span>
+            <div class="gen-office-tool-group">
+                <span class="gen-office-tool-label">FORMATO</span>
+                <button type="button" onclick="insertMd('**','**')" title="Negrita" aria-label="Negrita"><span class="material-symbols-outlined">format_bold</span></button>
+                <button type="button" onclick="insertMd('*','*')" title="Cursiva" aria-label="Cursiva"><span class="material-symbols-outlined">format_italic</span></button>
+                <button type="button" onclick="appendMd('## ')" title="Encabezado" aria-label="Encabezado"><span class="material-symbols-outlined">title</span></button>
+                <span class="gen-office-tool-separator"></span>
+                <button type="button" onclick="appendMd('- ')" title="Lista" aria-label="Lista con viñetas"><span class="material-symbols-outlined">format_list_bulleted</span></button>
+                <button type="button" onclick="appendMd('1. ')" title="Lista numerada" aria-label="Lista numerada"><span class="material-symbols-outlined">format_list_numbered</span></button>
+                <button type="button" onclick="appendMd('&gt; ')" title="Cita" aria-label="Cita"><span class="material-symbols-outlined">format_quote</span></button>
+                <span class="gen-office-tool-separator"></span>
+                <button type="button" onclick="insertMd('`','`')" title="Código" aria-label="Código en línea"><span class="material-symbols-outlined">code</span></button>
+                <button type="button" onclick="appendMd('```\n\n```')" title="Bloque de código" aria-label="Bloque de código"><span class="material-symbols-outlined">data_object</span></button>
+                <button type="button" onclick="insertMd('[', '](url)')" title="Enlace" aria-label="Insertar enlace"><span class="material-symbols-outlined">link</span></button>
+            </div>
+            <div class="gen-office-doc-stats"><span id="office-word-count">0 palabras</span><span class="gen-office-toolbar-format">Markdown</span></div>
         </div>
         <form hx-put="/office/docs/{slug}" hx-swap="outerHTML" class="gen-office-doc-form">
             <label class="sr-only" for="editor">Contenido del documento</label>
-            <div class="gen-office-paper"><div class="gen-office-paper-meta"><span>DOCUMENTO NOVA</span><span>MARKDOWN · UTF-8</span></div><textarea name="content" id="editor" rows="30" spellcheck="true">{content}</textarea></div>
-            <footer class="gen-office-editor-save"><span><span class="material-symbols-outlined">cloud_done</span> Los cambios se guardan en el archivo local.</span><button type="submit" id="save-document-button" class="gen-office-primary-button"><span class="material-symbols-outlined">save</span>Guardar cambios</button></footer>
+            <div class="gen-office-paper"><div class="gen-office-paper-meta"><span>NOVA · Documento</span><span>Markdown · UTF-8</span></div><textarea name="content" id="editor" rows="30" spellcheck="true" data-autosave="/office/docs/{slug}/autosave">{content}</textarea></div>
+            <footer class="gen-office-editor-save"><span class="gen-office-save-status"><span class="material-symbols-outlined">cloud_done</span><span id="office-save-status" data-state="saved">Guardado automático</span></span><span class="gen-office-editor-hint">Los cambios se guardan solos en el archivo local</span><button type="submit" id="save-document-button" class="gen-office-primary-button"><span class="material-symbols-outlined">save</span>Guardar</button></footer>
         </form>
         <script>{js}</script>"##,
         slug = slug,
@@ -361,6 +377,7 @@ pub async fn create(
             tracing::warn!("office docs create: optional index write failed: {}", e);
         }
     }
+    templates::mirror_to_genoffice(&file_path);
 
     templates::hx_redirect(&format!("/office/docs/{}?saved=1", slug))
 }
@@ -411,7 +428,67 @@ pub async fn update(
         )
             .into_response();
     }
+    templates::mirror_to_genoffice(&file_path);
     templates::hx_redirect(&format!("/office/docs/{}?saved=1", slug))
+}
+
+/// Autoguardado del editor: mismo contrato que `update` pero sin redirección.
+/// Responde 204 para que el cliente no navegue mientras se escribe.
+pub async fn autosave(
+    State(state): State<Arc<AppState>>,
+    Path(slug): Path<String>,
+    Form(form): Form<DocForm>,
+) -> axum::response::Response {
+    use axum::http::StatusCode;
+    if !crate::office::is_safe_slug(&slug) {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    let file_path = docs_dir(&state).join(format!("{}.md", slug));
+    if !file_path.exists() {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    if form.content.len() > MAX_CONTENT_LEN {
+        return StatusCode::PAYLOAD_TOO_LARGE.into_response();
+    }
+    if let Err(e) = templates::write_text(&file_path, &form.content) {
+        tracing::error!(
+            slug_len = slug.len(),
+            "office docs autosave: write failed: {}",
+            e
+        );
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    }
+    templates::mirror_to_genoffice(&file_path);
+    StatusCode::NO_CONTENT.into_response()
+}
+
+/// Abre el documento en la app GenOffice (usa la copia espejada si existe).
+pub async fn open_in_genoffice(
+    State(state): State<Arc<AppState>>,
+    Path(slug): Path<String>,
+) -> axum::response::Response {
+    use axum::http::StatusCode;
+    if !crate::office::is_safe_slug(&slug) {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    let file_path = docs_dir(&state).join(format!("{}.md", slug));
+    if !file_path.exists() {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    templates::mirror_to_genoffice(&file_path);
+    let target = templates::genoffice_docs_dir()
+        .map(|dir| dir.join(format!("{}.md", slug)))
+        .filter(|path| path.exists())
+        .unwrap_or_else(|| file_path.clone());
+    match templates::open_in_genoffice(&target) {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(message) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            [("content-type", "text/plain; charset=utf-8")],
+            message,
+        )
+            .into_response(),
+    }
 }
 
 /// Delete a document.
