@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{Request, State},
+    extract::{DefaultBodyLimit, Request, State},
     http::StatusCode,
     middleware::{from_fn, from_fn_with_state},
     response::{Html, IntoResponse, Response},
@@ -74,6 +74,14 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/app.js", get(static_ui::serve_js))
         // Capa de interactividad del shell Stitch v2 (toasts, menús, editor).
         .route("/shell.js", get(static_ui::serve_shell_js))
+        .route("/calendar-ics.js", get(static_ui::serve_calendar_ics_js))
+        .route("/vendor/htmx-2.0.3.min.js", get(static_ui::serve_htmx))
+        .route(
+            "/vendor/xlsx-0.20.3.full.min.js",
+            get(static_ui::serve_xlsx),
+        )
+        .route("/office-sheets.js", get(static_ui::serve_office_sheets_js))
+        .route("/office-html.js", get(static_ui::serve_office_html_js))
         .route("/polish.css", get(static_ui::serve_polish_css))
         .route("/nova.css", get(static_ui::serve_nova_css))
         .route("/favicon.ico", get(static_ui::serve_favicon))
@@ -108,6 +116,10 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/api/search", get(search::search_api))
         .route("/dashboard/search", get(search::search_page))
         // Anotaciones del calendario (datos locales del usuario).
+        .route(
+            "/api/calendar/annotations/import",
+            post(calendar_annotations::import).layer(DefaultBodyLimit::max(8 * 1024 * 1024)),
+        )
         .route(
             "/api/calendar/annotations",
             get(calendar_annotations::list).post(calendar_annotations::create),

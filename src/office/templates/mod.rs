@@ -338,6 +338,7 @@ pub fn office_tab_strip(kind: &str, title: &str, new_href: &str) -> String {
         "docs" => ("description", "Documentos", "/office/docs"),
         "sheets" => ("table_chart", "Hojas", "/office/sheets"),
         "presentations" => ("present_to_all", "Presentaciones", "/office/presentations"),
+        "html" => ("code", "HTML", "/office/html"),
         "library" => ("folder_open", "Biblioteca", "/office/library"),
         _ => ("grid_view", "Oficina", "/office"),
     };
@@ -461,9 +462,19 @@ pub fn empty_layout() -> String {
 /// an empty body. Used for create/update/delete navigation so a single response
 /// works for both HTMX forms and direct requests.
 pub fn hx_redirect(url: &str) -> Response {
+    // Header APIs expose non-ASCII bytes inconsistently to browsers. Percent-
+    // encode UTF-8 bytes so redirects for titles with accents stay portable.
+    let mut encoded_url = String::with_capacity(url.len());
+    for byte in url.bytes() {
+        if byte.is_ascii() {
+            encoded_url.push(byte as char);
+        } else {
+            encoded_url.push_str(&format!("%{byte:02X}"));
+        }
+    }
     Response::builder()
         .status(StatusCode::OK)
-        .header("HX-Redirect", url)
+        .header("HX-Redirect", encoded_url)
         .body(Body::empty())
         .unwrap()
 }

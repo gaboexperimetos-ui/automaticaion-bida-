@@ -153,7 +153,7 @@ pub fn head(title: &str) -> String {
     <title>{}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <script src="https://unpkg.com/htmx.org@2.0.3/dist/htmx.min.js"></script>
+    <script src="/vendor/htmx-2.0.3.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/shell.js" defer></script>
     <script id="tailwind-config">
@@ -612,27 +612,77 @@ fn month_name_es(month: u32) -> &'static str {
 /// devuelve `academic::calendar_data`: al pasarlo, cada celda muestra clases
 /// del horario, tareas que vencen, eventos y anotaciones del usuario. Sin él
 /// la celda sólo muestra los eventos de `events` (comportamiento anterior).
+fn calendar_day_markers(
+    dia: Option<&crate::academic::calendar_data::DiaData>,
+    fallback_eventos: usize,
+) -> (String, usize, String) {
+    let mut markers = String::new();
+    let mut total = 0usize;
+    let mut labels = Vec::new();
+
+    let mut add = |count: usize, class_name: &str, label: &str| {
+        if count == 0 {
+            return;
+        }
+        total += count;
+        labels.push(format!("{} {}", count, label));
+        for _ in 0..count.min(2) {
+            markers.push_str(&format!(
+                r#"<span class="calendar-marker {}" aria-hidden="true"></span>"#,
+                class_name
+            ));
+        }
+    };
+
+    if let Some(dia) = dia {
+        add(dia.tareas.len(), "calendar-marker-task", "entregas");
+        add(
+            dia.anotaciones.len(),
+            "calendar-marker-planner",
+            "entradas planificadas",
+        );
+        add(
+            dia.eventos.len() + dia.eventos_importados.len(),
+            "calendar-marker-event",
+            "eventos",
+        );
+        add(
+            usize::from(!dia.clases.is_empty()),
+            "calendar-marker-class",
+            "clases",
+        );
+    } else {
+        add(fallback_eventos, "calendar-marker-event", "eventos");
+    }
+
+    (markers, total, labels.join(", "))
+}
+
+/// Rejilla mensual del calendario, con lunes como primer día y fechas reales
+/// de los meses adyacentes. Cada fecha es seleccionable y muestra los
+/// indicadores de entregas, planner, eventos y clases.
 pub fn calendar_grid_html(
     events: &[CalendarioEvent],
     focus: chrono::NaiveDate,
     today: Option<&str>,
+    selected: Option<&str>,
     dias: Option<&std::collections::HashMap<String, crate::academic::calendar_data::DiaData>>,
 ) -> String {
     use chrono::Datelike;
 
     let year = focus.year();
     let month = focus.month();
-
-    // First weekday of the month and how many days it has.
     let first = chrono::NaiveDate::from_ymd_opt(year, month, 1).unwrap_or(focus);
     let mut days_in_month = 1u32;
     while chrono::NaiveDate::from_ymd_opt(year, month, days_in_month + 1).is_some() {
         days_in_month += 1;
     }
-    // Monday-based leading blanks: Mon=0 … Sun=6.
-    let start = first.weekday().num_days_from_monday();
+    let last = first + chrono::Duration::days(days_in_month as i64 - 1);
+    let leading = first.weekday().num_days_from_monday() as usize;
+    let start = first - chrono::Duration::days(leading as i64);
+    let trailing = 6 - last.weekday().num_days_from_monday() as usize;
+    let cell_count = (leading + days_in_month as usize + trailing).max(42);
 
-    // Prev/next month anchors (first of month); safe unwrap on valid inputs.
     let prev = if month == 1 {
         chrono::NaiveDate::from_ymd_opt(year - 1, 12, 1).unwrap_or(focus)
     } else {
@@ -645,122 +695,104 @@ pub fn calendar_grid_html(
     };
 
     let label = format!("{} {}", month_name_es(month), year);
+    let today = today.unwrap_or("");
+    let selected = selected.unwrap_or(today);
     let prev_href = format!(
-        "/dashboard/calendar?partial=grid&month={:04}-{:02}",
+        "/dashboard/calendar?partial=grid&month={:04}-{:02}&date={}",
         prev.year(),
-        prev.month()
+        prev.month(),
+        selected
     );
     let next_href = format!(
-        "/dashboard/calendar?partial=grid&month={:04}-{:02}",
+        "/dashboard/calendar?partial=grid&month={:04}-{:02}&date={}",
         next.year(),
-        next.month()
+        next.month(),
+        selected
     );
 
-    // La navegación de meses se renderiza FUERA de la rejilla (en su propio
-    // bloque `#calendar-nav`): el swap de la rejilla es `outerHTML`, así que
-    // si los botones vivieran dentro, desaparecerían con el primer clic.
+    // La navegación vive dentro del host sustituido por HTMX, por lo que sus
+    // botones vuelven a quedar enlazados después de cada cambio de mes.
     let nav = format!(
         r###"<div id="calendar-nav" class="agenda-nav flex items-center justify-between mb-space-sm">
-            <button hx-get="{}" hx-target="#calendar-grid" hx-swap="outerHTML"
-                class="calendar-nav-button inline-flex items-center justify-center w-8 h-8 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors" title="Mes anterior" aria-label="Mes anterior"><span class="material-symbols-outlined">chevron_left</span><span class="calendar-nav-label">Anterior</span></button>
-            <div class="calendar-month-heading"><span class="calendar-month-label font-headline-sm text-headline-sm text-primary-container">{}</span></div>
-            <button hx-get="{}" hx-target="#calendar-grid" hx-swap="outerHTML"
-                class="calendar-nav-button inline-flex items-center justify-center w-8 h-8 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors" title="Próximo mes" aria-label="Próximo mes"><span class="calendar-nav-label">Siguiente</span><span class="material-symbols-outlined">chevron_right</span></button>
+            <button type="button" hx-get="{}" hx-target="#calendar-grid" hx-swap="outerHTML"
+                class="calendar-nav-button inline-flex items-center justify-center rounded-lg" title="Mes anterior" aria-label="Mes anterior"><span class="material-symbols-outlined" aria-hidden="true">chevron_left</span><span class="calendar-nav-label">Anterior</span></button>
+            <div class="calendar-month-heading"><span class="calendar-month-label">{}</span></div>
+            <button type="button" hx-get="{}" hx-target="#calendar-grid" hx-swap="outerHTML"
+                class="calendar-nav-button inline-flex items-center justify-center rounded-lg" title="Próximo mes" aria-label="Próximo mes"><span class="calendar-nav-label">Siguiente</span><span class="material-symbols-outlined" aria-hidden="true">chevron_right</span></button>
         </div>"###,
         prev_href, label, next_href
     );
 
     let weekdays = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-
-    let mut cells: Vec<String> = Vec::new();
-    // Leading blanks for days before the 1st.
-    for _ in 0..start {
-        cells.push(r#"<div class="border border-outline/30 rounded-lg"></div>"#.to_string());
-    }
-    // Numbered day cells with their events.
-    for d in 1..=days_in_month {
-        let fecha = format!("{:04}-{:02}-{:02}", year, month, d);
-        let is_today = today.map_or(false, |t| t == fecha);
-
-        let mut day_evs: Vec<&CalendarioEvent> =
-            events.iter().filter(|e| e.fecha == fecha).collect();
-        day_evs.sort_by(|a, b| a.evento.cmp(&b.evento));
-        let ev_html: String = day_evs.iter().take(3).map(|e| {
-            format!(
-                r#"<div class="calendar-chip calendar-chip-event mt-space-xs bg-primary-container/15 border border-primary-container/20 rounded text-[9px] text-on-surface truncate px-1 py-0.5" title="{}">{}</div>"#,
-                html_escape(&e.evento),
-                html_escape(&e.evento)
-            )
-        }).collect();
-
-        // Con el mapa de días (clases + tareas + anotaciones) el contenido de
-        // la celda se construye ahí; si no, se usan los eventos sueltos.
-        let (contenido, atributos_celda) = match dias.and_then(|m| m.get(&fecha)) {
-            Some(dia) => {
-                let chips = crate::academic::calendar_data::chips_del_dia(dia, 3);
-                let extra = crate::academic::calendar_data::total_elementos(dia);
-                let oculto = crate::academic::calendar_data::ocultos(dia);
-                let mas = if oculto > 0 {
-                    format!(
-                        r#"<div class="calendar-more text-[9px] text-outline mt-space-xs">+{oculto} más</div>"#
-                    )
-                } else {
-                    String::new()
-                };
-                let attrs = format!(
-                    r#" data-date="{fecha}" data-total="{extra}" data-dia-vacio="{}""#,
-                    if dia.vacio() { "1" } else { "0" }
-                );
-                (format!("{chips}{mas}"), attrs)
-            }
-            None => {
-                let attrs = format!(
-                    r#" data-date="{fecha}" data-total="{}" data-dia-vacio="{}""#,
-                    day_evs.len(),
-                    if day_evs.is_empty() { "1" } else { "0" }
-                );
-                (ev_html, attrs)
-            }
-        };
-
-        let (cell_cls, num_cls) = if is_today {
-            (
-                "border-2 border-primary-container/60 bg-surface-container/40 rounded-lg p-space-xs",
-                "block font-label-md text-primary-container",
-            )
-        } else {
-            (
-                "border border-outline/20 rounded-lg p-space-xs bg-surface-container/30",
-                "block font-label-sm text-[10px] text-on-surface-variant",
-            )
-        };
-
-        cells.push(format!(
-            r#"<div class="calendar-cell agenda-cell relative h-32 {}{}" tabindex="0" role="button" aria-label="Añadir o editar anotaciones del {fecha}" title="Añadir o editar anotaciones · {fecha}"><span class="calendar-day-number {} mb-space-xs">{}</span><div class="calendar-day-items mt-space-xs space-y-0.5 overflow-hidden">{}</div></div>"#,
-            cell_cls, atributos_celda, num_cls, d, contenido
-        ));
-    }
-    // Trailing blanks: pad to a multiple of 7, minimum six rows.
-    let total = start as u32 + days_in_month;
-    let rows = total.div_ceil(7).max(6);
-    for _ in 0..(rows * 7 - total) {
-        cells.push(r#"<div class="border border-outline/30 rounded-lg"></div>"#.to_string());
-    }
-
     let header: String = weekdays
         .iter()
-        .map(|d| format!(
-            r#"<div class="calendar-weekday font-label-sm text-[10px] uppercase text-outline text-center py-1.5">{}</div>"#,
-            d
-        ))
+        .map(|day| {
+            format!(
+                r#"<div class="calendar-weekday" role="columnheader">{}</div>"#,
+                day
+            )
+        })
         .collect();
+
+    let mut cells = Vec::with_capacity(cell_count);
+    for offset in 0..cell_count {
+        let date = start + chrono::Duration::days(offset as i64);
+        let iso = date.format("%Y-%m-%d").to_string();
+        let in_month = date.year() == year && date.month() == month;
+        let is_today = iso == today;
+        let is_selected = iso == selected;
+        let day_events = events
+            .iter()
+            .filter(|event| event.fecha.get(..10).unwrap_or(&event.fecha) == iso)
+            .count();
+        let dia = dias.and_then(|map| map.get(&iso));
+        let (markers, total, summary) = calendar_day_markers(dia, day_events);
+        let date_label = format!("{:02}/{:02}/{:04}", date.day(), date.month(), date.year());
+        let classes = format!(
+            "calendar-cell agenda-cell calendar-day{}{}{}",
+            if in_month { "" } else { " calendar-day--out" },
+            if is_today { " calendar-day--today" } else { "" },
+            if is_selected {
+                " calendar-day--selected"
+            } else {
+                ""
+            },
+        );
+        let aria_current = if is_today {
+            r#" aria-current="date""#
+        } else {
+            ""
+        };
+        let aria_label = if summary.is_empty() {
+            format!(
+                "{} {}. Sin elementos registrados.",
+                weekday_es(&iso),
+                date_label
+            )
+        } else {
+            format!("{} {}. {}.", weekday_es(&iso), date_label, summary)
+        };
+        cells.push(format!(
+            r#"<button type="button" role="gridcell" class="{}" data-date="{}" data-total="{}" aria-label="{}" aria-selected="{}"{} title="Seleccionar el {}"><span class="calendar-day-number">{}</span><span class="calendar-day-markers" aria-hidden="true">{}</span></button>"#,
+            classes,
+            iso,
+            total,
+            html_escape(&aria_label),
+            if is_selected { "true" } else { "false" },
+            aria_current,
+            html_escape(&format!("{} {}", weekday_es(&iso), date_label)),
+            date.day(),
+            markers
+        ));
+    }
 
     format!(
         r###"{nav}
-        <div class="calendar-month-grid agenda-month-grid grid grid-cols-7 gap-px bg-surface-container-highest rounded-lg overflow-hidden border border-outline">
+        <div class="calendar-month-grid agenda-month-grid" role="grid" aria-label="{}">
             {}
             {}
         </div>"###,
+        html_escape(&label),
         header,
         cells.join("")
     )
@@ -1350,6 +1382,47 @@ mod tests {
     use super::*;
 
     #[test]
+    fn calendar_grid_has_selectable_adjacent_dates_and_monday_first_weeks() {
+        let focus = chrono::NaiveDate::from_ymd_opt(2026, 11, 1).unwrap();
+        let html = calendar_grid_html(&[], focus, None, None, None);
+        let cells: Vec<&str> = html
+            .split("<button type=\"button\" role=\"gridcell\"")
+            .skip(1)
+            .collect();
+        // November 2026 begins on Sunday: Monday-first grid includes Oct 26–31
+        // and fills the final week through Dec 6 (six complete weeks).
+        assert_eq!(cells.len(), 42);
+        for cell in cells {
+            assert!(cell.contains("data-date=\""));
+            assert!(cell.contains("aria-selected=\""));
+        }
+        assert!(html.contains("data-date=\"2026-10-26\""));
+        assert!(html.contains("data-date=\"2026-12-06\""));
+        assert!(html.contains("aria-label=\"Noviembre 2026\""));
+    }
+
+    #[test]
+    fn calendar_grid_keeps_six_rows_for_short_months() {
+        let focus = chrono::NaiveDate::from_ymd_opt(2027, 2, 1).unwrap();
+        let html = calendar_grid_html(&[], focus, None, None, None);
+        let cells = html.matches("role=\"gridcell\"").count();
+        assert_eq!(cells, 42);
+        assert!(html.contains("data-date=\"2027-03-14\""));
+    }
+
+    #[test]
+    fn calendar_grid_separates_today_and_selected_date() {
+        let focus = chrono::NaiveDate::from_ymd_opt(2026, 11, 1).unwrap();
+        let html = calendar_grid_html(&[], focus, Some("2026-11-01"), Some("2026-10-31"), None);
+        assert!(html.contains("data-date=\"2026-11-01\""));
+        assert!(html.contains("calendar-day--today"));
+        assert!(html.contains("data-date=\"2026-10-31\""));
+        assert!(html.contains("calendar-day--selected"));
+        assert!(html.contains("aria-current=\"date\""));
+        assert!(html.contains("aria-selected=\"true\""));
+    }
+
+    #[test]
     fn test_html_escape() {
         assert_eq!(html_escape("<script>"), "&lt;script&gt;");
         assert_eq!(html_escape("a & b"), "a &amp; b");
@@ -1359,7 +1432,7 @@ mod tests {
     fn test_head_includes_meta() {
         let h = head("Test");
         assert!(h.contains("<meta name=\"viewport\""));
-        assert!(h.contains("htmx.org"));
+        assert!(h.contains("/vendor/htmx-2.0.3.min.js"));
         assert!(h.contains("tailwindcss.com"));
     }
 

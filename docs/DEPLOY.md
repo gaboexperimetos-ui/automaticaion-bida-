@@ -124,7 +124,7 @@ Datos y directorios:
 - `data/app.db` — **la BD de producción** (~1.5 MB, 21 tablas, usuarios `admin` y `gabo`).
   La `data/app.db` de `asus-tuf` (~100 KB) es de desarrollo: no mezclarlas.
 - `data/backups/` — backups automáticos (retención 14 días) + `.bak` manuales.
-- `data/office/{docs,sheets,presentations}/` — archivos generados por la suite Office.
+- `data/office/{docs,sheets,presentations,html}/` — archivos generados por la suite Office.
 - `notes/` — notas markdown (NOTES_DIR).
 - `logs/`, `bin/`, y backups de binarios `study-platform.bak-*` de despliegues previos.
 

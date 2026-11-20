@@ -47,12 +47,13 @@ pub async fn office_home(State(state): State<Arc<AppState>>) -> impl IntoRespons
     let docs = templates::count_files(&docs_dir(&state), "md");
     let sheets = templates::count_files(&crate::office::sheets_dir(&state), "csv");
     let pres = templates::count_files(&crate::office::pres_dir(&state), "json");
+    let html = templates::count_files(&crate::office::html_dir(&state), "html");
 
     let genoffice_ms = templates::genoffice_probe_cached(&state.config.genoffice_mcp_url).await;
     let mcp_banner =
         templates::genoffice_status_banner(&state.config.genoffice_mcp_url, genoffice_ms);
 
-    // Inicio unificado: los archivos reales de los tres directorios, no tarjetas
+    // Inicio unificado: archivos reales de los cuatro tipos, no tarjetas
     // ficticias ni una dependencia del índice opcional de SQLite.
     let mut recent: Vec<(String, String, String, &str, &str, String)> = Vec::new();
     for (kind, dir, ext, icon) in [
@@ -69,6 +70,7 @@ pub async fn office_home(State(state): State<Arc<AppState>>) -> impl IntoRespons
             "json",
             "present_to_all",
         ),
+        ("html", crate::office::html_dir(&state), "html", "code"),
     ] {
         for file in templates::list_files(&dir, ext) {
             let href = format!("/office/{kind}/{}", file.name);
@@ -78,7 +80,7 @@ pub async fn office_home(State(state): State<Arc<AppState>>) -> impl IntoRespons
     }
     recent.sort_by(|a, b| b.0.cmp(&a.0));
     let recent_html = if recent.is_empty() {
-        r##"<div class="gen-office-empty"><span class="material-symbols-outlined">folder_open</span><h3>Tu espacio está listo.</h3><p>Crea tu primer documento, hoja o presentación.</p></div>"##.to_string()
+        r##"<div class="gen-office-empty"><span class="material-symbols-outlined">folder_open</span><h3>Tu espacio está listo.</h3><p>Crea tu primer documento, hoja, presentación o página HTML.</p></div>"##.to_string()
     } else {
         recent
             .iter()
@@ -104,6 +106,7 @@ pub async fn office_home(State(state): State<Arc<AppState>>) -> impl IntoRespons
             <a class="gen-office-file-tab" href="/office/docs"><span class="gen-office-file-icon docs"><span class="material-symbols-outlined">description</span></span><span>Documentos</span><small>{docs}</small></a>
             <a class="gen-office-file-tab" href="/office/sheets"><span class="gen-office-file-icon sheets"><span class="material-symbols-outlined">table_chart</span></span><span>Hojas</span><small>{sheets}</small></a>
             <a class="gen-office-file-tab" href="/office/presentations"><span class="gen-office-file-icon presentations"><span class="material-symbols-outlined">present_to_all</span></span><span>Presentaciones</span><small>{pres}</small></a>
+            <a class="gen-office-file-tab" href="/office/html"><span class="gen-office-file-icon html"><span class="material-symbols-outlined">code</span></span><span>Páginas HTML</span><small>{html}</small></a>
             <span class="gen-office-tabs-spacer"></span><a class="gen-office-library-tab" href="/office/library"><span class="material-symbols-outlined">folder_open</span><span>Biblioteca</span></a>
         </nav>
         <header class="gen-office-home-hero">
@@ -117,6 +120,7 @@ pub async fn office_home(State(state): State<Arc<AppState>>) -> impl IntoRespons
                 <a class="gen-office-launcher docs" href="/office/docs/new"><span class="gen-office-launcher-icon"><span class="material-symbols-outlined">description</span></span><div><strong>Documento</strong><small>Markdown · .md</small></div><span class="material-symbols-outlined">add</span></a>
                 <a class="gen-office-launcher sheets" href="/office/sheets/new"><span class="gen-office-launcher-icon"><span class="material-symbols-outlined">table_chart</span></span><div><strong>Hoja de cálculo</strong><small>Cuadrícula · .csv</small></div><span class="material-symbols-outlined">add</span></a>
                 <a class="gen-office-launcher presentations" href="/office/presentations/new"><span class="gen-office-launcher-icon"><span class="material-symbols-outlined">present_to_all</span></span><div><strong>Presentación</strong><small>Diapositivas · .json</small></div><span class="material-symbols-outlined">add</span></a>
+                <a class="gen-office-launcher html" href="/office/html/new"><span class="gen-office-launcher-icon"><span class="material-symbols-outlined">code</span></span><div><strong>Página HTML</strong><small>Código · vista previa</small></div><span class="material-symbols-outlined">add</span></a>
                 <a class="gen-office-launcher library" href="/office/library"><span class="gen-office-launcher-icon"><span class="material-symbols-outlined">folder_open</span></span><div><strong>Biblioteca</strong><small>Todos tus archivos</small></div><span class="material-symbols-outlined">arrow_outward</span></a>
             </div>
         </section>
@@ -126,6 +130,7 @@ pub async fn office_home(State(state): State<Arc<AppState>>) -> impl IntoRespons
         docs = docs,
         sheets = sheets,
         pres = pres,
+        html = html,
         recent = recent_html,
         mcp = mcp_banner,
     );
@@ -159,7 +164,7 @@ pub async fn list(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let body = format!(
         r##"<div class="nova-page gen-office-page gen-office-manager-page">{tabs}
         <header class="gen-office-manager-head"><div><span>DOCUMENTOS · MARKDOWN</span><h1>Tus documentos</h1><p>{count} archivo(s) guardados en tu espacio local.</p></div><a href="/office/docs/new" class="gen-office-primary-button"><span class="material-symbols-outlined">add</span>Nuevo documento</a></header>
-        <nav class="gen-office-appnav" aria-label="Aplicaciones de oficina"><a class="is-active docs" href="/office/docs"><span class="material-symbols-outlined">description</span>Documentos</a><a href="/office/sheets"><span class="material-symbols-outlined">table_chart</span>Hojas</a><a href="/office/presentations"><span class="material-symbols-outlined">present_to_all</span>Presentaciones</a><a href="/office/library"><span class="material-symbols-outlined">folder_open</span>Biblioteca</a></nav>
+        <nav class="gen-office-appnav" aria-label="Aplicaciones de oficina"><a class="is-active docs" href="/office/docs"><span class="material-symbols-outlined">description</span>Documentos</a><a href="/office/sheets"><span class="material-symbols-outlined">table_chart</span>Hojas</a><a href="/office/presentations"><span class="material-symbols-outlined">present_to_all</span>Presentaciones</a><a href="/office/html"><span class="material-symbols-outlined">code</span>HTML</a><a href="/office/library"><span class="material-symbols-outlined">folder_open</span>Biblioteca</a></nav>
         <section class="gen-office-file-grid">{cards}</section><footer class="gen-office-home-footer"><span><span class="material-symbols-outlined">hard_drive</span> Markdown local</span>{mcp}</footer></div>"##,
         tabs = templates::office_tab_strip("docs", "Documentos", "/office/docs/new"),
         count = files.len(),
@@ -231,7 +236,7 @@ pub async fn edit(
 
     let editor = doc_editor(&slug, &content);
     let ai_content = format!(
-        r##"<div class="gen-office-tool-list"><button type="button" onclick="closeOfficeAi();document.getElementById('editor').focus()"><span class="material-symbols-outlined">edit</span><span><strong>Continuar escribiendo</strong><small>Volver al lienzo del documento</small></span></button><a href="/office/docs/{slug}/preview"><span class="material-symbols-outlined">visibility</span><span><strong>Revisar resultado</strong><small>Abrir la vista previa renderizada</small></span></a><a href="/office/docs/{slug}/export?fmt=html"><span class="material-symbols-outlined">download</span><span><strong>Exportar como HTML</strong><small>Descargar una página independiente</small></span></a></div>"##,
+        r##"<form id="office-doc-ai-form" class="gen-office-ai-compose"><label for="office-doc-ai-prompt">Pide ayuda con este documento</label><textarea id="office-doc-ai-prompt" rows="3" maxlength="1000" placeholder="Ej. Resume el documento o propone una introducción" required></textarea><p>Al enviar, se comparte con el asistente hasta el inicio del documento. Revisa la respuesta antes de insertarla.</p><button type="submit" class="gen-office-primary-button"><span class="material-symbols-outlined">auto_awesome</span>Generar propuesta</button><p id="office-doc-ai-status" role="status" aria-live="polite"></p><label for="office-doc-ai-result">Propuesta</label><textarea id="office-doc-ai-result" rows="7" readonly placeholder="La propuesta aparecerá aquí"></textarea><button type="button" id="office-doc-ai-insert" class="gen-office-secondary-button" disabled>Insertar al final</button></form><div class="gen-office-tool-list"><button type="button" onclick="closeOfficeAi();document.getElementById('editor').focus()"><span class="material-symbols-outlined">edit</span><span><strong>Continuar escribiendo</strong><small>Volver al lienzo del documento</small></span></button><a href="/office/docs/{slug}/preview"><span class="material-symbols-outlined">visibility</span><span><strong>Revisar resultado</strong><small>Abrir la vista previa renderizada</small></span></a><a href="/office/docs/{slug}/export?fmt=html"><span class="material-symbols-outlined">download</span><span><strong>Exportar como HTML</strong><small>Descargar una página independiente</small></span></a></div>"##,
         slug = templates::html_escape(&slug),
     );
     let body = format!(
@@ -243,7 +248,7 @@ pub async fn edit(
         slug = templates::html_escape(&slug),
         saved = saved_banner,
         ai_toggle = templates::OFFICE_AI_TOGGLE,
-        ai = templates::office_ai_panel("Herramientas del documento", "Revisa, exporta o continúa editando. NOVA AI se abre aparte para no alterar tu archivo sin confirmación.", &ai_content),
+        ai = templates::office_ai_panel("Asistente del documento", "Pide una propuesta, revísala y decide si deseas insertarla. Guarda después tus cambios.", &ai_content),
         title = templates::html_escape(&slug.replace('-', " ")),
         editor = editor,
         mcp = mcp_banner,
@@ -273,7 +278,7 @@ fn doc_editor(slug: &str, content: &str) -> String {
         </div>
         <form hx-put="/office/docs/{slug}" hx-swap="outerHTML" class="gen-office-doc-form">
             <label class="sr-only" for="editor">Contenido del documento</label>
-            <div class="gen-office-paper"><div class="gen-office-paper-meta"><span>DOCUMENTO NOVA</span><span>MARKDOWN · UTF-8</span></div><textarea name="content" id="editor" rows="30" spellcheck="true">{content}</textarea></div>
+            <div class="gen-office-paper"><div class="gen-office-paper-meta"><span>DOCUMENTO NOVA</span><span>MARKDOWN · UTF-8</span></div><textarea name="content" id="editor" data-office-format="Markdown" rows="30" spellcheck="true">{content}</textarea></div>
             <footer class="gen-office-editor-save"><span><span class="material-symbols-outlined">cloud_done</span> Los cambios se guardan en el archivo local.</span><button type="submit" id="save-document-button" class="gen-office-primary-button"><span class="material-symbols-outlined">save</span>Guardar cambios</button></footer>
         </form>
         <script>{js}</script>"##,
