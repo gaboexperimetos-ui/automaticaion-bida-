@@ -1,0 +1,68 @@
+name: Zig validation
+
+on:
+  push:
+    branches: ["main", "arena/**"]
+    paths:
+      - "build.zig"
+      - "main.zig"
+      - "test_root.zig"
+      - "src/**"
+      - "migrations/**"
+      - "static/**"
+      - "tests/**"
+      - ".github/workflows/zig-validation.yml"
+  pull_request:
+    paths:
+      - "build.zig"
+      - "main.zig"
+      - "test_root.zig"
+      - "src/**"
+      - "migrations/**"
+      - "static/**"
+      - "tests/**"
+      - ".github/workflows/zig-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zig-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Format, build, unit and HTTP smoke tests
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Zig 0.14.1
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.14.1
+
+      - name: Install SQLite development library
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libsqlite3-dev
+
+      - name: Check Zig formatting
+        run: zig fmt --check build.zig main.zig test_root.zig src/*.zig
+
+      - name: Debug build
+        run: zig build
+
+      - name: Zig unit tests
+        run: zig build test --summary all
+
+      - name: Optimized build
+        run: zig build -Doptimize=ReleaseFast
+
+      - name: HTTP integration smoke tests
+        run: python3 tests/http_smoke.py --binary zig-out/bin/study-platform
+
+      - name: Frontend regression tests
+        run: node --test tests/*.test.cjs

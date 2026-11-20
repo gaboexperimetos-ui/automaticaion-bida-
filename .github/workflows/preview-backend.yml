@@ -1,15 +1,17 @@
-name: Backend real para preview
+name: Binario Zig para preview
 
 on:
   push:
     branches:
       - "arena/**"
     paths:
-      - "Cargo.toml"
-      - "Cargo.lock"
+      - "build.zig"
+      - "main.zig"
+      - "test_root.zig"
       - "migrations/**"
       - "src/**"
       - "static/**"
+      - "tests/**"
       - ".github/workflows/preview-backend.yml"
   workflow_dispatch:
 
@@ -22,22 +24,28 @@ concurrency:
 
 jobs:
   build:
-    name: Compilar binario Linux para Arena
-    # Debian 12 (Arena) tiene glibc 2.36; Ubuntu 22.04 genera un binario
-    # compatible sin convertir el artefacto en parte del repositorio.
+    name: Compilar binario Zig Linux para Arena
     runs-on: ubuntu-22.04
     steps:
       - name: Descargar el repositorio
         uses: actions/checkout@v4
 
-      - name: Instalar Rust estable
-        uses: dtolnay/rust-toolchain@stable
+      - name: Instalar Zig 0.14.1
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.14.1
 
-      - name: Guardar caché de compilación
-        uses: Swatinem/rust-cache@v2
+      - name: Instalar SQLite
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libsqlite3-dev
 
-      - name: Compilar backend real
-        run: cargo build --release --locked
+      - name: Validar formato, build y tests
+        run: |
+          zig fmt --check build.zig main.zig test_root.zig src/*.zig
+          zig build test --summary all
+          zig build -Doptimize=ReleaseFast
+          python3 tests/http_smoke.py --binary zig-out/bin/study-platform
 
       - name: Publicar objeto temporal de prerelease
         env:
@@ -47,7 +55,7 @@ jobs:
           import base64
           import json
 
-          with open('target/release/study-platform', 'rb') as source:
+          with open('zig-out/bin/study-platform', 'rb') as source:
               payload = {
                   'encoding': 'base64',
                   'content': base64.b64encode(source.read()).decode('ascii'),
@@ -64,5 +72,5 @@ jobs:
             --target "$GITHUB_SHA" \
             --draft \
             --prerelease \
-            --title "Backend de preview ${GITHUB_SHA::8}" \
-            --notes "Binario temporal para Arena; no es producción. Blob SHA: ${blob_sha}"
+            --title "Binario Zig de preview ${GITHUB_SHA::8}" \
+            --notes "Zig 0.14.1 · build ReleaseFast · runtime: SQLite 3 compartido del sistema. Artefacto temporal para Arena, no es un despliegue de producción. Blob SHA: ${blob_sha}"
