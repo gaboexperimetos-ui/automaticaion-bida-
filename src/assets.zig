@@ -44,6 +44,11 @@ pub const files = [_]Asset{
     .{ .path = "/static/stitch-v2/index.html", .mime = "text/html; charset=utf-8", .bytes = @embedFile("../static/stitch-v2/index.html") },
     .{ .path = "/static/stitch-v2/mcp.html", .mime = "text/html; charset=utf-8", .bytes = @embedFile("../static/stitch-v2/mcp.html") },
     .{ .path = "/static/stitch-v2/notes.html", .mime = "text/html; charset=utf-8", .bytes = @embedFile("../static/stitch-v2/notes.html") },
+    .{ .path = "/vendor/htmx-2.0.3.min.js", .mime = "application/javascript; charset=utf-8", .bytes = @embedFile("../static/vendor/htmx-2.0.3.min.js") },
+    .{ .path = "/vendor/xlsx-0.20.3.full.min.js", .mime = "application/javascript; charset=utf-8", .bytes = @embedFile("../static/vendor/xlsx-0.20.3.full.min.js") },
+    .{ .path = "/calendar-ics.js", .mime = "application/javascript; charset=utf-8", .bytes = @embedFile("../static/app/calendar-ics.js") },
+    .{ .path = "/office-sheets.js", .mime = "application/javascript; charset=utf-8", .bytes = @embedFile("../static/app/office-sheets.js") },
+    .{ .path = "/office-html.js", .mime = "application/javascript; charset=utf-8", .bytes = @embedFile("../static/app/office-html.js") },
 };
 
 pub fn find(path: []const u8) ?Asset {

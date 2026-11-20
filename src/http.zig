@@ -173,9 +173,7 @@ pub fn sendAll(fd: c_int, bytes: []const u8) bool {
 
 pub fn writeResponse(fd: c_int, allocator: std.mem.Allocator, response: Response) void {
     const reason = reasonPhrase(response.status);
-    const head = std.fmt.allocPrint(allocator,
-        "HTTP/1.1 {d} {s}\r\nContent-Type: {s}\r\nContent-Length: {d}\r\nConnection: close\r\nX-Content-Type-Options: nosniff\r\nReferrer-Policy: same-origin\r\n",
-        .{ response.status, reason, response.content_type, response.body.len }) catch return;
+    const head = std.fmt.allocPrint(allocator, "HTTP/1.1 {d} {s}\r\nContent-Type: {s}\r\nContent-Length: {d}\r\nConnection: close\r\nX-Content-Type-Options: nosniff\r\nReferrer-Policy: same-origin\r\n", .{ response.status, reason, response.content_type, response.body.len }) catch return;
     _ = sendAll(fd, head);
     for (response.headers) |h| {
         const line = std.fmt.allocPrint(allocator, "{s}: {s}\r\n", .{ h.name, h.value }) catch continue;

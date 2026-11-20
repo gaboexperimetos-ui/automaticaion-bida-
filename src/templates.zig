@@ -171,8 +171,9 @@ pub fn renderShell(allocator: std.mem.Allocator, active_route: []const u8, conte
 
     const css = "<style>html,body{margin:0;background:#080b14;color:#f3f6ff}.app-rail{position:fixed;inset:0 auto 0 0;width:250px;overflow:auto;z-index:50}.app-rail-content{margin-left:250px}.app-topbar{position:sticky;top:0;z-index:40}.skip-link{position:absolute;left:-9999px;top:0;background:#a78bfa;color:#140d26;padding:.75rem;z-index:100}.skip-link:focus{left:1rem}.app-main{min-height:100vh;padding-top:4rem}@media(max-width:900px){.app-rail{transform:translateX(-100%)}.app-rail-content{margin-left:0}.app-topbar{left:0!important}}</style>";
     const head = try std.fmt.allocPrint(allocator, "<head>{s}{s}<script>window.__STITCH_V2_AUTH__={{\"authenticated\":{s}}}</script></head>", .{ assets.head, css, if (authenticated) "true" else "false" });
-    return std.fmt.allocPrint(allocator,
-        "<!DOCTYPE html>\n<html class=\"dark\" lang=\"es\">{s}<body class=\"bg-background font-body-md text-body-md text-on-surface antialiased\"><a class=\"skip-link\" href=\"#contenido\">Saltar al contenido</a>{s}<div id=\"app-rail-content\" class=\"app-rail-content\">{s}<main id=\"contenido\" class=\"app-main relative w-full bg-background\">{s}</main></div><script src=\"/shell.js\" defer></script></body></html>",
+    return std.fmt.allocPrint(
+        allocator,
+        "<!DOCTYPE html>\n<html class=\"dark\" lang=\"es\">{s}<body class=\"bg-background font-body-md text-body-md text-on-surface antialiased\"><a class=\"skip-link\" href=\"#contenido\">Saltar al contenido</a>{s}<div id=\"app-rail-content\" class=\"app-rail-content\">{s}<main id=\"contenido\" class=\"app-main relative w-full bg-background\">{s}</main></div><script src=\"/calendar-ics.js\" defer></script><script src=\"/shell.js\" defer></script></body></html>",
         .{ head, aside_html, topbar_html, content },
     );
 }
@@ -275,7 +276,7 @@ pub fn loginPage() []const u8 {
 }
 
 pub fn simplePage(allocator: std.mem.Allocator, title: []const u8, body: []const u8) ![]const u8 {
-    return std.fmt.allocPrint(allocator, "<section class=\"max-w-5xl mx-auto p-6\"><p class=\"uppercase tracking-widest text-xs text-outline\">NOVA · espacio académico</p><h1 class=\"text-3xl font-semibold my-4\">{s}</h1>{s}</section>", .{title, body});
+    return std.fmt.allocPrint(allocator, "<section class=\"max-w-5xl mx-auto p-6\"><p class=\"uppercase tracking-widest text-xs text-outline\">NOVA · espacio académico</p><h1 class=\"text-3xl font-semibold my-4\">{s}</h1>{s}</section>", .{ title, body });
 }
 
 test "active route maps to an existing nav anchor" {

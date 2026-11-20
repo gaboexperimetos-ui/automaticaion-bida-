@@ -10,6 +10,7 @@ const mcp_client = @import("mcp_client.zig");
 const MAX_TITLE = 200;
 const MAX_CONTENT = 500_000;
 const MAX_CSV = 1_000_000;
+const MAX_HTML_CONTENT = 1_048_576;
 const MAX_SHEET_ROWS = 5000;
 const MAX_SHEET_COLUMNS = 500;
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -18,7 +19,7 @@ const Slide = struct { title: []const u8, content: []const u8 };
 
 pub fn handle(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, request: *const http.Request, username: []const u8) !http.Response {
     const root = try officeRoot(allocator, config);
-    for ([_][]const u8{ "docs", "sheets", "presentations", "library", "reports" }) |subdir| {
+    for ([_][]const u8{ "docs", "sheets", "presentations", "html", "library", "reports" }) |subdir| {
         const dir = try std.fs.path.join(allocator, &.{ root, subdir });
         try std.fs.cwd().makePath(dir);
     }
@@ -35,6 +36,8 @@ pub fn handle(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const confi
     if (std.mem.startsWith(u8, path, "/office/sheets/")) return sheetRoute(allocator, config, request, username, root);
     if (std.mem.eql(u8, path, "/office/presentations")) return presentations(allocator, config, request, username, root);
     if (std.mem.startsWith(u8, path, "/office/presentations/")) return presentationRoute(allocator, config, request, username, root);
+    if (std.mem.eql(u8, path, "/office/html")) return htmlPages(allocator, config, request, username, root);
+    if (std.mem.startsWith(u8, path, "/office/html/")) return htmlPageRoute(allocator, config, request, username, root);
     if (std.mem.eql(u8, path, "/office/library")) return library(allocator, config, request, username, root);
     if (std.mem.startsWith(u8, path, "/office/library/")) return libraryRoute(allocator, config, request, username, root);
     return page(allocator, config, request.path, username, "No encontrado", "<p>Esta función de NOVA Office no existe.</p>", 404);
@@ -44,12 +47,14 @@ fn home(allocator: std.mem.Allocator, config: *const config_mod.Config, request:
     const docs = try countFiles(allocator, root, "docs", ".md");
     const sheets_count = try countFiles(allocator, root, "sheets", ".csv");
     const decks = try countFiles(allocator, root, "presentations", ".json");
+    const html_count = try countFiles(allocator, root, "html", ".html");
     var recent = std.ArrayList(u8).init(allocator);
     var recent_count: usize = 0;
     for ([_]struct { kind: []const u8, ext: []const u8, icon: []const u8 }{
         .{ .kind = "docs", .ext = ".md", .icon = "description" },
         .{ .kind = "sheets", .ext = ".csv", .icon = "table_chart" },
         .{ .kind = "presentations", .ext = ".json", .icon = "present_to_all" },
+        .{ .kind = "html", .ext = ".html", .icon = "code" },
     }) |item| {
         if (recent_count >= 6) break;
         const dir = try officeDir(allocator, root, item.kind);
@@ -65,27 +70,29 @@ fn home(allocator: std.mem.Allocator, config: *const config_mod.Config, request:
             recent_count += 1;
         }
     }
-    const recent_html = if (recent_count == 0) "<div class=\"gen-office-empty\"><span class=\"material-symbols-outlined\">folder_open</span><h3>Tu espacio está listo.</h3><p>Crea tu primer documento, hoja o presentación.</p></div>" else recent.items;
+    const recent_html = if (recent_count == 0) "<div class=\"gen-office-empty\"><span class=\"material-symbols-outlined\">folder_open</span><h3>Tu espacio está listo.</h3><p>Crea tu primer documento, hoja, presentación o página HTML.</p></div>" else recent.items;
     const tabs = try officeTabs(allocator, "home");
-    const body = try std.fmt.allocPrint(allocator, "<div class=\"nova-page gen-office-page gen-office-home\">{s}<header class=\"gen-office-home-hero\"><div class=\"gen-office-home-kicker\"><span></span> LOCAL · PRIVADO · TUYO</div><h1>¿Qué vas a crear hoy?</h1><p>Escribe, calcula y presenta desde un mismo espacio. Tus archivos permanecen en NOVA.</p><form class=\"gen-office-home-search\" method=\"get\" action=\"/office/library/search\"><span class=\"material-symbols-outlined\">search</span><label class=\"sr-only\" for=\"office-home-search\">Buscar en tus archivos</label><input id=\"office-home-search\" type=\"search\" name=\"q\" placeholder=\"Buscar en tus archivos…\"><button type=\"submit\">Buscar</button></form></header><section class=\"gen-office-launch-section\"><div class=\"gen-office-section-head\"><h2>Crear nuevo</h2><span>Elige una aplicación</span></div><div class=\"gen-office-launch-grid\"><a class=\"gen-office-launcher docs\" href=\"/office/docs/new\"><span class=\"gen-office-launcher-icon\"><span class=\"material-symbols-outlined\">description</span></span><div><strong>Documento</strong><small>Markdown · .md</small></div><span class=\"material-symbols-outlined\">add</span></a><a class=\"gen-office-launcher sheets\" href=\"/office/sheets/new\"><span class=\"gen-office-launcher-icon\"><span class=\"material-symbols-outlined\">table_chart</span></span><div><strong>Hoja de cálculo</strong><small>Cuadrícula · .csv</small></div><span class=\"material-symbols-outlined\">add</span></a><a class=\"gen-office-launcher presentations\" href=\"/office/presentations/new\"><span class=\"gen-office-launcher-icon\"><span class=\"material-symbols-outlined\">present_to_all</span></span><div><strong>Presentación</strong><small>Diapositivas · .json</small></div><span class=\"material-symbols-outlined\">add</span></a><a class=\"gen-office-launcher library\" href=\"/office/library\"><span class=\"gen-office-launcher-icon\"><span class=\"material-symbols-outlined\">folder_open</span></span><div><strong>Biblioteca</strong><small>Todos tus archivos</small></div><span class=\"material-symbols-outlined\">arrow_outward</span></a></div></section><section class=\"gen-office-recent\"><div class=\"gen-office-section-head\"><h2>Archivos recientes</h2><a href=\"/office/library\">Ver todos →</a></div><div class=\"gen-office-file-grid\">{s}</div></section><footer class=\"gen-office-home-footer\"><span>Guardado local · {d} documentos · {d} hojas · {d} presentaciones</span><span>NOVA Office</span></footer></div>", .{ tabs, recent_html, docs, sheets_count, decks });
+    const body = try std.fmt.allocPrint(allocator, "<div class=\"nova-page gen-office-page gen-office-home\">{s}<header class=\"gen-office-home-hero\"><div class=\"gen-office-home-kicker\"><span></span> LOCAL · PRIVADO · TUYO</div><h1>¿Qué vas a crear hoy?</h1><p>Escribe, calcula y presenta desde un mismo espacio. Tus archivos permanecen en NOVA.</p><form class=\"gen-office-home-search\" method=\"get\" action=\"/office/library/search\"><span class=\"material-symbols-outlined\">search</span><label class=\"sr-only\" for=\"office-home-search\">Buscar en tus archivos</label><input id=\"office-home-search\" type=\"search\" name=\"q\" placeholder=\"Buscar en tus archivos…\"><button type=\"submit\">Buscar</button></form></header><section class=\"gen-office-launch-section\"><div class=\"gen-office-section-head\"><h2>Crear nuevo</h2><span>Elige una aplicación</span></div><div class=\"gen-office-launch-grid\"><a class=\"gen-office-launcher docs\" href=\"/office/docs/new\"><span class=\"gen-office-launcher-icon\"><span class=\"material-symbols-outlined\">description</span></span><div><strong>Documento</strong><small>Markdown · .md</small></div><span class=\"material-symbols-outlined\">add</span></a><a class=\"gen-office-launcher sheets\" href=\"/office/sheets/new\"><span class=\"gen-office-launcher-icon\"><span class=\"material-symbols-outlined\">table_chart</span></span><div><strong>Hoja de cálculo</strong><small>Cuadrícula · .csv</small></div><span class=\"material-symbols-outlined\">add</span></a><a class=\"gen-office-launcher presentations\" href=\"/office/presentations/new\"><span class=\"gen-office-launcher-icon\"><span class=\"material-symbols-outlined\">present_to_all</span></span><div><strong>Presentación</strong><small>Diapositivas · .json</small></div><span class=\"material-symbols-outlined\">add</span></a><a class=\"gen-office-launcher html\" href=\"/office/html/new\"><span class=\"gen-office-launcher-icon html\"><span class=\"material-symbols-outlined\">code</span></span><div><strong>Página web</strong><small>HTML · preview aislado</small></div><span class=\"material-symbols-outlined\">add</span></a><a class=\"gen-office-launcher library\" href=\"/office/library\"><span class=\"gen-office-launcher-icon\"><span class=\"material-symbols-outlined\">folder_open</span></span><div><strong>Biblioteca</strong><small>Todos tus archivos</small></div><span class=\"material-symbols-outlined\">arrow_outward</span></a></div></section><section class=\"gen-office-recent\"><div class=\"gen-office-section-head\"><h2>Archivos recientes</h2><a href=\"/office/library\">Ver todos →</a></div><div class=\"gen-office-file-grid\">{s}</div></section><footer class=\"gen-office-home-footer\"><span>Guardado local · {d} documentos · {d} hojas · {d} presentaciones · {d} páginas HTML</span><span>NOVA Office</span></footer></div>", .{ tabs, recent_html, docs, sheets_count, decks, html_count });
     return page(allocator, config, request.path, username, "NOVA Office", body, 200);
 }
 
 fn officeTabs(allocator: std.mem.Allocator, active: []const u8) ![]const u8 {
-    return std.fmt.allocPrint(allocator, "<nav class=\"gen-office-tabs\" aria-label=\"Pestañas de Oficina\"><a class=\"gen-office-brand-tab{s}\" href=\"/office\"><span class=\"gen-office-brand-mark\"><span class=\"material-symbols-outlined\">grid_view</span></span><strong>NOVA <span>Office</span></strong></a><a class=\"gen-office-file-tab{s}\" href=\"/office/docs\"><span class=\"gen-office-file-icon docs\">▤</span><span>Documentos</span></a><a class=\"gen-office-file-tab{s}\" href=\"/office/sheets\"><span class=\"gen-office-file-icon sheets\">▦</span><span>Hojas</span></a><a class=\"gen-office-file-tab{s}\" href=\"/office/presentations\"><span class=\"gen-office-file-icon presentations\">▣</span><span>Presentaciones</span></a><span class=\"gen-office-tabs-spacer\"></span><a class=\"gen-office-library-tab{s}\" href=\"/office/library\"><span class=\"material-symbols-outlined\">folder_open</span><span>Biblioteca</span></a></nav>", .{
+    return std.fmt.allocPrint(allocator, "<nav class=\"gen-office-tabs\" aria-label=\"Pestañas de Oficina\"><a class=\"gen-office-brand-tab{s}\" href=\"/office\"><span class=\"gen-office-brand-mark\"><span class=\"material-symbols-outlined\">grid_view</span></span><strong>NOVA <span>Office</span></strong></a><a class=\"gen-office-file-tab{s}\" href=\"/office/docs\"><span class=\"gen-office-file-icon docs\">▤</span><span>Documentos</span></a><a class=\"gen-office-file-tab{s}\" href=\"/office/sheets\"><span class=\"gen-office-file-icon sheets\">▦</span><span>Hojas</span></a><a class=\"gen-office-file-tab{s}\" href=\"/office/presentations\"><span class=\"gen-office-file-icon presentations\">▣</span><span>Presentaciones</span></a><a class=\"gen-office-file-tab{s}\" href=\"/office/html\"><span class=\"gen-office-file-icon html\">&lt;/&gt;</span><span>HTML</span></a><span class=\"gen-office-tabs-spacer\"></span><a class=\"gen-office-library-tab{s}\" href=\"/office/library\"><span class=\"material-symbols-outlined\">folder_open</span><span>Biblioteca</span></a></nav>", .{
         if (std.mem.eql(u8, active, "home")) " is-active" else "",
         if (std.mem.eql(u8, active, "docs")) " is-active" else "",
         if (std.mem.eql(u8, active, "sheets")) " is-active" else "",
         if (std.mem.eql(u8, active, "presentations")) " is-active" else "",
+        if (std.mem.eql(u8, active, "html")) " is-active" else "",
         if (std.mem.eql(u8, active, "library")) " is-active" else "",
     });
 }
 
 fn officeNav(allocator: std.mem.Allocator, active: []const u8) ![]const u8 {
-    return std.fmt.allocPrint(allocator, "<nav class=\"gen-office-appnav\" aria-label=\"Aplicaciones de oficina\"><a{s} href=\"/office/docs\"><span class=\"material-symbols-outlined\">description</span>Documentos</a><a{s} href=\"/office/sheets\"><span class=\"material-symbols-outlined\">table_chart</span>Hojas</a><a{s} href=\"/office/presentations\"><span class=\"material-symbols-outlined\">present_to_all</span>Presentaciones</a><a{s} href=\"/office/library\"><span class=\"material-symbols-outlined\">folder_open</span>Biblioteca</a></nav>", .{
+    return std.fmt.allocPrint(allocator, "<nav class=\"gen-office-appnav\" aria-label=\"Aplicaciones de oficina\"><a{s} href=\"/office/docs\"><span class=\"material-symbols-outlined\">description</span>Documentos</a><a{s} href=\"/office/sheets\"><span class=\"material-symbols-outlined\">table_chart</span>Hojas</a><a{s} href=\"/office/presentations\"><span class=\"material-symbols-outlined\">present_to_all</span>Presentaciones</a><a{s} href=\"/office/html\"><span class=\"material-symbols-outlined\">code</span>HTML</a><a{s} href=\"/office/library\"><span class=\"material-symbols-outlined\">folder_open</span>Biblioteca</a></nav>", .{
         if (std.mem.eql(u8, active, "docs")) " class=\"is-active\"" else "",
         if (std.mem.eql(u8, active, "sheets")) " class=\"is-active sheets\"" else "",
         if (std.mem.eql(u8, active, "presentations")) " class=\"is-active presentations\"" else "",
+        if (std.mem.eql(u8, active, "html")) " class=\"is-active html\"" else "",
         if (std.mem.eql(u8, active, "library")) " class=\"is-active library\"" else "",
     });
 }
@@ -216,9 +223,9 @@ fn sheetRoute(allocator: std.mem.Allocator, config: *const config_mod.Config, re
     const rendered = try renderGrid(allocator, slug, grid, values);
     const escaped_slug = try security.htmlEscape(allocator, slug);
     const tabs = try officeTabs(allocator, "sheets");
-    const tools_content = try std.fmt.allocPrint(allocator, "<div class=\"gen-office-tool-list\"><button type=\"button\" onclick=\"addOfficeGridRow()\"><span class=\"material-symbols-outlined\">add_row_below</span><span><strong>Añadir una fila</strong><small>Amplía la cuadrícula editable</small></span></button><button type=\"button\" onclick=\"addOfficeGridColumn()\"><span class=\"material-symbols-outlined\">add_column_right</span><span><strong>Añadir una columna</strong><small>Agrega una columna al final</small></span></button></div><details class=\"gen-office-import-panel\"><summary><span class=\"material-symbols-outlined\">upload_file</span><span><strong>Importar CSV</strong><small>Reemplaza los datos actuales</small></span></summary><form hx-post=\"/office/sheets/{s}/import\" hx-swap=\"none\"><label for=\"csv-import\">Contenido CSV</label><textarea id=\"csv-import\" name=\"csv_data\" rows=\"8\" placeholder=\"nombre,nota&#10;Examen,8.5\"></textarea><button type=\"submit\" class=\"gen-office-secondary-button\">Importar datos</button></form></details><div class=\"gen-office-formula-help\"><strong>Fórmulas compatibles</strong><code>=SUM(A1:A5)</code><code>=AVG(B2:B8)</code><code>=AVERAGE(B2:B8)</code><span>Se calculan sobre datos originales al guardar y exportar.</span></div>", .{slug});
+    const tools_content = try std.fmt.allocPrint(allocator, "<div class=\"gen-office-tool-list\"><button type=\"button\" onclick=\"addOfficeGridRow()\"><span class=\"material-symbols-outlined\">add_row_below</span><span><strong>Añadir una fila</strong><small>Amplía la cuadrícula editable</small></span></button><button type=\"button\" onclick=\"addOfficeGridColumn()\"><span class=\"material-symbols-outlined\">add_column_right</span><span><strong>Añadir una columna</strong><small>Agrega una columna al final</small></span></button></div><details class=\"gen-office-import-panel\"><summary><span class=\"material-symbols-outlined\">upload_file</span><span><strong>Importar CSV o Excel</strong><small>Selecciona una hoja; reemplaza los datos actuales</small></span></summary><label for=\"office-xlsx-file\">Archivo CSV o Excel (XLSX, XLS, XLSM, TSV)</label><input id=\"office-xlsx-file\" type=\"file\" accept=\".xlsx,.xls,.xlsm,.csv,.tsv\"><select id=\"office-xlsx-sheet\" hidden></select><button type=\"button\" id=\"office-xlsx-import\" disabled class=\"gen-office-secondary-button\">Importar hoja seleccionada</button><p id=\"office-xlsx-status\" role=\"status\" aria-live=\"polite\">Los archivos se leen localmente; sólo la hoja elegida se guarda como CSV.</p><form id=\"office-csv-import-form\" hx-post=\"/office/sheets/{s}/import\" hx-swap=\"none\"><label for=\"csv-import\">O pega contenido CSV</label><textarea id=\"csv-import\" name=\"csv_data\" rows=\"8\" placeholder=\"nombre,nota&#10;Examen,8.5\"></textarea><button type=\"submit\" class=\"gen-office-secondary-button\">Importar CSV</button></form></details><div class=\"gen-office-formula-help\"><strong>Fórmulas compatibles</strong><code>=SUM(A1:A5)</code><code>=AVG(B2:B8)</code><code>=AVERAGE(B2:B8)</code><span>Se calculan sobre datos originales al guardar y exportar.</span></div>", .{slug});
     const tools = try officeAiPanel(allocator, "Herramientas de la hoja", "Edita las celdas, añade filas o columnas e importa un CSV. Tus cambios solo se guardan al pulsar Guardar cuadrícula.", tools_content);
-    const body = try std.fmt.allocPrint(allocator, "<div class=\"nova-page gen-office-page gen-office-editor-page\">{s}<header class=\"gen-office-ribbon\"><nav class=\"gen-office-menubar\"><a class=\"is-active\" href=\"/office/sheets/{s}\">Inicio</a><button type=\"button\" onclick=\"addOfficeGridRow()\">Insertar fila</button><button type=\"button\" onclick=\"addOfficeGridColumn()\">Insertar columna</button><a href=\"/office/sheets/{s}/export\">Exportar CSV</a></nav><div class=\"gen-office-ribbon-actions\">{s}<a class=\"gen-office-primary-button\" href=\"/office/sheets/{s}/export\">Descargar CSV</a><form hx-post=\"/office/sheets/{s}/delete\" hx-confirm=\"¿Eliminar esta hoja?\" hx-swap=\"none\"><button class=\"gen-office-icon-button danger\" aria-label=\"Eliminar hoja\">⌫</button></form></div></header><div class=\"gen-office-workspace\">{s}<main class=\"gen-office-editor-main\"><div class=\"gen-office-canvas-head\"><div><span>HOJA DE CÁLCULO · CSV</span><strong>{s}</strong></div><span class=\"gen-office-local-badge\">Archivo local</span></div><section class=\"gen-office-sheet-workspace\">{s}</section></main></div><footer class=\"gen-office-statusbar\"><span>CSV local · {s}.csv</span><span>{d} filas</span><span>NOVA Office</span></footer></div><script>{s}</script>", .{ tabs, slug, slug, officeAiToggle(), slug, slug, tools, escaped_slug, rendered, slug, grid.len, OFFICE_WORKSPACE_JS });
+    const body = try std.fmt.allocPrint(allocator, "<div class=\"nova-page gen-office-page gen-office-editor-page\">{s}<header class=\"gen-office-ribbon\"><nav class=\"gen-office-menubar\"><a class=\"is-active\" href=\"/office/sheets/{s}\">Inicio</a><button type=\"button\" onclick=\"addOfficeGridRow()\">Insertar fila</button><button type=\"button\" onclick=\"addOfficeGridColumn()\">Insertar columna</button><a href=\"/office/sheets/{s}/export\">Exportar CSV</a><button type=\"button\" id=\"office-xlsx-export\" data-filename=\"{s}\" class=\"gen-office-ribbon-button\">Excel XLSX</button></nav><div class=\"gen-office-ribbon-actions\">{s}<a class=\"gen-office-primary-button\" href=\"/office/sheets/{s}/export\">Descargar CSV</a><form hx-post=\"/office/sheets/{s}/delete\" hx-confirm=\"¿Eliminar esta hoja?\" hx-swap=\"none\"><button class=\"gen-office-icon-button danger\" aria-label=\"Eliminar hoja\">⌫</button></form></div></header><div class=\"gen-office-workspace\">{s}<main class=\"gen-office-editor-main\"><div class=\"gen-office-canvas-head\"><div><span>HOJA DE CÁLCULO · CSV</span><strong>{s}</strong></div><span class=\"gen-office-local-badge\">Archivo local</span></div><section class=\"gen-office-sheet-workspace\">{s}</section></main></div><footer class=\"gen-office-statusbar\"><span>CSV local · {s}.csv</span><span>{d} filas</span><span>NOVA Office</span></footer></div><script src=\"/vendor/xlsx-0.20.3.full.min.js\"></script><script src=\"/office-sheets.js\"></script><script>{s}</script>", .{ tabs, slug, slug, slug, officeAiToggle(), slug, slug, tools, escaped_slug, rendered, slug, grid.len, OFFICE_WORKSPACE_JS });
     return page(allocator, config, request.path, username, "Hojas de cálculo", body, 200);
 }
 
@@ -308,6 +315,69 @@ fn presentationRoute(allocator: std.mem.Allocator, config: *const config_mod.Con
     return editPresentation(allocator, config, request.path, username, slug, presentation);
 }
 
+fn htmlPages(allocator: std.mem.Allocator, config: *const config_mod.Config, request: *const http.Request, username: []const u8, root: []const u8) !http.Response {
+    const dir = try officeDir(allocator, root, "html");
+    if (std.mem.eql(u8, request.method, "GET")) return listPage(allocator, config, request.path, username, "Páginas HTML", dir, ".html", "Nueva página", "/office/html/new");
+    if (!std.mem.eql(u8, request.method, "POST")) return methodNotAllowed(allocator);
+    const title_raw = (try formField(allocator, request, "title")) orelse "";
+    const title = std.mem.trim(u8, title_raw, " \t\r\n");
+    const content_raw = (try formField(allocator, request, "content")) orelse "";
+    if (title.len == 0 or title.len > MAX_TITLE or content_raw.len > MAX_HTML_CONTENT) return errorPage(allocator, config, request.path, username, 400, "El nombre es obligatorio y el contenido no debe superar 1 MiB.");
+    const slug = try slugify(allocator, title);
+    const file_path = try std.fmt.allocPrint(allocator, "{s}/{s}.html", .{ dir, slug });
+    if (try fileExists(file_path)) return errorPage(allocator, config, request.path, username, 409, "Ya existe una página con ese nombre.");
+    const content = if (std.mem.trim(u8, content_raw, " \t\r\n").len == 0) try starterHtml(allocator, title) else content_raw;
+    writeNew(file_path, content) catch return errorPage(allocator, config, request.path, username, 500, "No se pudo guardar la página HTML.");
+    return hxRedirect(allocator, try std.fmt.allocPrint(allocator, "/office/html/{s}", .{slug}));
+}
+
+fn htmlPageRoute(allocator: std.mem.Allocator, config: *const config_mod.Config, request: *const http.Request, username: []const u8, root: []const u8) !http.Response {
+    const rest = request.path["/office/html/".len..];
+    if (std.mem.eql(u8, rest, "new")) {
+        if (!std.mem.eql(u8, request.method, "GET")) return methodNotAllowed(allocator);
+        const tabs = try officeTabs(allocator, "html");
+        const nav = try officeNav(allocator, "html");
+        const body = try std.fmt.allocPrint(allocator, "<div class=\"nova-page gen-office-page gen-office-create-page\">{s}<main class=\"gen-office-create-shell\"><div class=\"gen-office-create-heading\"><span class=\"gen-office-launcher-icon html\">&lt;/&gt;</span><div><span>NUEVA PÁGINA HTML</span><h1>Tu próximo diseño web.</h1><p>Escribe HTML y CSS y comprueba el resultado antes de guardar.</p></div></div>{s}<form hx-post=\"/office/html\" hx-swap=\"none\" class=\"gen-office-create-form\"><div class=\"gen-office-create-fields\"><label for=\"new-html-title\">Nombre del archivo</label><input id=\"new-html-title\" name=\"title\" maxlength=\"200\" required autofocus></div><div class=\"gen-office-create-editor\"><label for=\"new-html-content\">Código inicial</label><textarea id=\"new-html-content\" name=\"content\" rows=\"18\" spellcheck=\"false\" placeholder=\"&lt;!doctype html&gt;&#10;&lt;html lang=&quot;es&quot;&gt;&#10;  &lt;body&gt;&lt;h1&gt;Hola, mundo&lt;/h1&gt;&lt;/body&gt;&#10;&lt;/html&gt;\"></textarea></div><footer><a href=\"/office/html\" class=\"gen-office-secondary-button\">Cancelar</a><span>Se guardará como .html · máximo 1 MiB</span><button type=\"submit\" class=\"gen-office-primary-button\">Crear página</button></footer></form></main></div>", .{ tabs, nav });
+        return page(allocator, config, request.path, username, "Nueva página HTML", body, 200);
+    }
+    const suffix = if (std.mem.endsWith(u8, rest, "/export")) "/export" else "";
+    const slug = if (suffix.len > 0) rest[0 .. rest.len - suffix.len] else rest;
+    if (!safeSlug(slug)) return errorPage(allocator, config, request.path, username, 400, "Nombre no válido.");
+    const dir = try officeDir(allocator, root, "html");
+    const file_path = try std.fmt.allocPrint(allocator, "{s}/{s}.html", .{ dir, slug });
+    if (std.mem.eql(u8, suffix, "/export")) {
+        if (!std.mem.eql(u8, request.method, "GET")) return methodNotAllowed(allocator);
+        const bytes = readFile(allocator, file_path, MAX_HTML_CONTENT) catch |err| return errorPage(allocator, config, request.path, username, if (err == error.FileNotFound) 404 else 500, "Página HTML no encontrada.");
+        return download(allocator, "text/html; charset=utf-8", bytes, try std.fmt.allocPrint(allocator, "{s}.html", .{slug}));
+    }
+    if (std.mem.eql(u8, request.method, "DELETE")) {
+        std.fs.cwd().deleteFile(file_path) catch |err| return errorPage(allocator, config, request.path, username, if (err == error.FileNotFound) 404 else 500, "No se pudo eliminar la página.");
+        return hxRedirect(allocator, "/office/html");
+    }
+    if (std.mem.eql(u8, request.method, "PUT")) {
+        if (!try fileExists(file_path)) return errorPage(allocator, config, request.path, username, 404, "Página HTML no encontrada.");
+        const content = (try formField(allocator, request, "content")) orelse "";
+        if (content.len > MAX_HTML_CONTENT) return errorPage(allocator, config, request.path, username, 400, "El contenido supera 1 MiB.");
+        try writeReplace(file_path, content);
+        return hxRedirect(allocator, try std.fmt.allocPrint(allocator, "/office/html/{s}", .{slug}));
+    }
+    if (!std.mem.eql(u8, request.method, "GET")) return methodNotAllowed(allocator);
+    const content = readFile(allocator, file_path, MAX_HTML_CONTENT) catch |err| return errorPage(allocator, config, request.path, username, if (err == error.FileNotFound) 404 else 500, "Página HTML no encontrada.");
+    const tabs = try officeTabs(allocator, "html");
+    const nav = try officeNav(allocator, "html");
+    const escaped_slug = try security.htmlEscape(allocator, slug);
+    const display_title = try std.mem.replaceOwned(u8, allocator, slug, "-", " ");
+    const escaped_title = try security.htmlEscape(allocator, display_title);
+    const escaped_content = try security.htmlEscape(allocator, content);
+    const body = try std.fmt.allocPrint(allocator, "<div class=\"nova-page gen-office-page gen-office-editor-page gen-office-html-editor\">{s}<header class=\"gen-office-ribbon\"><nav class=\"gen-office-menubar\" aria-label=\"Acciones de la página\"><a class=\"is-active\" href=\"/office/html/{s}\">Código y vista previa</a><a href=\"/office/html\">Mis páginas</a><a href=\"/office/html/{s}/export\">Descargar .html</a></nav><div class=\"gen-office-ribbon-actions\"><button type=\"button\" id=\"office-html-refresh\" class=\"gen-office-ribbon-button\"><span class=\"material-symbols-outlined\">refresh</span><span>Actualizar vista previa</span></button></div></header>{s}<div class=\"gen-office-workspace\"><main class=\"gen-office-editor-main\"><div class=\"gen-office-canvas-head\"><div><span>PÁGINA HTML · CÓDIGO LOCAL</span><strong>{s}</strong></div><span class=\"gen-office-local-badge\"><span class=\"material-symbols-outlined\">security</span>Vista previa aislada</span></div><form id=\"office-html-save-form\" hx-put=\"/office/html/{s}\" hx-swap=\"none\" class=\"gen-office-html-save\"><div class=\"gen-office-html-panes\"><section class=\"gen-office-html-source\"><label for=\"editor\"><span>HTML</span><span>UTF-8 · máx. 1 MiB</span></label><textarea id=\"editor\" name=\"content\" maxlength=\"1048576\" data-office-format=\"HTML\" spellcheck=\"false\" autocapitalize=\"off\" autocomplete=\"off\">{s}</textarea></section><section class=\"gen-office-html-preview\"><header><span><i></i>Vista previa local</span><small>Scripts y red bloqueados</small></header><iframe id=\"office-html-preview-frame\" title=\"Vista previa de la página HTML\" sandbox=\"\" referrerpolicy=\"no-referrer\"></iframe></section></div><footer class=\"gen-office-editor-save\"><span id=\"office-html-status\" role=\"status\" aria-live=\"polite\">Vista previa aislada; no puede acceder a NOVA.</span><button type=\"submit\" class=\"gen-office-primary-button\">Guardar HTML</button></footer></form></main></div><footer class=\"gen-office-statusbar\"><span>.html · UTF-8</span><span id=\"office-html-byte-count\">0 bytes</span><span>NOVA Office</span></footer></div><script src=\"/office-html.js\"></script><script>{s}</script>", .{ tabs, escaped_slug, escaped_slug, nav, escaped_title, escaped_slug, escaped_content, OFFICE_WORKSPACE_JS });
+    return page(allocator, config, request.path, username, "Editor HTML", body, 200);
+}
+
+fn starterHtml(allocator: std.mem.Allocator, title: []const u8) ![]const u8 {
+    const safe_title = try security.htmlEscape(allocator, title);
+    return std.fmt.allocPrint(allocator, "<!doctype html>\n<html lang=\"es\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>{s}</title>\n</head>\n<body>\n<main><h1>{s}</h1><p>Empieza a editar esta página en NOVA Office.</p></main>\n</body>\n</html>\n", .{ safe_title, safe_title });
+}
+
 fn library(allocator: std.mem.Allocator, config: *const config_mod.Config, request: *const http.Request, username: []const u8, root: []const u8) !http.Response {
     if (!std.mem.eql(u8, request.method, "GET")) return methodNotAllowed(allocator);
     return libraryPage(allocator, config, request, username, root, "");
@@ -359,7 +429,7 @@ fn libraryRoute(allocator: std.mem.Allocator, config: *const config_mod.Config, 
     }
     if (!std.mem.eql(u8, request.method, "GET")) return methodNotAllowed(allocator);
     const content = readFile(allocator, full, MAX_LIBRARY_FILE) catch |err| return errorPage(allocator, config, request.path, username, if (err == error.FileNotFound) 404 else 500, "Archivo no encontrado.");
-    const mime = if (std.mem.eql(u8, kind, "docs")) "text/markdown; charset=utf-8" else if (std.mem.eql(u8, kind, "sheets")) "text/csv; charset=utf-8" else "application/json; charset=utf-8";
+    const mime = if (std.mem.eql(u8, kind, "docs")) "text/markdown; charset=utf-8" else if (std.mem.eql(u8, kind, "sheets")) "text/csv; charset=utf-8" else if (std.mem.eql(u8, kind, "html")) "text/html; charset=utf-8" else "application/json; charset=utf-8";
     return download(allocator, mime, content, try std.fmt.allocPrint(allocator, "{s}{s}", .{ slug, ext }));
 }
 
@@ -370,6 +440,7 @@ fn libraryPage(allocator: std.mem.Allocator, config: *const config_mod.Config, r
         .{ .kind = "docs", .ext = ".md", .label = "Documento", .icon = "description" },
         .{ .kind = "sheets", .ext = ".csv", .label = "Hoja", .icon = "table_chart" },
         .{ .kind = "presentations", .ext = ".json", .label = "Presentación", .icon = "present_to_all" },
+        .{ .kind = "html", .ext = ".html", .label = "Página HTML", .icon = "code" },
     }) |item| {
         const dir = try officeDir(allocator, root, item.kind);
         var opened = std.fs.cwd().openDir(dir, .{ .iterate = true }) catch continue;
@@ -392,7 +463,7 @@ fn libraryPage(allocator: std.mem.Allocator, config: *const config_mod.Config, r
     const escaped_query = try security.htmlEscape(allocator, query);
     const tabs = try officeTabs(allocator, "library");
     const nav = try officeNav(allocator, "library");
-    const body = try std.fmt.allocPrint(allocator, "<div class=\"nova-page gen-office-page gen-office-manager-page gen-office-library-page\">{s}<header class=\"gen-office-manager-head\"><div><span>BIBLIOTECA · ARCHIVOS LOCALES</span><h1>Todo tu trabajo.</h1><p>{d} archivo(s) visibles. Abre, descarga o importa desde un solo lugar.</p></div><a href=\"#library-import\" class=\"gen-office-primary-button\">Importar archivo</a></header>{s}<form method=\"get\" action=\"/office/library/search\" class=\"gen-office-library-search\"><span class=\"material-symbols-outlined\">search</span><label class=\"sr-only\" for=\"library-query\">Buscar archivos</label><input id=\"library-query\" type=\"search\" name=\"q\" value=\"{s}\" placeholder=\"Buscar por nombre…\"><button type=\"submit\" class=\"gen-office-secondary-button\">Buscar</button></form><div class=\"gen-office-library-layout\"><section class=\"gen-office-library-browser\"><header><div><span>ARCHIVOS</span><strong>{d} resultado(s)</strong></div><span class=\"material-symbols-outlined\">folder_open</span></header><div class=\"gen-office-table-scroll\"><table class=\"gen-office-library-table\"><thead><tr><th>Archivo</th><th>Tipo</th><th>Tamaño</th><th aria-label=\"Acciones\"></th></tr></thead><tbody>{s}</tbody></table></div></section><aside class=\"gen-office-library-import\" id=\"library-import\"><header><span class=\"gen-office-launcher-icon library\">↑</span><div><span>IMPORTAR</span><h2>Nuevo archivo</h2></div></header><p>Crea un archivo directamente en tu biblioteca local.</p><form id=\"library-import-form\" hx-post=\"/office/library/import/docs\" hx-swap=\"none\"><label for=\"library-import-name\">Nombre</label><input id=\"library-import-name\" type=\"text\" name=\"name\" maxlength=\"200\" placeholder=\"mi-archivo\" required><label for=\"library-import-kind\">Tipo de archivo</label><select id=\"library-import-kind\" name=\"kind\" onchange=\"this.form.setAttribute('hx-post','/office/library/import/'+this.value);htmx.process(this.form)\"><option value=\"docs\">Documento Markdown</option><option value=\"sheets\">Hoja CSV</option><option value=\"presentations\">Presentación</option></select><label for=\"library-import-content\">Contenido</label><textarea id=\"library-import-content\" name=\"content\" rows=\"8\" required></textarea><p class=\"gen-office-import-help\">Para presentaciones, pega texto Markdown para crear una escena o JSON válido.</p><button type=\"submit\" class=\"gen-office-primary-button\">Importar archivo</button></form></aside></div><footer class=\"gen-office-home-footer\"><span>Archivos locales · Markdown · CSV · JSON</span><span>NOVA Office</span></footer></div>", .{ tabs, count, nav, escaped_query, count, table_rows });
+    const body = try std.fmt.allocPrint(allocator, "<div class=\"nova-page gen-office-page gen-office-manager-page gen-office-library-page\">{s}<header class=\"gen-office-manager-head\"><div><span>BIBLIOTECA · ARCHIVOS LOCALES</span><h1>Todo tu trabajo.</h1><p>{d} archivo(s) visibles. Abre, descarga o importa desde un solo lugar.</p></div><a href=\"#library-import\" class=\"gen-office-primary-button\">Importar archivo</a></header>{s}<form method=\"get\" action=\"/office/library/search\" class=\"gen-office-library-search\"><span class=\"material-symbols-outlined\">search</span><label class=\"sr-only\" for=\"library-query\">Buscar archivos</label><input id=\"library-query\" type=\"search\" name=\"q\" value=\"{s}\" placeholder=\"Buscar por nombre…\"><button type=\"submit\" class=\"gen-office-secondary-button\">Buscar</button></form><div class=\"gen-office-library-layout\"><section class=\"gen-office-library-browser\"><header><div><span>ARCHIVOS</span><strong>{d} resultado(s)</strong></div><span class=\"material-symbols-outlined\">folder_open</span></header><div class=\"gen-office-table-scroll\"><table class=\"gen-office-library-table\"><thead><tr><th>Archivo</th><th>Tipo</th><th>Tamaño</th><th aria-label=\"Acciones\"></th></tr></thead><tbody>{s}</tbody></table></div></section><aside class=\"gen-office-library-import\" id=\"library-import\"><header><span class=\"gen-office-launcher-icon library\">↑</span><div><span>IMPORTAR</span><h2>Nuevo archivo</h2></div></header><p>Crea un archivo directamente en tu biblioteca local.</p><form id=\"library-import-form\" hx-post=\"/office/library/import/docs\" hx-swap=\"none\"><label for=\"library-import-name\">Nombre</label><input id=\"library-import-name\" type=\"text\" name=\"name\" maxlength=\"200\" placeholder=\"mi-archivo\" required><label for=\"library-import-kind\">Tipo de archivo</label><select id=\"library-import-kind\" name=\"kind\" onchange=\"this.form.setAttribute('hx-post','/office/library/import/'+this.value);htmx.process(this.form)\"><option value=\"docs\">Documento Markdown</option><option value=\"sheets\">Hoja CSV</option><option value=\"presentations\">Presentación</option><option value=\"html\">Página HTML</option></select><label for=\"library-import-content\">Contenido</label><textarea id=\"library-import-content\" name=\"content\" rows=\"8\" required></textarea><p class=\"gen-office-import-help\">Para presentaciones, pega texto Markdown para crear una escena o JSON válido.</p><button type=\"submit\" class=\"gen-office-primary-button\">Importar archivo</button></form></aside></div><footer class=\"gen-office-home-footer\"><span>Archivos locales · Markdown · CSV · JSON</span><span>NOVA Office</span></footer></div>", .{ tabs, count, nav, escaped_query, count, table_rows });
     return page(allocator, config, request.path, username, "Biblioteca", body, 200);
 }
 
@@ -717,8 +788,8 @@ fn presentPage(allocator: std.mem.Allocator, config: *const config_mod.Config, r
 }
 
 fn listPage(allocator: std.mem.Allocator, config: *const config_mod.Config, route: []const u8, username: []const u8, title: []const u8, dir: []const u8, ext: []const u8, action_title: []const u8, action_url: []const u8) !http.Response {
-    const kind = if (std.mem.eql(u8, ext, ".md")) "docs" else if (std.mem.eql(u8, ext, ".csv")) "sheets" else "presentations";
-    const icon = if (std.mem.eql(u8, kind, "docs")) "description" else if (std.mem.eql(u8, kind, "sheets")) "table_chart" else "present_to_all";
+    const kind = if (std.mem.eql(u8, ext, ".md")) "docs" else if (std.mem.eql(u8, ext, ".csv")) "sheets" else if (std.mem.eql(u8, ext, ".html")) "html" else "presentations";
+    const icon = if (std.mem.eql(u8, kind, "docs")) "description" else if (std.mem.eql(u8, kind, "sheets")) "table_chart" else if (std.mem.eql(u8, kind, "html")) "code" else "present_to_all";
     const tabs = try officeTabs(allocator, kind);
     const nav = try officeNav(allocator, kind);
     var cards = std.ArrayList(u8).init(allocator);
@@ -733,21 +804,21 @@ fn listPage(allocator: std.mem.Allocator, config: *const config_mod.Config, rout
         const escaped = try security.htmlEscape(allocator, slug);
         const editor_url = try std.fmt.allocPrint(allocator, "/office/{s}/{s}", .{ kind, escaped });
         const download_url = try std.fmt.allocPrint(allocator, "/office/library/{s}/{s}/download", .{ kind, escaped });
-        const export_url = if (std.mem.eql(u8, kind, "docs")) try std.fmt.allocPrint(allocator, "{s}/export?fmt=md", .{editor_url}) else if (std.mem.eql(u8, kind, "sheets")) try std.fmt.allocPrint(allocator, "{s}/export", .{editor_url}) else download_url;
+        const export_url = if (std.mem.eql(u8, kind, "docs")) try std.fmt.allocPrint(allocator, "{s}/export?fmt=md", .{editor_url}) else if (std.mem.eql(u8, kind, "sheets") or std.mem.eql(u8, kind, "html")) try std.fmt.allocPrint(allocator, "{s}/export", .{editor_url}) else download_url;
         const delete_form = if (std.mem.eql(u8, kind, "sheets"))
             try std.fmt.allocPrint(allocator, "<form hx-post=\"/office/sheets/{s}/delete\" hx-confirm=\"¿Eliminar esta hoja?\" hx-swap=\"none\"><button class=\"gen-office-icon-button danger\" aria-label=\"Eliminar {s}\">⌫</button></form>", .{ escaped, escaped })
         else
             try std.fmt.allocPrint(allocator, "<form hx-delete=\"{s}\" hx-confirm=\"¿Eliminar este archivo?\" hx-swap=\"none\"><button class=\"gen-office-icon-button danger\" aria-label=\"Eliminar {s}\">⌫</button></form>", .{ editor_url, escaped });
         const size = std.fs.cwd().statFile(try std.fmt.allocPrint(allocator, "{s}/{s}", .{ dir, entry.name })) catch null;
         const size_text = if (size) |stat| try formatHumanSize(allocator, stat.size) else "—";
-        try cards.writer().print("<article class=\"gen-office-file-card {s}\"><a class=\"gen-office-file-preview\" href=\"{s}\"><span class=\"material-symbols-outlined\">{s}</span><small>{s}</small></a><div class=\"gen-office-file-copy\"><a href=\"{s}\">{s}</a><span>Archivo local · {s}</span></div><footer><a href=\"{s}\">{s}</a><a href=\"{s}\">Descargar</a>{s}</footer></article>", .{ kind, editor_url, icon, ext[1..], editor_url, escaped, size_text, export_url, if (std.mem.eql(u8, kind, "docs")) "Exportar" else if (std.mem.eql(u8, kind, "sheets")) "Exportar CSV" else "Abrir JSON", download_url, delete_form });
+        try cards.writer().print("<article class=\"gen-office-file-card {s}\"><a class=\"gen-office-file-preview\" href=\"{s}\"><span class=\"material-symbols-outlined\">{s}</span><small>{s}</small></a><div class=\"gen-office-file-copy\"><a href=\"{s}\">{s}</a><span>Archivo local · {s}</span></div><footer><a href=\"{s}\">{s}</a><a href=\"{s}\">Descargar</a>{s}</footer></article>", .{ kind, editor_url, icon, ext[1..], editor_url, escaped, size_text, export_url, if (std.mem.eql(u8, kind, "docs")) "Exportar" else if (std.mem.eql(u8, kind, "sheets")) "Exportar CSV" else if (std.mem.eql(u8, kind, "html")) "Exportar HTML" else "Abrir JSON", download_url, delete_form });
         count += 1;
     }
     const content = if (count == 0)
-        try std.fmt.allocPrint(allocator, "<div class=\"gen-office-empty\"><span class=\"material-symbols-outlined\">{s}</span><h3>{s}</h3><p>Crea un archivo local para empezar.</p><a href=\"{s}\" class=\"gen-office-primary-button\">{s}</a></div>", .{ icon, if (std.mem.eql(u8, kind, "docs")) "Tu próximo documento empieza aquí." else if (std.mem.eql(u8, kind, "sheets")) "Empieza con una cuadrícula." else "Tu próxima idea merece un escenario.", action_url, action_title })
+        try std.fmt.allocPrint(allocator, "<div class=\"gen-office-empty\"><span class=\"material-symbols-outlined\">{s}</span><h3>{s}</h3><p>Crea un archivo local para empezar.</p><a href=\"{s}\" class=\"gen-office-primary-button\">{s}</a></div>", .{ icon, if (std.mem.eql(u8, kind, "docs")) "Tu próximo documento empieza aquí." else if (std.mem.eql(u8, kind, "sheets")) "Empieza con una cuadrícula." else if (std.mem.eql(u8, kind, "html")) "Un lienzo web en blanco." else "Tu próxima idea merece un escenario.", action_url, action_title })
     else
         cards.items;
-    const body = try std.fmt.allocPrint(allocator, "<div class=\"nova-page gen-office-page gen-office-manager-page\">{s}<header class=\"gen-office-manager-head\"><div><span>{s} · ARCHIVOS LOCALES</span><h1>{s}</h1><p>{d} archivo(s) disponibles en tu espacio local.</p></div><a href=\"{s}\" class=\"gen-office-primary-button\">＋ {s}</a></header>{s}<section class=\"gen-office-file-grid\">{s}</section><footer class=\"gen-office-home-footer\"><span>Guardado local · {s}</span><span>NOVA Office</span></footer></div>", .{ tabs, if (std.mem.eql(u8, kind, "docs")) "DOCUMENTOS MARKDOWN" else if (std.mem.eql(u8, kind, "sheets")) "HOJAS DE CÁLCULO" else "PRESENTACIONES", title, count, action_url, action_title, nav, content, ext[1..] });
+    const body = try std.fmt.allocPrint(allocator, "<div class=\"nova-page gen-office-page gen-office-manager-page\">{s}<header class=\"gen-office-manager-head\"><div><span>{s} · ARCHIVOS LOCALES</span><h1>{s}</h1><p>{d} archivo(s) disponibles en tu espacio local.</p></div><a href=\"{s}\" class=\"gen-office-primary-button\">＋ {s}</a></header>{s}<section class=\"gen-office-file-grid\">{s}</section><footer class=\"gen-office-home-footer\"><span>Guardado local · {s}</span><span>NOVA Office</span></footer></div>", .{ tabs, if (std.mem.eql(u8, kind, "docs")) "DOCUMENTOS MARKDOWN" else if (std.mem.eql(u8, kind, "sheets")) "HOJAS DE CÁLCULO" else if (std.mem.eql(u8, kind, "html")) "PÁGINAS WEB HTML" else "PRESENTACIONES", title, count, action_url, action_title, nav, content, ext[1..] });
     return page(allocator, config, route, username, title, body, 200);
 }
 
@@ -1176,6 +1247,7 @@ fn extensionFor(kind: []const u8) ?[]const u8 {
     if (std.mem.eql(u8, kind, "docs")) return ".md";
     if (std.mem.eql(u8, kind, "sheets")) return ".csv";
     if (std.mem.eql(u8, kind, "presentations")) return ".json";
+    if (std.mem.eql(u8, kind, "html")) return ".html";
     return null;
 }
 fn officeRoot(allocator: std.mem.Allocator, config: *const config_mod.Config) ![]const u8 {

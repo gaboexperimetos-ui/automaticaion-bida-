@@ -125,6 +125,12 @@ def run_public_smoke(binary: Path, workspace: Path, temp: Path):
         assert status == 200 and b"gen-office-home" in office_html and b"NOVA Office" in office_html
         status, headers, css = request(base, "/static/app/nova.css")
         assert status == 200 and headers.get_content_type() == "text/css" and len(css) > 100_000
+        status, headers, htmx = request(base, "/vendor/htmx-2.0.3.min.js")
+        assert status == 200 and headers.get_content_type() == "application/javascript" and b"htmx" in htmx[:2048]
+        status, headers, ics_js = request(base, "/calendar-ics.js")
+        assert status == 200 and headers.get_content_type() == "application/javascript" and b"parseIcs" in ics_js
+        status, headers, xlsx_js = request(base, "/vendor/xlsx-0.20.3.full.min.js")
+        assert status == 200 and headers.get_content_type() == "application/javascript" and len(xlsx_js) > 100_000
 
         status, _, body = request(
             base,
@@ -431,6 +437,91 @@ def run_office_parity_smoke(binary: Path, workspace: Path, temp: Path):
     finally:
         server.stop()
 
+
+def run_mainline_merge_smoke(binary: Path, workspace: Path, temp: Path):
+    """Validate newer mainline static assets, local Office formats, and calendar imports."""
+    server = Server(binary, workspace, temp / "mainline-merge")
+    try:
+        server.wait_ready()
+        base = server.base
+        office_form = {"Content-Type": "application/x-www-form-urlencoded", "Accept": "text/html"}
+
+        for path, marker in (
+            ("/vendor/htmx-2.0.3.min.js", b"htmx"),
+            ("/vendor/xlsx-0.20.3.full.min.js", b"XLSX"),
+            ("/calendar-ics.js", b"parseIcs"),
+            ("/office-sheets.js", b"workbookFromAoa"),
+            ("/office-html.js", b"previewDocument"),
+        ):
+            status, headers, body = request(base, path)
+            assert status == 200 and headers.get_content_type() == "application/javascript" and marker in body
+        status, _, dashboard = request(base, "/dashboard", headers={"Accept": "text/html"})
+        assert status == 200 and b"/calendar-ics.js" in dashboard
+
+        event = {
+            "date": "2026-11-20", "title": "Retiro de estudio", "body": "Material local",
+            "category": "personal", "kind": "event", "end_date": "2026-11-23",
+            "all_day": True, "location": "Quito", "uid": "retiro@example.test",
+        }
+        status, _, body = request(base, "/api/calendar/annotations", "POST", event)
+        created = json_body((status, None, body))
+        assert status == 201 and created["annotation"]["uid"] == "retiro@example.test"
+        assert created["annotation"]["category"] == "personal" and created["end_date"] == "2026-11-23"
+        status, _, body = request(base, "/api/calendar/annotations?from=2026-11-22&to=2026-11-22")
+        listed = json_body((status, None, body))
+        assert status == 200 and listed["count"] == 1 and listed["annotations"][0]["title"] == "Retiro de estudio"
+        status, _, body = request(base, "/dashboard/calendar.ics")
+        calendar = body.decode("utf-8")
+        assert status == 200 and "UID:retiro@example.test" in calendar
+        assert "DTEND;VALUE=DATE:20261123" in calendar and "LOCATION:Quito" in calendar
+
+        imported_event = {
+            "date": "2026-11-24", "title": "Tutoría semanal", "category": "academic",
+            "kind": "event", "all_day": False, "start_time": "09:00", "end_time": "10:00",
+            "end_date": "2026-11-24", "recurrence": "weekly", "weekly_day": 2,
+            "uid": "tutoria@example.test",
+        }
+        status, _, body = request(base, "/api/calendar/annotations/import", "POST", {"annotations": [imported_event]})
+        assert status == 200 and json_body((status, None, body))["imported"] == 1
+        status, _, body = request(base, "/dashboard/calendar.ics")
+        calendar = body.decode("utf-8")
+        assert status == 200 and "DTSTART:20261124T090000" in calendar
+        assert "RRULE:FREQ=WEEKLY;BYDAY=TU" in calendar
+        invalid_batch = {"annotations": [
+            {"date": "2026-11-25", "title": "No persistir", "kind": "event", "all_day": True},
+            {"date": "2026-11-26", "title": "Inválido", "kind": "event", "category": "unknown", "all_day": True},
+        ]}
+        status, _, _ = request(base, "/api/calendar/annotations/import", "POST", invalid_batch)
+        assert status == 400
+        status, _, body = request(base, "/api/calendar/annotations?from=2026-11-25&to=2026-11-26")
+        assert all(item["title"] != "No persistir" for item in json_body((status, None, body))["annotations"])
+
+        status, headers, _ = request(base, "/office/sheets", "POST", {"title": "Excel Bridge"}, office_form)
+        assert status == 200 and headers.get("HX-Redirect") == "/office/sheets/excel-bridge"
+        status, _, body = request(base, "/office/sheets/excel-bridge", headers={"Accept": "text/html"})
+        assert status == 200 and b"office-xlsx-file" in body and b"office-xlsx-sheet" in body
+        assert b"office-xlsx-import" in body and b"office-xlsx-export" in body
+        assert b"/vendor/xlsx-0.20.3.full.min.js" in body and b"/office-sheets.js" in body
+
+        html_source = "<!doctype html><html lang=\"es\"><body><h1>Preview</h1><script>bad()</script></body></html>"
+        status, headers, _ = request(base, "/office/html", "POST", {"title": "Safe Page", "content": html_source}, office_form)
+        assert status == 200 and headers.get("HX-Redirect") == "/office/html/safe-page"
+        status, _, body = request(base, "/office/html/safe-page", headers={"Accept": "text/html"})
+        assert status == 200 and b"sandbox=\"\"" in body and b"office-html-preview-frame" in body
+        assert b"/office-html.js" in body and b"office-html-save-form" in body
+        status, headers, body = request(base, "/office/html/safe-page/export")
+        assert status == 200 and headers.get_content_type() == "text/html" and b"<h1>Preview</h1>" in body
+        status, _, _ = request(base, "/office/html/safe-page", "PUT", {"content": "<main>updated</main>"}, office_form)
+        assert status == 200
+        status, _, body = request(base, "/office/library/html/safe-page/download")
+        assert status == 200 and b"<main>updated</main>" in body
+        status, headers, _ = request(base, "/office/html/safe-page", "DELETE")
+        assert status == 200 and headers.get("HX-Redirect") == "/office/html"
+
+        print("HTTP smoke: mainline assets, ICS event import/export, XLSX bridge, and sandboxed HTML editor PASS")
+    finally:
+        server.stop()
+
 def run_external_integrations_smoke(binary: Path, workspace: Path, temp: Path):
     MockMcpHandler.calls = []
     MockMcpHandler.session_headers = []
@@ -542,6 +633,7 @@ def main():
         temp = Path(temporary)
         run_public_smoke(binary, workspace, temp)
         run_office_parity_smoke(binary, workspace, temp)
+        run_mainline_merge_smoke(binary, workspace, temp)
         run_external_integrations_smoke(binary, workspace, temp)
         run_auth_smoke(binary, workspace, temp)
     print("Zig HTTP smoke suite: PASS")

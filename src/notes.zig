@@ -28,6 +28,7 @@ pub fn handle(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const confi
     if (std.mem.eql(u8, path, "/api/search")) return searchApi(allocator, db, request);
     if (std.mem.eql(u8, path, "/dashboard/search")) return searchPage(allocator, db, config, request, username);
     if (std.mem.eql(u8, path, "/api/calendar/annotations")) return annotations(allocator, db, request, null);
+    if (std.mem.eql(u8, path, "/api/calendar/annotations/import")) return importAnnotations(allocator, db, request);
     if (std.mem.startsWith(u8, path, "/api/calendar/annotations/")) {
         const id = path["/api/calendar/annotations/".len..];
         return annotations(allocator, db, request, id);
@@ -249,51 +250,75 @@ fn appendSearchCard(allocator: std.mem.Allocator, cards: *std.ArrayListUnmanaged
     try cards.appendSlice(allocator, card);
 }
 
+const CalendarAnnotation = struct {
+    date: []const u8,
+    title: []const u8,
+    body: []const u8,
+    category: []const u8,
+    kind: []const u8,
+    end_date: ?[]const u8,
+    all_day: bool,
+    start_time: ?[]const u8,
+    end_time: ?[]const u8,
+    location: []const u8,
+    uid: ?[]const u8,
+    recurrence: ?[]const u8,
+    weekly_day: ?i64,
+};
+
+const CALENDAR_ANNOTATION_COLUMNS = "id,date,title,body,category,kind,end_date,all_day,start_time,end_time,location,uid,recurrence,weekly_day,created_at,updated_at";
+
 fn annotations(allocator: std.mem.Allocator, db: *sqlite.Db, request: *const http.Request, id_path: ?[]const u8) !http.Response {
     if (id_path == null and std.mem.eql(u8, request.method, "GET")) {
-        const from = (try http.queryParam(allocator, request.query, "from")) orelse "0000-01-01";
-        const to = (try http.queryParam(allocator, request.query, "to")) orelse "9999-12-31";
-        var stmt = try db.prepare("SELECT id,date,title,body,created_at,updated_at FROM calendar_annotations WHERE date BETWEEN ?1 AND ?2 ORDER BY date,id");
+        const from_param = try http.queryParam(allocator, request.query, "from");
+        const to_param = try http.queryParam(allocator, request.query, "to");
+        const from = from_param orelse "0000-01-01";
+        const to = to_param orelse "9999-12-31";
+        if ((from_param != null and !validDate(from)) or (to_param != null and !validDate(to)) or std.mem.order(u8, from, to) == .gt) return jsonError(allocator, 400, "Invalid date range");
+        const sql = try std.fmt.allocPrint(allocator, "SELECT {s} FROM calendar_annotations WHERE (date>=?1 AND date<=?2) OR (kind='event' AND date<?1 AND ((all_day=1 AND end_date>?1) OR (all_day=0 AND COALESCE(end_date,date)>=?1))) OR (kind='event' AND recurrence='weekly') ORDER BY date,id", .{CALENDAR_ANNOTATION_COLUMNS});
+        var stmt = try db.prepare(sql);
         defer stmt.deinit();
         try stmt.bindText(1, from);
         try stmt.bindText(2, to);
         var items = std.json.Array.init(allocator);
-        while (try stmt.next()) try items.append(try annotationValue(allocator, &stmt));
+        while (try stmt.next()) try items.append(try calendarAnnotationValue(allocator, &stmt));
         var obj = std.json.ObjectMap.init(allocator);
+        try obj.put("from", .{ .string = from });
+        try obj.put("to", .{ .string = to });
+        try obj.put("count", .{ .integer = @intCast(items.items.len) });
         try obj.put("annotations", .{ .array = items });
         return jsonResponse(allocator, 200, .{ .object = obj });
     }
     if (id_path == null and std.mem.eql(u8, request.method, "POST")) {
-        const parsed = parseBody(allocator, request) catch return jsonError(allocator, 400, "Invalid JSON");
-        const date = json.getString(parsed, "date") orelse return jsonError(allocator, 400, "Invalid date");
-        const title = json.getString(parsed, "title") orelse "";
-        const body = json.getString(parsed, "body") orelse "";
-        if (!validDate(date) or title.len > 120 or body.len > 4000) return jsonError(allocator, 400, "Invalid annotation");
-        var stmt = try db.prepare("INSERT INTO calendar_annotations(date,title,body) VALUES(?1,?2,?3)");
-        defer stmt.deinit();
-        try stmt.bindText(1, date);
-        try stmt.bindText(2, title);
-        try stmt.bindText(3, body);
-        _ = try stmt.next();
-        return jsonResponse(allocator, 201, try annotationById(allocator, db, db.lastInsertRowId()));
+        const payload = parseBody(allocator, request) catch return jsonError(allocator, 400, "Invalid JSON");
+        var problem: []const u8 = "Entrada no válida";
+        const entry = (try normalizeCalendarAnnotation(allocator, payload, &problem)) orelse return jsonError(allocator, 400, problem);
+        const id = try insertCalendarAnnotation(db, entry);
+        return annotationEnvelope(allocator, 201, try calendarAnnotationById(allocator, db, id));
     }
-    const raw_id = id_path orelse return jsonError(allocator, 405, "Method not allowed");
+
+    const raw_id = id_path orelse return methodNotAllowed(allocator);
     const id = std.fmt.parseInt(i64, raw_id, 10) catch return jsonError(allocator, 400, "Invalid id");
     if (std.mem.eql(u8, request.method, "PUT")) {
-        const parsed = parseBody(allocator, request) catch return jsonError(allocator, 400, "Invalid JSON");
-        const date = json.getString(parsed, "date") orelse return jsonError(allocator, 400, "Invalid date");
-        const title = json.getString(parsed, "title") orelse "";
-        const body = json.getString(parsed, "body") orelse "";
-        if (!validDate(date) or title.len > 120 or body.len > 4000) return jsonError(allocator, 400, "Invalid annotation");
-        var stmt = try db.prepare("UPDATE calendar_annotations SET date=?1,title=?2,body=?3,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?4");
+        const payload = parseBody(allocator, request) catch return jsonError(allocator, 400, "Invalid JSON");
+        const date = json.getString(payload, "date");
+        if (date) |value| if (!validDate(std.mem.trim(u8, value, " \t\r\n"))) return jsonError(allocator, 400, "La fecha debe tener formato YYYY-MM-DD");
+        const title_raw = json.getString(payload, "title");
+        const body_raw = json.getString(payload, "body");
+        const title = if (title_raw) |value| try cleanCalendarText(allocator, value, 120) else null;
+        const body = if (body_raw) |value| try cleanCalendarText(allocator, value, 4000) else null;
+        const category_raw = json.getString(payload, "category");
+        const category = if (category_raw) |value| normalizeCalendarCategory(value) orelse return jsonError(allocator, 400, "La categoría debe ser academic, work, health o personal") else null;
+        var stmt = try db.prepare("UPDATE calendar_annotations SET date=COALESCE(?1,date),title=COALESCE(?2,title),body=COALESCE(?3,body),category=COALESCE(?4,category),updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id=?5");
         defer stmt.deinit();
-        try stmt.bindText(1, date);
-        try stmt.bindText(2, title);
-        try stmt.bindText(3, body);
-        try stmt.bindInt(4, id);
+        try bindOptionalText(&stmt, 1, if (date) |value| std.mem.trim(u8, value, " \t\r\n") else null);
+        try bindOptionalText(&stmt, 2, title);
+        try bindOptionalText(&stmt, 3, body);
+        try bindOptionalText(&stmt, 4, category);
+        try stmt.bindInt(5, id);
         _ = try stmt.next();
         if (db.changes() == 0) return jsonError(allocator, 404, "La anotación no existe");
-        return jsonResponse(allocator, 200, try annotationById(allocator, db, id));
+        return annotationEnvelope(allocator, 200, try calendarAnnotationById(allocator, db, id));
     }
     if (std.mem.eql(u8, request.method, "DELETE")) {
         var stmt = try db.prepare("DELETE FROM calendar_annotations WHERE id=?1");
@@ -301,28 +326,263 @@ fn annotations(allocator: std.mem.Allocator, db: *sqlite.Db, request: *const htt
         try stmt.bindInt(1, id);
         _ = try stmt.next();
         if (db.changes() == 0) return jsonError(allocator, 404, "La anotación no existe");
-        return jsonResponse(allocator, 200, json.object(allocator, &.{.{ .key = "deleted", .value = .{ .bool = true } }}) catch unreachable);
+        return jsonResponse(allocator, 200, try json.object(allocator, &.{
+            .{ .key = "deleted", .value = .{ .bool = true } },
+            .{ .key = "id", .value = .{ .integer = id } },
+        }));
     }
     return methodNotAllowed(allocator);
 }
 
-fn annotationValue(allocator: std.mem.Allocator, stmt: *sqlite.Statement) !std.json.Value {
+fn importAnnotations(allocator: std.mem.Allocator, db: *sqlite.Db, request: *const http.Request) !http.Response {
+    if (!std.mem.eql(u8, request.method, "POST")) return methodNotAllowed(allocator);
+    const payload = parseBody(allocator, request) catch return jsonError(allocator, 400, "Invalid JSON");
+    const raw_entries = json.get(payload, "annotations") orelse return jsonError(allocator, 400, "Faltan las anotaciones del lote");
+    if (raw_entries != .array or raw_entries.array.items.len == 0 or raw_entries.array.items.len > 1000) return jsonError(allocator, 400, "El lote debe contener entre 1 y 1000 eventos");
+    var entries = std.ArrayList(CalendarAnnotation).init(allocator);
+    for (raw_entries.array.items, 0..) |raw, index| {
+        var problem: []const u8 = "Entrada no válida";
+        const entry = (try normalizeCalendarAnnotation(allocator, raw, &problem)) orelse return jsonError(allocator, 400, try std.fmt.allocPrint(allocator, "Evento {d}: {s}", .{ index + 1, problem }));
+        try entries.append(entry);
+    }
+    db.exec("BEGIN IMMEDIATE;") catch return jsonError(allocator, 500, "No se pudo iniciar la importación");
+    for (entries.items) |entry| {
+        _ = insertCalendarAnnotation(db, entry) catch {
+            db.exec("ROLLBACK;") catch {};
+            return jsonError(allocator, 500, "No se pudo completar la importación; no se guardaron cambios");
+        };
+    }
+    db.exec("COMMIT;") catch {
+        db.exec("ROLLBACK;") catch {};
+        return jsonError(allocator, 500, "No se pudo completar la importación");
+    };
+    return jsonResponse(allocator, 200, try json.object(allocator, &.{.{ .key = "imported", .value = .{ .integer = @intCast(entries.items.len) } }}));
+}
+
+fn normalizeCalendarAnnotation(allocator: std.mem.Allocator, payload: std.json.Value, problem: *[]const u8) !?CalendarAnnotation {
+    const date_raw = json.getString(payload, "date") orelse {
+        problem.* = "La fecha debe tener formato YYYY-MM-DD";
+        return null;
+    };
+    const date = std.mem.trim(u8, date_raw, " \t\r\n");
+    if (!validDate(date)) {
+        problem.* = "La fecha debe tener formato YYYY-MM-DD";
+        return null;
+    }
+    const title_raw = json.getString(payload, "title") orelse "";
+    const body_raw = json.getString(payload, "body") orelse "";
+    const title = try cleanCalendarText(allocator, title_raw, 120);
+    const body = try cleanCalendarText(allocator, body_raw, 4000);
+    const kind_raw = json.getString(payload, "kind") orelse "planner";
+    const kind = if (std.ascii.eqlIgnoreCase(std.mem.trim(u8, kind_raw, " \t\r\n"), "planner")) "planner" else if (std.ascii.eqlIgnoreCase(std.mem.trim(u8, kind_raw, " \t\r\n"), "event")) "event" else {
+        problem.* = "El tipo debe ser planner o event";
+        return null;
+    };
+    if ((std.mem.eql(u8, kind, "event") and title.len == 0) or (title.len == 0 and body.len == 0)) {
+        problem.* = "La entrada necesita un título";
+        return null;
+    }
+    const category_raw = json.getString(payload, "category") orelse if (std.mem.eql(u8, kind, "event")) "personal" else "academic";
+    const category = normalizeCalendarCategory(category_raw) orelse {
+        problem.* = "La categoría debe ser academic, work, health o personal";
+        return null;
+    };
+    const raw_recurrence = json.getString(payload, "recurrence");
+    const weekly_day = json.getInt(payload, "weekly_day");
+    if (std.mem.eql(u8, kind, "planner")) {
+        if (raw_recurrence != null or weekly_day != null) {
+            problem.* = "La recurrencia solo se admite en eventos importados";
+            return null;
+        }
+        return .{
+            .date = date,
+            .title = title,
+            .body = body,
+            .category = category,
+            .kind = kind,
+            .end_date = null,
+            .all_day = true,
+            .start_time = null,
+            .end_time = null,
+            .location = "",
+            .uid = null,
+            .recurrence = null,
+            .weekly_day = null,
+        };
+    }
+
+    const all_day = json.getBool(payload, "all_day") orelse true;
+    const start_raw = json.getString(payload, "start_time");
+    const end_raw = json.getString(payload, "end_time");
+    const start_time = if (start_raw) |value| normalizeCalendarTime(value) orelse {
+        problem.* = "La hora inicial debe tener formato HH:MM";
+        return null;
+    } else null;
+    const end_time = if (end_raw) |value| normalizeCalendarTime(value) orelse {
+        problem.* = "La hora final debe tener formato HH:MM";
+        return null;
+    } else null;
+    if (all_day and (start_time != null or end_time != null)) {
+        problem.* = "Un evento de día completo no puede incluir horas";
+        return null;
+    }
+    if (!all_day and start_time == null) {
+        problem.* = "Un evento con hora necesita una hora inicial";
+        return null;
+    }
+    const end_raw_date = json.getString(payload, "end_date");
+    const end_date = if (end_raw_date) |value| blk: {
+        const trimmed = std.mem.trim(u8, value, " \t\r\n");
+        if (!validDate(trimmed)) {
+            problem.* = "La fecha final debe tener formato YYYY-MM-DD";
+            return null;
+        }
+        break :blk trimmed;
+    } else if (all_day) try nextCalendarDate(allocator, date) else date;
+    if ((all_day and std.mem.order(u8, end_date, date) != .gt) or (!all_day and std.mem.order(u8, end_date, date) == .lt)) {
+        problem.* = "La fecha final debe ser posterior a la inicial";
+        return null;
+    }
+    if (!all_day and std.mem.eql(u8, end_date, date)) {
+        if (start_time) |start| if (end_time) |end| if (std.mem.order(u8, end, start) != .gt) {
+            problem.* = "La hora final debe ser posterior a la inicial";
+            return null;
+        };
+    }
+    const uid_raw = json.getString(payload, "uid");
+    const uid_value = if (uid_raw) |value| try cleanCalendarText(allocator, value, 512) else "";
+    for (uid_value) |byte| if (byte < 0x20 or byte == 0x7f) {
+        problem.* = "El UID no puede contener caracteres de control";
+        return null;
+    };
+    const recurrence_raw = raw_recurrence orelse "";
+    const recurrence_trimmed = std.mem.trim(u8, recurrence_raw, " \t\r\n");
+    const recurrence: ?[]const u8 = if (recurrence_trimmed.len == 0) null else if (std.ascii.eqlIgnoreCase(recurrence_trimmed, "weekly")) "weekly" else {
+        problem.* = "La única recurrencia admitida es weekly";
+        return null;
+    };
+    if (recurrence) |value| {
+        _ = value;
+        if (all_day or !std.mem.eql(u8, end_date, date) or start_time == null or end_time == null or weekly_day == null or weekly_day.? < 0 or weekly_day.? > 6) {
+            problem.* = "La recurrencia semanal requiere un evento horario de un día, ambas horas y un día semanal entre 0 y 6";
+            return null;
+        }
+    } else if (weekly_day != null) {
+        problem.* = "El día semanal solo se admite con recurrencia weekly";
+        return null;
+    }
+    const location_raw = json.getString(payload, "location") orelse "";
+    return .{
+        .date = date,
+        .title = title,
+        .body = body,
+        .category = category,
+        .kind = kind,
+        .end_date = end_date,
+        .all_day = all_day,
+        .start_time = start_time,
+        .end_time = end_time,
+        .location = try cleanCalendarText(allocator, location_raw, 256),
+        .uid = if (uid_value.len == 0) null else uid_value,
+        .recurrence = recurrence,
+        .weekly_day = weekly_day,
+    };
+}
+
+fn cleanCalendarText(allocator: std.mem.Allocator, value: []const u8, max_codepoints: usize) ![]const u8 {
+    const trimmed = std.mem.trim(u8, value, " \t\r\n");
+    const view = std.unicode.Utf8View.init(trimmed) catch return error.InvalidUtf8;
+    var iter = view.iterator();
+    var byte_len: usize = 0;
+    var count: usize = 0;
+    while (iter.nextCodepointSlice()) |part| {
+        if (count == max_codepoints) break;
+        byte_len += part.len;
+        count += 1;
+    }
+    return allocator.dupe(u8, trimmed[0..byte_len]);
+}
+
+fn normalizeCalendarCategory(value: []const u8) ?[]const u8 {
+    const trimmed = std.mem.trim(u8, value, " \t\r\n");
+    if (std.ascii.eqlIgnoreCase(trimmed, "academic")) return "academic";
+    if (std.ascii.eqlIgnoreCase(trimmed, "work")) return "work";
+    if (std.ascii.eqlIgnoreCase(trimmed, "health")) return "health";
+    if (std.ascii.eqlIgnoreCase(trimmed, "personal")) return "personal";
+    return null;
+}
+
+fn normalizeCalendarTime(value: []const u8) ?[]const u8 {
+    const trimmed = std.mem.trim(u8, value, " \t\r\n");
+    if (trimmed.len != 5 or trimmed[2] != ':' or !std.ascii.isDigit(trimmed[0]) or !std.ascii.isDigit(trimmed[1]) or !std.ascii.isDigit(trimmed[3]) or !std.ascii.isDigit(trimmed[4])) return null;
+    const hour = std.fmt.parseInt(u8, trimmed[0..2], 10) catch return null;
+    const minute = std.fmt.parseInt(u8, trimmed[3..5], 10) catch return null;
+    if (hour > 23 or minute > 59) return null;
+    return trimmed;
+}
+
+fn insertCalendarAnnotation(db: *sqlite.Db, entry: CalendarAnnotation) !i64 {
+    var stmt = try db.prepare("INSERT INTO calendar_annotations(date,title,body,category,kind,end_date,all_day,start_time,end_time,location,uid,recurrence,weekly_day) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13)");
+    defer stmt.deinit();
+    try stmt.bindText(1, entry.date);
+    try stmt.bindText(2, entry.title);
+    try stmt.bindText(3, entry.body);
+    try stmt.bindText(4, entry.category);
+    try stmt.bindText(5, entry.kind);
+    try bindOptionalText(&stmt, 6, entry.end_date);
+    try stmt.bindInt(7, if (entry.all_day) 1 else 0);
+    try bindOptionalText(&stmt, 8, entry.start_time);
+    try bindOptionalText(&stmt, 9, entry.end_time);
+    try stmt.bindText(10, entry.location);
+    try bindOptionalText(&stmt, 11, entry.uid);
+    try bindOptionalText(&stmt, 12, entry.recurrence);
+    if (entry.weekly_day) |day| try stmt.bindInt(13, day) else try stmt.bindNull(13);
+    _ = try stmt.next();
+    return db.lastInsertRowId();
+}
+
+fn bindOptionalText(stmt: *sqlite.Statement, index: c_int, value: ?[]const u8) !void {
+    if (value) |text| try stmt.bindText(index, text) else try stmt.bindNull(index);
+}
+
+fn calendarAnnotationValue(allocator: std.mem.Allocator, stmt: *sqlite.Statement) !std.json.Value {
     var obj = std.json.ObjectMap.init(allocator);
     try obj.put("id", .{ .integer = stmt.int64(0) });
     try obj.put("date", .{ .string = try allocator.dupe(u8, stmt.text(1)) });
     try obj.put("title", .{ .string = try allocator.dupe(u8, stmt.text(2)) });
     try obj.put("body", .{ .string = try allocator.dupe(u8, stmt.text(3)) });
-    try obj.put("created_at", .{ .string = try allocator.dupe(u8, stmt.text(4)) });
-    try obj.put("updated_at", .{ .string = try allocator.dupe(u8, stmt.text(5)) });
+    try obj.put("category", .{ .string = try allocator.dupe(u8, stmt.text(4)) });
+    try obj.put("kind", .{ .string = try allocator.dupe(u8, stmt.text(5)) });
+    try obj.put("end_date", if (stmt.isNull(6)) .null else .{ .string = try allocator.dupe(u8, stmt.text(6)) });
+    try obj.put("all_day", .{ .bool = stmt.int64(7) != 0 });
+    try obj.put("start_time", if (stmt.isNull(8)) .null else .{ .string = try allocator.dupe(u8, stmt.text(8)) });
+    try obj.put("end_time", if (stmt.isNull(9)) .null else .{ .string = try allocator.dupe(u8, stmt.text(9)) });
+    try obj.put("location", .{ .string = try allocator.dupe(u8, stmt.text(10)) });
+    try obj.put("uid", if (stmt.isNull(11)) .null else .{ .string = try allocator.dupe(u8, stmt.text(11)) });
+    try obj.put("recurrence", if (stmt.isNull(12)) .null else .{ .string = try allocator.dupe(u8, stmt.text(12)) });
+    try obj.put("weekly_day", if (stmt.isNull(13)) .null else .{ .integer = stmt.int64(13) });
+    try obj.put("created_at", .{ .string = try allocator.dupe(u8, stmt.text(14)) });
+    try obj.put("updated_at", .{ .string = try allocator.dupe(u8, stmt.text(15)) });
     return .{ .object = obj };
 }
 
-fn annotationById(allocator: std.mem.Allocator, db: *sqlite.Db, id: i64) !std.json.Value {
-    var stmt = try db.prepare("SELECT id,date,title,body,created_at,updated_at FROM calendar_annotations WHERE id=?1");
+fn calendarAnnotationById(allocator: std.mem.Allocator, db: *sqlite.Db, id: i64) !std.json.Value {
+    const sql = try std.fmt.allocPrint(allocator, "SELECT {s} FROM calendar_annotations WHERE id=?1", .{CALENDAR_ANNOTATION_COLUMNS});
+    var stmt = try db.prepare(sql);
     defer stmt.deinit();
     try stmt.bindInt(1, id);
-    if (!try stmt.next()) return json.object(allocator, &.{}) catch unreachable;
-    return annotationValue(allocator, &stmt);
+    if (!try stmt.next()) return json.object(allocator, &.{});
+    return calendarAnnotationValue(allocator, &stmt);
+}
+
+fn annotationEnvelope(allocator: std.mem.Allocator, status: u16, annotation: std.json.Value) !http.Response {
+    var obj = std.json.ObjectMap.init(allocator);
+    if (annotation == .object) {
+        var iter = annotation.object.iterator();
+        while (iter.next()) |entry| try obj.put(entry.key_ptr.*, entry.value_ptr.*);
+        try obj.put("annotation", annotation);
+    }
+    return jsonResponse(allocator, status, .{ .object = obj });
 }
 
 fn validDate(date: []const u8) bool {
@@ -715,26 +975,56 @@ pub fn calendarIcs(allocator: std.mem.Allocator, db: *sqlite.Db) ![]const u8 {
     try appendIcsLine(allocator, &output, "CALSCALE:GREGORIAN");
     try appendIcsLine(allocator, &output, "METHOD:PUBLISH");
     const stamp = try icsTimestamp(allocator);
-    var stmt = try db.prepare("SELECT id,date,title,body FROM calendar_annotations ORDER BY date,id");
+    var stmt = try db.prepare("SELECT id,date,title,body,kind,end_date,all_day,start_time,end_time,location,uid,recurrence,weekly_day FROM calendar_annotations ORDER BY date,id");
     defer stmt.deinit();
     while (try stmt.next()) {
         const date = stmt.text(1);
         if (!validDate(date)) continue;
-        const compact = try std.fmt.allocPrint(allocator, "{s}{s}{s}", .{ date[0..4], date[5..7], date[8..10] });
-        const next_date = try nextCalendarDate(allocator, date);
-        const escaped_title = try icsEscape(allocator, if (stmt.text(2).len == 0) "Anotación" else stmt.text(2));
-        const escaped_body = try icsEscape(allocator, stmt.text(3));
+        const date_compact = try compactIcsDate(allocator, date);
+        const end_date = if (stmt.isNull(5) or stmt.text(5).len == 0) try nextCalendarDate(allocator, date) else stmt.text(5);
+        if (!validDate(end_date)) continue;
+        const end_compact = try compactIcsDate(allocator, end_date);
+        const title = try icsEscape(allocator, if (stmt.text(2).len == 0) "Anotación" else stmt.text(2));
+        const body = try icsEscape(allocator, stmt.text(3));
+        const location = try icsEscape(allocator, stmt.text(9));
+        const all_day = stmt.int64(6) != 0 or std.mem.eql(u8, stmt.text(4), "planner");
         try appendIcsLine(allocator, &output, "BEGIN:VEVENT");
-        try appendIcsLine(allocator, &output, try std.fmt.allocPrint(allocator, "UID:annotation-{d}@study-platform.local", .{stmt.int64(0)}));
+        const uid = if (!stmt.isNull(10) and stmt.text(10).len > 0) stmt.text(10) else try std.fmt.allocPrint(allocator, "annotation-{d}@study-platform.local", .{stmt.int64(0)});
+        try appendIcsLine(allocator, &output, try std.fmt.allocPrint(allocator, "UID:{s}", .{try icsEscape(allocator, uid)}));
         try appendIcsLine(allocator, &output, try std.fmt.allocPrint(allocator, "DTSTAMP:{s}", .{stamp}));
-        try appendIcsLine(allocator, &output, try std.fmt.allocPrint(allocator, "DTSTART;VALUE=DATE:{s}", .{compact}));
-        try appendIcsLine(allocator, &output, try std.fmt.allocPrint(allocator, "DTEND;VALUE=DATE:{s}", .{next_date}));
-        try appendIcsLine(allocator, &output, try std.fmt.allocPrint(allocator, "SUMMARY:{s}", .{escaped_title}));
-        if (escaped_body.len > 0) try appendIcsLine(allocator, &output, try std.fmt.allocPrint(allocator, "DESCRIPTION:{s}", .{escaped_body}));
+        if (all_day) {
+            try appendIcsLine(allocator, &output, try std.fmt.allocPrint(allocator, "DTSTART;VALUE=DATE:{s}", .{date_compact}));
+            try appendIcsLine(allocator, &output, try std.fmt.allocPrint(allocator, "DTEND;VALUE=DATE:{s}", .{end_compact}));
+        } else {
+            const start_time = if (!stmt.isNull(7)) stmt.text(7) else "";
+            if (normalizeCalendarTime(start_time)) |valid_start| {
+                try appendIcsLine(allocator, &output, try std.fmt.allocPrint(allocator, "DTSTART:{s}T{s}00", .{ date_compact, try compactIcsTime(allocator, valid_start) }));
+            } else {
+                try appendIcsLine(allocator, &output, try std.fmt.allocPrint(allocator, "DTSTART;VALUE=DATE:{s}", .{date_compact}));
+            }
+            const end_time = if (!stmt.isNull(8)) normalizeCalendarTime(stmt.text(8)) else null;
+            if (end_time) |valid_end| try appendIcsLine(allocator, &output, try std.fmt.allocPrint(allocator, "DTEND:{s}T{s}00", .{ end_compact, try compactIcsTime(allocator, valid_end) }));
+        }
+        try appendIcsLine(allocator, &output, try std.fmt.allocPrint(allocator, "SUMMARY:{s}", .{title}));
+        if (body.len > 0) try appendIcsLine(allocator, &output, try std.fmt.allocPrint(allocator, "DESCRIPTION:{s}", .{body}));
+        if (location.len > 0) try appendIcsLine(allocator, &output, try std.fmt.allocPrint(allocator, "LOCATION:{s}", .{location}));
+        if (std.mem.eql(u8, stmt.text(11), "weekly") and !stmt.isNull(12)) {
+            const days = [_][]const u8{ "SU", "MO", "TU", "WE", "TH", "FR", "SA" };
+            const day = stmt.int64(12);
+            if (day >= 0 and day <= 6) try appendIcsLine(allocator, &output, try std.fmt.allocPrint(allocator, "RRULE:FREQ=WEEKLY;BYDAY={s}", .{days[@intCast(day)]}));
+        }
         try appendIcsLine(allocator, &output, "END:VEVENT");
     }
     try appendIcsLine(allocator, &output, "END:VCALENDAR");
     return output.items;
+}
+
+fn compactIcsDate(allocator: std.mem.Allocator, date: []const u8) ![]const u8 {
+    return std.fmt.allocPrint(allocator, "{s}{s}{s}", .{ date[0..4], date[5..7], date[8..10] });
+}
+
+fn compactIcsTime(allocator: std.mem.Allocator, time: []const u8) ![]const u8 {
+    return std.fmt.allocPrint(allocator, "{s}{s}", .{ time[0..2], time[3..5] });
 }
 
 fn icsTimestamp(allocator: std.mem.Allocator) ![]const u8 {
@@ -763,9 +1053,9 @@ fn nextCalendarDate(allocator: std.mem.Allocator, date: []const u8) ![]const u8 
     } else {
         month = 1;
         day = 1;
-        return std.fmt.allocPrint(allocator, "{d:0>4}{d:0>2}{d:0>2}", .{ @as(u32, year) + 1, month, day });
+        return std.fmt.allocPrint(allocator, "{d:0>4}-{d:0>2}-{d:0>2}", .{ @as(u32, year) + 1, month, day });
     }
-    return std.fmt.allocPrint(allocator, "{d:0>4}{d:0>2}{d:0>2}", .{ year, month, day });
+    return std.fmt.allocPrint(allocator, "{d:0>4}-{d:0>2}-{d:0>2}", .{ year, month, day });
 }
 
 fn icsEscape(allocator: std.mem.Allocator, text: []const u8) ![]const u8 {

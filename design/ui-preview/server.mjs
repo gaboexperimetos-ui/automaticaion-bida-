@@ -285,6 +285,7 @@ const server = http.createServer(async (req, res) => {
     '/polish.css': 'static/app/polish.css',
     '/nova.css': 'static/app/nova.css',
     '/shell.js': 'static/app/shell.js',
+    '/vendor/htmx-2.0.3.min.js': 'static/vendor/htmx-2.0.3.min.js',
     '/favicon.svg': 'static/app/favicon.svg',
   };
   let file;

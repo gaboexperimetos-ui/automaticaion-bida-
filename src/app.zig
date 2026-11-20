@@ -42,7 +42,7 @@ pub const App = struct {
         if (std.mem.eql(u8, path, "/api/status")) return self.status(allocator);
         if (std.mem.eql(u8, path, "/api/config") or std.mem.eql(u8, path, "/api/public-config")) return self.publicConfig(allocator);
         if (std.mem.eql(u8, path, "/api/debug")) return self.publicConfig(allocator);
-        if (std.mem.eql(u8, path, "/favicon.ico") or std.mem.eql(u8, path, "/favicon.svg") or std.mem.startsWith(u8, path, "/static/") or std.mem.startsWith(u8, path, "/app-assets/") or std.mem.eql(u8, path, "/styles.css") or std.mem.eql(u8, path, "/app.js") or std.mem.eql(u8, path, "/shell.js") or std.mem.eql(u8, path, "/nova.css") or std.mem.eql(u8, path, "/polish.css")) {
+        if (assets.find(path) != null or std.mem.startsWith(u8, path, "/static/") or std.mem.startsWith(u8, path, "/app-assets/")) {
             if (std.mem.startsWith(u8, path, "/static/") and std.mem.indexOf(u8, path, "..") != null) return text(allocator, 404, "text/plain; charset=utf-8", "not found");
             if (assets.find(path)) |asset| return text(allocator, 200, asset.mime, asset.bytes);
             return text(allocator, 404, "text/plain; charset=utf-8", "not found");

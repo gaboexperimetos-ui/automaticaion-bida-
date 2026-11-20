@@ -135,9 +135,10 @@
       init.body = JSON.stringify(opts.json);
     } else if (opts.form) {
       init.method = "POST";
-      var fd = new FormData();
-      Object.keys(opts.form).forEach(function (k) { fd.append(k, opts.form[k]); });
-      init.body = fd;
+      var params = new URLSearchParams();
+      Object.keys(opts.form).forEach(function (k) { params.append(k, String(opts.form[k])); });
+      init.headers["content-type"] = "application/x-www-form-urlencoded";
+      init.body = params.toString();
     }
     return fetch(path, init).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (data) {
@@ -152,7 +153,7 @@
 
   /* ------------------------------- toasts ------------------------------ */
   var toastRegion = null;
-  SP.toast = function (msg, kind, ms) {
+  SP.toast = function (msg, kind, ms, action) {
     injectCss();
     if (!toastRegion || !toastRegion.isConnected) {
       toastRegion = el("div");
@@ -164,14 +165,26 @@
     t.setAttribute("role", "status");
     t.appendChild(icon(kind === "ok" ? "check_circle" : kind === "err" ? "error" : "info"));
     t.appendChild(el("span", null, String(msg)));
-    var close = el("button");
-    close.appendChild(icon("close"));
-    close.setAttribute("aria-label", "Cerrar aviso");
-    t.appendChild(close);
     var kill = function () {
       t.remove();
       if (toastRegion && !toastRegion.childElementCount) { toastRegion.remove(); toastRegion = null; }
     };
+    if (action && typeof action.onClick === "function") {
+      var actionButton = el("button", "sp-toast-action", action.label || "Deshacer");
+      actionButton.type = "button";
+      actionButton.addEventListener("click", function () {
+        actionButton.disabled = true;
+        Promise.resolve().then(action.onClick).then(kill).catch(function (err) {
+          actionButton.disabled = false;
+          SP.toast(msgErr(err), "err");
+        });
+      });
+      t.appendChild(actionButton);
+    }
+    var close = el("button", "sp-toast-close");
+    close.appendChild(icon("close"));
+    close.setAttribute("aria-label", "Cerrar aviso");
+    t.appendChild(close);
     close.addEventListener("click", kill);
     toastRegion.appendChild(t);
     setTimeout(kill, ms || (kind === "err" ? 6000 : 3200));
@@ -191,6 +204,7 @@
       veil.setAttribute("aria-modal", "true");
       veil.setAttribute("aria-label", opts.title || "Diálogo");
       var box = el("div", "sp-box");
+      if (opts.boxClass) { box.classList.add(opts.boxClass); }
       veil.appendChild(box);
       if (opts.title) { box.appendChild(el("h2", null, opts.title)); }
       if (opts.text) { box.appendChild(el("p", null, opts.text)); }
@@ -476,6 +490,7 @@
         { label: "Documento", icon: "article", sub: "programas de oficina", fn: function () { newOffice("docs", "Documento"); } },
         { label: "Hoja de cálculo", icon: "table_chart", sub: "csv", fn: function () { newOffice("sheets", "Hoja de cálculo"); } },
         { label: "Presentación", icon: "slideshow", fn: function () { newOffice("presentations", "Presentación"); } },
+        { label: "Página HTML", icon: "code", fn: function () { newOffice("html", "Página HTML"); } },
         { label: "Importar desde Obsidian", icon: "file_open", sub: "carpeta de archivos Markdown", fn: importObsidian },
         "-",
         { head: "Académico" },
@@ -513,24 +528,31 @@
     }).then(function (title) {
       if (!title) { return; }
       var path = "/office/" + kind;
-      SP.api(path, { form: { title: title, content: "" } })
-        .then(function () {
-          SP.toast(label + " creada", "ok");
-          var slug = sluginator(title);
-          setTimeout(function () {
-            if (kind === "docs") { window.location.href = "/office/docs/" + slug; }
-            else if (kind === "sheets") { window.location.href = "/office/sheets"; }
-            else { window.location.href = "/office/presentations/" + slug; }
-          }, 600);
-        })
-        .catch(function (err) {
-          if (err.status === 409) {
-            SP.toast("Ya existía un elemento con ese título", "info");
-            setTimeout(function () { window.location.href = path; }, 600);
-            return;
-          }
-          SP.toast(msgErr(err), "err");
-        });
+      var params = new URLSearchParams({ title: title, content: "" });
+      fetch(path, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: params.toString()
+      }).then(function (response) {
+        if (!response.ok) {
+          throw { status: response.status, message: response.status + " " + (response.statusText || "") };
+        }
+        var redirect = response.headers.get("HX-Redirect");
+        if (!redirect || redirect.charAt(0) !== "/" || redirect.indexOf("//") === 0) {
+          throw new Error("El servidor no indicó dónde abrir el archivo.");
+        }
+        return redirect;
+      }).then(function (redirect) {
+        SP.toast(label + " creada", "ok");
+        setTimeout(function () { window.location.href = redirect; }, 600);
+      }).catch(function (err) {
+        if (err.status === 409) {
+          SP.toast("Ya existía un elemento con ese título", "info");
+          setTimeout(function () { window.location.href = path; }, 600);
+          return;
+        }
+        SP.toast(msgErr(err), "err");
+      });
     });
   }
 
@@ -1290,90 +1312,475 @@
    *  CALENDARIO: anotaciones locales del usuario
    * ================================================================= */
   function initCalendar() {
-    var grid = document.getElementById("calendar-grid");
-    if (!grid) { return; }
+    if (!document.getElementById("calendar-grid")) { return; }
+    var panelRequest = 0;
+    var gridRequest = 0;
 
-    function dialogoAnotacion(fecha, anotacion) {
-      var cuerpo = document.createElement("div");
-      cuerpo.innerHTML =
-        '<label class="sp-field"><span class="sp-field-label">Título</span>' +
-        '<input class="sp-input" id="sp-anot-titulo" maxlength="120" placeholder="Ej. Examen de matematicas"></label>' +
-        '<label class="sp-field"><span class="sp-field-label">Nota</span>' +
-        '<textarea class="sp-input" id="sp-anot-cuerpo" rows="4" maxlength="4000" placeholder="Detalles, material que llevar, recordatorios..."></textarea></label>' +
-        '<div class="sp-anot-lista" id="sp-anot-lista"></div>';
-      SP.dialog({
-        title: anotacion ? "Editar anotación" : "Anotar el " + fecha,
-        html: cuerpo,
-        ok: anotacion ? "Guardar" : "Anotar",
-        onOk: function (box) {
-          var t = box.querySelector("#sp-anot-titulo");
-          var c = box.querySelector("#sp-anot-cuerpo");
-          return { title: t ? t.value : "", body: c ? c.value : "" };
+    function gridHost() { return document.getElementById("calendar-grid"); }
+    function dayPanel() { return document.getElementById("selected-day-panel"); }
+    function selectedDate() {
+      var grid = gridHost();
+      var panel = dayPanel();
+      return (grid && grid.getAttribute("data-selected-date")) ||
+        (panel && panel.getAttribute("data-date")) || new Date().toISOString().slice(0, 10);
+    }
+    function panelDate() {
+      var panel = dayPanel();
+      return (panel && panel.getAttribute("data-date")) || selectedDate();
+    }
+    function updateUrl(date) {
+      var grid = gridHost();
+      if (!grid || !window.history || !window.history.replaceState) { return; }
+      var url = new URL(window.location.href);
+      url.searchParams.set("month", grid.getAttribute("data-month") || date.slice(0, 7));
+      url.searchParams.set("date", date);
+      url.searchParams.delete("partial");
+      window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+    }
+    function syncSelection(date) {
+      var grid = gridHost();
+      if (!grid) { return; }
+      grid.setAttribute("data-selected-date", date);
+      grid.querySelectorAll(".calendar-day[data-date]").forEach(function (cell) {
+        var selected = cell.getAttribute("data-date") === date;
+        cell.classList.toggle("calendar-day--selected", selected);
+        cell.setAttribute("aria-selected", selected ? "true" : "false");
+      });
+      grid.querySelectorAll("[hx-get]").forEach(function (button) {
+        try {
+          var target = new URL(button.getAttribute("hx-get"), window.location.origin);
+          target.searchParams.set("date", date);
+          button.setAttribute("hx-get", target.pathname + target.search);
+        } catch (_) { /* URL inválida: el botón sigue usando su ruta original. */ }
+      });
+      var panel = dayPanel();
+      if (panel) { panel.setAttribute("aria-busy", "true"); }
+    }
+    function requestHtml(url) {
+      return fetch(url, { headers: { "HX-Request": "true" } }).then(function (response) {
+        if (!response.ok) { throw new Error(response.status + " " + (response.statusText || "")); }
+        return response.text();
+      });
+    }
+    function loadDayPanel(date) {
+      var request = ++panelRequest;
+      return requestHtml("/dashboard/calendar?partial=day&date=" + encodeURIComponent(date)).then(function (html) {
+        if (request !== panelRequest) { return; }
+        var doc = new DOMParser().parseFromString(html, "text/html");
+        var incoming = doc.getElementById("selected-day-panel");
+        var current = dayPanel();
+        if (incoming && current) {
+          current.replaceWith(incoming);
+          incoming.removeAttribute("aria-busy");
         }
-      }).then(function (res) {
-        if (!res) { return; }
-        var json = res;
-        var p = anotacion
-          ? SP.api("/api/calendar/annotations/" + anotacion.id, { method: "PUT", json: json })
-          : SP.api("/api/calendar/annotations", { method: "POST", json: { date: fecha, title: json.title, body: json.body } });
-        p.then(function () {
-          SP.toast(anotacion ? "Anotación actualizada" : "Anotación guardada", "ok");
-          setTimeout(function () { window.location.reload(); }, 500);
+      });
+    }
+    function loadMonthGrid(date, targetMonth) {
+      var current = gridHost();
+      if (!current) { return Promise.resolve(); }
+      var request = ++gridRequest;
+      var month = targetMonth || current.getAttribute("data-month") || date.slice(0, 7);
+      var params = new URLSearchParams({ partial: "grid", month: month, date: date });
+      return requestHtml("/dashboard/calendar?" + params.toString()).then(function (html) {
+        if (request !== gridRequest) { return; }
+        var doc = new DOMParser().parseFromString(html, "text/html");
+        var incomingGrid = doc.getElementById("calendar-grid");
+        var incomingSummary = doc.getElementById("calendar-summary");
+        var currentGrid = gridHost();
+        var currentSummary = document.getElementById("calendar-summary");
+        if (incomingSummary && currentSummary) {
+          incomingSummary.removeAttribute("hx-swap-oob");
+          currentSummary.replaceWith(incomingSummary);
+        }
+        if (incomingGrid && currentGrid) {
+          currentGrid.replaceWith(incomingGrid);
+          if (window.htmx && typeof window.htmx.process === "function") { window.htmx.process(incomingGrid); }
+        }
+      });
+    }
+    function refreshCalendar(date, targetMonth) {
+      syncSelection(date);
+      updateUrl(date);
+      return Promise.all([loadDayPanel(date), loadMonthGrid(date, targetMonth)]).then(function () {
+        var panel = dayPanel();
+        if (panel) { panel.removeAttribute("aria-busy"); }
+        updateUrl(date);
+      });
+    }
+    function selectDay(date) {
+      syncSelection(date);
+      updateUrl(date);
+      loadDayPanel(date).then(function () {
+        var panel = dayPanel();
+        if (panel) { panel.removeAttribute("aria-busy"); }
+      }).catch(function (err) { SP.toast(msgErr(err), "err"); });
+    }
+    function readEntry(id, date) {
+      var query = "?from=" + encodeURIComponent(date) + "&to=" + encodeURIComponent(date);
+      return SP.api("/api/calendar/annotations" + query).then(function (result) {
+        return (result.annotations || []).find(function (entry) { return String(entry.id) === String(id); }) || null;
+      });
+    }
+    function openPlannerForm(date, existing) {
+      var form = document.createElement("div");
+      form.innerHTML =
+        '<label class="sp-field"><span class="sp-field-label">Fecha</span>' +
+        '<input class="sp-input" id="sp-plan-fecha" type="date" required></label>' +
+        '<label class="sp-field"><span class="sp-field-label">Categoría</span><select class="sp-input" id="sp-plan-categoria">' +
+        '<option value="academic">Académico</option><option value="work">Trabajo</option>' +
+        '<option value="health">Salud</option><option value="personal">Personal</option></select></label>' +
+        '<label class="sp-field"><span class="sp-field-label">Título</span>' +
+        '<input class="sp-input" id="sp-plan-titulo" maxlength="120" required placeholder="Ej. Estudiar para el examen"></label>' +
+        '<label class="sp-field"><span class="sp-field-label">Descripción</span>' +
+        '<textarea class="sp-input" id="sp-plan-descripcion" rows="3" maxlength="4000" placeholder="Detalles opcionales"></textarea></label>';
+      var fechaInput = form.querySelector("#sp-plan-fecha");
+      var tituloInput = form.querySelector("#sp-plan-titulo");
+      var descripcionInput = form.querySelector("#sp-plan-descripcion");
+      var categoriaInput = form.querySelector("#sp-plan-categoria");
+      fechaInput.value = (existing && existing.date) || date;
+      tituloInput.value = (existing && existing.title) || "";
+      descripcionInput.value = (existing && existing.body) || "";
+      categoriaInput.value = (existing && existing.category) || "academic";
+
+      SP.dialog({
+        title: existing ? "Editar entrada del planner" : "Añadir al planner",
+        html: form,
+        ok: existing ? "Guardar cambios" : "Añadir entrada",
+        onOk: function (box) {
+          var dateField = box.querySelector("#sp-plan-fecha");
+          var titleField = box.querySelector("#sp-plan-titulo");
+          if (!dateField.value) {
+            SP.toast("Selecciona una fecha válida", "err");
+            dateField.focus();
+            return false;
+          }
+          if (!titleField.value.trim()) {
+            SP.toast("El título es obligatorio", "err");
+            titleField.focus();
+            return false;
+          }
+          return {
+            date: dateField.value,
+            title: titleField.value.trim(),
+            body: (box.querySelector("#sp-plan-descripcion").value || "").trim(),
+            category: box.querySelector("#sp-plan-categoria").value
+          };
+        }
+      }).then(function (value) {
+        if (!value) { return; }
+        var request = existing
+          ? SP.api("/api/calendar/annotations/" + existing.id, { method: "PUT", json: value })
+          : SP.api("/api/calendar/annotations", { method: "POST", json: value });
+        request.then(function (result) {
+          var savedDate = (result.annotation && result.annotation.date) || value.date;
+          refreshCalendar(savedDate).then(function () {
+            SP.toast(existing ? "Entrada actualizada" : "Entrada añadida al planner", "ok");
+          }).catch(function (err) { SP.toast(msgErr(err), "err"); });
         }).catch(function (err) { SP.toast(msgErr(err), "err"); });
       });
     }
-
-    function listar(fecha) {
-      SP.api("/api/calendar/annotations?from=" + fecha + "&to=" + fecha).then(function (d) {
-        var lista = (d && d.annotations) || [];
-        if (!lista.length) { dialogoAnotacion(fecha, null); return; }
-        var items = lista.map(function (a) {
-          return { label: a.title || a.body.slice(0, 40) || "Anotación", sub: a.body ? a.body.slice(0, 60) : "", icon: "sticky_note_2", value: a };
-        });
-        items.push({ label: "Añadir otra anotación", icon: "add", value: "new" });
-        SP.dialog({ title: "Anotaciones del " + fecha, items: items }).then(function (v) {
-          if (!v) { return; }
-          if (v === "new") { dialogoAnotacion(fecha, null); return; }
-          if (typeof v === "object" && v.id) { dialogoAnotacion(fecha, v); }
-        });
+    function editEntry(id) {
+      var date = panelDate();
+      readEntry(id, date).then(function (entry) {
+        if (!entry) { SP.toast("La entrada ya no está disponible", "err"); return; }
+        openPlannerForm(date, entry);
+      }).catch(function (err) { SP.toast(msgErr(err), "err"); });
+    }
+    function deleteEntry(id) {
+      var date = panelDate();
+      readEntry(id, date).then(function (entry) {
+        if (!entry) { SP.toast("La entrada ya no está disponible", "err"); return; }
+        var deleteMessage = entry.recurrence === "weekly"
+          ? "«" + (entry.title || "Entrada") + "» y su repetición semanal se quitarán del calendario. Puedes deshacerlo después."
+          : "«" + (entry.title || "Entrada") + "» se quitará del calendario. Puedes deshacerlo después.";
+        SP.confirm("Eliminar elemento", deleteMessage, "Eliminar")
+          .then(function (confirmed) {
+            if (!confirmed) { return; }
+            SP.api("/api/calendar/annotations/" + entry.id, { method: "DELETE" }).then(function () {
+              refreshCalendar(date).then(function () {
+                SP.toast("Elemento eliminado", "info", 8000, {
+                  label: "Deshacer",
+                  onClick: function () {
+                    return SP.api("/api/calendar/annotations", {
+                      method: "POST",
+                      json: {
+                        date: entry.date, title: entry.title, body: entry.body, category: entry.category,
+                        kind: entry.kind, end_date: entry.end_date, all_day: entry.all_day,
+                        start_time: entry.start_time, end_time: entry.end_time,
+                        location: entry.location, uid: entry.uid,
+                        recurrence: entry.recurrence, weekly_day: entry.weekly_day
+                      }
+                    }).then(function () {
+                      return refreshCalendar(date);
+                    }).then(function () { SP.toast("Elemento restaurado", "ok"); });
+                  }
+                });
+              }).catch(function (err) { SP.toast(msgErr(err), "err"); });
+            }).catch(function (err) { SP.toast(msgErr(err), "err"); });
+          });
       }).catch(function (err) { SP.toast(msgErr(err), "err"); });
     }
 
-    function abrirCelda(cell, e) {
-      if (!cell) { return; }
-      var fecha = cell.getAttribute("data-date");
-      if (!fecha) { return; }
-      e.preventDefault();
-      e.stopPropagation();
-      listar(fecha);
+    var calendarIcsInput = null;
+    function ensureCalendarIcsInput() {
+      if (calendarIcsInput && calendarIcsInput.isConnected) { return calendarIcsInput; }
+      calendarIcsInput = document.createElement("input");
+      calendarIcsInput.type = "file";
+      calendarIcsInput.accept = ".ics,text/calendar";
+      calendarIcsInput.setAttribute("aria-label", "Seleccionar archivo iCalendar");
+      calendarIcsInput.className = "calendar-ics-file-input";
+      calendarIcsInput.addEventListener("change", function () {
+        var file = calendarIcsInput.files && calendarIcsInput.files[0];
+        calendarIcsInput.value = "";
+        if (file) { importCalendarIcs(file); }
+      });
+      document.body.appendChild(calendarIcsInput);
+      return calendarIcsInput;
+    }
+    function keysForIcsEvent(event) {
+      if (!window.SPICS || typeof window.SPICS.identityKeys !== "function") { return []; }
+      var keys = window.SPICS.identityKeys(event);
+      if (event.weeklyDay != null || event.weekly_day != null) { return keys; }
+      var start = event.startDate || event.date || "";
+      var title = String(event.title || "").trim().toLocaleLowerCase();
+      keys.push("planner|" + title + "|" + start + "|" + (event.startTime || event.start_time || "all-day"));
+      return keys;
+    }
+    function readIcsFile(file) {
+      if (!window.SPICS || typeof window.SPICS.parseIcs !== "function") {
+        SP.toast("No se pudo cargar el lector iCalendar", "err");
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        SP.toast("El archivo ICS supera el límite de 5 MB", "err");
+        return;
+      }
+      file.text().then(function (text) {
+        var parsed = window.SPICS.parseIcs(text);
+        if (!parsed.events.length) {
+          showCalendarIcsPreview(file.name, parsed, []);
+          return;
+        }
+        var dates = [];
+        parsed.events.forEach(function (event) {
+          dates.push(event.startDate);
+          if (event.endDate) { dates.push(event.endDate); }
+        });
+        dates.sort();
+        var params = new URLSearchParams({ from: dates[0], to: dates[dates.length - 1] });
+        return SP.api("/api/calendar/annotations?" + params.toString()).then(function (result) {
+          var existingKeys = new Set();
+          (result.annotations || []).forEach(function (entry) {
+            keysForIcsEvent({
+              uid: entry.uid,
+              title: entry.title,
+              date: entry.date,
+              startDate: entry.date,
+              endDate: entry.end_date || entry.date,
+              allDay: entry.all_day,
+              startTime: entry.start_time,
+              endTime: entry.end_time,
+              weeklyDay: entry.weekly_day
+            }).forEach(function (key) { existingKeys.add(key); });
+          });
+          var incomingKeys = new Set();
+          var previewRows = parsed.events.map(function (event) {
+            var keys = keysForIcsEvent(event);
+            var duplicate = keys.some(function (key) { return existingKeys.has(key) || incomingKeys.has(key); });
+            keys.forEach(function (key) { incomingKeys.add(key); });
+            return { event: event, duplicate: duplicate, checkbox: null };
+          });
+          showCalendarIcsPreview(file.name, parsed, previewRows);
+        });
+      }).catch(function (err) { SP.toast(msgErr(err), "err"); });
+    }
+    function describeIcsEvent(event) {
+      if (event.weeklyDay != null) {
+        var weeklyNames = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+        var weeklyTime = event.startTime + (event.endTime ? "–" + event.endTime : "");
+        return "Cada semana · " + (weeklyNames[event.weeklyDay] || "Día semanal") + " · " + weeklyTime + (event.location ? " · " + event.location : "");
+      }
+      if (event.allDay) {
+        var until = event.endDate || event.startDate;
+        if (until > event.startDate) {
+          var end = new Date(until + "T00:00:00Z");
+          end.setUTCDate(end.getUTCDate() - 1);
+          until = end.toISOString().slice(0, 10);
+        }
+        return "Todo el día · " + event.startDate + (until !== event.startDate ? " — " + until : "");
+      }
+      var timing = event.startDate + (event.startTime ? " · " + event.startTime : "");
+      if (event.endTime) { timing += "–" + event.endTime; }
+      else if (event.endDate && event.endDate !== event.startDate) { timing += " — " + event.endDate; }
+      if (event.location) { timing += " · " + event.location; }
+      return timing;
+    }
+    function showCalendarIcsPreview(fileName, parsed, rows) {
+      var content = document.createElement("div");
+      content.className = "calendar-ics-preview";
+      var intro = el("p", "calendar-ics-intro");
+      intro.textContent = fileName + " · Revisa los eventos antes de guardarlos. Los datos existentes no se reemplazan.";
+      content.appendChild(intro);
+      var includedCount = el("p", "calendar-ics-count");
+      includedCount.setAttribute("aria-live", "polite");
+      content.appendChild(includedCount);
+      var duplicateCount = rows.filter(function (row) { return row.duplicate; }).length;
+      var allowDuplicates = null;
+      if (duplicateCount) {
+        var duplicateLabel = el("label", "calendar-ics-duplicate-toggle");
+        allowDuplicates = document.createElement("input");
+        allowDuplicates.type = "checkbox";
+        allowDuplicates.setAttribute("aria-label", "Permitir importar posibles duplicados");
+        duplicateLabel.appendChild(allowDuplicates);
+        duplicateLabel.appendChild(el("span", null,
+          "Incluir " + duplicateCount + " posible" + (duplicateCount === 1 ? " duplicado" : "s duplicados") + " como nuevos registros"));
+        content.appendChild(duplicateLabel);
+      }
+
+      var list = el("div", "calendar-ics-list");
+      rows.forEach(function (row, index) {
+        var label = el("label", "calendar-ics-row" + (row.duplicate ? " is-duplicate" : ""));
+        var checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = !row.duplicate;
+        checkbox.disabled = row.duplicate;
+        checkbox.setAttribute("aria-label", "Importar " + row.event.title);
+        row.checkbox = checkbox;
+        label.appendChild(checkbox);
+        var copy = el("span", "calendar-ics-row-copy");
+        copy.appendChild(el("strong", null, row.event.title));
+        copy.appendChild(el("small", null, describeIcsEvent(row.event) + (row.duplicate ? " · posible duplicado" : "")));
+        if (row.event.description) { copy.appendChild(el("small", "calendar-ics-description", row.event.description)); }
+        label.appendChild(copy);
+        list.appendChild(label);
+        checkbox.addEventListener("change", updateCount);
+        checkbox.dataset.calendarIcsIndex = String(index);
+      });
+      content.appendChild(list);
+
+      var notes = [];
+      if (parsed.skipped && parsed.skipped.length) {
+        notes.push({ title: "Eventos omitidos", items: parsed.skipped });
+      }
+      if (parsed.warnings && parsed.warnings.length) {
+        notes.push({ title: "Notas de importación", items: parsed.warnings });
+      }
+      if (notes.length) {
+        var notice = el("div", "calendar-ics-notes");
+        notes.forEach(function (group) {
+          notice.appendChild(el("strong", null, group.title));
+          var noteList = document.createElement("ul");
+          group.items.slice(0, 30).forEach(function (message) { noteList.appendChild(el("li", null, message)); });
+          if (group.items.length > 30) {
+            noteList.appendChild(el("li", null, "… y " + (group.items.length - 30) + " más"));
+          }
+          notice.appendChild(noteList);
+        });
+        content.appendChild(notice);
+      }
+      function updateCount() {
+        var included = rows.filter(function (row) { return row.checkbox && row.checkbox.checked; }).length;
+        includedCount.textContent = included + " de " + rows.length + " eventos seleccionados";
+      }
+      if (allowDuplicates) {
+        allowDuplicates.addEventListener("change", function () {
+          rows.filter(function (row) { return row.duplicate; }).forEach(function (row) {
+            row.checkbox.disabled = !allowDuplicates.checked;
+            row.checkbox.checked = allowDuplicates.checked;
+          });
+          updateCount();
+        });
+      }
+      updateCount();
+      SP.dialog({
+        title: "Importar calendario iCalendar",
+        html: content,
+        boxClass: "sp-calendar-ics-dialog",
+        ok: "Importar eventos",
+        onOk: function () {
+          var selected = rows.filter(function (row) { return row.checkbox && row.checkbox.checked; }).map(function (row) { return row.event; });
+          if (!selected.length) {
+            SP.toast("Selecciona al menos un evento nuevo para importar", "err");
+            return false;
+          }
+          return selected;
+        }
+      }).then(function (selected) {
+        if (!Array.isArray(selected) || !selected.length) { return; }
+        var firstDate = selected.map(function (event) { return event.startDate; }).sort()[0];
+        var payload = selected.map(function (event) {
+          return {
+            date: event.startDate,
+            title: event.title,
+            body: event.description || "",
+            category: "personal",
+            kind: "event",
+            end_date: event.endDate,
+            all_day: event.allDay,
+            start_time: event.startTime,
+            end_time: event.endTime,
+            location: event.location || "",
+            uid: event.uid || "",
+            recurrence: event.weeklyDay != null ? "weekly" : undefined,
+            weekly_day: event.weeklyDay
+          };
+        });
+        SP.api("/api/calendar/annotations/import", { method: "POST", json: { annotations: payload } }).then(function (result) {
+          var count = (result && result.imported) || payload.length;
+          refreshCalendar(firstDate, firstDate.slice(0, 7)).then(function () {
+            SP.toast("Se importaron " + count + " evento" + (count === 1 ? "" : "s") + "; no se modificaron datos existentes", "ok", 6000);
+          }).catch(function (err) { SP.toast(msgErr(err), "err"); });
+        }).catch(function (err) { SP.toast(msgErr(err), "err"); });
+      });
+    }
+    function importCalendarIcs(file) {
+      readIcsFile(file);
     }
 
-    grid.addEventListener("click", function (e) {
-      var cell = e.target.closest ? e.target.closest(".calendar-cell") : null;
-      abrirCelda(cell, e);
+    document.addEventListener("click", function (e) {
+      var importButton = e.target.closest ? e.target.closest("[data-calendar-ics-import]") : null;
+      if (importButton) {
+        e.preventDefault();
+        ensureCalendarIcsInput().click();
+        return;
+      }
+      var add = e.target.closest ? e.target.closest("[data-calendar-add]") : null;
+      if (add) {
+        e.preventDefault();
+        openPlannerForm(selectedDate(), null);
+        return;
+      }
+      var edit = e.target.closest ? e.target.closest("[data-calendar-edit]") : null;
+      if (edit) {
+        e.preventDefault();
+        editEntry(edit.getAttribute("data-calendar-edit"));
+        return;
+      }
+      var remove = e.target.closest ? e.target.closest("[data-calendar-delete]") : null;
+      if (remove) {
+        e.preventDefault();
+        deleteEntry(remove.getAttribute("data-calendar-delete"));
+        return;
+      }
+      var cell = e.target.closest ? e.target.closest("#calendar-grid .calendar-day[data-date]") : null;
+      if (cell) {
+        e.preventDefault();
+        selectDay(cell.getAttribute("data-date"));
+      }
     });
 
-    grid.addEventListener("keydown", function (e) {
-      if (e.key !== "Enter" && e.key !== " ") { return; }
-      var cell = e.target.closest ? e.target.closest(".calendar-cell") : null;
-      abrirCelda(cell, e);
-    });
-
-    // Clic derecho: borrar anotación directamente (atajo para limpiar).
-    grid.addEventListener("contextmenu", function (e) {
-      var cell = e.target.closest ? e.target.closest(".calendar-cell") : null;
-      if (!cell) { return; }
-      var fecha = cell.getAttribute("data-date");
-      if (!fecha) { return; }
-      e.preventDefault();
-      SP.api("/api/calendar/annotations?from=" + fecha + "&to=" + fecha).then(function (d) {
-        var lista = (d && d.annotations) || [];
-        if (!lista.length) { return; }
-        SP.api("/api/calendar/annotations/" + lista[0].id, { method: "DELETE" }).then(function () {
-          SP.toast("Anotación borrada", "ok");
-          setTimeout(function () { window.location.reload(); }, 400);
-        }).catch(function (err) { SP.toast(msgErr(err), "err"); });
-      }).catch(function () { });
+    // La navegación mensual se hace con outerHTML; actualiza la URL completa
+    // (sin el parámetro `partial`) para que una recarga conserve la vista.
+    document.addEventListener("htmx:afterSwap", function (e) {
+      var target = e.detail && e.detail.target;
+      if (target && target.id === "calendar-grid") {
+        var grid = gridHost();
+        if (grid) {
+          var date = grid.getAttribute("data-selected-date") || selectedDate();
+          syncSelection(date);
+          updateUrl(date);
+        }
+      }
     });
   }
 
@@ -1762,6 +2169,58 @@
     return frag;
   }
 
+  // El documento sólo se envía al asistente cuando el usuario lo solicita.
+  // La propuesta nunca sustituye el contenido ni se guarda automáticamente.
+  function initOfficeDocAi() {
+    var form = document.getElementById("office-doc-ai-form");
+    var editor = document.getElementById("editor");
+    if (!form || !editor) { return; }
+    var prompt = document.getElementById("office-doc-ai-prompt");
+    var result = document.getElementById("office-doc-ai-result");
+    var status = document.getElementById("office-doc-ai-status");
+    var insert = document.getElementById("office-doc-ai-insert");
+    var submit = form.querySelector('button[type="submit"]');
+    var officeFormat = editor.getAttribute("data-office-format") || "Markdown";
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var instruction = prompt.value.trim();
+      if (!instruction) { prompt.focus(); return; }
+      var text = Array.from(editor.value).slice(0, 6000).join("");
+      var truncated = Array.from(editor.value).length > 6000;
+      var message = "Ayúdame con este documento en formato " + officeFormat + ". Instrucción: " + instruction +
+        "\n\nDocumento" + (truncated ? " (primeros 6000 caracteres)" : "") + ":\n" + text;
+      submit.disabled = true;
+      insert.disabled = true;
+      result.value = "";
+      status.textContent = "Consultando al asistente…";
+      fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json", "accept": "application/json" },
+        body: JSON.stringify({ message: message, subject: "Oficina", mode: "general" })
+      }).then(function (response) {
+        return response.json().catch(function () { return {}; }).then(function (data) {
+          if (!response.ok) { throw new Error(data.error || data.message || "No se pudo consultar al asistente."); }
+          if (typeof data.content !== "string" || !data.content.trim()) { throw new Error("El asistente no devolvió contenido."); }
+          result.value = data.content;
+          insert.disabled = false;
+          status.textContent = data.content.indexOf("[Modo simulado]") !== -1
+            ? "Modo simulado: no se ha consultado un modelo real."
+            : "Propuesta lista. Revísala antes de insertarla.";
+        });
+      }).catch(function (err) {
+        status.textContent = msgErr(err);
+      }).finally(function () { submit.disabled = false; });
+    });
+    insert.addEventListener("click", function () {
+      if (!result.value) { return; }
+      editor.value += (editor.value ? "\n\n" : "") + result.value;
+      editor.dispatchEvent(new Event("input", { bubbles: true }));
+      insert.disabled = true;
+      status.textContent = "Insertado al final. Pulsa Guardar cambios para conservarlo.";
+      editor.focus();
+    });
+  }
+
   function boot() {
     injectCss();
     initSearch();
@@ -1771,6 +2230,7 @@
     initCollectionsSafe();
     initVaultActions();
     initCalendar();
+    initOfficeDocAi();
     initModelPicker();
     initNotesEditor();
     initChatWorkspace();

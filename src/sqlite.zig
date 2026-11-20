@@ -15,6 +15,7 @@ extern "c" fn sqlite3_step(stmt: *StmtHandle) c_int;
 extern "c" fn sqlite3_reset(stmt: *StmtHandle) c_int;
 extern "c" fn sqlite3_clear_bindings(stmt: *StmtHandle) c_int;
 extern "c" fn sqlite3_bind_text(stmt: *StmtHandle, index: c_int, value: [*]const u8, length: c_int, destructor: ?*const fn (?*anyopaque) callconv(.c) void) c_int;
+extern "c" fn sqlite3_bind_null(stmt: *StmtHandle, index: c_int) c_int;
 extern "c" fn sqlite3_bind_int64(stmt: *StmtHandle, index: c_int, value: i64) c_int;
 extern "c" fn sqlite3_bind_double(stmt: *StmtHandle, index: c_int, value: f64) c_int;
 extern "c" fn sqlite3_column_text(stmt: *StmtHandle, index: c_int) ?[*]const u8;
@@ -115,6 +116,7 @@ pub const Db = struct {
             .{ .version = "20240101000005", .sql = @embedFile("../migrations/20240101000005_usage_metrics.sql") },
             .{ .version = "20240101000006", .sql = @embedFile("../migrations/20240101000006_notes_search_fts.sql") },
             .{ .version = "20240101000007", .sql = @embedFile("../migrations/20240101000007_calendar_annotations.sql") },
+            .{ .version = "20240101000008", .sql = @embedFile("../migrations/20240101000008_calendar_planner_category.sql") },
         };
         for (migrations) |migration| {
             var applied = try self.prepare("SELECT 1 FROM schema_migrations WHERE version=?1");
@@ -231,6 +233,10 @@ pub const Statement = struct {
     pub fn bindText(self: *Statement, index: c_int, value: []const u8) !void {
         const result = sqlite3_bind_text(self.handle, index, value.ptr, @intCast(value.len), transient);
         if (result != SQLITE_OK) return error.SqliteError;
+    }
+
+    pub fn bindNull(self: *Statement, index: c_int) !void {
+        if (sqlite3_bind_null(self.handle, index) != SQLITE_OK) return error.SqliteError;
     }
 
     pub fn bindInt(self: *Statement, index: c_int, value: i64) !void {

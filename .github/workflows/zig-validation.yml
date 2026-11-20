@@ -63,3 +63,6 @@ jobs:
 
       - name: HTTP integration smoke tests
         run: python3 tests/http_smoke.py --binary zig-out/bin/study-platform
+
+      - name: Frontend regression tests
+        run: node --test tests/*.test.cjs
