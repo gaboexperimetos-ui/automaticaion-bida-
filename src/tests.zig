@@ -11,5 +11,6 @@ test {
     _ = @import("system_metrics.zig");
     _ = @import("mcp_client.zig");
     _ = @import("office.zig");
+    _ = @import("panel.zig");
     _ = @import("app.zig");
 }

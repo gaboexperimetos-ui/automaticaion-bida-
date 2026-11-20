@@ -5,6 +5,7 @@ pub const content_wrapper = @embedFile("../static/stitch-v2/shell/content_wrappe
 
 pub const dashboard = @embedFile("../static/stitch-v2/_content/clean/index.html");
 pub const dashboard_alt = @embedFile("../static/stitch-v2/_content/clean/dashboard.html");
+pub const calendar = @embedFile("../static/stitch-v2/_content/clean/calendar.html");
 pub const assistant = @embedFile("../static/stitch-v2/_content/clean/asistente.html");
 pub const notes = @embedFile("../static/stitch-v2/_content/clean/notes.html");
 pub const mcp = @embedFile("../static/stitch-v2/_content/clean/mcp.html");
@@ -23,6 +24,7 @@ pub const files = [_]Asset{
     .{ .path = "/static/stitch-v2/shell/content_wrapper.html", .mime = "text/html; charset=utf-8", .bytes = content_wrapper },
     .{ .path = "/static/stitch-v2/_content/clean/index.html", .mime = "text/html; charset=utf-8", .bytes = dashboard },
     .{ .path = "/static/stitch-v2/_content/clean/dashboard.html", .mime = "text/html; charset=utf-8", .bytes = dashboard_alt },
+    .{ .path = "/static/stitch-v2/_content/clean/calendar.html", .mime = "text/html; charset=utf-8", .bytes = calendar },
     .{ .path = "/static/stitch-v2/_content/clean/asistente.html", .mime = "text/html; charset=utf-8", .bytes = assistant },
     .{ .path = "/static/stitch-v2/_content/clean/notes.html", .mime = "text/html; charset=utf-8", .bytes = notes },
     .{ .path = "/static/stitch-v2/_content/clean/mcp.html", .mime = "text/html; charset=utf-8", .bytes = mcp },

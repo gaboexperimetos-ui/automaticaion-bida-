@@ -13,49 +13,36 @@
 
     <nav class="app-nav nx-nav" aria-label="Navegación principal" data-active-classes="bg-primary-container text-on-primary-container font-semibold">
       <section class="app-nav-section nx-nav-section">
-        <h2 class="app-nav-heading nx-nav-heading">Espacio de trabajo</h2>
+        <h2 class="app-nav-heading nx-nav-heading">Espacio</h2>
         <a aria-current="page" class="app-nav-link nx-nav-link" data-path="panel-principal" href="#"><span class="material-symbols-outlined">home</span><span>Inicio</span></a>
-        <a class="app-nav-link nx-nav-link" data-path="mi-agenda" href="#"><span class="material-symbols-outlined">calendar_month</span><span>Agenda</span></a>
-        <a class="app-nav-link nx-nav-link" data-path="planificacion" href="#"><span class="material-symbols-outlined">checklist</span><span>Planificador</span></a>
-        <a class="app-nav-link nx-nav-link" data-path="busqueda-global" href="#"><span class="material-symbols-outlined">search</span><span>Buscar</span><kbd>⌘K</kbd></a>
-      </section>
-
-      <section class="app-nav-section nx-nav-section">
-        <h2 class="app-nav-heading nx-nav-heading">Aprendizaje</h2>
+        <a class="app-nav-link nx-nav-link" data-path="mi-agenda" href="#"><span class="material-symbols-outlined">calendar_month</span><span>Calendario</span></a>
         <a class="app-nav-link nx-nav-link" data-path="asignaturas" href="#"><span class="material-symbols-outlined">menu_book</span><span>Asignaturas</span></a>
-        <a class="app-nav-link nx-nav-link" data-path="tareas-y-actividades" href="#"><span class="material-symbols-outlined">task_alt</span><span>Tareas</span></a>
-        <a class="app-nav-link nx-nav-link" data-path="examenes" href="#"><span class="material-symbols-outlined">quiz</span><span>Evaluaciones</span></a>
-        <a class="app-nav-link nx-nav-link" data-path="horarios" href="#"><span class="material-symbols-outlined">schedule</span><span>Horario</span></a>
-        <a class="app-nav-link nx-nav-link" data-path="vida-escolar" href="#"><span class="material-symbols-outlined">diversity_1</span><span>Vida escolar</span></a>
+        <a class="app-nav-link nx-nav-link" data-path="mis-notas" href="#"><span class="material-symbols-outlined">edit_note</span><span>Apuntes</span></a>
+        <a class="app-nav-link nx-nav-link" data-path="documentos" href="#"><span class="material-symbols-outlined">description</span><span>Oficina</span></a>
+        <a class="app-nav-link nx-nav-link" data-path="configuracion" href="#"><span class="material-symbols-outlined">settings</span><span>Ajustes</span></a>
       </section>
 
-      <section class="app-nav-section nx-nav-section">
-        <h2 class="app-nav-heading nx-nav-heading">Crear y pensar</h2>
-        <a class="app-nav-link nx-nav-link" data-path="asistente-academico" href="#"><span class="material-symbols-outlined">auto_awesome</span><span>NOVA AI</span><i class="nx-live-dot" aria-hidden="true"></i></a>
-        <a class="app-nav-link nx-nav-link" data-path="conversaciones" href="#"><span class="material-symbols-outlined">forum</span><span>Conversaciones</span></a>
-        <a class="app-nav-link nx-nav-link" data-path="generador-de-material" href="#"><span class="material-symbols-outlined">magic_button</span><span>Material de estudio</span></a>
-        <a class="app-nav-link nx-nav-link" data-path="segundo-cerebro" href="#"><span class="material-symbols-outlined">neurology</span><span>Segundo cerebro</span></a>
-        <a class="app-nav-link nx-nav-link" data-path="mis-notas" href="#"><span class="material-symbols-outlined">edit_note</span><span>Notas</span></a>
-      </section>
-
-      <section class="app-nav-section nx-nav-section">
-        <h2 class="app-nav-heading nx-nav-heading">Oficina</h2>
-        <a class="app-nav-link nx-nav-link" data-path="documentos" href="#"><span class="material-symbols-outlined">description</span><span>Documentos</span></a>
-        <a class="app-nav-link nx-nav-link" data-path="hojas-de-calculo" href="#"><span class="material-symbols-outlined">table_chart</span><span>Hojas de cálculo</span></a>
-        <a class="app-nav-link nx-nav-link" data-path="presentaciones" href="#"><span class="material-symbols-outlined">present_to_all</span><span>Presentaciones</span></a>
-        <a class="app-nav-link nx-nav-link" data-path="biblioteca-de-archivos" href="#"><span class="material-symbols-outlined">folder_open</span><span>Biblioteca</span></a>
-      </section>
-
-      <section class="app-nav-section nx-nav-section">
-        <h2 class="app-nav-heading nx-nav-heading">Sistema</h2>
-        <a class="app-nav-link nx-nav-link" data-path="centro-mcp" href="#"><span class="material-symbols-outlined">hub</span><span>Integraciones</span><span class="app-nav-badge nx-nav-badge"><!--SLOT:SHELL_NAV_MCP--></span></a>
-        <a class="app-nav-link nx-nav-link" data-path="estado-de-conexiones" href="#"><span class="material-symbols-outlined">monitor_heart</span><span>Estado de servicios</span></a>
-      </section>
-    </nav>
-
-    <nav class="app-system-nav nx-system-nav" aria-label="Configuración del sistema">
-      <a class="app-nav-link nx-nav-link" data-path="administracion" href="#"><span class="material-symbols-outlined">monitoring</span><span>Administración</span></a>
-      <a class="app-nav-link nx-nav-link" data-path="configuracion" href="#"><span class="material-symbols-outlined">settings</span><span>Configuración</span></a>
+      <details class="nx-nav-more">
+        <summary><span class="material-symbols-outlined">more_horiz</span><span>Más herramientas</span><span class="material-symbols-outlined nx-nav-more-chevron">expand_more</span></summary>
+        <div class="nx-nav-more-list">
+          <a class="app-nav-link nx-nav-link" data-path="planificacion" href="#"><span class="material-symbols-outlined">checklist</span><span>Planificador</span></a>
+          <a class="app-nav-link nx-nav-link" data-path="tareas-y-actividades" href="#"><span class="material-symbols-outlined">task_alt</span><span>Tareas</span></a>
+          <a class="app-nav-link nx-nav-link" data-path="examenes" href="#"><span class="material-symbols-outlined">quiz</span><span>Evaluaciones</span></a>
+          <a class="app-nav-link nx-nav-link" data-path="horarios" href="#"><span class="material-symbols-outlined">schedule</span><span>Horario</span></a>
+          <a class="app-nav-link nx-nav-link" data-path="vida-escolar" href="#"><span class="material-symbols-outlined">diversity_1</span><span>Vida escolar</span></a>
+          <a class="app-nav-link nx-nav-link" data-path="asistente-academico" href="#"><span class="material-symbols-outlined">auto_awesome</span><span>NOVA AI</span><i class="nx-live-dot" aria-hidden="true"></i></a>
+          <a class="app-nav-link nx-nav-link" data-path="conversaciones" href="#"><span class="material-symbols-outlined">forum</span><span>Conversaciones</span></a>
+          <a class="app-nav-link nx-nav-link" data-path="generador-de-material" href="#"><span class="material-symbols-outlined">magic_button</span><span>Material de estudio</span></a>
+          <a class="app-nav-link nx-nav-link" data-path="segundo-cerebro" href="#"><span class="material-symbols-outlined">neurology</span><span>Segundo cerebro</span></a>
+          <a class="app-nav-link nx-nav-link" data-path="busqueda-global" href="#"><span class="material-symbols-outlined">search</span><span>Buscar</span><kbd>⌘K</kbd></a>
+          <a class="app-nav-link nx-nav-link" data-path="hojas-de-calculo" href="#"><span class="material-symbols-outlined">table_chart</span><span>Hojas de cálculo</span></a>
+          <a class="app-nav-link nx-nav-link" data-path="presentaciones" href="#"><span class="material-symbols-outlined">present_to_all</span><span>Presentaciones</span></a>
+          <a class="app-nav-link nx-nav-link" data-path="biblioteca-de-archivos" href="#"><span class="material-symbols-outlined">folder_open</span><span>Biblioteca</span></a>
+          <a class="app-nav-link nx-nav-link" data-path="centro-mcp" href="#"><span class="material-symbols-outlined">hub</span><span>Integraciones</span><span class="app-nav-badge nx-nav-badge"><!--SLOT:SHELL_NAV_MCP--></span></a>
+          <a class="app-nav-link nx-nav-link" data-path="estado-de-conexiones" href="#"><span class="material-symbols-outlined">monitor_heart</span><span>Estado de servicios</span></a>
+          <a class="app-nav-link nx-nav-link" data-path="administracion" href="#"><span class="material-symbols-outlined">monitoring</span><span>Administración</span></a>
+        </div>
+      </details>
     </nav>
 
     <footer class="app-vault nx-vault">
@@ -65,3 +52,6 @@
     </footer>
   </div>
 </aside>
+<script>
+(function(){var m=document.querySelector(".nx-nav-more");var sel="[aria-current=\"page\"]";if(m&&m.querySelector(sel))m.open=true;})();
+</script>

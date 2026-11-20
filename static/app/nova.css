@@ -2485,3 +2485,804 @@ body:has(#chat-messages-container) #chat-messages-container img {
   .agenda-page .calendar-day, .agenda-plan-button { transition: none; }
   .agenda-page .calendar-day:hover, .agenda-plan-button:hover { transform: none; }
 }
+/* =====================================================================
+ *  Inicio denso · panel oscuro de trabajo
+ *  Un solo vistazo: métricas, jornada, prioridades, asignaturas,
+ *  calendario, notas, IA y acceso a todo. Nada de héroes gigantes ni
+ *  tarjetas idénticas: la jerarquía la marcan la densidad y las líneas.
+ * ===================================================================== */
+.nx-page.nx-home {
+  max-width: 1580px;
+  padding: 22px 26px 56px;
+  font-size: 13px;
+}
+.nx-home .nx-home-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--nx-line);
+  position: relative;
+}
+.nx-home .nx-home-id { min-width: 0; }
+.nx-home .nx-home-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 7px;
+  color: var(--nx-muted);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.nx-home .nx-home-live {
+  width: 6px;
+  height: 6px;
+  background: var(--nx-accent);
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px var(--nx-accent-soft);
+}
+.nx-home .nx-home-head h1 {
+  margin: 0;
+  color: var(--nx-text);
+  font: 650 29px/1.05 "Inter", sans-serif;
+  letter-spacing: -.035em;
+}
+.nx-home .nx-home-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: none;
+}
+.nx-home .nx-home-sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 4px;
+  color: var(--nx-muted);
+  font-size: 10.5px;
+}
+.nx-home .nx-home-sync:hover { color: var(--nx-text-2); }
+.nx-home .nx-home-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--nx-accent);
+  border-radius: 50%;
+}
+.nx-home .nx-home-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  color: var(--nx-text-2);
+  background: var(--nx-surface-2);
+  border: 1px solid var(--nx-line);
+  border-radius: 7px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.nx-home .nx-home-button:hover { color: var(--nx-text); border-color: var(--nx-surface-3); }
+.nx-home .nx-home-button.primary {
+  color: var(--nx-bg);
+  background: var(--nx-accent);
+  border-color: transparent;
+}
+.nx-home .nx-home-button.primary:hover { background: var(--nx-accent-strong); }
+.nx-home .nx-home-button .material-symbols-outlined { font-size: 16px; }
+
+.nx-home .nx-kpis {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 1px;
+  margin-bottom: 16px;
+  overflow: hidden;
+  background: var(--nx-line);
+  border: 1px solid var(--nx-line);
+  border-radius: 9px;
+}
+.nx-home .nx-kpi {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 11px 13px;
+  background: var(--nx-surface);
+}
+.nx-home .nx-kpi:hover { background: var(--nx-surface-2); }
+.nx-home .nx-kpi-label {
+  color: var(--nx-muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.nx-home .nx-kpi-body {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+.nx-home .nx-kpi-body strong {
+  color: var(--nx-text);
+  font: 600 21px/1 "Inter", sans-serif;
+  letter-spacing: -.03em;
+}
+.nx-home .nx-kpi-body small {
+  overflow: hidden;
+  color: var(--nx-text-2);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nx-home .nx-home-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(310px, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+.nx-home .nx-home-main,
+.nx-home .nx-home-side {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  min-width: 0;
+}
+.nx-home .nx-card {
+  min-width: 0;
+  padding: 14px;
+  background: var(--nx-surface);
+  border: 1px solid var(--nx-line);
+  border-radius: 9px;
+}
+.nx-home .nx-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.nx-home .nx-card-head > div { min-width: 0; }
+.nx-home .nx-card-head h2 {
+  margin: 0;
+  color: var(--nx-text);
+  font: 600 14.5px/1.2 "Inter", sans-serif;
+  letter-spacing: -.015em;
+}
+.nx-home .nx-card-head .nx-eyebrow {
+  margin: 0 0 3px;
+  color: var(--nx-muted);
+  font-size: 9px;
+  letter-spacing: .09em;
+}
+.nx-home .nx-badge {
+  flex: none;
+  padding: 4px 7px;
+  color: var(--nx-text-2);
+  background: var(--nx-surface-2);
+  border-radius: 6px;
+  font-size: 9.5px;
+}
+.nx-home .nx-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  padding-top: 9px;
+  color: var(--nx-muted);
+  border-top: 1px solid var(--nx-line);
+  font-size: 10px;
+}
+.nx-home .nx-card-foot a { display: inline-flex; align-items: center; gap: 2px; color: var(--nx-accent); font-weight: 600; }
+.nx-home .nx-card-foot .material-symbols-outlined { font-size: 14px; }
+.nx-home .nx-empty { margin: 0; padding: 9px 0; color: var(--nx-muted); font-size: 11.5px; }
+
+/* Jornada: clases como líneas de tiempo, no tarjetas */
+.nx-home .nx-clase-list { display: grid; }
+.nx-home .nx-clase-list > div {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0 !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  border-bottom: 1px solid var(--nx-line);
+}
+.nx-home .nx-clase-list > div:last-child { border-bottom: 0; }
+.nx-home .nx-clase-list > div > div { display: block !important; }
+.nx-home .nx-clase-list h3 {
+  margin: 0 !important;
+  color: var(--nx-text) !important;
+  font: 550 12.5px/1.3 "Inter", sans-serif !important;
+}
+.nx-home .nx-clase-list span {
+  font: 10px ui-monospace, monospace !important;
+  color: var(--nx-accent-strong) !important;
+  background: transparent !important;
+}
+.nx-home .nx-deliveries { margin-top: 12px; }
+.nx-home .nx-deliveries .nx-subhead { margin-bottom: 7px; }
+.nx-home .nx-deliveries .nx-subhead h3 { font-size: 11.5px; color: var(--nx-text-2); }
+.nx-home .nx-deliveries .nx-subhead span { font-size: 9.5px; }
+.nx-home .nx-deliveries > div:not(.nx-subhead) {
+  padding: 7px 9px !important;
+  background: var(--nx-surface-2) !important;
+  border-radius: 6px !important;
+  font-size: 11.5px;
+}
+
+/* Tabla de prioridades */
+.nx-home .nx-table-wrap { overflow-x: auto; }
+.nx-home .nx-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.nx-home .nx-table th {
+  padding: 0 8px 7px;
+  color: var(--nx-muted);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-align: left;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--nx-line);
+}
+.nx-home .nx-table td {
+  padding: 7px 8px !important;
+  color: var(--nx-text-2);
+  border-bottom: 1px solid var(--nx-line);
+  vertical-align: middle;
+}
+.nx-home .nx-table tbody tr:last-child td { border-bottom: 0; }
+.nx-home .nx-table tbody tr:hover { background: var(--nx-surface-2); }
+.nx-home .nx-table td .truncate { color: var(--nx-text); font-weight: 550; }
+
+/* Asignaturas */
+.nx-home .nx-subject-list { display: grid; gap: 7px; }
+.nx-home .nx-subject-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(70px, 130px) 38px;
+  align-items: center;
+  gap: 10px;
+  font-size: 11.5px;
+}
+.nx-home .nx-subject-name { overflow: hidden; color: var(--nx-text-2); text-overflow: ellipsis; white-space: nowrap; }
+.nx-home .nx-subject-bar {
+  height: 4px;
+  overflow: hidden;
+  background: var(--nx-surface-3);
+  border-radius: 2px;
+}
+.nx-home .nx-subject-bar i { display: block; height: 100%; background: var(--nx-accent); border-radius: 2px; }
+.nx-home .nx-subject-bar.is-low i { background: var(--nx-danger); }
+.nx-home .nx-subject-bar.is-mid i { background: var(--nx-orange); }
+.nx-home .nx-subject-note { color: var(--nx-text); font: 10.5px ui-monospace, monospace; text-align: right; }
+
+/* Semana compacta */
+.nx-home .nx-card-week .nx-week-days { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+.nx-home .nx-card-week .nx-week-days > div {
+  min-height: 46px;
+  padding: 5px 2px !important;
+  border-radius: 5px !important;
+}
+.nx-home .nx-card-week .nx-week-days > div > span:nth-child(2) { font-size: 13px; }
+
+/* Acciones rápidas */
+.nx-home .nx-quick-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+.nx-home .nx-quick-grid > * {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-height: 50px;
+  padding: 7px 8px;
+  color: var(--nx-text-2);
+  background: var(--nx-surface-2);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 10.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.nx-home .nx-quick-grid > *:hover { color: var(--nx-text); border-color: var(--nx-line); }
+.nx-home .nx-quick-grid .material-symbols-outlined { font-size: 16px; color: var(--nx-accent); }
+
+/* Notas, IA y próximo evento, en versión compacta */
+.nx-home .nx-notes-list { gap: 5px; }
+.nx-home .nx-notes-list > div { padding: 8px 9px !important; background: var(--nx-surface-2) !important; border-radius: 6px !important; }
+.nx-home .nx-notes-list a { font-size: 11px !important; }
+.nx-home .nx-card-ai .nx-ai-resume { margin: 0; padding: 9px !important; background: var(--nx-surface-2) !important; border-radius: 6px !important; }
+.nx-home .nx-card-ai .nx-ai-resume p { font-size: 11.5px !important; }
+.nx-home .nx-card-next-meta { margin: 0; color: var(--nx-text-2); font-size: 11px; }
+
+.nx-home .nx-home-all {
+  margin-top: 16px;
+  padding: 13px 14px 12px;
+  background: var(--nx-surface);
+  border: 1px solid var(--nx-line);
+  border-radius: 9px;
+}
+.nx-home .nx-home-all-hint { color: var(--nx-muted); font-size: 9.5px; }
+.nx-home .nx-home-all-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 1px 8px;
+}
+.nx-home .nx-home-all-grid a {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 5px 7px;
+  color: var(--nx-text-2);
+  border-radius: 5px;
+  font-size: 11px;
+}
+.nx-home .nx-home-all-grid a:hover { color: var(--nx-text); background: var(--nx-surface-2); }
+.nx-home .nx-home-all-grid .material-symbols-outlined { font-size: 14px; color: var(--nx-muted); }
+
+@media (max-width: 1180px) {
+  .nx-home .nx-home-grid { grid-template-columns: 1fr; }
+  .nx-home .nx-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .nx-page.nx-home { padding: 14px 12px 40px; }
+  .nx-home .nx-home-head { flex-direction: column; align-items: flex-start; }
+  .nx-home .nx-home-actions { justify-content: flex-start; }
+  .nx-home .nx-home-head h1 { font-size: 24px; }
+  .nx-home .nx-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .nx-home .nx-home-all-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .nx-home .nx-subject-row { grid-template-columns: minmax(0, 1fr) 70px 34px; }
+}
+
+/* Gráficos del inicio: SVG generado en servidor, sin dependencias. */
+.nx-home .nx-home-charts { margin-top: 16px; }
+.nx-home .nx-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.nx-home .nx-chart-card { padding: 12px 14px 10px; }
+.nx-home .nx-chart-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.nx-home .nx-chart-head h3 {
+  margin: 0;
+  color: var(--nx-text);
+  font: 600 12.5px/1.2 "Inter", sans-serif;
+}
+.nx-home .nx-chart-head span {
+  color: var(--nx-muted);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.nx-home .nx-chart { display: block; width: 100%; height: auto; }
+.nx-home .nx-chart-t { fill: var(--nx-text-2); font: 10px "Inter", sans-serif; }
+.nx-home .nx-chart-v { fill: var(--nx-text); font: 9.5px ui-monospace, monospace; }
+.nx-home .nx-chart-axis { fill: var(--nx-muted); font: 8.5px ui-monospace, monospace; }
+.nx-home .nx-chart-legend {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 5px 0 0;
+  color: var(--nx-muted);
+  font-size: 9.5px;
+}
+.nx-home .nx-chart-legend span {
+  width: 7px;
+  height: 7px;
+  margin-left: 8px;
+  border-radius: 2px;
+}
+.nx-home .nx-chart-legend span:first-child { margin-left: 0; }
+.nx-home .nx-chart-legend .is-class { background: var(--nx-accent); }
+.nx-home .nx-chart-legend .is-task { background: var(--nx-orange); }
+.nx-home .nx-chart-empty {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  min-height: 118px;
+  padding: 14px 2px 6px;
+  color: var(--nx-muted);
+  font-size: 10.5px;
+}
+.nx-home .nx-chart-empty p {
+  margin: 0;
+  color: var(--nx-text-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+.nx-home .nx-chart-empty a {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 2px;
+  color: var(--nx-accent);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+.nx-home .nx-chart-empty .material-symbols-outlined { font-size: 13px; }
+@media (max-width: 1180px) {
+  .nx-home .nx-chart-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .nx-home .nx-chart-grid { grid-template-columns: 1fr; }
+}
+.nx-home .nx-clase-list > .nx-empty { display: block; }
+
+/* Menú corto: 6 destinos y el resto plegado en «Más herramientas». */
+.nx-nav-more { margin-top: 2px; border-top: 1px solid var(--nx-line); padding-top: 8px; }
+.nx-nav-more > summary {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  color: var(--nx-muted);
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.nx-nav-more > summary::-webkit-details-marker { display: none; }
+.nx-nav-more > summary:hover { color: var(--nx-text-2); background: var(--nx-surface-2); }
+.nx-nav-more > summary .material-symbols-outlined { font-size: 16px; }
+.nx-nav-more > summary .nx-nav-more-chevron { margin-left: auto; font-size: 15px; transition: transform .18s ease; }
+.nx-nav-more[open] > summary .nx-nav-more-chevron { transform: rotate(180deg); }
+.nx-nav-more-list { display: grid; gap: 1px; padding: 4px 0 2px; }
+.nx-nav-more-list .nx-nav-link { min-height: 30px; padding: 6px 10px; font-size: 11px; }
+.nx-nav-more-list .nx-nav-link .material-symbols-outlined { font-size: 16px; }
+
+/* Aviso único de conexión: se muestra solo si Mikareno no responde. */
+.nx-home .nx-sync-banner {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 12px;
+  padding: 8px 11px;
+  color: var(--nx-text-2);
+  background: rgba(224, 177, 85, .07);
+  border: 1px solid rgba(224, 177, 85, .22);
+  border-radius: 8px;
+  font-size: 11px;
+}
+.nx-home .nx-sync-banner .material-symbols-outlined { font-size: 17px; color: var(--nx-orange); flex: none; }
+.nx-home .nx-sync-banner p { margin: 0; min-width: 0; }
+.nx-home .nx-sync-banner a {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  color: var(--nx-orange);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.nx-home .nx-sync-banner a .material-symbols-outlined { font-size: 13px; color: inherit; }
+
+/* =====================================================================
+ *  Calendario denso · Stitch v2
+ *  Rejilla compacta 7×6, chips por día, navegación HTMX, aside eventos.
+ * ===================================================================== */
+
+.nx-page.nx-calendar-page {
+  max-width: 1580px;
+  padding: 22px 26px 56px;
+  font-size: 13px;
+}
+.nx-cal-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--nx-line);
+}
+.nx-cal-head-main { min-width: 0; }
+.nx-cal-eyebrow {
+  margin: 0 0 5px;
+  color: var(--nx-muted);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+.nx-cal-head h1 {
+  margin: 0;
+  color: var(--nx-text);
+  font: 650 29px/1.05 "Inter", sans-serif;
+  letter-spacing: -.035em;
+}
+.nx-cal-sub {
+  margin: 4px 0 0;
+  color: var(--nx-text-2);
+  font-size: 13px;
+}
+.nx-cal-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.nx-cal-tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--nx-surface-2);
+  border: 1px solid var(--nx-line);
+  border-radius: 7px;
+  padding: 2px;
+}
+.nx-cal-tabs a {
+  padding: 6px 12px;
+  color: var(--nx-text-2);
+  border-radius: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.nx-cal-tabs a:hover { color: var(--nx-text); background: var(--nx-surface-3); }
+.nx-cal-tabs a[aria-current="page"] { color: var(--nx-bg); background: var(--nx-accent); }
+.nx-cal-export {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  color: var(--nx-text-2);
+  background: var(--nx-surface-2);
+  border: 1px solid var(--nx-line);
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.nx-cal-export:hover { color: var(--nx-text); border-color: var(--nx-surface-3); }
+.nx-cal-export .material-symbols-outlined { font-size: 15px; }
+
+.nx-cal-banner {
+  background: rgba(224, 177, 85, .07) !important;
+  border-color: rgba(224, 177, 85, .22) !important;
+}
+.nx-cal-banner .material-symbols-outlined { color: var(--nx-orange); }
+
+.nx-cal-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin-bottom: 16px;
+  background: var(--nx-line);
+  border: 1px solid var(--nx-line);
+  border-radius: 9px;
+}
+.nx-cal-kpi {
+  display: grid;
+  gap: 3px;
+  text-align: center;
+  padding: 10px 12px;
+  background: var(--nx-surface);
+}
+.nx-cal-kpi strong {
+  color: var(--nx-text);
+  font: 600 22px/1 "Inter", sans-serif;
+}
+.nx-cal-kpi small { color: var(--nx-muted); font-size: 9.5px; }
+
+.nx-page.nx-calendar-page .nx-card.nx-cal-month { padding: 0; }
+.nx-cal-month-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid var(--nx-line);
+}
+.nx-cal-legend { display: flex; flex-wrap: wrap; gap: 10px; }
+.nx-cal-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--nx-text-2);
+  font-size: 10px;
+}
+.nx-cal-legend i {
+  width: 7px; height: 7px; border-radius: 2px;
+}
+.nx-cal-legend .is-class i { background: var(--nx-accent); }
+.nx-cal-legend .is-task i { background: var(--nx-orange); }
+.nx-cal-legend .is-event i { background: var(--nx-blue); }
+.nx-cal-legend .is-note i { background: var(--nx-muted); }
+.nx-cal-today {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px;
+  color: var(--nx-accent);
+  background: var(--nx-accent-soft);
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.nx-cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--nx-line);
+}
+.nx-cal-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: var(--nx-text-2);
+  background: var(--nx-surface-2);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.nx-cal-nav-btn:hover { color: var(--nx-text); background: var(--nx-surface-3); border-color: var(--nx-line); }
+.nx-cal-title { display: flex; align-items: center; gap: 8px; }
+.nx-cal-month { color: var(--nx-text); font: 600 14px/1 "Inter", sans-serif; }
+.nx-cal-badge {
+  color: var(--nx-accent);
+  background: var(--nx-accent-soft);
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.nx-cal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  padding: 0 1px;
+}
+.nx-cal-weekdays > div {
+  padding: 7px 0;
+  color: var(--nx-muted);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.nx-cal-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  padding: 1px;
+  background: var(--nx-line);
+}
+.nx-cal-day {
+  position: relative;
+  min-height: 84px;
+  padding: 5px 4px 4px;
+  background: var(--nx-surface);
+}
+.nx-cal-day.nx-cal-outside { background: var(--nx-surface-2); opacity: .5; }
+.nx-cal-day.nx-cal-today {
+  background: var(--nx-accent-soft);
+  outline: 1px solid var(--nx-accent);
+  outline-offset: -1px;
+}
+.nx-cal-day-num {
+  display: block;
+  color: var(--nx-text);
+  font: 600 12.5px/1 "Inter", sans-serif;
+}
+.nx-cal-day.nx-cal-outside .nx-cal-day-num { color: var(--nx-muted); }
+.nx-cal-day.nx-cal-today .nx-cal-day-num { color: var(--nx-accent); }
+
+.nx-cal-chips { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+.nx-cal-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 9.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nx-cal-chip.class { color: var(--nx-bg); background: var(--nx-accent); }
+.nx-cal-chip.event { color: var(--nx-bg); background: var(--nx-blue); }
+.nx-cal-chip.event.non-school { color: var(--nx-text); background: var(--nx-surface-3); border: 1px dashed var(--nx-line); }
+.nx-cal-chip.task { color: var(--nx-bg); background: var(--nx-orange); }
+
+.nx-cal-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--nx-line);
+  color: var(--nx-muted);
+  font-size: 10.5px;
+}
+.nx-cal-foot .material-symbols-outlined { font-size: 14px; }
+.nx-cal-foot a { display: inline-flex; align-items: center; gap: 3px; color: var(--nx-accent); font-weight: 600; }
+.nx-cal-foot .material-symbols-outlined { font-size: 13px; }
+
+/* Próximos eventos aside */
+.nx-cal-upcoming {
+  padding: 14px;
+  background: var(--nx-surface);
+  border: 1px solid var(--nx-line);
+  border-radius: 9px;
+}
+.nx-cal-up-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.nx-cal-up-head h2 { margin: 0; color: var(--nx-text); font: 600 14px/1.2 "Inter", sans-serif; }
+.nx-cal-up-head > div > p { margin: 0 0 3px; color: var(--nx-muted); font-size: 9.5px; letter-spacing: .09em; text-transform: uppercase; }
+.nx-cal-up-head .material-symbols-outlined { color: var(--nx-accent); font-size: 20px; }
+.nx-cal-up-empty { margin: 0; color: var(--nx-muted); font-size: 11px; }
+.nx-cal-up-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  background: var(--nx-surface-2);
+  border-radius: 6px;
+  margin-bottom: 5px;
+}
+.nx-cal-up-date {
+  flex: none;
+  color: var(--nx-accent);
+  font: 600 11px ui-monospace, monospace;
+}
+.nx-cal-up-title { flex: 1; min-width: 0; color: var(--nx-text); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nx-cal-up-badge {
+  flex: none;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 8.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.nx-cal-up-badge.event { color: var(--nx-bg); background: var(--nx-blue); }
+.nx-cal-up-badge.non-school { color: var(--nx-text); background: var(--nx-surface-3); }
+.nx-cal-up-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 8px;
+  color: var(--nx-accent);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+.nx-cal-up-link .material-symbols-outlined { font-size: 13px; }
+
+@media (max-width: 1180px) {
+  .nx-page.nx-calendar-page .nx-cal-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .nx-page.nx-calendar-page .agenda-layout { display: grid; grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .nx-page.nx-calendar-page { padding: 14px 12px 40px; }
+  .nx-cal-head { flex-direction: column; align-items: flex-start; }
+  .nx-cal-head-actions { justify-content: flex-start; }
+  .nx-cal-head h1 { font-size: 24px; }
+  .nx-cal-weekdays > div { font-size: 8.5px; }
+  .nx-cal-day { min-height: 68px; }
+  .nx-cal-chip { font-size: 8.5px; padding: 1px 4px; }
+}

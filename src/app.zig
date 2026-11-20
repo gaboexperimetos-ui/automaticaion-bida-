@@ -12,6 +12,7 @@ const mcp = @import("mcp.zig");
 const system_metrics = @import("system_metrics.zig");
 const mcp_client = @import("mcp_client.zig");
 const office_mod = @import("office.zig");
+const panel = @import("panel.zig");
 
 pub const App = struct {
     allocator: std.mem.Allocator,
@@ -307,7 +308,10 @@ pub const App = struct {
     }
 
     fn cleanPage(self: *App, allocator: std.mem.Allocator, page: templates.TemplatePage, route: []const u8, username: []const u8) !http.Response {
-        const content = try templates.fillPage(allocator, page, templates.contentFor(page), self.config.openrouter_model, username);
+        // Datos reales una sola vez: Mikareno y los contadores locales. Si el
+        // MCP no responde, los huecos lo dicen en vez de inventar numeros.
+        const datos = panel.fetch(allocator, self.db, self.config.mikareno_mcp_url, self.config.mcp_timeout_ms) catch panel.Datos{};
+        const content = try templates.fillPage(allocator, page, templates.contentFor(page), self.config.openrouter_model, username, datos, self.db);
         return .{ .status = 200, .content_type = "text/html; charset=utf-8", .body = try templates.renderShell(allocator, route, content, username, true, self.config.mikareno_mcp_url) };
     }
 
@@ -430,6 +434,11 @@ pub const App = struct {
                 .{ .key = "connected", .value = .{ .bool = true } },
                 .{ .key = "schedule", .value = result },
             }));
+        }
+        // El calendario mensual tiene vista propia: rejilla 7x6 con chips por
+        // dia, KPIs del mes y proximos eventos. No es un volcado JSON.
+        if (std.mem.startsWith(u8, path, "/dashboard/calendar")) {
+            return self.cleanPage(allocator, .calendar, path, username);
         }
         const title = if (std.mem.indexOf(u8, path, "calendar") != null) "Mi agenda" else if (std.mem.indexOf(u8, path, "planner") != null) "Planificador semanal" else if (std.mem.indexOf(u8, path, "horario") != null) "Horario" else if (std.mem.indexOf(u8, path, "subjects") != null) "Asignaturas" else if (std.mem.indexOf(u8, path, "examenes") != null) "Evaluaciones" else if (std.mem.indexOf(u8, path, "vida-escolar") != null) "Vida escolar" else "Espacio académico";
         const tool_name = academicTool(path);

@@ -1,12 +1,14 @@
 const std = @import("std");
 const assets = @import("assets.zig");
 const security = @import("security.zig");
+const panel = @import("panel.zig");
 
-pub const TemplatePage = enum { dashboard, assistant, notes, mcp, material, settings };
+pub const TemplatePage = enum { dashboard, calendar, assistant, notes, mcp, material, settings };
 
 pub fn contentFor(page: TemplatePage) []const u8 {
     return switch (page) {
         .dashboard => assets.dashboard,
+        .calendar => assets.calendar,
         .assistant => assets.assistant,
         .notes => assets.notes,
         .mcp => assets.mcp,
@@ -15,27 +17,54 @@ pub fn contentFor(page: TemplatePage) []const u8 {
     };
 }
 
-pub fn fillPage(allocator: std.mem.Allocator, page: TemplatePage, source: []const u8, model: []const u8, username: []const u8) ![]const u8 {
+pub fn fillPage(allocator: std.mem.Allocator, page: TemplatePage, source: []const u8, model: []const u8, username: []const u8, datos: panel.Datos, db: anytype) ![]const u8 {
     const safe_model = try security.htmlEscape(allocator, model);
     const safe_name = try security.htmlEscape(allocator, username);
+    // Inicio denso: cada hueco lleva datos reales del panel. Si Mikareno no
+    // responde, el hueco lo dice en vez de inventar un numero.
+    const classes_html = if (datos.horario.len == 0)
+        "<div class=\"nx-empty\">Sin clases programadas para hoy.</div>"
+    else
+        try panel.classesList(allocator, datos);
+    const tasks_today_html = try panel.tasksToday(allocator, datos);
+    const tasks_table_html = try panel.taskTable(allocator, datos);
+    const notes_html = try panel.notesList(allocator, db);
+    const weekcal_html = try panel.weekCal(allocator, datos);
+    const next_event_html = try panel.nextEvent(allocator, datos);
+    const exam_html = try panel.examCard(allocator, datos);
+    const subject_options_html = try panel.subjectOptions(allocator, datos);
+
     const dashboard_values = [_]Replacement{
         .{ .slot = "AI_MODEL", .value = safe_model },
         .{ .slot = "AI_RESUME", .value = "<p class=\"text-sm text-on-surface-variant\">Pregunta a NOVA AI para empezar una sesión de estudio.</p>" },
-        .{ .slot = "CLASSCOUNT", .value = "Sincronización pendiente" },
-        .{ .slot = "CLASSES", .value = "<p class=\"text-sm text-on-surface-variant\">Mikareno no responde ahora; no se muestran clases inventadas.</p>" },
-        .{ .slot = "EXAM", .value = "<div class=\"p-space-md\"><p class=\"nx-eyebrow\">Próxima evaluación</p><p class=\"text-sm text-on-surface-variant\">Sin datos académicos disponibles.</p></div>" },
-        .{ .slot = "FOCUS", .value = "<div class=\"p-space-md\"><p class=\"nx-eyebrow\">Enfoque</p><p class=\"text-sm text-on-surface-variant\">Tu espacio de estudio está listo.</p></div>" },
+        .{ .slot = "CHART_NOTES", .value = try panel.chartNotes(allocator, datos) },
+        .{ .slot = "CHART_SUBJECTS", .value = try panel.chartSubjects(allocator, datos) },
+        .{ .slot = "CHART_WEEK", .value = try panel.chartWeek(allocator, datos) },
+        .{ .slot = "CLASSCOUNT", .value = try panel.syncClasscount(allocator, datos) },
+        .{ .slot = "CLASSES", .value = classes_html },
+        .{ .slot = "EXAM", .value = exam_html },
+        .{ .slot = "FOCUS", .value = "<div class=\"nx-card\"><p class=\"nx-eyebrow\">Enfoque</p><p class=\"text-sm text-on-surface-variant\">Tu espacio de estudio está listo.</p></div>" },
         .{ .slot = "GREETING", .value = safe_name },
-        .{ .slot = "NOTES", .value = "<p class=\"text-sm text-on-surface-variant\">Todavía no hay notas locales.</p>" },
-        .{ .slot = "SUBJECT_OPTIONS", .value = "<option value=\"\">Selecciona una asignatura</option>" },
-        .{ .slot = "SYNC", .value = "Mikareno desconectado" },
-        .{ .slot = "TASKCOUNT", .value = "0" },
-        .{ .slot = "TASKFOOTER", .value = "Mikareno no responde ahora" },
-        .{ .slot = "TASKTABLE", .value = "<tr><td colspan=\"6\" class=\"py-6 text-center text-on-surface-variant\">No hay tareas disponibles; no se inventan datos.</td></tr>" },
-        .{ .slot = "TASKTODAY", .value = "<p class=\"text-sm text-on-surface-variant\">No se pudieron sincronizar las entregas.</p>" },
-        .{ .slot = "TODAYLINE", .value = "Tu espacio académico personal" },
-        .{ .slot = "WEEKCAL", .value = "<p class=\"text-sm text-on-surface-variant\">Calendario sin conexión</p>" },
-        .{ .slot = "WEEKTITLE", .value = "Semana actual" },
+        .{ .slot = "KPI_AVG", .value = try panel.kpiAvg(allocator, datos) },
+        .{ .slot = "KPI_CLASSES", .value = try panel.kpiClasses(allocator, datos) },
+        .{ .slot = "KPI_CONV", .value = try panel.kpiConv(allocator, datos) },
+        .{ .slot = "KPI_NOTES", .value = try panel.kpiNotes(allocator, datos) },
+        .{ .slot = "KPI_TASKS_TODAY", .value = try panel.kpiTasks(allocator, datos, "pendientes") },
+        .{ .slot = "KPI_TASKS_WEEK", .value = try panel.kpiTasks(allocator, datos, "activas") },
+        .{ .slot = "NEXT_EVENT", .value = next_event_html },
+        .{ .slot = "NOTES", .value = notes_html },
+        .{ .slot = "SUBJECT_BARS", .value = try panel.subjectBars(allocator, datos) },
+        .{ .slot = "SUBJECT_OPTIONS", .value = subject_options_html },
+        .{ .slot = "SYNC", .value = try panel.syncLabel(allocator, datos) },
+        .{ .slot = "SYNC_BANNER", .value = try panel.syncBanner(allocator, datos) },
+        .{ .slot = "TASKCOUNT", .value = try panel.syncTaskcount(allocator, datos) },
+        .{ .slot = "TASKFOOTER", .value = try panel.taskFooter(allocator, datos) },
+        .{ .slot = "TASKTABLE", .value = tasks_table_html },
+        .{ .slot = "TASKTODAY", .value = tasks_today_html },
+        .{ .slot = "TODAYLINE", .value = try panel.todayLine(allocator, datos) },
+        .{ .slot = "TRIMESTER", .value = try panel.trimester(allocator, datos) },
+        .{ .slot = "WEEKCAL", .value = weekcal_html },
+        .{ .slot = "WEEKTITLE", .value = panel.weekTitle() },
     };
     const assistant_values = [_]Replacement{
         .{ .slot = "CHAT_CONTEXT", .value = "Contexto general" },
@@ -50,6 +79,15 @@ pub fn fillPage(allocator: std.mem.Allocator, page: TemplatePage, source: []cons
         .{ .slot = "CHAT_QUOTA_PCT", .value = "0" },
         .{ .slot = "CHAT_SESSIONS", .value = "" },
         .{ .slot = "CHAT_SOURCES", .value = "" },
+    };
+    // Calendario mensual: KPIs del mes, rejilla 7x6 y proximos eventos.
+    const calendar_values = [_]Replacement{
+        .{ .slot = "CAL_DAYS_WITH_CLASS", .value = try panel.calDaysWithClass(allocator, datos) },
+        .{ .slot = "CAL_EVENTS_MONTH", .value = try panel.calEventsMonth(allocator, datos) },
+        .{ .slot = "CAL_GRID", .value = try panel.calGrid(allocator, datos) },
+        .{ .slot = "CAL_SYNC_BANNER", .value = try panel.syncBanner(allocator, datos) },
+        .{ .slot = "CAL_TASKS_MONTH", .value = try panel.calTasksMonth(allocator, datos) },
+        .{ .slot = "CAL_UPCOMING", .value = try panel.calUpcoming(allocator, datos) },
     };
     const notes_values = [_]Replacement{
         .{ .slot = "BACKLINKS", .value = "" },
@@ -119,6 +157,7 @@ pub fn fillPage(allocator: std.mem.Allocator, page: TemplatePage, source: []cons
     var out: []const u8 = source;
     const replacements: []const Replacement = switch (page) {
         .dashboard => &dashboard_values,
+        .calendar => &calendar_values,
         .assistant => &assistant_values,
         .notes => &notes_values,
         .mcp => &mcp_values,
