@@ -1,0 +1,15 @@
+test {
+    _ = @import("config.zig");
+    _ = @import("security.zig");
+    _ = @import("http.zig");
+    _ = @import("jsonutil.zig");
+    _ = @import("sqlite.zig");
+    _ = @import("templates.zig");
+    _ = @import("notes.zig");
+    _ = @import("ai.zig");
+    _ = @import("mcp.zig");
+    _ = @import("system_metrics.zig");
+    _ = @import("mcp_client.zig");
+    _ = @import("office.zig");
+    _ = @import("app.zig");
+}

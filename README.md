@@ -1,208 +1,106 @@
-# Study Platform (styp)
+# Study Platform — NOVA
 
-**Plataforma web de productividad académica personal**: panel académico con datos escolares reales, segundo cerebro de notas en Markdown, asistente IA con streaming, generación de material de estudio, suite ofimática y panel de administración con backups automáticos. Un usuario, un binario, una base SQLite.
+Plataforma web personal de productividad académica con el frontend server-rendered **Stitch v2 / NOVA** (HTML, CSS y HTMX/JavaScript) servido directamente por un backend Zig, SQLite y notas Markdown.
 
-> **Migración del backend a C en curso (2026-10-31).** `c_backend/` contiene la
-> fase 1, opt-in y todavía incompleta. Rust/Axum sigue siendo el backend funcional
-> y de producción hasta la paridad total descrita en [`docs/C_MIGRATION.md`](docs/C_MIGRATION.md);
-> no se ha desplegado ni sustituido el servicio actual.
+> **Estado de la migración (2026-11-13).** La implementación del backend en este checkout es Zig; las fuentes Rust y C del repositorio fueron retiradas. El frontend existente y las migraciones SQL se conservaron. El binario y la suite HTTP se verificaron en un preview local de Arena. **No se ha desplegado este binario a producción.** La paridad funcional todavía es parcial: las conexiones a Mikareno/GenOffice, las páginas de datos académicos y las operaciones de la suite de oficina siguen en modo de disponibilidad/no implementadas; el endpoint SSE conserva el formato, pero la respuesta actual se entrega después de generar el contenido, no como tokens en vivo. Ver [estado y límites](docs/ARCHITECTURE.md#estado-de-paridad).
 
-> Verificado en vivo el **2026-10-20**: `GET /health` responde
-> `{"status":"healthy","components":{"database":true,"genoffice_mcp":true,"mikareno_mcp":true,"openrouter":true},"version":"0.1.0"}`.
+## Qué funciona en el port Zig
 
-## Ubicación del proyecto
+- CLI de servicio, migraciones SQLite embebidas, `/health`, configuración pública y shell Stitch/NOVA.
+- Autenticación con sesiones, Argon2id, registro por invitación opcional, cookies `HttpOnly` y rate limiting.
+- CRUD de notas Markdown, contenido en disco, versiones recientes, restauración, exportación, búsqueda FTS5 con fallback `LIKE`.
+- Anotaciones de calendario locales, CRUD JSON y exportación iCalendar.
+- API de chat/generación con modo simulado si no hay clave de OpenRouter, selección persistida de modelo, historial por materia, contador de costes y respuesta SSE compatible.
+- Servidor MCP JSON-RPC con nueve herramientas y autenticación obligatoria por `CUSTOM_MCP_API_KEY`.
+- Backups SQLite manuales, integridad antes de restaurar, descarga, restauración en la conexión activa y retención de cinco copias.
+- Páginas NOVA de dashboard, asistente, notas, MCP, configuración, administración y placeholders honestos para áreas aún no portadas.
 
-| Ruta | Papel |
-|---|---|
-| `/home/gabo/proyectos/styp` | **Ubicación canónica del repositorio** (consolidada el 2026-10-20) |
-| `/home/gabo/study-platform` | Enlace simbólico de compatibilidad → `styp`; los scripts, docs y unidades con la ruta antigua siguen resolviendo |
-| El proyecto de Arduino vive aparte: `/home/gabo/arduino-firmware` | Workspace de firmware para Arduino Due (nombre renombrado desde `~/Proyectos` para que no se confunda con `~/proyectos`) |
-
-## Funcionalidades
-
-- **Panel principal** (shell Stitch v2.4 "Synthetic Cognition"): tarjetas del día con saludo, próxima clase y próximas tareas.
-- **Dashboard académico**: horario de 7 días (cache-first 30 s), planner semanal, calendario mensual/diario + exportación `.ics`, asignaturas con notas y detalle por código, exámenes con cuenta atrás, vida escolar (6 secciones) y biblioteca.
-- **Notas (segundo cerebro)**: Markdown + frontmatter YAML, TOC automático, wikilinks resueltos (los rotos quedan como texto), backlinks, tags, historial de versiones con restauración, exportación por nota e importación segura desde Obsidian.
-- **Búsqueda**: FTS5 sobre las notas con fallback a `LIKE` (`GET /api/search`, página en `/dashboard/search`).
-- **Asistente IA**: chat por asignatura con **streaming SSE real** (frames `context` / `sources` / `delta` / `reasoning` / `done` / `error`), RAG híbrido sobre notas con web opcional, historial persistido, generación de **resúmenes, cuestionarios y hojas de estudio**, y presupuesto mensual con tope duro.
-- **Suite ofimática** (`/office`, respaldada en ficheros): documentos `.md`, hojas `.csv`, presentaciones `.json`, informes y biblioteca de archivos.
-- **Administración**: panel `/admin` con métricas del sistema, presupuesto OpenRouter y gestión de backups.
-- **Backups automáticos**: tarea diaria (primer volcado 60 s tras arrancar, luego cada 24 h), rotación con retención 5 en `data/backups/`, sidecar `.sha256` con `integrity_check`.
-- **Servidor MCP propio**: expone 9 herramientas de la app para clientes externos (OpenCode, etc.), autenticación por `X-API-Key`.
+La matriz de rutas y los códigos de respuesta está en [docs/API.md](docs/API.md). Las funciones que dependen de servicios externos no se simulan como datos reales.
 
 ## Arquitectura
 
-```
-Navegador (HTML servidor + HTMX + JS mínimo, shell Stitch v2.4)
-        │
-        ▼
-Rust + Axum (study-platform, un solo binario)  ──►  SQLite (WAL, FTS5)
-        │                                                    notes/ (Markdown en disco)
-        ├── MCP cliente (SSE) ──► Mikareno MCP  (18 tools, cache 180 s, precarga al arrancar)
-        ├── MCP cliente (SSE) ──► GenOffice MCP (oficina)
-        ├── HTTPS ─────────────► OpenRouter   (IA, presupuesto USD)
-        └── MCP servidor propio (rmcp) en /mcp y /mcp/sse (X-API-Key)
+```text
+Navegador
+  └─ HTML/CSS/HTMX/JS Stitch v2 · estáticos embebidos en el ejecutable
+       └─ servidor HTTP + aplicación Zig (src/*.zig)
+            ├─ SQLite del sistema, WAL, FTS5 y migraciones SQL embebidas
+            ├─ notas Markdown en NOTES_DIR
+            ├─ OpenRouter opcional (modo simulado si no hay clave)
+            └─ API MCP propia (X-API-Key)
 ```
 
-| Componente | Tecnología | Detalle |
+No quedan fuentes de implementación Rust o C en el repositorio. Zig enlaza con libc para sockets y usa la biblioteca compartida SQLite del sistema mediante ABI; SQLite es una dependencia de runtime, no código C del proyecto.
+
+## Requisitos
+
+- Zig **0.14.1**.
+- SQLite 3 con FTS5. En Debian/Ubuntu: `sudo apt-get install libsqlite3-dev` para compilar y `libsqlite3-0` para ejecutar.
+- Python 3 sólo para la prueba HTTP de integración (usa la biblioteca estándar).
+
+## Build, tests y ejecución local
+
+```bash
+zig fmt --check build.zig main.zig test_root.zig src/*.zig
+zig build
+zig build test --summary all
+python3 tests/http_smoke.py --binary zig-out/bin/study-platform
+
+# Perfil optimizado para un binario de release:
+zig build -Doptimize=ReleaseFast
+```
+
+Crea `.env` a partir de `.env.example`, genera un `SESSION_SECRET` aleatorio de al menos 32 caracteres y arranca:
+
+```bash
+cp .env.example .env
+# Edita .env; no uses AUTH_DISABLED=true fuera de desarrollo aislado.
+zig build run -- --addr 0.0.0.0:8090
+```
+
+El servidor usa `0.0.0.0:8090` por defecto. `--addr` controla el bind; `HOST` y `PORT` son valores informativos. El proceso crea `DB_PATH` y aplica las migraciones al arrancar. La base y las notas deben mantenerse fuera de Git.
+
+```bash
+zig-out/bin/study-platform --help
+zig-out/bin/study-platform --version
+zig-out/bin/study-platform --migrate
+zig-out/bin/study-platform --create-admin admin
+```
+
+`--create-admin` crea o restablece el usuario pero no revela una contraseña temporal. En una base de desarrollo, arranca con `AUTH_DISABLED=true` y establece una contraseña desde `/settings/password`; después vuelve a `AUTH_DISABLED=false`.
+
+## Variables principales
+
+| Variable | Default | Descripción |
 |---|---|---|
-| Backend actual | Rust, Axum 0.8 + Tokio | Implementación funcional y de producción |
-| Backend en migración | C17/POSIX + SQLite C ABI | `c_backend/`, fase 1 opt-in; [estado y puertas de paridad](docs/C_MIGRATION.md) |
-| BD | SQLite + sqlx (WAL, FTS5) | `data/app.db`, migraciones embebidas en `migrations/` |
-| Frontend | HTML servidor + HTMX + Tailwind | Shell Stitch v2.4, interfaz legacy accesible en `/legacy` |
-| Auth | Argon2 (contraseñas) + tokens de sesión opacos | ver [Seguridad](#seguridad) |
-| IA | cliente OpenRouter (reqwest) | streaming SSE, budget gate |
-| Oficina | módulo `office` propio | respaldado en ficheros (no es proxy de GenOffice) |
+| `SESSION_SECRET` | obligatorio, ≥32 chars | Secreto para derivar hashes de sesión. |
+| `DB_PATH` | `./data/app.db` | Archivo SQLite. |
+| `NOTES_DIR` | `./notes` | Bóveda de notas Markdown. |
+| `AUTH_DISABLED` | `false` | Desactiva toda la protección; sólo para desarrollo local. |
+| `REGISTRATION_TOKEN` | vacío | Invitación requerida por `POST /register`; vacío deshabilita registro. |
+| `OPENROUTER_API_KEY` | vacío | Sin clave, chat y generación responden en modo simulado y no llaman al proveedor. |
+| `OPENROUTER_MODEL` | `cohere/north-mini-code:free` | Modelo inicial; el selector puede persistir otro modelo en SQLite. |
+| `OPENROUTER_MAX_TOKENS` | `8192` | Máximo de tokens por petición. |
+| `OPENROUTER_MAX_COST_USD` | `2.0` | Límite mensual aplicado a uso registrado por la aplicación. |
+| `MIKARENO_MCP_URL` | `http://127.0.0.1:8080/mcp` | Se muestra en configuración; el cliente Zig de Mikareno aún no está implementado. |
+| `GENOFFICE_MCP_URL` | `http://127.0.0.1:8453/mcp` | Se muestra en configuración; el cliente Zig de GenOffice aún no está implementado. |
+| `CUSTOM_MCP_API_KEY` | vacío | Sin clave, el servidor MCP propio queda deshabilitado y responde 401. |
+| `DB_MAX_CONNECTIONS` | `4` | Reservado; actualmente se utiliza una conexión SQLite `FULLMUTEX`. |
+| `MCP_TIMEOUT_MS` | `5000` | Configuración reservada para integración MCP. |
 
-## Topología real
+La plantilla completa y comentada está en [.env.example](.env.example).
 
-| Máquina | Rol | Servicios |
-|---|---|---|
-| **asus-tuf** (CachyOS, esta máquina) | Desarrollo, builds y MCP de datos | `mikareno-mcp` (`systemd --user`, `0.0.0.0:8080`, 18 tools) · instancia local de la app en `0.0.0.0:8090` · toolchain Rust |
-| **gabo-Inspiron-5720** (homelab Dell, Ubuntu 26.04, tailnet `100.92.172.48`) | **Producción** | unidad systemd **de sistema** `study-platform` en `:8091` (8090 está ocupado en esa máquina), binario `~/study-platform/study-platform`, BD real, `genoffice-mcp` en `127.0.0.1:8453` |
-| Tailscale | Malla VPN | la app de producción alcanza el Mikareno MCP de asus-tuf: `MIKARENO_MCP_URL=http://100.115.62.97:8080/mcp` |
+## Datos persistentes y seguridad
 
-## Estructura del repositorio
+- SQLite mantiene usuarios, sesiones, notas, versiones, anotaciones, chat, costes y configuración. Las ocho migraciones originales se aplican desde Zig.
+- Las notas se escriben como `.md` en `NOTES_DIR`; las rutas de archivo se derivan de slugs validados.
+- Los backups se guardan junto al directorio de la base, en `backups/`; las restauraciones validan nombre e `integrity_check` antes de usar SQLite Backup API.
+- `AUTH_DISABLED=true` permite que cualquier cliente que alcance el puerto use todas las rutas protegidas. No se debe exponer así.
+- `/mcp` no usa la cookie web: configura un `CUSTOM_MCP_API_KEY` largo y privado.
+- No incluyas claves reales en `.env.example`, el frontend, logs, tests o commits.
 
-```
-styp/
-├── src/
-│   ├── main.rs               # CLI (--addr/--migrate/--create-admin), arranque
-│   ├── lib.rs                # AppState y módulos
-│   ├── config.rs             # Config::from_env — fuente de verdad de variables
-│   ├── db.rs                 # init, migraciones, verify_schema, create_admin, backup delegado
-│   ├── backup/               # backups rotativos + tarea diaria (spawn_backup_task)
-│   ├── handlers/             # rutas y páginas: api, auth, notes, search, settings,
-│   │                         # admin, material, handoff, static_ui (legacy),
-│   │                         # stitch_v2, stitch_panel, stitch_chat, stitch_notes, stitch_mcp
-│   ├── middleware/           # auth (sesiones) y rate_limit
-│   ├── academic/             # dashboard académico + templates Stitch compartidos
-│   ├── ai/                   # OpenRouter: chat, streaming SSE, quiz, coste
-│   ├── knowledge/            # notas, búsqueda FTS5, wikilinks, frontmatter, Obsidian
-│   ├── office/               # documentos, hojas, presentaciones, biblioteca, report
-│   ├── mcp_server/           # servidor MCP propio (rmcp)
-│   └── integrations/mikareno/# cliente SSE + cache + adaptadores
-├── migrations/               # SQLite: init, seed, knowledge, ai, sessions, usage_metrics, FTS5
-├── tests/                    # 28 suites de integración (auth, ai, office, admin, e2e…)
-├── static/                   # stitch-v2 (shell/UI) y study-platform-ui (legacy, /legacy)
-├── data/                     # app.db + data/backups/ (runtime)
-├── notes/                    # notas en Markdown (runtime)
-├── docs/                     # documentación — empieza por docs/INDEX.md
-├── systemd/                  # unidad de sistema para la homelab
-└── .env.example              # plantilla de configuración documentada
-```
+## CI
 
-## Requisitos y build
+- [Zig validation](.github/workflows/zig-validation.yml): formato, build, tests Zig y smoke HTTP.
+- [Preview binary](.github/workflows/preview-backend.yml): build ReleaseFast y prerelease temporal para Arena; no despliega a producción.
 
-- Rust stable (`rustup`) — en asus-tuf está instalado y en uso.
-- No hay dependencias externas para ejecutar: SQLite va embebido (bundled).
-- Release optimizado para la máquina pequeña de producción: `opt-level="z"`, `lto="thin"`, `strip=true`.
-
-```bash
-cd /home/gabo/proyectos/styp
-cargo build --release
-# binario: target/release/study-platform
-```
-
-## Uso del binario (CLI real)
-
-```bash
-study-platform [OPTIONS]
-
-  -a, --addr <ADDR>              Bind address   [default: 0.0.0.0:8090]
-      --migrate                  Ejecutar migraciones y salir
-      --create-admin <USERNAME>  Crear usuario administrador inicial
-```
-
-- **Servir es el modo por defecto** (no existe subcomando `serve`).
-- **El bind real lo decide `--addr`, no `HOST`/`PORT`** (esas variables solo se muestran en la UI).
-- **`--create-admin` genera una contraseña temporal aleatoria (Argon2) que no se imprime.** El mensaje que sugiere `study-platform set-password` está desfasado: ese subcomando no existe. Camino real para obtener login: arrancar con `AUTH_DISABLED=true` (sin login) y cambiar la contraseña desde la app en `/settings/password`.
-
-## Configuración
-
-Toda la configuración sale del `.env` (nunca subirlo). Fuente de verdad: `src/config.rs` + `.env.example`.
-
-| Variable | ¿Obligatoria? | Por defecto | Descripción |
-|---|---|---|---|
-| `SESSION_SECRET` | **Sí** (≥32 caracteres) | — | Semilla para hashear tokens de sesión (`openssl rand -hex 32`) |
-| `AUTH_DISABLED` | No | `false` | Modo "sin login": cualquier nodo de la red entra con todos los permisos. **Solo desarrollo** |
-| `REGISTRATION_TOKEN` | No | — (sin él, `POST /register` queda deshabilitado con 403) | Token para el registro público de cuentas |
-| `HOST` / `PORT` | No | `127.0.0.1` / `8090` | Solo informativos (el bind es la CLI `--addr`) |
-| `DB_PATH` | No | `./data/app.db` | Fichero SQLite |
-| `NOTES_DIR` | No | `./notes` | Carpeta de notas Markdown |
-| `OPENROUTER_API_KEY` | No | — | Sin clave o vacía ⇒ **modo demo**: IA deshabilitada, el resto funciona |
-| `OPENROUTER_MODEL` | No | `cohere/north-mini-code:free` | Ejemplo gratuito alternativo: `minimax/minimax-m3.1-flash:free` |
-| `OPENROUTER_MAX_TOKENS` | No | `8192` | Tope por respuesta |
-| `OPENROUTER_MAX_COST_USD` | No | `2.0` | Presupuesto mensual; agotado ⇒ error de presupuesto sin llamar al proveedor |
-| `MIKARENO_MCP_URL` | No | `http://127.0.0.1:8080/mcp` | Solo loopback, RFC 1918 y CGNAT `100.64/10` (tailnet); hosts públicos se ignoran a propósito |
-| `GENOFFICE_MCP_URL` | No | `http://127.0.0.1:8453/mcp` | Vacío = deshabilitado |
-| `CUSTOM_MCP_API_KEY` | No | — | Sin clave ⇒ el servidor MCP propio queda deshabilitado |
-| `DB_MAX_CONNECTIONS` | No | `4` | Pool SQLite (más conexiones = más RAM y contención del WAL) |
-| `MCP_TIMEOUT_MS` | No | `5000` | Presupuesto de tiempo por llamada MCP |
-| `RUST_LOG` | No | `study_platform=info,tower_http=info` | Filtro de tracing |
-
-## Rutas HTTP (resumen verificado; detalle completo en [docs/API.md](docs/API.md))
-
-| Área | Rutas |
-|---|---|
-| Públicas | `GET /health` · `GET /api/config` · `GET /api/public-config` · `GET/POST /login` · `POST /register` · `POST /logout` · `GET /handoff` |
-| Páginas (auth) | `/` panel · `/dashboard` · `/dashboard/ai` · `/dashboard/notes` · `/dashboard/mcp` · interfaz anterior en `/legacy` (serve `/app.js`, `/styles.css`) |
-| Académico (auth) | `/dashboard/horario` · `/dashboard/planner` · `/dashboard/calendar` (+`/daily`, `.ics`) · `/dashboard/subjects` (+`/{code}`) · `/dashboard/examenes` · `/dashboard/vida-escolar` · `/dashboard/profile` |
-| Notas (auth) | UI: `/app/notes` (GET/POST), `/new`, `/{slug}`, `/{slug}/edit`, `update` PUT, `delete` DELETE, `export`, `versions/{id}/restore` · API: `/api/notes` CRUD |
-| Búsqueda y material | `GET /api/search` · `GET /dashboard/search` · `GET/POST /dashboard/material` |
-| IA (auth) | `/ai` · `POST /api/ai/chat` · `POST /api/ai/chat/stream` · `POST /api/ai/summary` · `POST /api/ai/quiz` · `POST /api/ai/study-sheet` · `GET /api/ai/cost` · `GET /api/ai/conversations[/{subject}/messages]` |
-| Oficina (auth) | `/office` · `/office/docs…` · `/office/sheets…` · `/office/presentations…` · `/office/library` · `/office/report` |
-| Administración (auth) | `/admin` · `/admin/metrics` · `/admin/openrouter/budget` · `/admin/backup/list` · API: `GET /api/admin/metrics`, `GET/POST /api/admin/backup`, `POST /api/admin/backup/restore`, `GET /api/admin/backup/download/{name}`, `GET /api/admin/backup-status` |
-| MCP propio | `POST /mcp` · `POST /mcp/sse` (JSON-RPC/SSE, `X-API-Key`) |
-| Cuenta | `GET/POST /settings/password` · `GET /settings` · `POST /api/settings/ai` |
-
-Cualquier ruta no registrada responde 404 estilizado (JSON `{"error":"not_found"}` si empieza por `/api/` o `/mcp/`).
-
-## Base de datos y datos en runtime
-
-- Tablas principales: `users`, `sessions`, `notes` + `notes_fts` (FTS5), conversaciones e historial IA, `academic_data_cache`, `app_config`, `usage_metrics`, `backups` (ver `migrations/`).
-- El contenido de las notas vive en ficheros `.md` en `NOTES_DIR`; en BD van los metadatos.
-- Backups en `data/backups/app-YYYYmmdd-HHMMSS.db` (+ sidecar `.sha256` con `integrity_check`), retención 5, volcado `wal_checkpoint(TRUNCATE)` antes de copiar. Restauración vía API con validación de nombre e integridad, dentro de una transacción sin sustituir el fichero vivo.
-
-## Seguridad
-
-- Tokens de sesión de 64 caracteres hex (32 bytes CSPRNG), opacos: en BD se guarda `SHA256(SESSION_SECRET ":" token)`; legacy UUID sigue validando por compatibilidad.
-- TTL duro de sesión de **30 días** (`SESSION_TTL_DAYS`, constante en `src/middleware/auth.rs`).
-- Cookie `session_id`: `HttpOnly`, `SameSite=Strict`, `Secure` condicional (solo si la petición llegó por HTTPS).
-- Rate limiting: 60 req/min general y 10 req/min en `POST /login`.
-- `POST /register` exige `REGISTRATION_TOKEN`; sin él respondo 403.
-- La clave de OpenRouter se sanea de todo lo servido (`static/**` con `value=""`).
-- El cliente MCP solo acepta endpoints loopback / privados / CGNAT de Tailscale.
-
-## Calidad y pruebas
-
-- 28 suites de integración en `tests/` + tests de librería. Última corrida completa verificada en esta rama (arena, 2026-10-25): **620 tests en verde, 0 fallos** (`cargo test --no-fail-fast`; 3 `#[ignore]` con su motivo). La cifra de 562 del 2026-10-19 es histórica y ya no es la medida vigente.
-- `cargo fmt --check` PASS · `cargo clippy --all-targets` sin errores.
-- Tests marcados con `#[ignore]` tienen el motivo escrito en el propio test.
-
-```bash
-cargo test            # suite completa
-cargo fmt --check && cargo clippy --all-targets
-```
-
-## Despliegue (producción = homelab Dell)
-
-Resumen del procedimiento verificado el 2026-10-19 (detalle en [docs/DEPLOY.md](docs/DEPLOY.md)):
-
-1. Build en asus-tuf: `cargo build --release` (o musl estático si se prefiere).
-2. Verificar `sha256sum` del binario en ambos lados.
-3. `scp` a `~/study-platform/study-platform.new` y **`mv` atómico** (nunca scp directo: `ETXTBSY`).
-4. `pkill -x study-platform` → la unidad systemd de sistema lo levanta sola en ~11 s (`Restart=always`).
-5. Salud: `curl http://100.92.172.48:8091/health` → 200.
-
-Notas: la BD real es la de la Dell; `sudo` solo hace falta para tocar la unidad, no para reiniciar.
-
-## Documentación
-
-Empieza por **[docs/INDEX.md](docs/INDEX.md)** — índice maestro con propósito, vigencia y estado de cada documento: arquitectura (`ARCHITECTURE.md`), API (`API.md`), guía de uso (`USER_GUIDE.md`), setup de desarrollo (`DEVELOPER_SETUP.md`), despliegue (`DEPLOY.md`), requisitos, roadmap, seguridad, pruebas, decisiones (ADRs), changelog y el handoff del último sprint (`SESSION_HANDOFF.md`).
-
-El material desfasado quedó archivado en `docs/archive/` (README anterior y un resumen obsolete generado por IA que describía un stack distinto del real).
-
-## Licencia
-
-Uso personal; código bajo MIT (`Cargo.toml`).
+Consulta [docs/INDEX.md](docs/INDEX.md) para el resto de la documentación. Las instrucciones de desarrollo están en [docs/DEVELOPER_SETUP.md](docs/DEVELOPER_SETUP.md); los límites actuales están enumerados en [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).

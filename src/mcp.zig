@@ -1,0 +1,358 @@
+const std = @import("std");
+const http = @import("http.zig");
+const sqlite = @import("sqlite.zig");
+const config_mod = @import("config.zig");
+const json = @import("jsonutil.zig");
+const security = @import("security.zig");
+const notes = @import("notes.zig");
+const mcp_client = @import("mcp_client.zig");
+
+pub fn handle(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, request: *const http.Request) !http.Response {
+    if (!std.mem.eql(u8, request.path, "/mcp") and !std.mem.eql(u8, request.path, "/mcp/sse")) return jsonError(allocator, 404, "not_found");
+    if (!std.mem.eql(u8, request.method, "POST")) return jsonError(allocator, 405, "Method not allowed");
+    const expected_key = config.custom_mcp_api_key orelse return jsonRpcResponse(allocator, 401, null, null, .{ .code = -32001, .message = "MCP server disabled: configure CUSTOM_MCP_API_KEY" });
+    const provided_key = request.header("x-api-key") orelse "";
+    if (!security.constantTimeEq(provided_key, expected_key)) return jsonRpcResponse(allocator, 401, null, null, .{ .code = -32001, .message = "Unauthorized" });
+    const req = json.parse(allocator, request.body) catch return jsonError(allocator, 400, "Invalid JSON-RPC request");
+    const rpc_version = json.getString(req, "jsonrpc") orelse "";
+    const method = json.getString(req, "method") orelse "";
+    const id = json.get(req, "id");
+    if (!std.mem.eql(u8, rpc_version, "2.0")) return jsonRpcResponse(allocator, 400, id, null, .{ .code = -32600, .message = "Invalid Request: jsonrpc must be 2.0" });
+    const params = json.get(req, "params") orelse try json.object(allocator, &.{});
+    const result = dispatch(allocator, db, config, method, params, id) catch |err| {
+        const rpc_error = switch (err) {
+            error.InvalidParams => RpcError{ .code = -32602, .message = "Invalid params" },
+            error.MethodNotFound => RpcError{ .code = -32601, .message = "Method not found" },
+            error.NotFound => RpcError{ .code = -32000, .message = "Not found" },
+            else => RpcError{ .code = -32603, .message = "Internal error" },
+        };
+        return jsonRpcResponse(allocator, 200, id, null, rpc_error);
+    };
+    var response = try jsonRpcResponse(allocator, 200, id, result, null);
+    if (std.mem.eql(u8, request.path, "/mcp/sse")) {
+        const framed = try std.fmt.allocPrint(allocator, "event: message\ndata: {s}\n\n", .{response.body});
+        response.body = framed;
+        response.content_type = "text/event-stream; charset=utf-8";
+        const headers = try allocator.alloc(http.Header, 1);
+        headers[0] = .{ .name = "Cache-Control", .value = "no-cache" };
+        response.headers = headers;
+    }
+    return response;
+}
+
+const RpcError = struct { code: i64, message: []const u8 };
+
+fn dispatch(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, method: []const u8, params: std.json.Value, id: ?std.json.Value) !std.json.Value {
+    _ = id;
+    if (std.mem.eql(u8, method, "initialize")) {
+        return json.object(allocator, &.{
+            .{ .key = "protocolVersion", .value = .{ .string = "2025-03-26" } },
+            .{ .key = "capabilities", .value = try json.object(allocator, &.{ .{ .key = "tools", .value = try json.object(allocator, &.{}) }, .{ .key = "prompts", .value = try json.object(allocator, &.{}) } }) },
+            .{ .key = "serverInfo", .value = try json.object(allocator, &.{ .{ .key = "name", .value = .{ .string = "study-platform-mcp" } }, .{ .key = "version", .value = .{ .string = "0.2.0" } } }) },
+        });
+    }
+    if (std.mem.eql(u8, method, "notifications/initialized")) return json.object(allocator, &.{});
+    if (std.mem.eql(u8, method, "tools/list")) return json.object(allocator, &.{.{ .key = "tools", .value = try toolDefinitions(allocator) }});
+    if (!std.mem.eql(u8, method, "tools/call")) return error.MethodNotFound;
+    const name = json.getString(params, "name") orelse return error.InvalidParams;
+    const args = json.get(params, "arguments") orelse try json.object(allocator, &.{});
+    const payload = try callTool(allocator, db, config, name, args);
+    const text_value = try json.stringify(allocator, payload);
+    var content = std.json.Array.init(allocator);
+    try content.append(try json.object(allocator, &.{ .{ .key = "type", .value = .{ .string = "text" } }, .{ .key = "text", .value = .{ .string = text_value } } }));
+    var result = std.json.ObjectMap.init(allocator);
+    try result.put("content", .{ .array = content });
+    if (payload == .object) {
+        var it = payload.object.iterator();
+        while (it.next()) |entry| {
+            if (std.mem.eql(u8, entry.key_ptr.*, "content")) continue;
+            try result.put(entry.key_ptr.*, entry.value_ptr.*);
+        }
+    }
+    return .{ .object = result };
+}
+
+fn toolDefinitions(allocator: std.mem.Allocator) !std.json.Value {
+    const definitions = [_]struct { name: []const u8, description: []const u8, props: []const u8, required: []const []const u8 }{
+        .{ .name = "search_notes", .description = "Search local notes", .props = "query", .required = &.{"query"} },
+        .{ .name = "get_note", .description = "Get a note by slug", .props = "slug", .required = &.{"slug"} },
+        .{ .name = "create_note", .description = "Create a local Markdown note", .props = "title,content,tags", .required = &.{ "title", "content" } },
+        .{ .name = "get_academic_context", .description = "Get available academic context", .props = "", .required = &.{} },
+        .{ .name = "get_subject_notes", .description = "Get notes tagged with a subject", .props = "subject", .required = &.{"subject"} },
+        .{ .name = "get_study_sheets", .description = "List local study sheets", .props = "subject", .required = &.{} },
+        .{ .name = "app_list_backups", .description = "List database backups", .props = "", .required = &.{} },
+        .{ .name = "app_backup_now", .description = "Create a database backup", .props = "", .required = &.{} },
+        .{ .name = "app_ai_cost", .description = "Get monthly AI cost summary", .props = "", .required = &.{} },
+    };
+    var list = std.json.Array.init(allocator);
+    for (definitions) |definition| {
+        var properties = std.json.ObjectMap.init(allocator);
+        var required = std.json.Array.init(allocator);
+        var iter = std.mem.splitScalar(u8, definition.props, ',');
+        while (iter.next()) |key| {
+            if (key.len == 0) continue;
+            const type_name = if (std.mem.eql(u8, key, "limit")) "integer" else if (std.mem.eql(u8, key, "tags")) "array" else "string";
+            try properties.put(key, try json.object(allocator, &.{.{ .key = "type", .value = .{ .string = type_name } }}));
+        }
+        for (definition.required) |field| try required.append(.{ .string = field });
+        const schema = try json.object(allocator, &.{ .{ .key = "type", .value = .{ .string = "object" } }, .{ .key = "properties", .value = .{ .object = properties } }, .{ .key = "required", .value = .{ .array = required } } });
+        try list.append(try json.object(allocator, &.{ .{ .key = "name", .value = .{ .string = definition.name } }, .{ .key = "description", .value = .{ .string = definition.description } }, .{ .key = "inputSchema", .value = schema } }));
+    }
+    return .{ .array = list };
+}
+
+fn callTool(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, name: []const u8, args: std.json.Value) !std.json.Value {
+    if (std.mem.eql(u8, name, "search_notes")) {
+        const query = json.getString(args, "query") orelse return error.InvalidParams;
+        const results = try searchNotes(allocator, db, query, 10);
+        return json.object(allocator, &.{.{ .key = "results", .value = results }});
+    }
+    if (std.mem.eql(u8, name, "get_note")) {
+        const slug = json.getString(args, "slug") orelse return error.InvalidParams;
+        if (!safeSlug(slug)) return error.InvalidParams;
+        var stmt = try db.prepare("SELECT n.id,n.title,n.slug,n.filename,n.tags,n.word_count,COALESCE(n.summary,''),n.created_at,n.updated_at,COALESCE((SELECT content FROM note_versions v WHERE v.note_id=n.id ORDER BY v.id DESC LIMIT 1),'') FROM notes n WHERE n.slug=?1");
+        defer stmt.deinit();
+        try stmt.bindText(1, slug);
+        if (!try stmt.next()) return error.NotFound;
+        const content = try allocator.dupe(u8, stmt.text(9));
+        const note_value = try json.object(allocator, &.{ .{ .key = "id", .value = .{ .integer = stmt.int64(0) } }, .{ .key = "title", .value = .{ .string = try allocator.dupe(u8, stmt.text(1)) } }, .{ .key = "slug", .value = .{ .string = try allocator.dupe(u8, stmt.text(2)) } }, .{ .key = "filename", .value = .{ .string = try allocator.dupe(u8, stmt.text(3)) } }, .{ .key = "tags", .value = .{ .string = try allocator.dupe(u8, stmt.text(4)) } }, .{ .key = "word_count", .value = .{ .integer = stmt.int64(5) } }, .{ .key = "summary", .value = .{ .string = try allocator.dupe(u8, stmt.text(6)) } }, .{ .key = "created_at", .value = .{ .string = try allocator.dupe(u8, stmt.text(7)) } }, .{ .key = "updated_at", .value = .{ .string = try allocator.dupe(u8, stmt.text(8)) } } });
+        return json.object(allocator, &.{ .{ .key = "note", .value = note_value }, .{ .key = "content", .value = .{ .string = content } } });
+    }
+    if (std.mem.eql(u8, name, "create_note")) {
+        const title = json.getString(args, "title") orelse return error.InvalidParams;
+        const content = json.getString(args, "content") orelse return error.InvalidParams;
+        const tags = tagsAsString(allocator, json.get(args, "tags")) catch return error.InvalidParams;
+        const slug = try createNoteMcp(allocator, db, config, title, content, tags);
+        return json.object(allocator, &.{ .{ .key = "success", .value = .{ .bool = true } }, .{ .key = "slug", .value = .{ .string = slug } } });
+    }
+    if (std.mem.eql(u8, name, "get_academic_context")) {
+        const data = mcp_client.callTool(allocator, config.mikareno_mcp_url, config.mcp_timeout_ms, "get_student_full", try json.object(allocator, &.{.{ .key = "bg", .value = .{ .bool = true } }}), true) catch {
+            return json.object(allocator, &.{
+                .{ .key = "connected", .value = .{ .bool = false } },
+                .{ .key = "available", .value = .{ .bool = false } },
+                .{ .key = "error", .value = .{ .string = "Mikareno no está disponible; no se inventaron datos académicos." } },
+            });
+        };
+        return json.object(allocator, &.{
+            .{ .key = "connected", .value = .{ .bool = true } },
+            .{ .key = "available", .value = .{ .bool = true } },
+            .{ .key = "data", .value = data },
+            .{ .key = "calendario", .value = json.get(data, "calendario") orelse .null },
+            .{ .key = "horario", .value = json.get(data, "horario") orelse .null },
+            .{ .key = "perfil", .value = json.get(data, "perfil") orelse json.get(data, "estudiante") orelse .null },
+        });
+    }
+    if (std.mem.eql(u8, name, "get_subject_notes")) {
+        const subject = json.getString(args, "subject") orelse return error.InvalidParams;
+        var stmt = try db.prepare("SELECT slug,title,tags,COALESCE(summary,'') FROM notes WHERE tags LIKE ?1 ORDER BY updated_at DESC LIMIT 50");
+        defer stmt.deinit();
+        const pattern = try std.fmt.allocPrint(allocator, "%{s}%", .{subject});
+        try stmt.bindText(1, pattern);
+        var list = std.json.Array.init(allocator);
+        while (try stmt.next()) try list.append(try json.object(allocator, &.{ .{ .key = "slug", .value = .{ .string = try allocator.dupe(u8, stmt.text(0)) } }, .{ .key = "title", .value = .{ .string = try allocator.dupe(u8, stmt.text(1)) } }, .{ .key = "tags", .value = .{ .string = try allocator.dupe(u8, stmt.text(2)) } }, .{ .key = "summary", .value = .{ .string = try allocator.dupe(u8, stmt.text(3)) } } }));
+        return json.object(allocator, &.{.{ .key = "notes", .value = .{ .array = list } }});
+    }
+    if (std.mem.eql(u8, name, "get_study_sheets")) return studySheets(allocator, db, args);
+    if (std.mem.eql(u8, name, "app_list_backups")) return backups(allocator, config);
+    if (std.mem.eql(u8, name, "app_backup_now")) return backupNow(allocator, db, config);
+    if (std.mem.eql(u8, name, "app_ai_cost")) return aiCost(allocator, db, config);
+    return error.MethodNotFound;
+}
+
+fn studySheets(allocator: std.mem.Allocator, db: *sqlite.Db, args: std.json.Value) !std.json.Value {
+    const subject = json.getString(args, "subject");
+    const sql = if (subject != null)
+        "SELECT n.slug,n.title,n.tags,COALESCE((SELECT content FROM note_versions v WHERE v.note_id=n.id ORDER BY v.id DESC LIMIT 1),'') FROM notes n WHERE n.tags LIKE ?1 ORDER BY n.updated_at DESC LIMIT 20"
+    else
+        "SELECT n.slug,n.title,n.tags,COALESCE((SELECT content FROM note_versions v WHERE v.note_id=n.id ORDER BY v.id DESC LIMIT 1),'') FROM notes n ORDER BY n.updated_at DESC LIMIT 20";
+    var stmt = try db.prepare(sql);
+    defer stmt.deinit();
+    if (subject) |value| {
+        const pattern = try std.fmt.allocPrint(allocator, "%{s}%", .{value});
+        try stmt.bindText(1, pattern);
+    }
+    var items = std.json.Array.init(allocator);
+    while (try stmt.next()) {
+        const metadata = try json.object(allocator, &.{
+            .{ .key = "slug", .value = .{ .string = try allocator.dupe(u8, stmt.text(0)) } },
+            .{ .key = "title", .value = .{ .string = try allocator.dupe(u8, stmt.text(1)) } },
+            .{ .key = "tags", .value = .{ .string = try allocator.dupe(u8, stmt.text(2)) } },
+        });
+        try items.append(try json.object(allocator, &.{
+            .{ .key = "note", .value = metadata },
+            .{ .key = "content", .value = .{ .string = try allocator.dupe(u8, stmt.text(3)) } },
+        }));
+    }
+    return json.object(allocator, &.{ .{ .key = "items", .value = .{ .array = items } }, .{ .key = "available", .value = .{ .bool = true } } });
+}
+
+fn tagsAsString(allocator: std.mem.Allocator, tags: ?std.json.Value) ![]const u8 {
+    const value = tags orelse return "";
+    if (value == .string) return value.string;
+    if (value != .array) return error.InvalidParams;
+    var output: std.ArrayList(u8) = .init(allocator);
+    for (value.array.items, 0..) |item, index| {
+        if (item != .string or item.string.len > 80) return error.InvalidParams;
+        if (index > 0) try output.appendSlice(", ");
+        try output.appendSlice(item.string);
+    }
+    return output.toOwnedSlice();
+}
+
+fn searchNotes(allocator: std.mem.Allocator, db: *sqlite.Db, query: []const u8, limit: usize) !std.json.Value {
+    var items = std.json.Array.init(allocator);
+    const pattern = try std.fmt.allocPrint(allocator, "%{s}%", .{query});
+    var stmt = try db.prepare("SELECT n.slug,n.title,n.tags,COALESCE(n.summary,'') FROM notes n WHERE n.title LIKE ?1 OR n.tags LIKE ?1 OR EXISTS(SELECT 1 FROM note_versions v WHERE v.note_id=n.id AND v.content LIKE ?1) ORDER BY n.updated_at DESC LIMIT ?2");
+    defer stmt.deinit();
+    try stmt.bindText(1, pattern);
+    try stmt.bindInt(2, @intCast(@min(limit, 50)));
+    while (try stmt.next()) try items.append(try json.object(allocator, &.{ .{ .key = "slug", .value = .{ .string = try allocator.dupe(u8, stmt.text(0)) } }, .{ .key = "title", .value = .{ .string = try allocator.dupe(u8, stmt.text(1)) } }, .{ .key = "tags", .value = .{ .string = try allocator.dupe(u8, stmt.text(2)) } }, .{ .key = "summary", .value = .{ .string = try allocator.dupe(u8, stmt.text(3)) } } }));
+    return .{ .array = items };
+}
+
+fn createNoteMcp(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, title_raw: []const u8, content: []const u8, tags: []const u8) ![]const u8 {
+    const title = std.mem.trim(u8, title_raw, " \t\r\n");
+    if (title.len == 0 or title.len > 200 or content.len > 500000 or tags.len > 500) return error.InvalidParams;
+    const slug = try slugify(allocator, title);
+    const filename = try std.fmt.allocPrint(allocator, "{s}.md", .{slug});
+    var stmt = try db.prepare("INSERT INTO notes(title,slug,filename,tags,word_count,summary) VALUES(?1,?2,?3,?4,?5,?6)");
+    defer stmt.deinit();
+    try stmt.bindText(1, title);
+    try stmt.bindText(2, slug);
+    try stmt.bindText(3, filename);
+    try stmt.bindText(4, tags);
+    try stmt.bindInt(5, wordCount(content));
+    try stmt.bindText(6, content[0..@min(content.len, 240)]);
+    _ = try stmt.next();
+    const id = db.lastInsertRowId();
+    var version = try db.prepare("INSERT INTO note_versions(note_id,content,word_count) VALUES(?1,?2,?3)");
+    defer version.deinit();
+    try version.bindInt(1, id);
+    try version.bindText(2, content);
+    try version.bindInt(3, wordCount(content));
+    _ = try version.next();
+    try std.fs.cwd().makePath(config.notes_dir);
+    const file_path = try std.fs.path.join(allocator, &.{ config.notes_dir, filename });
+    const file = try std.fs.cwd().createFile(file_path, .{ .truncate = true });
+    defer file.close();
+    try file.writeAll(try std.fmt.allocPrint(allocator, "---\ntitle: \"{s}\"\ntags: \"{s}\"\n---\n\n{s}", .{ title, tags, content }));
+    return slug;
+}
+
+fn backups(allocator: std.mem.Allocator, config: *const config_mod.Config) !std.json.Value {
+    const path = try backupDir(allocator, config);
+    var list = std.json.Array.init(allocator);
+    var dir = std.fs.cwd().openDir(path, .{ .iterate = true }) catch return json.object(allocator, &.{.{ .key = "backups", .value = .{ .array = list } }});
+    defer dir.close();
+    var iter = dir.iterate();
+    while (try iter.next()) |entry| {
+        if (entry.kind != .file or !std.mem.endsWith(u8, entry.name, ".db")) continue;
+        const full = try std.fs.path.join(allocator, &.{ path, entry.name });
+        const file = std.fs.cwd().openFile(full, .{}) catch continue;
+        defer file.close();
+        const size = (try file.stat()).size;
+        try list.append(try json.object(allocator, &.{ .{ .key = "name", .value = .{ .string = try allocator.dupe(u8, entry.name) } }, .{ .key = "bytes", .value = .{ .integer = @intCast(size) } } }));
+    }
+    return json.object(allocator, &.{.{ .key = "backups", .value = .{ .array = list } }});
+}
+
+fn backupNow(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config) !std.json.Value {
+    const dir = try backupDir(allocator, config);
+    const stamp = try timestamp(allocator);
+    const name = try std.fmt.allocPrint(allocator, "app-{s}.db", .{stamp});
+    const path = try std.fs.path.join(allocator, &.{ dir, name });
+    try db.backupTo(path);
+    if (!try sqlite.Db.integrityCheckFile(allocator, path)) return error.SqliteError;
+    const file = try std.fs.cwd().openFile(path, .{});
+    defer file.close();
+    const size = (try file.stat()).size;
+    return json.object(allocator, &.{ .{ .key = "success", .value = .{ .bool = true } }, .{ .key = "name", .value = .{ .string = name } }, .{ .key = "bytes", .value = .{ .integer = @intCast(size) } }, .{ .key = "path", .value = .{ .string = path } }, .{ .key = "size_bytes", .value = .{ .integer = @intCast(size) } } });
+}
+
+fn aiCost(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config) !std.json.Value {
+    var stmt = try db.prepare("SELECT COALESCE(SUM(cost_usd),0),COUNT(*) FROM usage_metrics WHERE created_at>=date('now','start of month')");
+    defer stmt.deinit();
+    _ = try stmt.next();
+    const spent = stmt.float64(0);
+    const count = stmt.int64(1);
+    return json.object(allocator, &.{ .{ .key = "total_cost", .value = .{ .float = spent } }, .{ .key = "budget_limit", .value = .{ .float = config.openrouter_max_cost_usd } }, .{ .key = "requests_count", .value = .{ .integer = count } }, .{ .key = "alert", .value = .{ .bool = config.openrouter_max_cost_usd > 0 and spent >= config.openrouter_max_cost_usd * 0.9 } } });
+}
+
+fn backupDir(allocator: std.mem.Allocator, config: *const config_mod.Config) ![]const u8 {
+    const parent = std.fs.path.dirname(config.db_path) orelse ".";
+    const path = try std.fs.path.join(allocator, &.{ parent, "backups" });
+    try std.fs.cwd().makePath(path);
+    return path;
+}
+
+fn timestamp(allocator: std.mem.Allocator) ![]const u8 {
+    const now = std.time.timestamp();
+    const e = std.time.epoch.EpochSeconds{ .secs = @intCast(@max(0, now)) };
+    const y = e.getEpochDay().calculateYearDay();
+    const m = y.calculateMonthDay();
+    const t = e.getDaySeconds();
+    return std.fmt.allocPrint(allocator, "{d:0>4}{d:0>2}{d:0>2}-{d:0>2}{d:0>2}{d:0>2}", .{ y.year, m.month.numeric(), m.day_index + 1, t.getHoursIntoDay(), t.getMinutesIntoHour(), t.getSecondsIntoMinute() });
+}
+
+fn slugify(allocator: std.mem.Allocator, title: []const u8) ![]const u8 {
+    var out: std.ArrayListUnmanaged(u8) = .empty;
+    var dash = true;
+    for (title) |byte| {
+        if (std.ascii.isAlphanumeric(byte)) {
+            try out.append(allocator, std.ascii.toLower(byte));
+            dash = false;
+        } else if (byte >= 0x80) {
+            try out.append(allocator, byte);
+            dash = false;
+        } else if (!dash) {
+            try out.append(allocator, '-');
+            dash = true;
+        }
+    }
+    while (out.items.len > 0 and out.items[out.items.len - 1] == '-') _ = out.pop();
+    if (out.items.len == 0) return error.InvalidParams;
+    return out.items;
+}
+
+fn safeSlug(slug: []const u8) bool {
+    return slug.len > 0 and std.mem.indexOf(u8, slug, "..") == null and std.mem.indexOfAny(u8, slug, "/\\\x00") == null;
+}
+
+fn wordCount(text: []const u8) i64 {
+    var n: i64 = 0;
+    var inside = false;
+    for (text) |c| {
+        if (std.ascii.isWhitespace(c)) inside = false else if (!inside) {
+            n += 1;
+            inside = true;
+        }
+    }
+    return n;
+}
+
+fn jsonRpcResponse(allocator: std.mem.Allocator, status: u16, id: ?std.json.Value, result: ?std.json.Value, rpc_error: ?RpcError) !http.Response {
+    var obj = std.json.ObjectMap.init(allocator);
+    try obj.put("jsonrpc", .{ .string = "2.0" });
+    if (id) |v| try obj.put("id", v) else try obj.put("id", .null);
+    if (result) |v| try obj.put("result", v);
+    if (rpc_error) |e| try obj.put("error", try json.object(allocator, &.{ .{ .key = "code", .value = .{ .integer = e.code } }, .{ .key = "message", .value = .{ .string = e.message } } }));
+    return jsonResponse(allocator, status, .{ .object = obj });
+}
+
+fn jsonResponse(allocator: std.mem.Allocator, status: u16, value: std.json.Value) !http.Response {
+    return .{ .status = status, .content_type = "application/json; charset=utf-8", .body = try json.stringify(allocator, value) };
+}
+
+fn jsonError(allocator: std.mem.Allocator, status: u16, message: []const u8) !http.Response {
+    return jsonResponse(allocator, status, try json.object(allocator, &.{.{ .key = "error", .value = .{ .string = message } }}));
+}
+
+test "MCP exposes the protocol version and exactly nine tools" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const tools = try toolDefinitions(allocator);
+    try std.testing.expectEqual(@as(usize, 9), tools.array.items.len);
+    const initialized = try dispatch(allocator, undefined, undefined, "initialize", try json.object(allocator, &.{}), null);
+    try std.testing.expectEqualStrings("2025-03-26", json.getString(initialized, "protocolVersion").?);
+}

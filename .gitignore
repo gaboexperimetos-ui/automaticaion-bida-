@@ -1,6 +1,6 @@
-# Build output
-/target/
-/c_backend/build/
+# Zig build output
+/.zig-cache/
+/zig-out/
 
 # Environment variables (secrets)
 .env

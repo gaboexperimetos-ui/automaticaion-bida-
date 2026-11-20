@@ -1,150 +1,59 @@
-# AGENTS.md — Study Platform (styp)
+# AGENTS.md — Study Platform / NOVA
 
-App web personal de productividad académica (un solo usuario): backend funcional
-Rust/axum en un binario único + SQLite (WAL, FTS5), frontend server-rendered
-(HTML + Tailwind + HTMX). NO es React/Vite/Docker. El usuario ha elegido migrar
-el backend a C por fases; `c_backend/` es la implementación C opt-in y Rust sigue
-siendo la referencia hasta la paridad completa.
+Aplicación web personal con frontend server-rendered **Stitch v2/NOVA** (HTML, CSS, HTMX/JavaScript) y backend implementado en Zig 0.14.1. El backend enlaza libc para sockets y la biblioteca SQLite del sistema; no hay fuentes de implementación Rust ni C en el repo. No convertir el frontend en React/Vite ni añadir otro backend.
 
-## Migración a C (vigente desde 2026-10-31)
-- Alcance y puertas obligatorias: `docs/C_MIGRATION.md`. No declarar 100 % por
-  líneas portadas ni eliminar Rust con endpoints o comportamientos pendientes.
-- Build/pruebas: `make -C c_backend ci` (C17, ASan/UBSan, HTTP y `-fanalyzer`).
-- Ejecutar C solo con BD temporal y `SP_STATIC_ROOT` apuntando al repositorio;
-  nunca contra `data/app.db` local o de la Dell durante las fases incompletas.
-- El binario C no invoca Rust. No añadir wrappers que aparenten cobertura.
-- `c_backend/build/` no se commitea. No instalar paquetes de sistema ni desplegar
-  el binario C sin autorización explícita.
+## Invariantes del proyecto
 
-## Repos y máquinas
-- Repositorio canónico: `/home/gabo/proyectos/styp` (consolidado el 2026-10-20).
-- `~/study-platform` es un **symlink → styp**: es el MISMO árbol, no una segunda
-  copia. La unidad systemd y los docs antiguos usan esa ruta y resuelven igual.
-- Dev/build y mikareno-mcp viven en esta máquina (asus-tuf). Producción es la
-  Dell (ssh `homelab`, `gabo-Inspiron-5720`, tailnet `100.92.172.48`).
-- Remotos: `dell` = `homelab:/home/gabo/study-platform.git` (bare) — `git push
-  dell main` tras cada commit; también existe `origin` (GitHub), sincronizado a
-  2026-10-22.
-- `.env` y sus backups (ya en `.gitignore`) contienen secrets: nunca commitearlos.
+- El alcance acordado es sustituir las implementaciones Rust/C por Zig y mantener los HTML/CSS/HTMX existentes servidos por Zig.
+- No reintroducir `.rs`, `.c`, `Cargo.toml`, Makefiles del backend ni wrappers que oculten una implementación no Zig. Las migraciones SQL y el frontend son recursos, no implementaciones de backend.
+- No declarar paridad total sin probar rutas y comportamientos. `docs/ARCHITECTURE.md` enumera explícitamente las funciones todavía parciales (cliente Mikareno/GenOffice, áreas académicas/oficina y streaming en vivo).
+- No usar datos académicos ficticios: cuando una integración no está implementada o no responde, mostrar un estado vacío honesto.
+- No borrar datos de usuario. Usa `DB_PATH` y `NOTES_DIR` temporales para tests; no trabajes contra una base local/prod por accidente.
+- No desplegar ni ejecutar SSH/SCP/systemctl/crontab sobre la máquina de producción sin autorización explícita en la conversación actual.
 
-## Comandos
-- Orden de trabajo: `cargo check` → `cargo test` → build. Antes de cerrar tarea:
-  `cargo fmt --check && cargo clippy --all-targets`.
-- UN archivo de tests: `cargo test --test auth_sessions` (sin `<>`);
-  28 suites de integración en `tests/`.
-- Dev: `cargo run` (lee `.env`). Sin dependencias externas: SQLite bundled.
-- Última suite completa: 562 en verde (2026-10-19); si el árbol se movió desde
-  entonces, re-ejecutar antes de dar por buena la cifra.
-- CLI real (verificado 2026-10-22 con `--help` del binario): `study-platform
-  [--addr ADDR] [--migrate] [--create-admin USER]`. Servir es el modo por
-  defecto; NO existe subcomando `serve`.
-- El bind lo decide `--addr` (default `0.0.0.0:8090`); `HOST`/`PORT` del `.env`
-  son solo informativos (se muestran en la UI).
-- `--create-admin` genera contraseña aleatoria y NO la imprime; el mensaje que
-  sugiere `study-platform set-password` está desfasado (ese subcomando no
-  existe). Camino real: arrancar con `AUTH_DISABLED=true` y cambiar la
-  contraseña en `/settings/password`.
-- `tests/openrouter_live.rs` llama al proveedor real de OpenRouter dentro de la
-  suite (modelo free, respeta el budget gate): requiere key válida en `.env`.
-- Hay 3 tests `#[ignore]` con el motivo escrito en el test (p. ej.
-  `tests/academic_integration.rs:515` exige el MCP de Mikareno parado;
-  `tests/security.rs:1066` cubre auth legacy). No habilitar sin leer el motivo.
-- Varias sesiones pueden estar editando a la vez: una compilación a medias puede
-  fallar aunque el código esté bien. Reintentar mirando qué ficheros están sucios.
+## Toolchain y validación
 
-## Config `.env` (fuente de verdad: `src/config.rs` + `.env.example`)
-- `SESSION_SECRET` obligatoria (≥32 chars): sin ella la app no arranca.
-- El `.env` local de dev tiene `AUTH_DISABLED=true` (sin login) y
-  `RUST_LOG=debug`; en prod va `false` (login Argon2).
-- IA: sin `OPENROUTER_API_KEY` ⇒ modo demo (todo funciona menos IA). Modelo hoy
-  `minimax/minimax-m3.1-flash:free` (default en código:
-  `cohere/north-mini-code:free`) — no cambiar sin permiso. Presupuesto mensual
-  $2 (`OPENROUTER_MAX_COST_USD`): gate que deja de llamar al proveedor al
-  agotarse. Y ojo: es techo de gasto ANOTADO por la app, no factura del
-  proveedor. El selector de `/dashboard/ai` puede listar modelos de pago
-  (`free === false`): la UI pide confirmación SP.confirm (aviso de cargos) y
-  sin confirmar no se aplica el PUT; los free se aplican directamente.
-- `POST /register` exige `REGISTRATION_TOKEN` (sin esa variable responde 403).
-- `CUSTOM_MCP_API_KEY` vacía ⇒ el servidor MCP propio (`/mcp`, `/mcp/sse`,
-  header `X-API-Key`) queda deshabilitado.
-- El cliente MCP solo acepta hosts loopback / RFC 1918 / CGNAT `100.64/10`
-  (tailnet). Un host público se IGNORA en silencio ⇒ la app corre sin datos
-  académicos sin error evidente (es deliberado).
+- Toolchain fijado: **Zig 0.14.1**.
+- Antes de cerrar un cambio de backend, ejecutar:
 
-## Deploy a la Dell (runbook detallado: `docs/DEPLOY.md`)
-- Cualquier SSH/SCP/systemctl/crontab hacia `homelab` requiere autorización
-  explícita del usuario en esa conversación.
-- `cargo build --release` — glibc, NO musl (no hay `musl-gcc` aquí y el binario
-  de producción siempre fue glibc; re-verificado 2026-10-22).
-- Backup del binario en servicio: `ssh homelab 'cp ~/study-platform/study-platform
-  ~/study-platform/study-platform.prev'` (es el rollback).
-- `scp target/release/study-platform homelab:~/study-platform/study-platform.new`
-  + `mv` atómico + `chmod +x`. NUNCA scp directo al path final: el binario está
-  en ejecución y falla con `ETXTBSY`.
-- `ssh homelab 'pkill -x study-platform'` — systemd lo levanta solo en ~11 s
-  (Restart=always, RestartSec=10). Sin sudo para reiniciar el proceso; sudo solo
-  para tocar la unidad (`daemon-reload`/`enable`/`restart`) y `sudo -n` falla
-  (pide contraseña interactiva).
-- Verificar: `systemctl is-active study-platform`; `curl
-  http://100.92.172.48:8091/health` → 200 con componentes; `sha256sum` local ==
-  remoto; `ssh homelab 'journalctl -u study-platform -n 30 --no-pager'` sin
-  panic (funciona sin sudo).
-- Rollback: restaurar `.prev` y repetir el `pkill`.
-- Lección de producción: registrar una ruta DOS veces hace panic de axum
-  ("Overlapping method route") y el servicio entra en crash-loop. Ante loop,
-  leer el panic del journal antes de reintentar deploy.
+```bash
+zig fmt --check build.zig main.zig test_root.zig src/*.zig
+zig build
+zig build test --summary all
+python3 tests/http_smoke.py --binary zig-out/bin/study-platform
+```
 
-## Infra
-- Puerto 8091 en la Dell SIEMPRE (el 8090 de esa máquina está ocupado por otro
-  servicio). Unidad `study-platform` es **de sistema** (`/etc/systemd/system`):
-  `systemctl --user` da "unit not found". Dell pequeña: MemoryMax=1G.
-- mikareno-mcp (datos escolares): FastMCP/Python en ESTA máquina (systemd
-  `--user`, `mikareno-mcp.service`, `0.0.0.0:8080`, 18 tools; verificado
-  escuchando 2026-10-22). La Dell lo ve en `http://100.115.62.97:8080/mcp`;
-  local: `http://127.0.0.1:8080/mcp`. Issue conocido: algunas tools se cuelgan
-  y el lock compartido bloquea a las demás; la app degrada a error por sus
-  deadlines (no es bug de la app). Recovery: `systemctl --user restart
-  mikareno-mcp.service`.
-- GenOffice MCP: `127.0.0.1:8453` en la Dell; también escucha en esta máquina
-  (verificado 2026-10-22, proceso `genoffice`).
-- BD: la que cuenta es la de la DELL (`~/study-platform/data/app.db`, ~1.5 MB).
-  La `data/app.db` local (~100 KB) es dev/stale: no mezclar. Notas: contenido
-  en ficheros `.md` de `NOTES_DIR`; en BD solo metadatos.
-- Backups: tarea in-app diaria (60 s tras arrancar, luego cada 24 h; retención
-  5 en `data/backups/`, sidecar `.sha256` con `integrity_check`) y cron en la
-  Dell a las 03:15 (`backup-db.sh`, retención 14). Restore solo vía API:
-  valida nombre + integridad, dentro de transacción, sin sustituir el fichero vivo.
-- `/health` hace probes reales (MCP: POST `initialize`) con cache TTL 30 s: los
-  componentes del JSON reflejan estado real, no hardcode.
-- `.env` de la Dell: `/home/gabo/study-platform/.env`, permisos 600 — NO copiar
-  el local de dev encima.
+- Para release: `zig build -Doptimize=ReleaseFast`.
+- `tests/http_smoke.py` es sólo harness de integración Python estándar; la aplicación y su lógica permanecen en Zig.
+- No configurar una clave real de OpenRouter en tests ni llamar a servicios de pago. El smoke test usa modo simulado y datos temporales.
+- CI vive en `.github/workflows/zig-validation.yml`; el prerelease de preview está separado en `preview-backend.yml`.
 
-## Seguridad (invariantes — no se negocian)
-- NUNCA secrets en código ni logs. La key de OpenRouter vieja fue retirada
-  del árbol actual (design/**/centro_mcp_configuraci_n_openrouter/code.html,
-  `value=` vaciado); el historial (aa193d0) sigue considerándose expuesto y
-  la rotación queda PENDIENTE si esa clave fue real: no usarla, no imprimirla.
-- No exponer puertos a internet: acceso solo vía Tailscale.
-- No tocar firewall, Tailscale, GenOffice MCP ni config de OpenCode; no
-  instalar paquetes de sistema sin autorización; confirmar antes de
-  operaciones destructivas.
-- No cambiar el modelo del agente ni consumir créditos de pago sin
-  autorización explícita.
+## Estructura y fuentes de verdad
 
-## Debugging
-- App prod (Dell): `ssh homelab 'journalctl -u study-platform -n 50 --no-pager'`.
-- mikareno-mcp (esta máquina): `journalctl --user -u mikareno-mcp`.
-- Puertos: `ss -tln | grep -E ':(8080|8090|8091|8453)'`.
-- No asumir: verificar con `curl` o test directo.
+- `build.zig`, `main.zig`, `test_root.zig`: build, ejecutable y raíz de tests.
+- `src/main.zig`: CLI, listener IPv4 y manejo de conexiones.
+- `src/app.zig`: rutas, sesiones, rate limit, configuración, admin y backups.
+- `src/notes.zig`: CRUD Markdown, búsqueda, notas y anotaciones/calendario.
+- `src/ai.zig`: APIs AI/OpenRouter, persistencia de conversaciones y coste.
+- `src/mcp.zig`: servidor MCP propio y herramientas.
+- `src/sqlite.zig`: ABI SQLite y migraciones embebidas.
+- `src/http.zig`, `src/security.zig`, `src/templates.zig`, `src/assets.zig`, `src/jsonutil.zig`, `src/config.zig`: HTTP, seguridad, plantillas/estáticos, JSON y configuración.
+- `static/`: frontend Stitch/NOVA y archivos estáticos preservados.
+- `migrations/`: ocho migraciones SQL preservadas; no sustituirlas por schema duplicado en Zig.
+- Variables actuales: `src/config.zig` y `.env.example`; rutas: `src/app.zig`, `src/notes.zig`, `src/ai.zig`, `src/mcp.zig` y `docs/API.md`.
 
-## Docs y convenciones
-- Entrada documental: `docs/INDEX.md`. Estado verificado más reciente:
-  `docs/SESSION_HANDOFF.md`. API completa: `docs/API.md`. Runbook:
-  `docs/DEPLOY.md` (sustituye `DEPLOYMENT.md`). Setup local:
-  `docs/DEVELOPER_SETUP.md`.
-- Regla del repo: al cerrar una tarea relevante, actualizar el doc
-  correspondiente en `docs/` y su fecha de vigencia.
-- Fuente de verdad de rutas HTTP: `src/handlers/mod.rs` + `register_routes()`
-  de cada módulo; de variables de entorno: `src/config.rs`.
-- Mensajes de usuario y commits en español; comentarios del código mezclados
-  EN/ES.
+## Build y ejecución segura
+
+- SQLite debe estar disponible en el sistema (`libsqlite3.so.0`; en Debian/Ubuntu, `libsqlite3-dev` para compilar).
+- `SESSION_SECRET` es obligatorio y debe tener ≥32 caracteres. Nunca imprimirlo ni copiar un `.env` real al repo.
+- `AUTH_DISABLED=true` es sólo para desarrollo privado; el smoke test lo usa en un loopback temporal.
+- El MCP propio requiere `CUSTOM_MCP_API_KEY`. Una clave vacía debe dejar el endpoint deshabilitado, no abierto.
+- Los artefactos Zig (`.zig-cache/`, `zig-out/`) y los datos runtime están ignorados por Git.
+
+## Documentación y honestidad sobre estado
+
+- Entrada: `docs/INDEX.md`; API: `docs/API.md`; setup: `docs/DEVELOPER_SETUP.md`; arquitectura y paridad: `docs/ARCHITECTURE.md`; pruebas: `docs/TESTING.md`.
+- Actualiza documentación si cambian rutas, configuración, seguridad o comportamiento.
+- Describe como «buffered SSE» la respuesta `/api/ai/chat/stream` hasta que exista relay token-a-token verificado.
+- No describas Mikareno, GenOffice, tareas de backup en segundo plano ni páginas académicas como funcionales mientras sólo haya placeholders.
+- No afirmes que el binario Zig está en producción: el preview local/CI no es un despliegue.
