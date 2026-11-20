@@ -939,6 +939,7 @@ pub fn stitch_v2_page(active: &str, content: &str, authenticated: bool) -> Strin
 {shell_js}
 {user_menu_js}
 </script>
+<script src="/calendar-ics.js" defer></script>
 <script src="/shell.js" defer></script>
 </body>
 </html>"###,

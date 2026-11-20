@@ -68,9 +68,23 @@ const MAX_EVENTOS_POR_DIA: usize = 3;
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct Anotacion {
     pub id: i64,
+    /// Fecha inicial (`YYYY-MM-DD`).
     pub date: String,
     pub title: String,
     pub body: String,
+    /// Categoría del planner (academic, work, health o personal).
+    pub category: String,
+    /// `planner` para una nota personal; `event` para un VEVENT importado.
+    pub kind: String,
+    /// Fecha final: exclusiva para eventos de todo el día, inclusiva para los horarios.
+    pub end_date: Option<String>,
+    pub all_day: bool,
+    pub start_time: Option<String>,
+    pub end_time: Option<String>,
+    pub location: String,
+    pub uid: Option<String>,
+    pub recurrence: Option<String>,
+    pub weekly_day: Option<i64>,
 }
 
 /// Todo lo que se muestra en un día del calendario.
@@ -80,6 +94,8 @@ pub struct DiaData {
     pub clases: Vec<String>,
     /// Eventos escolares (día de clase, vacaciones, evento puntual).
     pub eventos: Vec<CalendarioEvent>,
+    /// Eventos locales importados desde iCalendar.
+    pub eventos_importados: Vec<Anotacion>,
     /// Tareas que vencen ese día.
     pub tareas: Vec<Tarea>,
     /// Anotaciones escritas por el usuario.
@@ -91,6 +107,7 @@ impl DiaData {
     pub fn vacio(&self) -> bool {
         self.clases.is_empty()
             && self.eventos.is_empty()
+            && self.eventos_importados.is_empty()
             && self.tareas.is_empty()
             && self.anotaciones.is_empty()
     }
@@ -308,11 +325,20 @@ pub async fn anotaciones_en_rango(
     let desde_s = desde.format("%Y-%m-%d").to_string();
     let hasta_s = hasta.format("%Y-%m-%d").to_string();
     let rows = sqlx::query(
-        "SELECT id, date, title, body
+        "SELECT id, date, title, body, category, kind, end_date, all_day,
+                start_time, end_time, location, uid, recurrence, weekly_day
            FROM calendar_annotations
-          WHERE date >= ? AND date <= ?
+          WHERE (date >= ? AND date <= ?)
+             OR (kind = 'event' AND date < ? AND
+                 ((all_day = 1 AND end_date > ?)
+                   OR (all_day = 0 AND COALESCE(end_date, date) >= ?)))
+             OR (kind = 'event' AND recurrence = 'weekly' AND date <= ?)
           ORDER BY date ASC, id ASC",
     )
+    .bind(&desde_s)
+    .bind(&hasta_s)
+    .bind(&desde_s)
+    .bind(&desde_s)
     .bind(&desde_s)
     .bind(&hasta_s)
     .fetch_all(&state.db)
@@ -325,6 +351,16 @@ pub async fn anotaciones_en_rango(
                 date: r.get::<String, _>("date"),
                 title: r.get::<String, _>("title"),
                 body: r.get::<String, _>("body"),
+                category: r.get::<String, _>("category"),
+                kind: r.get::<String, _>("kind"),
+                end_date: r.get::<Option<String>, _>("end_date"),
+                all_day: r.get::<i64, _>("all_day") != 0,
+                start_time: r.get::<Option<String>, _>("start_time"),
+                end_time: r.get::<Option<String>, _>("end_time"),
+                location: r.get::<String, _>("location"),
+                uid: r.get::<Option<String>, _>("uid"),
+                recurrence: r.get::<Option<String>, _>("recurrence"),
+                weekly_day: r.get::<Option<i64>, _>("weekly_day"),
             })
             .collect(),
         Err(e) => {
@@ -344,6 +380,13 @@ pub fn dias_del_mes(
     foco: NaiveDate,
 ) -> HashMap<String, DiaData> {
     let mut mapa: HashMap<String, DiaData> = HashMap::new();
+    let (year, month) = (foco.year(), foco.month());
+    let primero = NaiveDate::from_ymd_opt(year, month, 1).unwrap_or(foco);
+    let ultimo = primero + chrono::Duration::days(days_in_month(year, month) as i64 - 1);
+    let inicio = primero - chrono::Duration::days(primero.weekday().num_days_from_monday() as i64);
+    let fin_semana =
+        ultimo + chrono::Duration::days(6 - ultimo.weekday().num_days_from_monday() as i64);
+    let fin = fin_semana.max(inicio + chrono::Duration::days(41));
 
     for ev in &datos.eventos {
         if ev.fecha.len() < 10 {
@@ -361,28 +404,81 @@ pub fn dias_del_mes(
         }
     }
 
-    for a in anotaciones {
-        mapa.entry(a.date.clone())
-            .or_default()
-            .anotaciones
-            .push(a.clone());
+    for anotacion in anotaciones {
+        if anotacion.kind != "event" {
+            mapa.entry(anotacion.date.clone())
+                .or_default()
+                .anotaciones
+                .push(anotacion.clone());
+            continue;
+        }
+
+        let Some(inicio_evento) = NaiveDate::parse_from_str(&anotacion.date, "%Y-%m-%d").ok()
+        else {
+            continue;
+        };
+        let fin_evento = anotacion
+            .end_date
+            .as_deref()
+            .and_then(|value| NaiveDate::parse_from_str(value, "%Y-%m-%d").ok())
+            .unwrap_or_else(|| {
+                if anotacion.all_day {
+                    inicio_evento + chrono::Duration::days(1)
+                } else {
+                    inicio_evento
+                }
+            });
+        if anotacion.recurrence.as_deref() == Some("weekly") {
+            let Some(weekly_day) = anotacion.weekly_day.filter(|day| (0..=6).contains(day)) else {
+                continue;
+            };
+            let mut fecha = inicio_evento.max(inicio);
+            while fecha <= fin && i64::from(fecha.weekday().num_days_from_sunday()) != weekly_day {
+                fecha += chrono::Duration::days(1);
+            }
+            while fecha <= fin {
+                mapa.entry(fecha.format("%Y-%m-%d").to_string())
+                    .or_default()
+                    .eventos_importados
+                    .push(anotacion.clone());
+                fecha += chrono::Duration::days(7);
+            }
+            continue;
+        }
+        let mut fecha = if inicio_evento < inicio {
+            inicio
+        } else {
+            inicio_evento
+        };
+        while fecha <= fin {
+            let visible = if anotacion.all_day {
+                fecha < fin_evento
+            } else {
+                fecha <= fin_evento
+            };
+            if !visible {
+                break;
+            }
+            mapa.entry(fecha.format("%Y-%m-%d").to_string())
+                .or_default()
+                .eventos_importados
+                .push(anotacion.clone());
+            fecha += chrono::Duration::days(1);
+        }
     }
 
-    // Las clases se proyectan sobre todos los días del mes usando el mismo
-    // horario personal 2026–2027 que abre `/dashboard/horario`. Eventos,
-    // tareas y anotaciones conservan sus fuentes; no se mezclan con un
-    // horario distinto del que el usuario acaba de confirmar.
+    // Las clases se proyectan en todas las celdas visibles, también en los
+    // días adyacentes del mes anterior y siguiente que completan las semanas.
+    // Así el panel de StudyDesk puede seleccionar cualquiera de esas fechas.
     let horario_personal = crate::handlers::schedule::horario_personal();
-    let (year, month) = (foco.year(), foco.month());
-    let primero = NaiveDate::from_ymd_opt(year, month, 1).unwrap_or(foco);
-    let dias_mes = days_in_month(year, month);
-    for d in 1..=dias_mes {
-        let fecha = primero + chrono::Duration::days(d as i64 - 1);
+    let mut fecha = inicio;
+    while fecha <= fin {
         let clases = clases_del_dia(&horario_personal, fecha);
         if !clases.is_empty() {
             let clave = fecha.format("%Y-%m-%d").to_string();
             mapa.entry(clave).or_default().clases = clases;
         }
+        fecha += chrono::Duration::days(1);
     }
 
     mapa
@@ -414,6 +510,7 @@ fn days_in_month(year: i32, month: u32) -> u32 {
 pub fn total_elementos(dia: &DiaData) -> usize {
     usize::from(!dia.clases.is_empty())
         + dia.eventos.len()
+        + dia.eventos_importados.len()
         + dia.tareas.len()
         + dia.anotaciones.len()
 }

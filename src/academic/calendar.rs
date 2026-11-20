@@ -3,7 +3,7 @@
 use axum::{extract::State, response::Html};
 use chrono::{Datelike, NaiveDate, Timelike};
 use serde::Deserialize;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 use tokio::time::{self, Duration};
 
@@ -11,8 +11,8 @@ use crate::academic::{calendar_data, mikareno_client, templates};
 use crate::integrations::mikareno::{CalendarioEvent, Horario, Tarea};
 use crate::AppState;
 
-/// Rango de fechas que cubre la rejilla del mes: el mes visible más los días
-/// de los meses vecinos que se muestran atenuados.
+/// Rango exacto de fechas de la rejilla mensual: empieza el lunes de la
+/// primera semana y termina el domingo de la última, igual que StudyDesk.
 fn rango_mes(focus: NaiveDate) -> (NaiveDate, NaiveDate) {
     use chrono::Datelike;
     let primero = focus.with_day(1).unwrap_or(focus);
@@ -23,12 +23,11 @@ fn rango_mes(focus: NaiveDate) -> (NaiveDate, NaiveDate) {
         NaiveDate::from_ymd_opt(year, month + 1, 1)
     };
     let fin_mes = siguiente.and_then(|s| s.pred_opt()).unwrap_or(primero);
-    // La rejilla empieza en lunes y termina en domingo: se toma una semana de
-    // margen a cada lado para que ningún día atenuado quede fuera.
-    (
-        primero - chrono::Duration::days(7),
-        fin_mes + chrono::Duration::days(7),
-    )
+    let inicio = primero - chrono::Duration::days(primero.weekday().num_days_from_monday() as i64);
+    let fin_semana =
+        fin_mes + chrono::Duration::days(6 - fin_mes.weekday().num_days_from_monday() as i64);
+    let fin_seis_semanas = inicio + chrono::Duration::days(41);
+    (inicio, fin_semana.max(fin_seis_semanas))
 }
 
 /// Banner honesto del estado de Mikareno en el calendario.
@@ -66,15 +65,14 @@ const TIMEOUT_DATOS: Duration = Duration::from_secs(5);
 /// vista degrada en 2 s en vez de agotar los 5 s del presupuesto.
 const TIMEOUT_HANDSHAKE: Duration = Duration::from_secs(2);
 
-/// Class the shared month-grid template puts on every numbered day cell.
-const CELL_MARKER: &str = "calendar-cell";
-
 /// Optional query parameter for HTMX partial reloads.
 #[derive(Deserialize)]
 pub struct CalendarQuery {
     partial: Option<String>,
     /// Target month (`YYYY-MM`) for the calendar grid, used by prev/next nav.
     month: Option<String>,
+    /// Selected day (`YYYY-MM-DD`) in the monthly planner.
+    date: Option<String>,
 }
 
 /// Parse a `YYYY-MM` focus month into the first-of-month `NaiveDate`; falls back
@@ -89,17 +87,15 @@ fn parse_month(s: Option<&str>) -> NaiveDate {
     today
 }
 
+/// La selección del mes no se limita a la fecha enfocada: StudyDesk conserva
+/// el día elegido al navegar, aunque quede temporalmente fuera del grid.
+fn parse_selected_date(s: Option<&str>, fallback: NaiveDate) -> NaiveDate {
+    s.and_then(|raw| NaiveDate::parse_from_str(raw.trim(), "%Y-%m-%d").ok())
+        .unwrap_or(fallback)
+}
+
 /// Maximum distance (in days) the daily view may navigate away from today.
 const MAX_DAY_OFFSET: i64 = 60;
-
-/// Blank cell the shared month grid renders for the days that do not belong
-/// to the focused month (it carries no day number).
-const BLANK_CELL: &str = r#"<div class="border border-outline/30 rounded-lg"></div>"#;
-
-/// Class of the cells this module renders for the days of the neighbouring
-/// months. Deliberately different from [`CELL_MARKER`] so the badge
-/// injection never reads a neighbouring day as a day of the focused month.
-const OUTSIDE_CELL_CLASS: &str = "calendar-outside-cell";
 
 /// Optional query parameters of the daily view.
 #[derive(Deserialize)]
@@ -290,199 +286,10 @@ fn days_in_month(year: i32, month: u32) -> u32 {
     days
 }
 
-/// Events of a single day, aggregated for the month-grid counter badge.
-#[derive(Default)]
-struct DayBucket {
-    /// How many events the day has.
-    count: usize,
-    /// Titles of the day, in the order the API returned them.
-    titles: Vec<String>,
-}
-
-/// Date part (`YYYY-MM-DD`) of an event's date, used as the bucket key.
-///
-/// The source normally truncates the date, but it may also deliver a
-/// timestamp (`2026-10-19T08:30:00`). The grid looks the days up by date,
-/// so the key is always the date part: otherwise a day with a timestamped
-/// event would lose its badge.
+/// Date part (`YYYY-MM-DD`) of an event, also when the source includes a time.
 fn day_key(fecha: &str) -> String {
     let f = fecha.trim();
     f.get(..10).unwrap_or(f).to_string()
-}
-
-/// Group calendar events by their ISO date (`YYYY-MM-DD`).
-fn bucket_by_day(events: &[CalendarioEvent]) -> HashMap<String, DayBucket> {
-    let mut buckets: HashMap<String, DayBucket> = HashMap::new();
-    for ev in events {
-        let bucket = buckets.entry(day_key(&ev.fecha)).or_default();
-        bucket.count += 1;
-        bucket.titles.push(ev.evento.clone());
-    }
-    buckets
-}
-
-/// Discreet counter badge of a day cell: absolutely positioned, so it never
-/// pushes the event chips down, with the day's titles in the tooltip.
-fn badge_html(bucket: &DayBucket) -> String {
-    let titles = bucket.titles.join(" · ");
-    format!(
-        r###"<span class="calendar-event-count absolute top-1 right-1 inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full bg-primary-container/20 text-primary-container text-[9px] font-semibold leading-none" title="{}">{}</span>"###,
-        templates::html_escape(&titles),
-        bucket.count
-    )
-}
-
-/// Read the day number of a grid cell from the first `<span>` it holds (the
-/// one with the day of the month). `None` when the markup is not the expected
-/// one — the caller then leaves the cell untouched.
-fn cell_day_number(cell: &str) -> Option<u32> {
-    let span_at = cell.find("<span")?;
-    let after_span = &cell[span_at..];
-    // End of the opening tag of that span.
-    let tag_end = after_span.find('>')? + 1;
-    let body = &after_span[tag_end..];
-    let body_end = body.find("</span>")?;
-    body[..body_end].trim().parse::<u32>().ok()
-}
-
-/// Inject the counter badge into every month cell that has events.
-///
-/// The rendered grid is walked cell by cell (cells carry the `calendar-cell`
-/// class); the day number of each cell decides which bucket of events it
-/// gets. If the markup ever changes and no day number can be read, the grid
-/// is returned unchanged.
-fn inject_event_badges(
-    grid: &str,
-    year: i32,
-    month: u32,
-    buckets: &HashMap<String, DayBucket>,
-) -> String {
-    let mut out = String::with_capacity(grid.len() + 256);
-    let mut rest = grid;
-
-    loop {
-        let Some(at) = rest.find(CELL_MARKER) else {
-            out.push_str(rest);
-            return out;
-        };
-        out.push_str(&rest[..at]);
-        let cell = &rest[at..];
-
-        // End of the opening tag of the cell — the badge goes right after it.
-        let Some(tag_end) = cell.find('>') else {
-            out.push_str(cell);
-            return out;
-        };
-        // Body of this cell, up to the next cell marker.
-        let body_end = cell[1..]
-            .find(CELL_MARKER)
-            .map(|pos| pos + 1)
-            .unwrap_or(cell.len());
-
-        out.push_str(&cell[..tag_end + 1]);
-
-        if let Some(bucket) = cell_day_number(&cell[..body_end])
-            .and_then(|day| buckets.get(&format!("{:04}-{:02}-{:02}", year, month, day)))
-        {
-            out.push_str(&badge_html(bucket));
-        }
-
-        rest = &cell[tag_end + 1..];
-    }
-}
-
-/// Cell of a day that does not belong to the focused month: dimmed, so the
-/// focused month reads as the highlighted one.
-///
-/// A day with events also carries the counter badge (dimmed with the cell),
-/// so a busy day of a neighbouring month is not mistaken for a free one.
-fn outside_cell_html(day: u32, bucket: Option<&DayBucket>) -> String {
-    let badge = bucket.map(badge_html).unwrap_or_default();
-    format!(
-        r###"<div class="{} agenda-outside relative h-32 border border-outline/20 rounded-lg p-space-xs bg-surface-container/30 opacity-50">{badge}<span class="calendar-day-number block font-label-sm text-[10px] text-on-surface-variant">{}</span></div>"###,
-        OUTSIDE_CELL_CLASS, day
-    )
-}
-
-/// Fill the blank cells of the month grid with the days of the neighbouring
-/// months, dimmed, so the focused month stands out.
-///
-/// The shared grid leaves the padding cells empty; here each one is replaced
-/// by a cell with the day number of the month it belongs to (the cells
-/// before the 1st belong to the previous month, the ones after the last day
-/// to the next one). The new cells carry a class of their own, so the badge
-/// injection never reads their day number as a day of the focused month.
-///
-/// A padding day that has events of its own gets the counter badge, looked
-/// up in the bucket of *its* date (the month it really belongs to, not the
-/// focused one).
-fn render_outside_days(
-    grid: &str,
-    focus: NaiveDate,
-    buckets: &HashMap<String, DayBucket>,
-) -> String {
-    let (year, month) = (focus.year(), focus.month());
-    let first = NaiveDate::from_ymd_opt(year, month, 1).unwrap_or(focus);
-    // Weekday of the 1st (Mon=0 … Sun=6): that many cells precede the 1st.
-    let leading = first.weekday().num_days_from_monday() as usize;
-    let last = NaiveDate::from_ymd_opt(year, month, days_in_month(year, month)).unwrap_or(first);
-
-    let mut out = String::with_capacity(grid.len() + 512);
-    let mut rest = grid;
-    let mut index = 0usize;
-
-    while let Some(at) = rest.find(BLANK_CELL) {
-        out.push_str(&rest[..at]);
-        // The leading cells count backwards from the 1st of the focused month
-        // (they are the last days of the previous one); the trailing ones
-        // count forwards from the day after its last (the next month).
-        let fecha = if index < leading {
-            first.checked_sub_signed(chrono::Duration::days((leading - index) as i64))
-        } else {
-            last.checked_add_signed(chrono::Duration::days((index - leading + 1) as i64))
-        };
-        let bucket = fecha
-            .as_ref()
-            .and_then(|f| buckets.get(&f.format("%Y-%m-%d").to_string()));
-        let dia = fecha.map(|f| f.day()).unwrap_or(0);
-        out.push_str(&outside_cell_html(dia, bucket));
-        rest = &rest[at + BLANK_CELL.len()..];
-        index += 1;
-    }
-    out.push_str(rest);
-    out
-}
-
-/// Mark the current month in the header of the month grid.
-///
-/// The shared template renders the month label in a `<span>` with the
-/// `font-headline-sm` class; a "Mes actual" chip is injected right after it
-/// when the focused month is the one we are living in. If the markup ever
-/// changes, the grid is returned unchanged.
-fn mark_current_month(grid: &str, focus: NaiveDate, today: NaiveDate) -> String {
-    if focus.year() != today.year() || focus.month() != today.month() {
-        return grid.to_string();
-    }
-    const LABEL_CLASS: &str = "font-headline-sm";
-    let Some(span_at) = grid.find(LABEL_CLASS) else {
-        return grid.to_string();
-    };
-    // End of the opening tag of the label.
-    let Some(tag_end) = grid[span_at..].find('>') else {
-        return grid.to_string();
-    };
-    let body_start = span_at + tag_end + 1;
-    // End of the label itself: the chip goes right after its closing tag.
-    let Some(close_rel) = grid[body_start..].find("</span>") else {
-        return grid.to_string();
-    };
-    let insert_at = body_start + close_rel + "</span>".len();
-    let chip = r#"<span class="calendar-current-month font-label-sm text-[10px] px-2 py-0.5 rounded-full bg-primary-container/20 text-primary-container font-semibold whitespace-nowrap ml-2">Mes actual</span>"#;
-    let mut out = String::with_capacity(grid.len() + chip.len());
-    out.push_str(&grid[..insert_at]);
-    out.push_str(chip);
-    out.push_str(&grid[insert_at..]);
-    out
 }
 
 /// Próximos eventos del mes y de las semanas siguientes. Se ordenan por
@@ -548,71 +355,249 @@ fn upcoming_html(events: &[CalendarioEvent], today: &str) -> String {
     format!(r#"<div class="nx-calendar-events" id="event-timeline">{items}</div>"#)
 }
 
-/// GET /dashboard/calendar — Google-Calendar-style monthly view.
-///
-/// La fuente de datos es Mikareno (misma que el panel del dashboard) a través
-/// de [`calendar_data`], que_cachea el resultado: la navegación entre meses
-/// no vuelve a pagar el scrape. Cada día puede mostrar clases del horario,
-/// eventos escolares, tareas que vencen y las anotaciones del usuario.
-///
-/// El partial `grid` devuelve **sólo el cuerpo de la rejilla** (sin la
-/// cabecera de navegación): así el swap de HTMX nunca puede anidar la
-/// rejilla dentro de sí misma (el bug que hacía que el calendario creciera
-/// hacia abajo y se encogiera a la mitad con cada clic).
+/// Etiqueta de las cuatro categorías del planner local.
+fn categoria_planner_label(categoria: &str) -> &'static str {
+    match categoria {
+        "work" => "Trabajo",
+        "health" => "Salud",
+        "personal" => "Personal",
+        _ => "Académico",
+    }
+}
+
+/// Una entrada local editable del planner seleccionado.
+fn planner_entry_html(entry: &calendar_data::Anotacion) -> String {
+    let title = if entry.title.trim().is_empty() {
+        "Entrada sin título"
+    } else {
+        entry.title.trim()
+    };
+    let description = if entry.body.trim().is_empty() {
+        String::new()
+    } else {
+        format!(
+            r#"<p class="agenda-day-entry-description">{}</p>"#,
+            templates::html_escape(entry.body.trim())
+        )
+    };
+    format!(
+        r#"<li class="agenda-day-entry"><span class="agenda-entry-category agenda-entry-category--{}">{}</span><div class="agenda-day-entry-copy"><h3>{}</h3>{}</div><div class="agenda-day-entry-actions"><button type="button" class="agenda-entry-action" data-calendar-edit="{}" aria-label="Editar {}"><span class="material-symbols-outlined" aria-hidden="true">edit</span></button><button type="button" class="agenda-entry-action is-danger" data-calendar-delete="{}" aria-label="Eliminar {}"><span class="material-symbols-outlined" aria-hidden="true">delete</span></button></div></li>"#,
+        templates::html_escape(&entry.category),
+        templates::html_escape(categoria_planner_label(&entry.category)),
+        templates::html_escape(title),
+        description,
+        entry.id,
+        templates::html_escape(title),
+        entry.id,
+        templates::html_escape(title),
+    )
+}
+
+/// Evento local importado, con metadatos iCalendar y opción de eliminar.
+fn imported_event_html(entry: &calendar_data::Anotacion, target: NaiveDate) -> String {
+    let title = if entry.title.trim().is_empty() {
+        "Evento importado"
+    } else {
+        entry.title.trim()
+    };
+    let start = NaiveDate::parse_from_str(&entry.date, "%Y-%m-%d").ok();
+    let end = entry
+        .end_date
+        .as_deref()
+        .and_then(|value| NaiveDate::parse_from_str(value, "%Y-%m-%d").ok());
+    let when = if entry.recurrence.as_deref() == Some("weekly") {
+        let day = templates::weekday_es(&target.format("%Y-%m-%d").to_string());
+        let time = match (&entry.start_time, &entry.end_time) {
+            (Some(start), Some(end)) => format!("{}–{}", start, end),
+            (Some(start), None) => start.clone(),
+            _ => "Con horario".to_string(),
+        };
+        format!("Cada semana · {} · {}", day, time)
+    } else if entry.all_day {
+        let last = end.and_then(|value| value.pred_opt()).or(start);
+        match (start, last) {
+            (Some(start), Some(last)) if last > start => format!(
+                "Día completo · {}–{}",
+                format_fecha_es(&start.format("%Y-%m-%d").to_string()),
+                format_fecha_es(&last.format("%Y-%m-%d").to_string())
+            ),
+            _ => "Todo el día".to_string(),
+        }
+    } else {
+        let time = match (&entry.start_time, &entry.end_time) {
+            (Some(start), Some(end)) => format!("{}–{}", start, end),
+            (Some(start), None) => start.clone(),
+            _ => "Con horario".to_string(),
+        };
+        if start.is_some_and(|date| date < target) {
+            format!("Continúa · {}", time)
+        } else {
+            time
+        }
+    };
+    let description = if entry.body.trim().is_empty() {
+        String::new()
+    } else {
+        format!(
+            r#"<p class="agenda-day-entry-description">{}</p>"#,
+            templates::html_escape(entry.body.trim())
+        )
+    };
+    let location = if entry.location.trim().is_empty() {
+        String::new()
+    } else {
+        format!(
+            r#"<small class="agenda-imported-location">Lugar · {}</small>"#,
+            templates::html_escape(entry.location.trim())
+        )
+    };
+    format!(
+        r#"<li class="agenda-day-feed-item agenda-imported-event"><span class="agenda-day-feed-icon is-imported-event material-symbols-outlined" aria-hidden="true">event_note</span><div><strong>{}</strong><small>{}</small>{}{}</div><button type="button" class="agenda-entry-action is-danger" data-calendar-delete="{}" aria-label="Eliminar evento {}"><span class="material-symbols-outlined" aria-hidden="true">delete</span></button></li>"#,
+        templates::html_escape(title),
+        templates::html_escape(&when),
+        location,
+        description,
+        entry.id,
+        templates::html_escape(title),
+    )
+}
+
+fn panel_section(label: &str, class_name: &str, items: String) -> String {
+    if items.is_empty() {
+        return String::new();
+    }
+    format!(
+        r#"<section class="agenda-day-group {}"><h3>{}</h3><ul>{}</ul></section>"#,
+        class_name,
+        templates::html_escape(label),
+        items
+    )
+}
+
+/// Panel contextual del día: planner editable más los datos de Mikareno que
+/// ya alimentan el calendario (entregas, horario y eventos).
+fn selected_day_panel(target: NaiveDate, dia: &calendar_data::DiaData) -> String {
+    let iso = target.format("%Y-%m-%d").to_string();
+    let month = crate::handlers::schedule::mes_es(target.month()).unwrap_or("");
+    let label = format!(
+        "{} {} de {} de {}",
+        templates::weekday_es(&iso),
+        target.day(),
+        month.to_lowercase(),
+        target.year()
+    );
+    let today = target == chrono::Local::now().date_naive();
+    let today_badge = if today {
+        r#"<span class="agenda-day-today">Hoy</span>"#
+    } else {
+        ""
+    };
+
+    let planner = dia
+        .anotaciones
+        .iter()
+        .map(planner_entry_html)
+        .collect::<String>();
+    let imported_events = dia
+        .eventos_importados
+        .iter()
+        .map(|entry| imported_event_html(entry, target))
+        .collect::<String>();
+    let tasks = dia
+        .tareas
+        .iter()
+        .map(|task| {
+            format!(
+                r#"<li class="agenda-day-feed-item"><span class="agenda-day-feed-icon is-task material-symbols-outlined" aria-hidden="true">assignment</span><div><strong>{}</strong><small>{}</small></div></li>"#,
+                templates::html_escape(if task.titulo.trim().is_empty() { "Tarea" } else { task.titulo.trim() }),
+                templates::html_escape(if task.estado.trim().is_empty() { "Entrega registrada en Mikareno" } else { task.estado.trim() }),
+            )
+        })
+        .collect::<String>();
+    let classes = dia
+        .clases
+        .iter()
+        .map(|class| {
+            format!(
+                r#"<li class="agenda-day-feed-item"><span class="agenda-day-feed-icon is-class material-symbols-outlined" aria-hidden="true">school</span><div><strong>{}</strong><small>Horario personal</small></div></li>"#,
+                templates::html_escape(class)
+            )
+        })
+        .collect::<String>();
+    let events = dia
+        .eventos
+        .iter()
+        .map(|event| {
+            let time = event_time(&event.fecha)
+                .map(|(_, value)| value)
+                .unwrap_or_else(|| "Todo el día".to_string());
+            format!(
+                r#"<li class="agenda-day-feed-item"><span class="agenda-day-feed-icon is-event material-symbols-outlined" aria-hidden="true">event</span><div><strong>{}</strong><small>{} · {}</small></div></li>"#,
+                templates::html_escape(&event.evento),
+                templates::html_escape(&tipo_label(&event.tipo)),
+                templates::html_escape(&time),
+            )
+        })
+        .collect::<String>();
+
+    let mut sections = String::new();
+    sections.push_str(&panel_section("Planificador", "is-planner", planner));
+    sections.push_str(&panel_section(
+        "Eventos importados",
+        "is-imported-event",
+        imported_events,
+    ));
+    sections.push_str(&panel_section("Entregas", "is-task", tasks));
+    sections.push_str(&panel_section("Horario", "is-class", classes));
+    sections.push_str(&panel_section("Eventos", "is-event", events));
+    let empty = if sections.is_empty() {
+        r#"<div class="agenda-day-empty"><span class="material-symbols-outlined" aria-hidden="true">event_available</span><p>No hay actividades para este día.</p><span>Añade una entrada al planner cuando quieras.</span></div>"#
+    } else {
+        ""
+    };
+
+    format!(
+        r#"<aside id="selected-day-panel" class="agenda-day-panel" data-date="{}" aria-label="Detalle del día seleccionado"><header class="agenda-day-panel-head"><div><p>PLAN DEL DÍA</p><h2>{}</h2>{}</div><button type="button" class="agenda-day-add" data-calendar-add aria-label="Añadir entrada al planner para el {}"><span class="material-symbols-outlined" aria-hidden="true">add</span><span>Añadir</span></button></header><div class="agenda-day-panel-content">{}{}</div></aside>"#,
+        iso,
+        templates::html_escape(&label),
+        today_badge,
+        templates::html_escape(&label),
+        sections,
+        empty,
+    )
+}
+
+/// GET /dashboard/calendar — vista mensual y planner de StudyDesk con la
+/// identidad visual NOVA.
 pub async fn monthly(
     State(state): State<Arc<AppState>>,
     query: axum::extract::Query<CalendarQuery>,
 ) -> Html<String> {
-    // Datos de Mikareno (cacheados; el refresh va en background).
     let datos = calendar_data::datos_mikareno(&state).await;
-
-    // Partial reload — return just the requested fragment (overlong values ignored).
     let partial = query
         .partial
         .as_deref()
-        .filter(|s| s.len() <= MAX_PARTIAL_LEN);
+        .filter(|value| value.len() <= MAX_PARTIAL_LEN);
     let focus = parse_month(query.month.as_deref());
     let today_date = chrono::Local::now().date_naive();
     let today = today_date.format("%Y-%m-%d").to_string();
-
-    // Rango del mes visible (incluye los días de los meses vecinos que la
-    // rejilla muestra atenuados).
+    let selected_date = parse_selected_date(query.date.as_deref(), today_date);
+    let selected = selected_date.format("%Y-%m-%d").to_string();
     let (desde, hasta) = rango_mes(focus);
-
-    // Anotaciones locales del usuario en el rango.
     let anotaciones = calendar_data::anotaciones_en_rango(&state, desde, hasta).await;
-
-    // Mapa día → contenido.
     let dias = calendar_data::dias_del_mes(&datos, &anotaciones, focus);
 
-    // Month grid, with the per-cell event counter badge.
-    let buckets = bucket_by_day(&datos.eventos);
-    let grid_html = inject_event_badges(
-        &templates::calendar_grid_html(&datos.eventos, focus, Some(&today), Some(&dias)),
-        focus.year(),
-        focus.month(),
-        &buckets,
-    );
-    // Days of the neighbouring months, dimmed, and the current month marked.
-    let grid_html = mark_current_month(
-        &render_outside_days(&grid_html, focus, &buckets),
-        focus,
-        today_date,
-    );
+    if partial == Some("day") {
+        let anotaciones_dia = if selected_date >= desde && selected_date <= hasta {
+            anotaciones.clone()
+        } else {
+            calendar_data::anotaciones_en_rango(&state, selected_date, selected_date).await
+        };
+        let dias_dia = calendar_data::dias_del_mes(&datos, &anotaciones_dia, selected_date);
+        let dia = dias_dia.get(&selected).cloned().unwrap_or_default();
+        return Html(selected_day_panel(selected_date, &dia));
+    }
 
-    // HTMX partial: swap just the grid (used by the month nav buttons).
-    //
-    // El swap es `outerHTML` sobre `#calendar-grid`, así que la respuesta es
-    // el elemento **completo** (con su id). Así el HTMX reemplaza la rejilla
-    // en vez de meterla dentro: es imposible que la rejilla se anide en sí
-    // misma, que era lo que hacía que el calendario creciera hacia abajo y se
-    // encogiera a la mitad con cada clic.
-    if partial == Some("grid") {
-        return Html(format!(
-            r###"<div id="calendar-grid" class="agenda-grid-host nova-calendar-grid-host">{}</div>"###,
-            grid_html
-        ));
-    } // HTMX partial: swap just the timeline.
     if partial == Some("timeline") {
         return Html(upcoming_html(&datos.eventos, &today));
     }
@@ -620,54 +605,96 @@ pub async fn monthly(
     let month_prefix = focus.format("%Y-%m").to_string();
     let mut dias_con_horario = 0usize;
     let mut entregas_mes = 0usize;
+    let mut planificadas_mes = 0usize;
     let mut eventos_mes = 0usize;
+    let mut eventos_importados = BTreeSet::new();
     for (fecha, dia) in &dias {
         if !fecha.starts_with(&month_prefix) {
             continue;
         }
         dias_con_horario += usize::from(!dia.clases.is_empty());
         entregas_mes += dia.tareas.len();
+        planificadas_mes += dia.anotaciones.len();
         eventos_mes += dia.eventos.len();
+        eventos_importados.extend(dia.eventos_importados.iter().map(|entry| {
+            entry
+                .uid
+                .as_deref()
+                .filter(|uid| !uid.is_empty())
+                .map(|uid| format!("uid:{uid}"))
+                .unwrap_or_else(|| format!("id:{}", entry.id))
+        }));
     }
+    eventos_mes += eventos_importados.len();
     let resumen = format!(
-        r#"<div class="agenda-summary" aria-label="Resumen del mes"><article><span>Días con horario</span><strong>{dias_con_horario}</strong><small>Bloques lectivos del mes</small></article><article><span>Entregas</span><strong>{entregas_mes}</strong><small>Tareas con fecha</small></article><article><span>Eventos</span><strong>{eventos_mes}</strong><small>Actividades registradas</small></article></div>"#
+        r#"<div id="calendar-summary" class="agenda-summary" aria-label="Resumen del mes" data-month="{month_prefix}"><article><span>Días con horario</span><strong>{dias_con_horario}</strong><small>Clases proyectadas</small></article><article><span>Entregas</span><strong>{entregas_mes}</strong><small>Tareas con fecha</small></article><article><span>Planificadas</span><strong>{planificadas_mes}</strong><small>Entradas personales</small></article><article><span>Eventos</span><strong>{eventos_mes}</strong><small>Escolares e importados</small></article></div>"#
+    );
+    let grid_html = templates::calendar_grid_html(
+        &datos.eventos,
+        focus,
+        Some(&today),
+        Some(&selected),
+        Some(&dias),
+    );
+    let grid_host = format!(
+        r#"<div id="calendar-grid" class="agenda-grid-host nx-calendar-grid-host nova-calendar-grid-host" data-month="{}" data-selected-date="{}">{}</div>"#,
+        month_prefix, selected, grid_html
     );
 
+    if partial == Some("grid") {
+        let summary_oob = resumen.replacen(
+            "<div id=\"calendar-summary\"",
+            "<div id=\"calendar-summary\" hx-swap-oob=\"outerHTML\"",
+            1,
+        );
+        return Html(format!("{grid_host}{summary_oob}"));
+    }
+
+    let anotaciones_dia = if selected_date >= desde && selected_date <= hasta {
+        anotaciones.clone()
+    } else {
+        calendar_data::anotaciones_en_rango(&state, selected_date, selected_date).await
+    };
+    let dias_dia = calendar_data::dias_del_mes(&datos, &anotaciones_dia, selected_date);
+    let dia_seleccionado = dias_dia.get(&selected).cloned().unwrap_or_default();
+    let day_panel = selected_day_panel(selected_date, &dia_seleccionado);
     let status = banner_mcp_datos(&datos);
     let timeline = format!(
-        r###"<aside class="agenda-upcoming nx-upcoming nova-calendar-upcoming">
-            <div class="agenda-upcoming-head"><div><p>A continuación</p><h2>Próximos eventos</h2></div><span class="material-symbols-outlined">upcoming</span></div>
+        r###"<section class="agenda-upcoming nx-upcoming nova-calendar-upcoming" aria-label="Próximos eventos">
+            <div class="agenda-upcoming-head"><div><p>A continuación</p><h2>Próximos eventos</h2></div><span class="material-symbols-outlined" aria-hidden="true">upcoming</span></div>
             <p>Lo que viene después, ordenado por fecha.</p>
             {}
-            <a class="agenda-upcoming-link" href="/dashboard/calendar/weekly">Ver la semana completa<span class="material-symbols-outlined">arrow_forward</span></a>
-        </aside>"###,
+            <a class="agenda-upcoming-link" href="/dashboard/calendar/weekly">Ver la semana completa<span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></a>
+        </section>"###,
         upcoming_html(&datos.eventos, &today)
+    );
+    let today_url = format!(
+        "/dashboard/calendar?month={}&date={}",
+        today_date.format("%Y-%m"),
+        today
     );
 
     let content = format!(
         r###"<div class="nx-page nx-calendar agenda-page nova-page nova-calendar-page">
           <header class="agenda-header">
-            <div class="agenda-heading"><span class="agenda-heading-icon material-symbols-outlined">calendar_month</span><div><p>Agenda académica · 2026—2027</p><h1>Calendario</h1><span>Clases, entregas y eventos en un solo lugar.</span></div></div>
-            <div class="agenda-actions"><nav class="agenda-view-tabs" aria-label="Vista del calendario"><a class="is-active" aria-current="page" href="/dashboard/calendar">Mes</a><a href="/dashboard/calendar/weekly">Semana</a><a href="/dashboard/calendar/daily">Día</a></nav><a class="agenda-export" href="/dashboard/calendar.ics" download title="Descargar calendario ICS"><span class="material-symbols-outlined">download</span><span>Exportar</span></a></div>
+            <div class="agenda-heading"><span class="agenda-heading-icon material-symbols-outlined" aria-hidden="true">calendar_month</span><div><p>Agenda académica · 2026—2027</p><h1>Calendario</h1><span>Clases, entregas y eventos en un solo lugar.</span></div></div>
+            <div class="agenda-actions"><nav class="agenda-view-tabs" aria-label="Vista del calendario"><a class="is-active" aria-current="page" href="/dashboard/calendar">Mes</a><a href="/dashboard/calendar/weekly">Semana</a><a href="/dashboard/calendar/daily">Día</a></nav><button type="button" class="agenda-plan-button" data-calendar-add><span class="material-symbols-outlined" aria-hidden="true">add</span><span>Planificar</span></button><button type="button" class="agenda-import" data-calendar-ics-import title="Importar archivo ICS"><span class="material-symbols-outlined" aria-hidden="true">upload_file</span><span>Importar ICS</span></button><a class="agenda-export" href="/dashboard/calendar.ics" download title="Descargar calendario ICS"><span class="material-symbols-outlined" aria-hidden="true">download</span><span>Exportar</span></a></div>
           </header>
           <div class="agenda-layout nx-calendar-layout nova-calendar-layout">
             <main class="agenda-main">
               {}
               <section class="agenda-month-card nx-month-panel nova-month-panel" aria-label="Calendario mensual">
-                <div class="agenda-month-meta"><div class="agenda-legend" aria-label="Tipos de elemento"><span class="is-class"><i></i>Horario</span><span class="is-task"><i></i>Entregas</span><span class="is-event"><i></i>Eventos</span><span class="is-note"><i></i>Notas</span></div><a class="agenda-today" href="/dashboard/calendar?month={}"><span class="material-symbols-outlined">today</span>Mes actual</a></div>
+                <div class="agenda-month-meta"><div class="agenda-legend" aria-label="Tipos de elemento"><span class="is-task"><i></i>Entregas</span><span class="is-note"><i></i>Planificador</span><span class="is-class"><i></i>Horario</span><span class="is-event"><i></i>Eventos</span></div><a class="agenda-today" href="{}"><span class="material-symbols-outlined" aria-hidden="true">today</span>Hoy</a></div>
                 {}
-                <div id="calendar-grid" class="agenda-grid-host nx-calendar-grid-host nova-calendar-grid-host">{}</div>
-                <footer class="agenda-month-footer"><span><span class="material-symbols-outlined">edit_calendar</span>Selecciona un día para añadir o editar anotaciones.</span><a href="/dashboard/horario">Abrir mi horario<span class="material-symbols-outlined">arrow_outward</span></a></footer>
-              </section>
+                {}
+                <footer class="agenda-month-footer"><span><span class="material-symbols-outlined" aria-hidden="true">touch_app</span>Selecciona un día para ver o planificar actividades.</span><a href="/dashboard/horario">Abrir mi horario<span class="material-symbols-outlined" aria-hidden="true">arrow_outward</span></a></footer>
+                </section>
             </main>
+            {}
             {}
           </div>
         </div>"###,
-        resumen,
-        today_date.format("%Y-%m"),
-        status,
-        grid_html,
-        timeline,
+        resumen, today_url, status, grid_host, day_panel, timeline,
     );
 
     Html(
@@ -1080,13 +1107,11 @@ pub async fn weekly(State(state): State<Arc<AppState>>) -> Html<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        bucket_by_day, daily_fragment, day_events, event_time, inject_event_badges,
-        mark_current_month, nav_dia, parse_target_date, render_outside_days, templates, tipo_label,
-        BLANK_CELL, OUTSIDE_CELL_CLASS,
+        daily_fragment, day_events, event_time, nav_dia, parse_selected_date, parse_target_date,
+        rango_mes, templates, tipo_label,
     };
     use crate::integrations::mikareno::CalendarioEvent;
     use chrono::NaiveDate;
-    use std::collections::HashMap;
 
     fn event(fecha: &str, evento: &str) -> CalendarioEvent {
         CalendarioEvent {
@@ -1096,46 +1121,13 @@ mod tests {
         }
     }
 
-    /// Cell markup as rendered by the shared month-grid template.
-    fn cell_html(day: u32) -> String {
-        format!(
-            r#"<div class="calendar-cell relative h-32 border border-outline/20 rounded-lg p-space-xs bg-surface-container/30"><span class="block font-label-sm text-[10px] text-on-surface-variant mb-space-xs">{}</span><div class="mt-space-xs space-y-0.5 overflow-hidden"></div></div>"#,
-            day
-        )
-    }
-
     #[test]
-    fn test_badge_counts_events_of_the_day() {
-        let events = vec![
-            event("2024-03-01", "Clase de Matemáticas"),
-            event("2024-03-01", "Examen de Lengua"),
-            event("2024-03-03", "Reunión <b>padres</b>"),
-        ];
-        let buckets = bucket_by_day(&events);
-        let grid = format!("{} {}", cell_html(1), cell_html(3));
-        let html = inject_event_badges(&grid, 2024, 3, &buckets);
-
-        assert_eq!(html.matches("min-w-[16px]").count(), 2);
-        assert!(html.contains(">2</span>"));
-        assert!(html.contains(">1</span>"));
-        assert!(html.contains("title=\"Clase de Matemáticas · Examen de Lengua\""));
-        assert!(html.contains("title=\"Reunión &lt;b&gt;padres&lt;/b&gt;\""));
-    }
-
-    #[test]
-    fn test_no_badge_without_events() {
-        let grid = cell_html(1);
-        let html = inject_event_badges(&grid, 2024, 3, &HashMap::new());
-        assert_eq!(html, grid);
-    }
-
-    #[test]
-    fn test_unexpected_markup_is_kept_untouched() {
-        let grid = "<div class=\"calendar-cell\">sin número</div>";
-        let buckets = bucket_by_day(&[event("2024-03-01", "Evento")]);
-        let html = inject_event_badges(grid, 2024, 3, &buckets);
-        assert!(!html.contains("min-w-[16px]"));
-        assert!(html.contains("sin número"));
+    fn calendar_range_uses_six_complete_weeks_for_stable_month_layout() {
+        let focus = NaiveDate::from_ymd_opt(2027, 2, 1).unwrap();
+        let (start, end) = rango_mes(focus);
+        assert_eq!(start, NaiveDate::from_ymd_opt(2027, 2, 1).unwrap());
+        assert_eq!(end, NaiveDate::from_ymd_opt(2027, 3, 14).unwrap());
+        assert_eq!((end - start).num_days() + 1, 42);
     }
 
     #[test]
@@ -1233,111 +1225,6 @@ mod tests {
         assert!(html.contains("08:30"));
         // No notice: the source did deliver times.
         assert!(!html.contains("Mikareno no entrega horas"));
-    }
-
-    #[test]
-    fn test_render_outside_days_fills_the_padding_cells() {
-        // January 2026 starts on a Thursday: 3 cells precede the 1st.
-        let focus = NaiveDate::from_ymd_opt(2026, 1, 1).unwrap();
-        let grid = BLANK_CELL.repeat(5);
-        let html = render_outside_days(&grid, focus, &HashMap::new());
-        // The leading cells are the last days of December 2025...
-        assert!(html.contains(">29</span>"));
-        assert!(html.contains(">30</span>"));
-        assert!(html.contains(">31</span>"));
-        // ...and the trailing ones the first days of February 2026.
-        assert!(html.contains(">1</span>"));
-        assert!(html.contains(">2</span>"));
-        // Every padding cell became a dimmed cell of its own.
-        assert!(!html.contains(BLANK_CELL));
-        assert_eq!(html.matches(OUTSIDE_CELL_CLASS).count(), 5);
-        assert_eq!(html.matches("opacity-50").count(), 5);
-    }
-
-    #[test]
-    fn test_outside_day_with_events_gets_its_badge() {
-        // A day of a neighbouring month that has events is not shown as a
-        // free day: it carries the counter badge of its own date.
-        let focus = NaiveDate::from_ymd_opt(2026, 1, 1).unwrap();
-        let events = vec![
-            event("2025-12-31", "Clase"),
-            event("2025-12-30", "Clase"),
-            event("2025-12-30", "Examen"),
-        ];
-        let buckets = bucket_by_day(&events);
-        let grid = BLANK_CELL.repeat(3);
-        let html = render_outside_days(&grid, focus, &buckets);
-        // Two badges: the 31st (1 event) and the 30th (2 events).
-        assert_eq!(html.matches("min-w-[16px]").count(), 2);
-        assert!(html.contains(">2</span>"));
-        assert!(html.contains("title=\"Clase · Examen\""));
-    }
-
-    #[test]
-    fn test_mark_current_month_only_marks_the_month_we_live_in() {
-        let grid = r#"<span class="font-headline-sm text-headline-sm text-primary-container">Enero 2026</span>"#;
-        let today = NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
-        let marked = mark_current_month(grid, today, today);
-        assert!(marked.contains("Mes actual"));
-        // Another month is left untouched.
-        let other = mark_current_month(grid, NaiveDate::from_ymd_opt(2026, 2, 1).unwrap(), today);
-        assert_eq!(other, grid);
-    }
-
-    #[test]
-    fn test_month_grid_end_to_end() {
-        // October 2026 starts on a Thursday: 3 cells precede the 1st.
-        let focus = NaiveDate::from_ymd_opt(2026, 10, 1).unwrap();
-        let today = "2026-10-19";
-        let events = vec![
-            event("2026-10-19", "Reunión"),
-            event("2026-10-19", "Examen"),
-        ];
-        let grid = templates::calendar_grid_html(&events, focus, Some(today), None);
-        let buckets = bucket_by_day(&events);
-        let grid = inject_event_badges(&grid, 2026, 10, &buckets);
-        let grid = render_outside_days(&grid, focus, &buckets);
-        let grid = mark_current_month(&grid, focus, focus);
-
-        // The days of the neighbouring months are shown, dimmed.
-        assert!(grid.contains(">28</span>"), "28 de septiembre");
-        assert!(grid.contains(">30</span>"), "30 de septiembre");
-        assert!(grid.contains(">1</span>"), "1 de noviembre");
-        assert!(!grid.contains(BLANK_CELL), "no queda ninguna celda vacía");
-        // The badge stays on the 19th, never on a neighbouring day.
-        assert_eq!(grid.matches("min-w-[16px]").count(), 1);
-        // The current month is marked, right after the label of the grid.
-        let chip_at = grid.find("Mes actual").expect("chip del mes actual");
-        let chip_tag = grid[..chip_at].rfind("<span").expect("etiqueta del chip");
-        assert!(grid[..chip_tag].ends_with("</span>"));
-    }
-
-    #[test]
-    fn test_tipo_label_translates_known_codes() {
-        assert_eq!(tipo_label("SCHOOL_DAY"), "Día lectivo");
-        assert_eq!(tipo_label("NON_SCHOOL_DAY"), "Día no lectivo");
-        assert_eq!(tipo_label("EVENTO"), "Evento");
-        assert_eq!(tipo_label(""), "Evento");
-        // Unknown codes are shown as they come.
-        assert_eq!(tipo_label("SPECIAL_DAY"), "SPECIAL DAY");
-    }
-
-    #[test]
-    fn test_bucket_by_day_keys_by_date_not_by_timestamp() {
-        // Un evento con hora sigue belonging to its day: the badge of the
-        // cell must find it.
-        let events = vec![
-            event("2026-10-19T08:30:00", "Clase de Matemáticas"),
-            event("2026-10-19T10:00:00", "Examen"),
-        ];
-        let buckets = bucket_by_day(&events);
-        let bucket = buckets.get("2026-10-19").expect("clave por fecha");
-        assert_eq!(bucket.count, 2);
-        // Y la rejilla lo encuentra por la fecha del mes.
-        let grid = cell_html(19);
-        let html = inject_event_badges(&grid, 2026, 10, &buckets);
-        assert_eq!(html.matches("min-w-[16px]").count(), 1);
-        assert!(html.contains(">2</span>"));
     }
 
     #[test]

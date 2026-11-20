@@ -1,5 +1,5 @@
 //! File library — unified listing, search, download, delete, and import across the
-//! three office directories. All backed by the filesystem (no external services).
+//! four office directories. All backed by the filesystem (no external services).
 
 use axum::{
     body::Body,
@@ -37,10 +37,11 @@ const MAX_CONTENT_LEN: usize = 500_000;
 
 fn gather(state: &AppState) -> Vec<LibEntry> {
     let mut out = Vec::new();
-    let kinds: [(&str, &str); 3] = [
+    let kinds: [(&str, &str); 4] = [
         ("docs", "documento"),
         ("sheets", "hoja"),
         ("presentations", "presentación"),
+        ("html", "página HTML"),
     ];
     for (ty, kind) in kinds {
         let dir = match type_dir(state, ty) {
@@ -102,6 +103,7 @@ async fn rebuild(state: &Arc<AppState>, filter: Option<&str>, q_val: &str) -> Re
                     "documento" => ("docs", "description"),
                     "hoja" => ("sheets", "table_chart"),
                     "presentación" => ("presentations", "present_to_all"),
+                    "página HTML" => ("html", "code"),
                     _ => ("docs", "draft"),
                 };
                 format!(
@@ -119,10 +121,10 @@ async fn rebuild(state: &Arc<AppState>, filter: Option<&str>, q_val: &str) -> Re
             .join("\n")
     };
     let body = format!(
-        r##"<div class="nova-page gen-office-page gen-office-manager-page gen-office-library-page">{tabs}<header class="gen-office-manager-head"><div><span>BIBLIOTECA · ARCHIVOS LOCALES</span><h1>Todo tu trabajo.</h1><p>{count} archivo(s) visibles. Abre, descarga o importa desde un solo lugar.</p></div><a href="#library-import" class="gen-office-primary-button"><span class="material-symbols-outlined">upload_file</span>Importar archivo</a></header><nav class="gen-office-appnav" aria-label="Aplicaciones de oficina"><a href="/office/docs"><span class="material-symbols-outlined">description</span>Documentos</a><a href="/office/sheets"><span class="material-symbols-outlined">table_chart</span>Hojas</a><a href="/office/presentations"><span class="material-symbols-outlined">present_to_all</span>Presentaciones</a><a class="is-active library" href="/office/library"><span class="material-symbols-outlined">folder_open</span>Biblioteca</a></nav>
+        r##"<div class="nova-page gen-office-page gen-office-manager-page gen-office-library-page">{tabs}<header class="gen-office-manager-head"><div><span>BIBLIOTECA · ARCHIVOS LOCALES</span><h1>Todo tu trabajo.</h1><p>{count} archivo(s) visibles. Abre, descarga o importa desde un solo lugar.</p></div><a href="#library-import" class="gen-office-primary-button"><span class="material-symbols-outlined">upload_file</span>Importar archivo</a></header><nav class="gen-office-appnav" aria-label="Aplicaciones de oficina"><a href="/office/docs"><span class="material-symbols-outlined">description</span>Documentos</a><a href="/office/sheets"><span class="material-symbols-outlined">table_chart</span>Hojas</a><a href="/office/presentations"><span class="material-symbols-outlined">present_to_all</span>Presentaciones</a><a href="/office/html"><span class="material-symbols-outlined">code</span>HTML</a><a class="is-active library" href="/office/library"><span class="material-symbols-outlined">folder_open</span>Biblioteca</a></nav>
         <form hx-get="/office/library/search" hx-target="closest .nova-page" hx-select=".nova-page" hx-swap="outerHTML" hx-push-url="true" class="gen-office-library-search"><span class="material-symbols-outlined">search</span><label class="sr-only" for="library-query">Buscar archivos</label><input id="library-query" type="search" name="q" value="{q}" placeholder="Buscar por nombre…"><button type="submit" class="gen-office-secondary-button">Buscar</button></form>
         <div class="gen-office-library-layout"><section class="gen-office-library-browser"><header><div><span>ARCHIVOS</span><strong>{count} resultado(s)</strong></div><span class="material-symbols-outlined">folder_open</span></header><div class="gen-office-table-scroll"><table class="gen-office-library-table"><thead><tr><th>Archivo</th><th>Tipo</th><th>Tamaño</th><th>Modificado</th><th aria-label="Acciones"></th></tr></thead><tbody>{rows}</tbody></table></div></section>
-        <aside class="gen-office-library-import" id="library-import"><header><span class="gen-office-launcher-icon library"><span class="material-symbols-outlined">upload_file</span></span><div><span>IMPORTAR</span><h2>Nuevo archivo</h2></div></header><p>Crea un archivo directamente en tu biblioteca local.</p><form id="library-import-form" hx-post="/office/library/import/docs"><label for="library-import-name">Nombre</label><input id="library-import-name" type="text" name="name" placeholder="mi-archivo" required><label for="library-import-kind">Tipo de archivo</label><select id="library-import-kind" name="kind" onchange="this.form.setAttribute('hx-post','/office/library/import/'+this.value)"><option value="docs">Documento Markdown</option><option value="sheets">Hoja CSV</option><option value="presentations">Presentación</option></select><label for="library-import-content">Contenido</label><textarea id="library-import-content" name="content" rows="8" placeholder="Escribe o pega el contenido…" required></textarea><p class="gen-office-import-help" id="library-import-help">Markdown para documentos, CSV para hojas. Una presentación acepta texto para una primera escena o JSON válido.</p><button type="submit" class="gen-office-primary-button">Importar archivo<span class="material-symbols-outlined">arrow_forward</span></button></form></aside></div><footer class="gen-office-home-footer"><span><span class="material-symbols-outlined">hard_drive</span> Archivos locales</span><span>Los nombres abren el editor</span></footer></div>"##,
+        <aside class="gen-office-library-import" id="library-import"><header><span class="gen-office-launcher-icon library"><span class="material-symbols-outlined">upload_file</span></span><div><span>IMPORTAR</span><h2>Nuevo archivo</h2></div></header><p>Crea un archivo directamente en tu biblioteca local.</p><form id="library-import-form" hx-post="/office/library/import/docs"><label for="library-import-name">Nombre</label><input id="library-import-name" type="text" name="name" placeholder="mi-archivo" required><label for="library-import-kind">Tipo de archivo</label><select id="library-import-kind" name="kind" onchange="this.form.setAttribute('hx-post','/office/library/import/'+this.value)"><option value="docs">Documento Markdown</option><option value="sheets">Hoja CSV</option><option value="presentations">Presentación</option><option value="html">Página HTML</option></select><label for="library-import-content">Contenido</label><textarea id="library-import-content" name="content" rows="8" placeholder="Escribe o pega el contenido…" required></textarea><p class="gen-office-import-help" id="library-import-help">Markdown para documentos, CSV para hojas, HTML para páginas web. Las presentaciones aceptan texto o JSON válido.</p><button type="submit" class="gen-office-primary-button">Importar archivo<span class="material-symbols-outlined">arrow_forward</span></button></form></aside></div><footer class="gen-office-home-footer"><span><span class="material-symbols-outlined">hard_drive</span> Archivos locales</span><span>Los nombres abren el editor</span></footer></div>"##,
         tabs = templates::office_tab_strip("library", "Biblioteca", "#library-import"),
         count = filtered.len(),
         q = templates::html_escape(q_val),
