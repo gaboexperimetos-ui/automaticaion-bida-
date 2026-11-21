@@ -73,7 +73,7 @@ Todas las pantallas del shell v2 comparten:
 | `/dashboard/material` | Generador de material con IA | OpenRouter + Mikareno |
 | `/dashboard/search?q=` | Búsqueda de notas (HTML) | SQLite |
 | `/api/search?q=` | Búsqueda de notas (JSON) | SQLite |
-| `/settings` | Configuración (sólo lectura + generador de `.env`) | Config del proceso |
+| `/settings` | Configuración real (modelo editable; `.env` de solo lectura) | Config del proceso + `app_config` |
 | `/admin` | Administración y métricas | Proceso + SQLite |
 | `/dashboard/mcp` | Centro MCP | Mikareno + GenOffice |
 | `/ai` y `/dashboard/ai` | Chat con IA | OpenRouter |
@@ -201,19 +201,21 @@ Mikareno), **tipo de material** y **tema**. Al enviar (`POST /dashboard/material
 genera el material vía OpenRouter. Si no hay `OPENROUTER_API_KEY` configurada,
 responde con un error honesto de modo demo: **no inventa contenido**.
 
-### 3.11 `/settings` — Configuración (sólo lectura, con generador de `.env`)
+### 3.11 `/settings` — Configuración real
 
-Muestra los valores reales del proceso: estado de conexión del MCP de Mikareno y
-su URL, modo de autenticación, y la **tarjeta "IA / OpenRouter"** con el modelo,
-el **presupuesto mensual**, el máximo de tokens por respuesta y el estado de la
-clave. La clave de API **nunca** se muestra, sólo su estado.
+Muestra los valores efectivos del servidor: estado de conexión del MCP de
+Mikareno y su URL, modo de autenticación (`AUTH_DISABLED` o sesión), y la
+**tarjeta "IA / OpenRouter"** con el modelo efectivo, el **presupuesto mensual**,
+el máximo de tokens por respuesta y el estado de la clave. La clave de API
+**nunca** se muestra, sólo su estado.
 
-El formulario de esa tarjeta (modelo, máx. tokens, presupuesto) tiene un botón
-**"Generar .env"**, no "Guardar": al enviarlo a `POST /api/settings/ai` la app
-**no guarda nada** —el entorno se lee sólo al arrancar y la configuración es
-inmutable en runtime—, responde `501` y devuelve un bloque `.env` con tus
-valores (sin la clave) para copiarlo al servidor y reiniciar el servicio. Un
-valor no válido devuelve `400` con la lista de errores en español.
+El formulario **"Modelo de IA"** sí guarda en caliente: envía
+`PUT /api/ai/model`, persiste la elección en la tabla local `app_config` y el
+resto de la app la usa sin reiniciar. El resto de parámetros (presupuesto,
+máximo de tokens, clave) se leen del entorno al arrancar y viven en `.env`: el
+bloque de solo lectura los muestra para copiarlos al servidor y reiniciar el
+servicio. `POST /api/settings/ai` sigue existiendo por compatibilidad, pero ya no
+está enlazado desde la página.
 
 ### 3.12 `/admin` — Administración
 
@@ -269,9 +271,10 @@ resultado del `PRAGMA integrity_check` de la base en el momento de la copia
   `/admin`, en `/admin/openrouter/budget` y en `GET /api/ai/cost`.
 - Si se supera el tope, la app responde **HTTP 429** y **deja de llamar** al
   proveedor hasta el mes siguiente.
-- El presupuesto se cambia en la página `/settings` (tarjeta "IA / OpenRouter" →
-  botón **"Generar .env"**): genera el bloque `.env` con tus valores para
-  copiarlo al servidor y reiniciar el servicio. **No se guarda en caliente.**
+- El presupuesto se cambia en `.env` (`OPENROUTER_MAX_COST_USD`) y se aplica al
+  reiniciar el servicio; en `/settings` se ve el valor efectivo, pero no se
+  edita en caliente. El modelo de IA, en cambio, sí se cambia desde `/settings`
+  (se guarda en la BD local).
 
 ### 3.13 Cambiar la contraseña — pendiente de ruta
 
