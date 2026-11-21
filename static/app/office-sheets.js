@@ -10,6 +10,125 @@
   var MAX_IMPORT_BYTES = 10 * 1024 * 1024;
   var MAX_CSV_BYTES = 900 * 1024;
   var MAX_FORM_BODY_BYTES = 1500 * 1024;
+  var XLSX_URL = "/vendor/xlsx-0.20.3.full.min.js";
+  var xlsxLoadPromise = null;
+  var xlsxLoadTarget = null;
+
+  function parseDelimited(text, delimiter) {
+    if (delimiter !== ',' && delimiter !== '\t') {
+      throw new Error("El separador debe ser coma o tabulación.");
+    }
+    var source = String(text == null ? "" : text);
+    if (source.charCodeAt(0) === 0xfeff) source = source.slice(1);
+
+    var rows = [];
+    var row = [];
+    var field = "";
+    var quoted = false;
+    var afterQuote = false;
+    var totalCells = 0;
+
+    function finishRow() {
+      row.push(field);
+      if (totalCells + row.length > MAX_WORKSHEET_CELLS) {
+        throw new Error("La hoja supera el límite de 50 000 celdas para esta importación.");
+      }
+      totalCells += row.length;
+      rows.push(row);
+      row = [];
+      field = "";
+      afterQuote = false;
+    }
+
+    for (var i = 0; i < source.length; i += 1) {
+      var character = source.charAt(i);
+      if (quoted) {
+        if (character === '"') {
+          if (source.charAt(i + 1) === '"') {
+            field += '"';
+            i += 1;
+          } else {
+            quoted = false;
+            afterQuote = true;
+          }
+        } else {
+          field += character;
+        }
+        continue;
+      }
+
+      if (afterQuote && (character === ' ' || character === '\t')) {
+        field += character;
+        continue;
+      }
+      if (afterQuote && character !== delimiter && character !== '\r' && character !== '\n') {
+        throw new Error("El archivo contiene texto después de cerrar una celda entre comillas.");
+      }
+      afterQuote = false;
+
+      if (character === '"') {
+        if (field.length > 0) {
+          throw new Error("El archivo contiene comillas en una posición no válida.");
+        }
+        quoted = true;
+      } else if (character === delimiter) {
+        if (totalCells + row.length + 1 > MAX_WORKSHEET_CELLS) {
+          throw new Error("La hoja supera el límite de 50 000 celdas para esta importación.");
+        }
+        row.push(field);
+        field = "";
+      } else if (character === '\r' || character === '\n') {
+        if (character === '\r' && source.charAt(i + 1) === '\n') i += 1;
+        finishRow();
+      } else {
+        field += character;
+      }
+    }
+
+    if (quoted) throw new Error("El archivo termina con una celda entre comillas sin cerrar.");
+    if (field.length > 0 || row.length > 0 || afterQuote) finishRow();
+    return rows;
+  }
+
+  function loadXlsx(runtime) {
+    var target = runtime || root;
+    if (target.XLSX) return Promise.resolve(target.XLSX);
+    if (xlsxLoadPromise && xlsxLoadTarget === target) return xlsxLoadPromise;
+
+    var doc = target.document;
+    var host = doc && (doc.head || doc.body || doc.documentElement);
+    if (!doc || typeof doc.createElement !== "function" || !host || typeof host.appendChild !== "function") {
+      return Promise.reject(new Error("No está disponible el documento para cargar el lector local de Excel."));
+    }
+
+    var script = doc.createElement("script");
+    script.src = XLSX_URL;
+    script.async = true;
+    var request = new Promise(function (resolve, reject) {
+      script.onload = function () {
+        script.onload = null;
+        script.onerror = null;
+        if (target.XLSX) resolve(target.XLSX);
+        else reject(new Error("El lector local de Excel no se inicializó."));
+      };
+      script.onerror = function () {
+        script.onload = null;
+        script.onerror = null;
+        if (typeof script.remove === "function") script.remove();
+        reject(new Error("No se pudo cargar el lector local de Excel."));
+      };
+      host.appendChild(script);
+    });
+    xlsxLoadTarget = target;
+    xlsxLoadPromise = request.catch(function (error) {
+      if (xlsxLoadTarget === target) {
+        xlsxLoadPromise = null;
+        xlsxLoadTarget = null;
+      }
+      throw error;
+    });
+    return xlsxLoadPromise;
+  }
 
   function cellText(cell) {
     if (!cell) return "";
@@ -107,6 +226,8 @@
   var api = {
     MAX_WORKSHEET_CELLS: MAX_WORKSHEET_CELLS,
     MAX_IMPORT_BYTES: MAX_IMPORT_BYTES,
+    parseDelimited: parseDelimited,
+    loadXlsx: loadXlsx,
     worksheetToAoa: worksheetToAoa,
     aoaToCsv: aoaToCsv,
     aoaToWorksheet: aoaToWorksheet,
@@ -126,12 +247,20 @@
     var importForm = root.document.getElementById("office-csv-import-form");
     var exportButton = root.document.getElementById("office-xlsx-export");
     var workbook = null;
+    var workbookXlsx = null;
+    var selectedRows = null;
+    var selectedTextSheetName = "";
+    var selectionVersion = 0;
 
     if (fileInput && !fileInput.dataset.ready) {
       fileInput.dataset.ready = "true";
       fileInput.addEventListener("change", async function () {
+        var version = ++selectionVersion;
         var file = fileInput.files && fileInput.files[0];
         workbook = null;
+        workbookXlsx = null;
+        selectedRows = null;
+        selectedTextSheetName = "";
         if (importButton) importButton.disabled = true;
         if (sheetSelect) {
           sheetSelect.replaceChildren();
@@ -146,32 +275,57 @@
           if (status) status.textContent = "Selecciona un archivo XLSX, XLS, CSV o TSV.";
           return;
         }
-        if (!root.XLSX) {
-          if (status) status.textContent = "No está disponible el lector local de Excel.";
-          return;
-        }
-        if (status) status.textContent = "Leyendo el archivo localmente…";
+
+        var isText = /\.(csv|tsv)$/i.test(file.name);
+        if (status) status.textContent = isText
+          ? "Leyendo el archivo localmente…"
+          : "Cargando el lector local de Excel…";
         try {
-          var isText = /\.(csv|tsv)$/i.test(file.name);
-          var parsed = isText
-            ? root.XLSX.read(await file.text(), { type: "string", FS: /\.tsv$/i.test(file.name) ? "\t" : ",", cellFormula: true })
-            : root.XLSX.read(await file.arrayBuffer(), { type: "array", cellFormula: true, bookVBA: false });
+          if (isText) {
+            var rows = parseDelimited(await file.text(), /\.tsv$/i.test(file.name) ? '\t' : ',');
+            if (version !== selectionVersion) return;
+            selectedRows = rows;
+            selectedTextSheetName = file.name.replace(/\.(csv|tsv)$/i, "") || "Hoja1";
+            if (sheetSelect) {
+              var textOption = root.document.createElement("option");
+              textOption.value = "0";
+              textOption.textContent = selectedTextSheetName;
+              sheetSelect.appendChild(textOption);
+              sheetSelect.hidden = true;
+              sheetSelect.setAttribute("aria-label", "Archivo que se importará");
+            }
+            if (importButton) importButton.disabled = false;
+            if (status) status.textContent = "Archivo listo: " + selectedTextSheetName + ". Importar reemplazará la cuadrícula actual.";
+            return;
+          }
+
+          var xlsx = await loadXlsx();
+          if (version !== selectionVersion) return;
+          var parsed = xlsx.read(await file.arrayBuffer(), { type: "array", cellFormula: true, bookVBA: false });
+          if (version !== selectionVersion) return;
           if (!parsed.SheetNames || !parsed.SheetNames.length) throw new Error("El archivo no contiene hojas legibles.");
           workbook = parsed;
+          workbookXlsx = xlsx;
           parsed.SheetNames.forEach(function (name, index) {
+            if (!sheetSelect) return;
             var option = root.document.createElement("option");
             option.value = String(index);
             option.textContent = name;
             sheetSelect.appendChild(option);
           });
-          sheetSelect.hidden = parsed.SheetNames.length < 2;
-          sheetSelect.setAttribute("aria-label", "Hoja que se importará");
+          if (sheetSelect) {
+            sheetSelect.hidden = parsed.SheetNames.length < 2;
+            sheetSelect.setAttribute("aria-label", "Hoja que se importará");
+          }
           if (importButton) importButton.disabled = false;
           if (status) status.textContent = parsed.SheetNames.length > 1
             ? "Archivo listo: elige una de sus " + parsed.SheetNames.length + " hojas. Importar reemplazará la cuadrícula actual."
             : "Archivo listo: " + parsed.SheetNames[0] + ". Importar reemplazará la cuadrícula actual.";
         } catch (error) {
+          if (version !== selectionVersion) return;
           workbook = null;
+          workbookXlsx = null;
+          selectedRows = null;
           if (status) status.textContent = error && error.message ? error.message : "No se pudo leer el archivo.";
         }
       });
@@ -180,12 +334,19 @@
     if (importButton && !importButton.dataset.ready) {
       importButton.dataset.ready = "true";
       importButton.addEventListener("click", function () {
-        if (!workbook || !root.XLSX || !csvInput || !importForm) return;
+        if ((selectedRows === null && (!workbook || !workbookXlsx)) || !csvInput || !importForm) return;
         try {
-          var index = Number(sheetSelect && sheetSelect.value || 0);
-          var sheetName = workbook.SheetNames[index];
-          if (!sheetName) throw new Error("Selecciona una hoja válida.");
-          var rows = worksheetToAoa(workbook.Sheets[sheetName], root.XLSX);
+          var rows;
+          var sheetName;
+          if (selectedRows !== null) {
+            rows = selectedRows;
+            sheetName = selectedTextSheetName || "Hoja1";
+          } else {
+            var index = Number(sheetSelect && sheetSelect.value || 0);
+            sheetName = workbook.SheetNames[index];
+            if (!sheetName) throw new Error("Selecciona una hoja válida.");
+            rows = worksheetToAoa(workbook.Sheets[sheetName], workbookXlsx);
+          }
           var csv = aoaToCsv(rows);
           if (new root.Blob([csv]).size > MAX_CSV_BYTES || new URLSearchParams({ csv_data: csv }).toString().length > MAX_FORM_BODY_BYTES) {
             throw new Error("La hoja convertida supera el límite de guardado seguro. Reduce los datos y vuelve a intentarlo.");
@@ -202,20 +363,21 @@
 
     if (exportButton && !exportButton.dataset.ready) {
       exportButton.dataset.ready = "true";
-      exportButton.addEventListener("click", function () {
-        if (!root.XLSX) {
-          if (status) status.textContent = "No está disponible el exportador local de Excel.";
-          return;
-        }
+      exportButton.addEventListener("click", async function () {
+        exportButton.disabled = true;
+        if (status) status.textContent = "Cargando el exportador local de Excel…";
         try {
+          var xlsx = await loadXlsx();
           var grid = root.document.getElementById("grid");
           var rows = gridToAoa(grid);
-          var workbookOut = workbookFromAoa(rows, root.XLSX, "Hoja1");
+          var workbookOut = workbookFromAoa(rows, xlsx, "Hoja1");
           var name = exportButton.dataset.filename || "hoja";
-          root.XLSX.writeFile(workbookOut, name + ".xlsx", { bookType: "xlsx", compression: true });
+          xlsx.writeFile(workbookOut, name + ".xlsx", { bookType: "xlsx", compression: true });
           if (status) status.textContent = "Descargada una hoja XLSX editable. Revisa el archivo antes de compartirlo.";
         } catch (error) {
           if (status) status.textContent = error && error.message ? error.message : "No se pudo exportar la hoja.";
+        } finally {
+          exportButton.disabled = false;
         }
       });
     }
