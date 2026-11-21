@@ -33,12 +33,13 @@ pub const App = struct {
     }
 
     pub fn dispatch(self: *App, allocator: std.mem.Allocator, request: *const http.Request) !http.Response {
-        if (!self.allowRate(allocator, request.peer_ip, "general", 60)) return self.rateLimited(allocator, request);
-        if (std.mem.eql(u8, request.method, "POST") and std.mem.eql(u8, request.path, "/login")) {
+        const path = request.path;
+        // Los estaticos no consumen el cubo general: una sola pagina carga
+        // ~9 assets y con 60/min el navegador se quedaba en 429 al navegar.
+        if (!isStaticAsset(path) and !self.allowRate(allocator, request.peer_ip, "general", GENERAL_RATE_LIMIT)) return self.rateLimited(allocator, request);
+        if (std.mem.eql(u8, request.method, "POST") and std.mem.eql(u8, path, "/login")) {
             if (!self.allowRate(allocator, request.peer_ip, "login", 10)) return self.rateLimited(allocator, request);
         }
-
-        const path = request.path;
         if (std.mem.eql(u8, path, "/health")) return self.health(allocator);
         if (std.mem.eql(u8, path, "/api/status")) return self.status(allocator);
         if (std.mem.eql(u8, path, "/api/config") or std.mem.eql(u8, path, "/api/public-config")) return self.publicConfig(allocator);
@@ -110,6 +111,18 @@ pub const App = struct {
         const escaped = try security.htmlEscape(allocator, path);
         const body = try templates.simplePage(allocator, "Página no encontrada", try std.fmt.allocPrint(allocator, "<p>La ruta <code>{s}</code> no corresponde a una pantalla de la aplicación.</p><a href=\"/dashboard\">Volver al panel principal</a>", .{escaped}));
         return .{ .status = 404, .content_type = "text/html; charset=utf-8", .body = try templates.renderShell(allocator, path, body, username, auth != null, self.config.mikareno_mcp_url) };
+    }
+
+    fn isStaticAsset(path: []const u8) bool {
+        const prefixes = [_][]const u8{ "/static/", "/vendor/", "/app-assets/" };
+        for (prefixes) |prefix| if (std.mem.startsWith(u8, path, prefix)) return true;
+        const exact = [_][]const u8{
+            "/favicon.svg", "/favicon.ico",     "/nova.css",       "/polish.css",
+            "/themes.css",  "/music.css",       "/shell.js",       "/styles.css",
+            "/app.js",      "/calendar-ics.js", "/office-html.js", "/office-sheets.js",
+        };
+        for (exact) |asset| if (std.mem.eql(u8, path, asset)) return true;
+        return false;
     }
 
     fn allowRate(self: *App, allocator: std.mem.Allocator, ip: []const u8, bucket: []const u8, limit: u32) bool {
@@ -677,6 +690,9 @@ pub const App = struct {
 };
 
 pub const Auth = struct { user_id: i64, username: []const u8, session_id: []const u8 };
+/// Cubo general para rutas dinamicas (paginas, HTMX y API).
+const GENERAL_RATE_LIMIT: u32 = 240;
+
 const RateBucket = struct { window_start: i64, count: u32 };
 
 fn academicTool(path: []const u8) []const u8 {

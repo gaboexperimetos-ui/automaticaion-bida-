@@ -9,8 +9,10 @@ no de suposiciones. **Verificado contra el código el 2026-10-19.**
   (en `src/config.rs` los valores por defecto son `127.0.0.1:8090`).
 - **Rutas HTML** devuelven `text/html`; las rutas `/api/*` devuelven JSON salvo
   indicación expresa.
-- **Límite de peticiones:** 60 req/min por IP (ventana deslizante). `POST /login`
-  tiene su propio cubo: 10 req/min por IP. Al exceder: `429` con `Retry-After: 60`.
+- **Límite de peticiones:** 240 req/min por IP (ventana deslizante) en rutas
+  dinámicas. Los estáticos (`/static/`, `/vendor/`, `/app-assets/`, CSS/JS del
+  shell) no consumen cuota. `POST /login` tiene su propio cubo: 10 req/min por
+  IP. Al exceder: `429` con `Retry-After: 60`.
 
 ## Autenticación
 

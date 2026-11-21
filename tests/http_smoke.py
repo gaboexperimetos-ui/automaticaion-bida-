@@ -125,6 +125,11 @@ def run_public_smoke(binary: Path, workspace: Path, temp: Path):
         assert status == 200 and b"gen-office-home" in office_html and b"NOVA Office" in office_html
         status, headers, css = request(base, "/static/app/nova.css")
         assert status == 200 and headers.get_content_type() == "text/css" and len(css) > 100_000
+        # Regresion: los estaticos no gastan el cubo general (antes 80 GET
+        # seguidos acababan en 429 y una pagina normal se rompia al navegar).
+        for _ in range(80):
+            status, _, _ = request(base, "/static/app/nova.css")
+            assert status == 200
         status, headers, htmx = request(base, "/vendor/htmx-2.0.3.min.js")
         assert status == 200 and headers.get_content_type() == "application/javascript" and b"htmx" in htmx[:2048]
         status, headers, ics_js = request(base, "/calendar-ics.js")
