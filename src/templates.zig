@@ -154,7 +154,6 @@ pub fn fillPage(allocator: std.mem.Allocator, page: TemplatePage, source: []cons
         .{ .slot = "VERSION", .value = "0.2.0" },
     };
 
-    var out: []const u8 = source;
     const replacements: []const Replacement = switch (page) {
         .dashboard => &dashboard_values,
         .calendar => &calendar_values,
@@ -164,31 +163,73 @@ pub fn fillPage(allocator: std.mem.Allocator, page: TemplatePage, source: []cons
         .material => &material_values,
         .settings => &settings_values,
     };
-    for (replacements) |r| {
-        const needle = try std.fmt.allocPrint(allocator, "<!--SLOT:{s}-->", .{r.slot});
-        out = try std.mem.replaceOwned(u8, allocator, out, needle, r.value);
-    }
-    if (page == .assistant) out = try std.mem.replaceOwned(u8, allocator, out, "<!--USER_NAME-->", safe_name);
-    out = try clearUnknownSlots(allocator, out);
-    return out;
+    return renderSlots(
+        allocator,
+        source,
+        replacements,
+        if (page == .assistant) safe_name else null,
+    );
 }
 
 const Replacement = struct { slot: []const u8, value: []const u8 };
+const SLOT_PREFIX = "<!--SLOT:";
+const SLOT_SUFFIX = "-->";
+const USER_NAME_MARKER = "<!--USER_NAME-->";
 
-fn clearUnknownSlots(allocator: std.mem.Allocator, source: []const u8) ![]const u8 {
+/// Sustituye todos los slots en un recorrido y un único buffer de salida.
+/// Evita copiar la página completa una vez por cada marcador.
+fn renderSlots(
+    allocator: std.mem.Allocator,
+    source: []const u8,
+    replacements: []const Replacement,
+    username: ?[]const u8,
+) ![]const u8 {
     var output: std.ArrayListUnmanaged(u8) = .empty;
-    var rest = source;
-    while (std.mem.indexOf(u8, rest, "<!--SLOT:")) |start| {
-        try output.appendSlice(allocator, rest[0..start]);
-        const after = rest[start..];
-        const end = std.mem.indexOf(u8, after, "-->") orelse {
-            rest = "";
+    try output.ensureTotalCapacity(allocator, source.len);
+    var cursor: usize = 0;
+
+    while (cursor < source.len) {
+        const slot_start = findFrom(source, cursor, SLOT_PREFIX);
+        const user_start = if (username != null)
+            findFrom(source, cursor, USER_NAME_MARKER)
+        else
+            null;
+        var marker_start = slot_start orelse user_start orelse {
+            try output.appendSlice(allocator, source[cursor..]);
             break;
         };
-        rest = after[end + 3 ..];
+        if (user_start) |start| marker_start = @min(marker_start, start);
+
+        try output.appendSlice(allocator, source[cursor..marker_start]);
+        if (user_start) |start| {
+            if (start == marker_start) {
+                try output.appendSlice(allocator, username orelse unreachable);
+                cursor = marker_start + USER_NAME_MARKER.len;
+                continue;
+            }
+        }
+
+        const value_start = marker_start + SLOT_PREFIX.len;
+        const slot_end = findFrom(source, value_start, SLOT_SUFFIX) orelse break;
+        if (replacementFor(replacements, source[value_start..slot_end])) |value| {
+            try output.appendSlice(allocator, value);
+        }
+        cursor = slot_end + SLOT_SUFFIX.len;
     }
-    try output.appendSlice(allocator, rest);
-    return output.items;
+
+    return output.toOwnedSlice(allocator);
+}
+
+fn findFrom(source: []const u8, start: usize, needle: []const u8) ?usize {
+    const relative = std.mem.indexOf(u8, source[start..], needle) orelse return null;
+    return start + relative;
+}
+
+fn replacementFor(replacements: []const Replacement, slot: []const u8) ?[]const u8 {
+    for (replacements) |replacement| {
+        if (std.mem.eql(u8, replacement.slot, slot)) return replacement.value;
+    }
+    return null;
 }
 
 pub fn renderShell(allocator: std.mem.Allocator, active_route: []const u8, content: []const u8, username: []const u8, authenticated: bool, mcp_url: []const u8) ![]const u8 {
@@ -205,8 +246,8 @@ pub fn renderShell(allocator: std.mem.Allocator, active_route: []const u8, conte
     topbar_html = try std.mem.replaceOwned(u8, allocator, topbar_html, "<!--SLOT:SHELL_NAME-->", safe_user);
     topbar_html = try std.mem.replaceOwned(u8, allocator, topbar_html, "<!--SLOT:SHELL_ROLE-->", "Estudiante");
     topbar_html = try std.mem.replaceOwned(u8, allocator, topbar_html, "<header class=\"app-topbar nx-topbar\"", "<header id=\"app-topbar\" class=\"app-topbar nx-topbar\"");
-    const safe_mcp_url = try security.htmlEscape(allocator, mcp_url);
-    _ = safe_mcp_url; // La URL no se inserta en el shell ni se expone en HTML.
+    // `mcp_url` no se inserta en el shell ni se expone en HTML.
+    _ = mcp_url;
 
     const css = "<style>html,body{margin:0;background:var(--nx-bg,#080b14);color:var(--nx-text,#f3f6ff)}.app-rail{position:fixed;inset:0 auto 0 0;width:250px;overflow:auto;z-index:50}.app-rail-content{margin-left:250px}.app-topbar{position:sticky;top:0;z-index:40}.skip-link{position:absolute;left:-9999px;top:0;background:#a78bfa;color:#140d26;padding:.75rem;z-index:100}.skip-link:focus{left:1rem}.app-main{min-height:100vh;padding-top:4rem}@media(max-width:900px){.app-rail{transform:translateX(-100%)}.app-rail-content{margin-left:0}.app-topbar{left:0!important}}</style>";
     const head = try std.fmt.allocPrint(allocator, "<head>{s}{s}<script>window.__STITCH_V2_AUTH__={{\"authenticated\":{s}}}</script></head>", .{ assets.head, css, if (authenticated) "true" else "false" });
@@ -251,12 +292,21 @@ fn markActiveNav(allocator: std.mem.Allocator, html: []const u8, route: []const 
 }
 
 fn attrValue(tag: []const u8, name: []const u8) ?[]const u8 {
-    const prefix = std.fmt.allocPrint(std.heap.page_allocator, "{s}=\"", .{name}) catch return null;
-    defer std.heap.page_allocator.free(prefix);
-    const start = std.mem.indexOf(u8, tag, prefix) orelse return null;
-    const value_start = start + prefix.len;
-    const end = std.mem.indexOfScalarPos(u8, tag, value_start, '"') orelse return null;
-    return tag[value_start..end];
+    var cursor: usize = 0;
+    while (std.mem.indexOf(u8, tag[cursor..], name)) |relative| {
+        const start = cursor + relative;
+        const value_start = start + name.len;
+        if (value_start + 1 < tag.len and
+            tag[value_start] == '=' and
+            tag[value_start + 1] == '"')
+        {
+            const content_start = value_start + 2;
+            const end = std.mem.indexOfScalarPos(u8, tag, content_start, '"') orelse return null;
+            return tag[content_start..end];
+        }
+        cursor = value_start;
+    }
+    return null;
 }
 
 fn primaryPath(route: []const u8) []const u8 {
@@ -316,6 +366,34 @@ pub fn loginPage() []const u8 {
 
 pub fn simplePage(allocator: std.mem.Allocator, title: []const u8, body: []const u8) ![]const u8 {
     return std.fmt.allocPrint(allocator, "<section class=\"max-w-5xl mx-auto p-6\"><p class=\"uppercase tracking-widest text-xs text-outline\">NOVA · espacio académico</p><h1 class=\"text-3xl font-semibold my-4\">{s}</h1>{s}</section>", .{ title, body });
+}
+
+test "page slots render in one pass and clear unknown markers" {
+    const replacements = [_]Replacement{
+        .{ .slot = "TITLE", .value = "<strong>NOVA</strong>" },
+    };
+    const rendered = try renderSlots(
+        std.testing.allocator,
+        "<main><!--SLOT:TITLE--><!--SLOT:MISSING--></main><!--USER_NAME--><!--SLOT:TITLE-->",
+        &replacements,
+        "Ada",
+    );
+    defer std.testing.allocator.free(rendered);
+    try std.testing.expectEqualStrings(
+        "<main><strong>NOVA</strong></main>Ada<strong>NOVA</strong>",
+        rendered,
+    );
+}
+
+test "non assistant pages retain the user marker" {
+    const rendered = try renderSlots(
+        std.testing.allocator,
+        "<!--USER_NAME--><!--SLOT:UNKNOWN-->",
+        &.{},
+        null,
+    );
+    defer std.testing.allocator.free(rendered);
+    try std.testing.expectEqualStrings("<!--USER_NAME-->", rendered);
 }
 
 test "active route maps to an existing nav anchor" {
