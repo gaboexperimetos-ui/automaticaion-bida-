@@ -56,6 +56,49 @@ pub fn callTool(
     return unwrapToolResult(allocator, result);
 }
 
+/// Lists the tool names the server advertises right now. The MCP page uses
+/// this instead of a hardcoded catalog, so a server upgrade (more or fewer
+/// tools) shows up without touching the platform.
+pub fn listTools(
+    allocator: std.mem.Allocator,
+    url: []const u8,
+    timeout_ms: u64,
+    require_private_host: bool,
+) ![]const []const u8 {
+    if (url.len == 0) return error.NotConfigured;
+    if (require_private_host and !allowsPrivateHost(allocator, url)) return error.HostNotAllowed;
+
+    const init_params = try json.object(allocator, &.{
+        .{ .key = "protocolVersion", .value = .{ .string = "2025-03-26" } },
+        .{ .key = "capabilities", .value = try json.object(allocator, &.{}) },
+        .{ .key = "clientInfo", .value = try json.object(allocator, &.{
+            .{ .key = "name", .value = .{ .string = "study-platform-zig" } },
+            .{ .key = "version", .value = .{ .string = "0.2.0" } },
+        }) },
+    });
+    const initialized = try rpcRequest(allocator, url, timeout_ms, "initialize", init_params, 1, null, true);
+    const init_message = initialized.message orelse return error.InvalidRpcResponse;
+    if (json.get(init_message, "error") != null) return error.RemoteRpcError;
+    const session_id = initialized.session_id;
+    _ = rpcRequest(allocator, url, timeout_ms, "notifications/initialized", try json.object(allocator, &.{}), null, session_id, false) catch {};
+
+    const response = try rpcRequest(allocator, url, timeout_ms, "tools/list", try json.object(allocator, &.{}), 2, session_id, true);
+    const message = response.message orelse return error.InvalidRpcResponse;
+    const result = json.get(message, "result") orelse return error.InvalidRpcResponse;
+    const tools = json.get(result, "tools") orelse return error.InvalidRpcResponse;
+    const items = switch (tools) {
+        .array => |array| array.items,
+        else => return error.InvalidRpcResponse,
+    };
+
+    var names = std.ArrayList([]const u8).init(allocator);
+    for (items) |tool| {
+        const name = json.getString(tool, "name") orelse continue;
+        try names.append(try allocator.dupe(u8, name));
+    }
+    return names.toOwnedSlice();
+}
+
 /// Fast liveness check that performs only the MCP initialize handshake.
 pub fn probe(allocator: std.mem.Allocator, url: []const u8, timeout_ms: u64, require_private_host: bool) !bool {
     if (url.len == 0) return false;
@@ -68,6 +111,62 @@ pub fn probe(allocator: std.mem.Allocator, url: []const u8, timeout_ms: u64, req
     const response = rpcRequest(allocator, url, timeout_ms, "initialize", params, 1, null, true) catch return false;
     const message = response.message orelse return false;
     return json.get(message, "error") == null and json.get(message, "result") != null;
+}
+
+/// Slots de la cache de sondeos: un handshake MCP por servidor cada 30 s.
+pub const slot_mikareno: usize = 0;
+pub const slot_genoffice: usize = 1;
+const probe_ttl_secs: i64 = 30;
+
+const CachedProbe = struct {
+    mutex: std.Thread.Mutex = .{},
+    at: i64 = 0,
+    ok: bool = false,
+    url: []const u8 = "",
+};
+
+var probe_cache: [2]CachedProbe = .{ .{}, .{} };
+
+/// `probe` memorizado por servidor. Cada pagina HTML consulta el estado del
+/// topbar; sin cache serian un handshake por peticion.
+pub fn probeCached(
+    allocator: std.mem.Allocator,
+    slot: usize,
+    url: []const u8,
+    timeout_ms: u64,
+    require_private_host: bool,
+) bool {
+    const index = @min(slot, probe_cache.len - 1);
+    const now = std.time.timestamp();
+    const entry = &probe_cache[index];
+
+    entry.mutex.lock();
+    if (entry.at != 0 and now - entry.at < probe_ttl_secs and std.mem.eql(u8, entry.url, url)) {
+        const cached = entry.ok;
+        entry.mutex.unlock();
+        return cached;
+    }
+    entry.mutex.unlock();
+
+    const ok = probe(allocator, url, timeout_ms, require_private_host) catch false;
+
+    entry.mutex.lock();
+    entry.at = now;
+    entry.ok = ok;
+    entry.url = url;
+    entry.mutex.unlock();
+    return ok;
+}
+
+/// Vacia la cache de sondeos (tests y comprobaciones manuales).
+pub fn resetProbeCache() void {
+    for (&probe_cache) |*entry| {
+        entry.mutex.lock();
+        entry.at = 0;
+        entry.ok = false;
+        entry.url = "";
+        entry.mutex.unlock();
+    }
 }
 
 fn rpcRequest(
@@ -177,7 +276,29 @@ fn parseRpcMessage(allocator: std.mem.Allocator, body: []const u8) !std.json.Val
     return error.InvalidRpcResponse;
 }
 
+/// Deepest string field of an object: a JSON document carried as text (what
+/// `fastmcp` does with `structuredContent.result`). Returns null when there is
+/// no such string.
+fn deepestString(v: std.json.Value) ?[]const u8 {
+    return switch (v) {
+        .string => |s| s,
+        .object => |obj| blk: {
+            var it = obj.iterator();
+            while (it.next()) |entry| {
+                if (deepestString(entry.value_ptr.*)) |found| break :blk found;
+            }
+            break :blk null;
+        },
+        else => null,
+    };
+}
+
 fn unwrapToolResult(allocator: std.mem.Allocator, result: std.json.Value) !std.json.Value {
+    // Servidores tipo fastmcp devuelven el payload real como string JSON dentro
+    // de `structuredContent`; hay que bajar hasta el documento.
+    if (deepestString(result)) |text| {
+        if (json.parse(allocator, text)) |parsed| return parsed else |_| {}
+    }
     if (json.get(result, "structuredContent")) |structured| return structured;
     const content = json.get(result, "content") orelse return result;
     if (content != .array) return result;
@@ -233,4 +354,38 @@ test "MCP host allowlist accepts loopback, private and Tailscale addresses only"
     try std.testing.expect(allowsPrivateHost(std.testing.allocator, "http://[::1]:8080/mcp"));
     try std.testing.expect(!allowsPrivateHost(std.testing.allocator, "https://8.8.8.8/mcp"));
     try std.testing.expect(!allowsPrivateHost(std.testing.allocator, "not-a-url"));
+}
+
+test "unwrapToolResult baja el JSON que fastmcp anida como texto" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
+    // Mikareno envuelve la respuesta como texto JSON, a veces anidado en
+    // `structuredContent.result`. El parser debe llegar al documento real.
+    const inner = "{\"promedios\":{\"stats\":[{\"average\":5.5}]}}";
+    var buf = std.ArrayList(u8).init(allocator);
+    try std.json.stringify(
+        .{ .result = .{
+            .content = &.{.{ .text = inner, .type = "text" }},
+            .structuredContent = .{ .result = inner },
+        } },
+        .{},
+        buf.writer(),
+    );
+    const parsed = try json.parse(allocator, buf.items);
+    const unwrapped = try unwrapToolResult(allocator, parsed);
+    try std.testing.expect(unwrapped == .object);
+    try std.testing.expect(json.get(unwrapped, "promedios") != null);
+
+    // Sin envoltura, el `content` plano se sigue leyendo.
+    var flat_buf = std.ArrayList(u8).init(allocator);
+    try std.json.stringify(
+        .{ .content = &.{.{ .text = "{\"a\":1}", .type = "text" }} },
+        .{},
+        flat_buf.writer(),
+    );
+    const flat = try json.parse(allocator, flat_buf.items);
+    const flat_unwrapped = try unwrapToolResult(allocator, flat);
+    try std.testing.expect(json.get(flat_unwrapped, "a") != null);
 }

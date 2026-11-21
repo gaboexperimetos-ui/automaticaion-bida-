@@ -92,6 +92,10 @@ a { text-decoration: none; }
 .nx-global-search kbd { position: absolute; right: 9px; color: var(--nx-muted); font-size: 9px; }
 .nx-topbar-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; }
 .nx-connection { display: flex; align-items: center; gap: 7px; max-width: 185px; padding: 7px 9px; color: var(--nx-text-2); border-radius: 8px; font-size: 10px; }
+.nx-status-dot { display: inline-block; flex: none; width: 7px; height: 7px; margin-right: 6px; border-radius: 999px; background: var(--nx-muted); vertical-align: middle; }
+.nx-status-dot.is-on { background: #34d399; box-shadow: 0 0 0 3px rgba(52,211,153,.16); }
+.nx-status-dot.is-off { background: #f87171; box-shadow: 0 0 0 3px rgba(248,113,113,.14); }
+.nx-connection .nx-status-dot { margin-right: 0; }
 .nx-connection:hover { background: var(--nx-surface-2); }
 .nx-connection > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nx-icon-button { display: inline-grid; place-items: center; flex: none; width: 38px; height: 38px; padding: 0; color: var(--nx-text-2); background: transparent; border: 1px solid var(--nx-line); border-radius: 9px; }

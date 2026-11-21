@@ -31,6 +31,13 @@ pub const Datos = struct {
     notes_count: ?i64 = null,
     conversations_count: ?i64 = null,
     notes_activity: [8]u32 = .{0} ** 8,
+    /// Contadores de `tarea_stats`; respaldo cuando la lista no llega.
+    tasks_today: u32 = 0,
+    tasks_week: u32 = 0,
+    /// GenOffice responde al handshake MCP (lo sondea la capa web).
+    genoffice_connected: bool = false,
+    /// Herramientas que anuncia Mikareno ahora mismo (`tools/list`).
+    mcp_tools: []const []const u8 = &.{},
 };
 
 /// Lee Mikareno una vez (`get_student_full`) y los contadores locales.
@@ -66,6 +73,9 @@ pub fn fetch(
     };
 
     d.connected = true;
+    const tarea_stats = parseTareaStats(full);
+    d.tasks_today = tarea_stats.hoy;
+    d.tasks_week = tarea_stats.semana;
     d.notas = parseNotas(allocator, full);
     d.eventos = parseEventos(allocator, full);
     d.tareas = parseTareas(allocator, full);
@@ -131,17 +141,42 @@ fn parseNotas(allocator: std.mem.Allocator, full: json.Value) []Nota {
     if (stats != .array) return &.{};
     var out = std.ArrayList(Nota).init(allocator);
     for (stats.array.items) |item| {
-        const materia = json.getString(item, "materia") orelse json.getString(item, "name") orelse continue;
-        const nota_v = json.get(item, "nota") orelse json.get(item, "promedio") orelse continue;
+        const materia = json.getString(item, "materia") orelse json.getString(item, "courseName") orelse json.getString(item, "name") orelse continue;
+        const nota_v = json.get(item, "nota") orelse json.get(item, "average") orelse json.get(item, "promedio") orelse continue;
         const nota: f64 = switch (nota_v) {
             .float => |f| f,
             .integer => |i| @floatFromInt(i),
             else => continue,
         };
-        const trimestre: u8 = if (json.getInt(item, "trimestre")) |t| @intCast(@max(0, @min(t, 255))) else 0;
+        const trimestre: u8 = if (json.getInt(item, "trimestre")) |t|
+            @intCast(@max(0, @min(t, 255)))
+        else if (json.getString(item, "partialId")) |pid|
+            partialTrimester(pid)
+        else
+            0;
         out.append(.{ .materia = materia, .nota = nota, .trimestre = trimestre }) catch {};
     }
     return out.items;
+}
+
+/// `partialId` con forma "2026:T3:1" → 3. Devuelve 0 si no hay marcador.
+fn partialTrimester(partial_id: []const u8) u8 {
+    const marker = std.mem.indexOf(u8, partial_id, ":T") orelse return 0;
+    const rest = partial_id[marker + 2 ..];
+    const end = std.mem.indexOfScalar(u8, rest, ':') orelse rest.len;
+    return std.fmt.parseInt(u8, rest[0..end], 10) catch 0;
+}
+
+/// Contadores de `tarea_stats`: llegan aunque `tareas_paginadas.pageContent`
+/// venga vacío (el endpoint paginado necesita rango de fechas).
+fn parseTareaStats(full: json.Value) struct { hoy: u32, semana: u32 } {
+    const stats = json.get(full, "tarea_stats") orelse return .{ .hoy = 0, .semana = 0 };
+    const hoy = json.getInt(stats, "todaysTasks") orelse 0;
+    const semana = json.getInt(stats, "tasksCurrentWeek") orelse 0;
+    return .{
+        .hoy = @intCast(@max(0, @min(hoy, std.math.maxInt(u32)))),
+        .semana = @intCast(@max(0, @min(semana, std.math.maxInt(u32)))),
+    };
 }
 
 /// `horario.periodMap` → clases planas por día de la semana.
@@ -196,13 +231,43 @@ fn kpi(allocator: std.mem.Allocator, value: []const u8, meta: []const u8) ![]con
 
 pub fn kpiClasses(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
     if (d.horario.len == 0) return kpi(allocator, "—", "sin horario");
-    return std.fmt.allocPrint(allocator, "<strong>{d}</strong><small>bloques</small>", .{d.horario.len});
+    const nombre = todayWeekday();
+    var hoy: usize = 0;
+    for (d.horario) |c| {
+        if (std.mem.eql(u8, c.dia, nombre)) hoy += 1;
+    }
+    if (hoy == 0) return kpi(allocator, "0", "hoy, sin clases");
+    return std.fmt.allocPrint(allocator, "<strong>{d}</strong><small>clases hoy</small>", .{hoy});
 }
 
-pub fn kpiTasks(allocator: std.mem.Allocator, d: Datos, label: []const u8) ![]const u8 {
+pub const TaskScope = enum { today, week };
+
+/// Entregas: la lista con fecha manda; si viene vacia se usan los contadores
+/// de Mikareno (`tarea_stats`), que llegan aunque el endpoint paginado no.
+pub fn taskCounts(allocator: std.mem.Allocator, d: Datos) struct { hoy: u32, semana: u32 } {
+    var hoy: u32 = 0;
+    if (todayIso(allocator)) |iso| {
+        if (iso.len >= 10) {
+            for (d.tareas) |t| {
+                if (t.vencimiento.len >= 10 and std.mem.eql(u8, t.vencimiento[0..10], iso[0..10])) hoy += 1;
+            }
+        }
+    } else |_| {}
+    const semana: u32 = @intCast(@min(d.tareas.len, std.math.maxInt(u32)));
+    return .{
+        .hoy = if (hoy > 0) hoy else d.tasks_today,
+        .semana = if (semana > 0) semana else d.tasks_week,
+    };
+}
+
+pub fn kpiTasks(allocator: std.mem.Allocator, d: Datos, scope: TaskScope, label: []const u8) ![]const u8 {
     if (!d.connected) return kpi(allocator, "—", if (d.timeout) "sin respuesta" else "sin conexion");
-    if (d.tareas.len == 0) return kpi(allocator, "0", label);
-    return std.fmt.allocPrint(allocator, "<strong>{d}</strong><small>{s}</small>", .{ d.tareas.len, label });
+    const counts = taskCounts(allocator, d);
+    const count = switch (scope) {
+        .today => counts.hoy,
+        .week => counts.semana,
+    };
+    return std.fmt.allocPrint(allocator, "<strong>{d}</strong><small>{s}</small>", .{ count, label });
 }
 
 pub fn kpiAvg(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
@@ -1022,7 +1087,7 @@ test "los datos vacios no inventan numeros" {
     const d = Datos{}; // sin conexion y sin datos
 
     // Sin conexion, los KPIs dicen que no hay dato, no un 0 falso.
-    const tareas = try kpiTasks(a, d, "pendientes");
+    const tareas = try kpiTasks(a, d, .today, "pendientes");
     try std.testing.expect(std.mem.indexOf(u8, tareas, "sin conexion") != null);
     const media = try kpiAvg(a, d);
     try std.testing.expect(std.mem.indexOf(u8, media, "sin notas") != null);

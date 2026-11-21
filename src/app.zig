@@ -21,11 +21,6 @@ pub const App = struct {
     started_at: i64,
     rate_mutex: std.Thread.Mutex = .{},
     rates: std.StringHashMap(RateBucket),
-    probe_mutex: std.Thread.Mutex = .{},
-    mikareno_probe_at: i64 = 0,
-    mikareno_connected: bool = false,
-    genoffice_probe_at: i64 = 0,
-    genoffice_connected: bool = false,
     active_streams: std.atomic.Value(u32) = std.atomic.Value(u32).init(0),
 
     pub fn init(allocator: std.mem.Allocator, config: *const config_mod.Config, db: *sqlite.Db) App {
@@ -334,7 +329,11 @@ pub const App = struct {
     fn cleanPage(self: *App, allocator: std.mem.Allocator, page: templates.TemplatePage, route: []const u8, username: []const u8) !http.Response {
         // Datos reales una sola vez: Mikareno y los contadores locales. Si el
         // MCP no responde, los huecos lo dicen en vez de inventar numeros.
-        const datos = panel.fetch(allocator, self.db, self.config.mikareno_mcp_url, self.config.mcp_timeout_ms) catch panel.Datos{};
+        var datos = panel.fetch(allocator, self.db, self.config.mikareno_mcp_url, self.config.mcp_timeout_ms) catch panel.Datos{};
+        datos.genoffice_connected = self.probeGenOffice(allocator);
+        if (page == .mcp) {
+            datos.mcp_tools = mcp_client.listTools(allocator, self.config.mikareno_mcp_url, self.config.mcp_timeout_ms, true) catch &.{};
+        }
         const content = try templates.fillPage(allocator, page, templates.contentFor(page), self.config.openrouter_model, username, datos, self.db);
         return .{ .status = 200, .content_type = "text/html; charset=utf-8", .body = try templates.renderShell(allocator, route, content, username, true, self.config.mikareno_mcp_url) };
     }
@@ -405,37 +404,11 @@ pub const App = struct {
     }
 
     fn probeMikareno(self: *App, allocator: std.mem.Allocator) bool {
-        const now = std.time.timestamp();
-        self.probe_mutex.lock();
-        if (self.mikareno_probe_at != 0 and now - self.mikareno_probe_at < 30) {
-            const cached = self.mikareno_connected;
-            self.probe_mutex.unlock();
-            return cached;
-        }
-        self.probe_mutex.unlock();
-        const connected = mcp_client.probe(allocator, self.config.mikareno_mcp_url, @min(self.config.mcp_timeout_ms, 800), true) catch false;
-        self.probe_mutex.lock();
-        self.mikareno_probe_at = now;
-        self.mikareno_connected = connected;
-        self.probe_mutex.unlock();
-        return connected;
+        return mcp_client.probeCached(allocator, mcp_client.slot_mikareno, self.config.mikareno_mcp_url, @min(self.config.mcp_timeout_ms, 800), true);
     }
 
     fn probeGenOffice(self: *App, allocator: std.mem.Allocator) bool {
-        const now = std.time.timestamp();
-        self.probe_mutex.lock();
-        if (self.genoffice_probe_at != 0 and now - self.genoffice_probe_at < 30) {
-            const cached = self.genoffice_connected;
-            self.probe_mutex.unlock();
-            return cached;
-        }
-        self.probe_mutex.unlock();
-        const connected = mcp_client.probe(allocator, self.config.genoffice_mcp_url, @min(self.config.mcp_timeout_ms, 800), false) catch false;
-        self.probe_mutex.lock();
-        self.genoffice_probe_at = now;
-        self.genoffice_connected = connected;
-        self.probe_mutex.unlock();
-        return connected;
+        return mcp_client.probeCached(allocator, mcp_client.slot_genoffice, self.config.genoffice_mcp_url, @min(self.config.mcp_timeout_ms, 800), false);
     }
 
     fn calendarIcs(self: *App, allocator: std.mem.Allocator) !http.Response {

@@ -107,6 +107,10 @@ pub const Db = struct {
     }
 
     pub fn migrate(self: *Db) !void {
+        // Bases creadas por la version Rust registran lo aplicado en
+        // `_sqlx_migrations`, no en `schema_migrations`. Sin este puente el
+        // runner Zig reintenta el init sobre tablas que ya existen y muere.
+        try self.importLegacyMigrations();
         const migrations = [_]struct { version: []const u8, sql: []const u8 }{
             .{ .version = "20240101000000", .sql = @embedFile("../migrations/20240101000000_init.sql") },
             .{ .version = "20240101000001", .sql = @embedFile("../migrations/20240101000001_seed.sql") },
@@ -146,6 +150,18 @@ pub const Db = struct {
                 return err;
             };
         }
+    }
+
+    /// Copia a `schema_migrations` las versiones que la version Rust ya
+    /// aplico (`_sqlx_migrations.success = 1`). Solo actua cuando
+    /// `schema_migrations` esta vacia, asi que es idempotente y no pisa un
+    /// historial propio.
+    fn importLegacyMigrations(self: *Db) !void {
+        const own = self.scalarInt("SELECT COUNT(*) FROM schema_migrations") catch return;
+        if (own > 0) return;
+        const legacy = self.scalarInt("SELECT COUNT(*) FROM _sqlx_migrations WHERE success = 1") catch return;
+        if (legacy == 0) return;
+        try self.exec("INSERT OR IGNORE INTO schema_migrations(version) SELECT CAST(version AS TEXT) FROM _sqlx_migrations WHERE success = 1;");
     }
 
     pub fn scalarInt(self: *Db, sql: []const u8) !i64 {
@@ -285,4 +301,19 @@ test "sqlite can migrate an in-memory database and run FTS5" {
     try std.testing.expect(db.check());
     try db.exec("INSERT INTO notes(title,slug,filename,tags) VALUES('Álgebra','algebra','algebra.md','matemáticas');");
     try std.testing.expectEqual(@as(i64, 1), try db.scalarInt("SELECT COUNT(*) FROM notes"));
+}
+
+test "el historial de migraciones Rust se importa sin re-ejecutar" {
+    var db = try Db.open(std.testing.allocator, ":memory:");
+    defer db.close();
+    try db.exec("DELETE FROM schema_migrations;");
+    try db.exec("CREATE TABLE _sqlx_migrations(version INTEGER PRIMARY KEY, description TEXT NOT NULL, success BOOLEAN NOT NULL);");
+    try db.exec("INSERT INTO _sqlx_migrations(version, description, success) VALUES (20240101000000,'init',1),(20240101000001,'seed',1);");
+
+    try db.importLegacyMigrations();
+    try std.testing.expectEqual(@as(i64, 2), try db.scalarInt("SELECT COUNT(*) FROM schema_migrations"));
+
+    // Idempotente: una segunda pasada no duplica ni pisa el historial.
+    try db.importLegacyMigrations();
+    try std.testing.expectEqual(@as(i64, 2), try db.scalarInt("SELECT COUNT(*) FROM schema_migrations"));
 }

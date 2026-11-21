@@ -2,6 +2,7 @@ const std = @import("std");
 const assets = @import("assets.zig");
 const security = @import("security.zig");
 const panel = @import("panel.zig");
+const mcp_client = @import("mcp_client.zig");
 
 pub const TemplatePage = enum { dashboard, calendar, assistant, notes, mcp, material, settings };
 
@@ -34,6 +35,29 @@ pub fn fillPage(allocator: std.mem.Allocator, page: TemplatePage, source: []cons
     const exam_html = try panel.examCard(allocator, datos);
     const subject_options_html = try panel.subjectOptions(allocator, datos);
 
+    // Estado real de los dos MCP para las paginas de diagnostico. `datos`
+    // viene de una llamada real: si Mikareno fallo, no se finge conexion.
+    const status_on = "<span class=\"nx-status-dot is-on\" aria-hidden=\"true\"></span>";
+    const status_off = "<span class=\"nx-status-dot is-off\" aria-hidden=\"true\"></span>";
+    const mikareno_status_html = if (datos.connected)
+        try std.fmt.allocPrint(allocator, "{s}Conectado", .{status_on})
+    else
+        try std.fmt.allocPrint(allocator, "{s}Sin conexión", .{status_off});
+    const genoffice_status_html = if (datos.genoffice_connected)
+        try std.fmt.allocPrint(allocator, "{s}Conectado", .{status_on})
+    else
+        try std.fmt.allocPrint(allocator, "{s}Sin conexión", .{status_off});
+    const servers_line = try std.fmt.allocPrint(allocator, "Mikareno: {s} · GenOffice: {s}", .{
+        if (datos.connected) "conectado" else "sin conexión",
+        if (datos.genoffice_connected) "conectado" else "sin conexión",
+    });
+    var tools_buf = std.ArrayList(u8).init(allocator);
+    for (datos.mcp_tools, 0..) |tool_name, index| {
+        if (index > 0) try tools_buf.appendSlice(" · ");
+        try tools_buf.appendSlice(try security.htmlEscape(allocator, tool_name));
+    }
+    const mikareno_tools_line = if (tools_buf.items.len == 0) "sin catálogo" else tools_buf.items;
+
     const dashboard_values = [_]Replacement{
         .{ .slot = "AI_MODEL", .value = safe_model },
         .{ .slot = "AI_RESUME", .value = "<p class=\"text-sm text-on-surface-variant\">Pregunta a NOVA AI para empezar una sesión de estudio.</p>" },
@@ -49,8 +73,8 @@ pub fn fillPage(allocator: std.mem.Allocator, page: TemplatePage, source: []cons
         .{ .slot = "KPI_CLASSES", .value = try panel.kpiClasses(allocator, datos) },
         .{ .slot = "KPI_CONV", .value = try panel.kpiConv(allocator, datos) },
         .{ .slot = "KPI_NOTES", .value = try panel.kpiNotes(allocator, datos) },
-        .{ .slot = "KPI_TASKS_TODAY", .value = try panel.kpiTasks(allocator, datos, "pendientes") },
-        .{ .slot = "KPI_TASKS_WEEK", .value = try panel.kpiTasks(allocator, datos, "activas") },
+        .{ .slot = "KPI_TASKS_TODAY", .value = try panel.kpiTasks(allocator, datos, .today, "pendientes") },
+        .{ .slot = "KPI_TASKS_WEEK", .value = try panel.kpiTasks(allocator, datos, .week, "activas") },
         .{ .slot = "NEXT_EVENT", .value = next_event_html },
         .{ .slot = "NOTES", .value = notes_html },
         .{ .slot = "SUBJECT_BARS", .value = try panel.subjectBars(allocator, datos) },
@@ -119,13 +143,13 @@ pub fn fillPage(allocator: std.mem.Allocator, page: TemplatePage, source: []cons
         .{ .slot = "MCP_NATIVE_LOCATION", .value = "127.0.0.1" },
         .{ .slot = "MCP_NATIVE_TOOLS", .value = "9 herramientas" },
         .{ .slot = "MCP_ORCHESTRATOR", .value = "Study Platform · Zig" },
-        .{ .slot = "MCP_SERVERS_LINE", .value = "Mikareno: sin conexión" },
+        .{ .slot = "MCP_SERVERS_LINE", .value = servers_line },
         .{ .slot = "MCP_SPEND", .value = "0.00" },
         .{ .slot = "MCP_STATUS_AI", .value = "Modo demo" },
-        .{ .slot = "MCP_STATUS_GENOFFICE", .value = "Sin conexión" },
-        .{ .slot = "MCP_STATUS_MIKARENO", .value = "Sin conexión" },
+        .{ .slot = "MCP_STATUS_GENOFFICE", .value = genoffice_status_html },
+        .{ .slot = "MCP_STATUS_MIKARENO", .value = mikareno_status_html },
         .{ .slot = "MCP_TELEMETRY", .value = "" },
-        .{ .slot = "MCP_TOOLS", .value = "search_notes · get_note · create_note · get_academic_context" },
+        .{ .slot = "MCP_TOOLS", .value = mikareno_tools_line },
         .{ .slot = "MCP_TRANSCRIPT", .value = "" },
         .{ .slot = "MCP_URL_GENOFFICE", .value = "127.0.0.1:8453" },
         .{ .slot = "MCP_URL_MIKARENO", .value = "127.0.0.1:8080" },
@@ -148,8 +172,8 @@ pub fn fillPage(allocator: std.mem.Allocator, page: TemplatePage, source: []cons
         .{ .slot = "AI_MODEL", .value = safe_model },
         .{ .slot = "AI_STATUS", .value = "Sin clave API" },
         .{ .slot = "AUTH_MODE", .value = "Protegido por sesión" },
-        .{ .slot = "MCP_DOT", .value = "<span class=\"w-2 h-2 rounded-full bg-outline\"></span>" },
-        .{ .slot = "MCP_STATUS", .value = "Mikareno no responde ahora" },
+        .{ .slot = "MCP_DOT", .value = if (datos.connected) status_on else status_off },
+        .{ .slot = "MCP_STATUS", .value = if (datos.connected) "Conectado" else "Mikareno no responde ahora" },
         .{ .slot = "MCP_URL", .value = "127.0.0.1:8080" },
         .{ .slot = "VERSION", .value = "0.2.0" },
     };
@@ -200,7 +224,14 @@ pub fn renderShell(allocator: std.mem.Allocator, active_route: []const u8, conte
     aside_html = try markActiveNav(allocator, aside_html, active_route);
     aside_html = try std.mem.replaceOwned(u8, allocator, aside_html, "<aside class=\"app-rail nx-sidebar\"", "<aside id=\"app-rail\" class=\"app-rail nx-sidebar\"");
 
-    var topbar_html: []const u8 = try std.mem.replaceOwned(u8, allocator, assets.topbar, "<!--SLOT:SHELL_STATUS-->", "<span class=\"w-2 h-2 rounded-full bg-outline\"></span><span>Mikareno sin conexión</span>");
+    // El estado del topbar sale de un sondeo real (cacheado 30 s). Antes era
+    // texto fijo y decia "sin conexion" incluso con Mikareno respondiendo.
+    const mikareno_ok = mcp_client.probeCached(allocator, mcp_client.slot_mikareno, mcp_url, 800, true);
+    const status_html = if (mikareno_ok)
+        "<span class=\"nx-status-dot is-on\" aria-hidden=\"true\"></span><span>Mikareno conectado</span>"
+    else
+        "<span class=\"nx-status-dot is-off\" aria-hidden=\"true\"></span><span>Mikareno sin conexión</span>";
+    var topbar_html: []const u8 = try std.mem.replaceOwned(u8, allocator, assets.topbar, "<!--SLOT:SHELL_STATUS-->", status_html);
     topbar_html = try std.mem.replaceOwned(u8, allocator, topbar_html, "<!--SLOT:SHELL_AVATAR-->", avatar);
     topbar_html = try std.mem.replaceOwned(u8, allocator, topbar_html, "<!--SLOT:SHELL_NAME-->", safe_user);
     topbar_html = try std.mem.replaceOwned(u8, allocator, topbar_html, "<!--SLOT:SHELL_ROLE-->", "Estudiante");
