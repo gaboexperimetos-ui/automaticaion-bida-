@@ -48,8 +48,14 @@ pub const App = struct {
             if (assets.find(path)) |asset| return text(allocator, 200, asset.mime, asset.bytes);
             return text(allocator, 404, "text/plain; charset=utf-8", "not found");
         }
-        if (std.mem.eql(u8, path, "/styles.css")) return text(allocator, 200, "text/css; charset=utf-8", assets.files[16].bytes);
-        if (std.mem.eql(u8, path, "/app.js")) return text(allocator, 200, "application/javascript; charset=utf-8", assets.files[17].bytes);
+        if (std.mem.eql(u8, path, "/styles.css")) {
+            const css = assets.find("/static/study-platform-ui/styles.css").?;
+            return text(allocator, 200, css.mime, css.bytes);
+        }
+        if (std.mem.eql(u8, path, "/app.js")) {
+            const js = assets.find("/static/study-platform-ui/app.js").?;
+            return text(allocator, 200, js.mime, js.bytes);
+        }
         if (std.mem.eql(u8, path, "/legacy")) {
             const legacy = assets.find("/static/study-platform-ui/index.html").?;
             return text(allocator, 200, legacy.mime, legacy.bytes);

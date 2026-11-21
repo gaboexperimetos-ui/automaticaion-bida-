@@ -34,3 +34,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Rust build output (trabajo archivado)
+/target/
