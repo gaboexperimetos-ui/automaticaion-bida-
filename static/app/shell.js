@@ -743,6 +743,22 @@
    *  SETTINGS honesto + /ai legado -> asistente real
    * ================================================================= */
   function initSettings() {
+    var modelForm = document.getElementById("ai-model-form");
+    if (modelForm) {
+      modelForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var select = modelForm.querySelector('select[name="model"]');
+        if (!select) { return; }
+        var id = select.value;
+        SP.api("/api/ai/model", { method: "PUT", json: { model: id } }).then(function () {
+          SP.toast("Modelo guardado: " + id, "ok", 4000);
+          setTimeout(function () { location.reload(); }, 500);
+        }).catch(function (err) {
+          SP.toast(msgErr(err) || "No se pudo guardar el modelo", "err", 6000);
+        });
+      });
+      return;
+    }
     var form = document.querySelector('form[action="/api/settings/ai"]');
     if (!form) { return; }
     form.addEventListener("submit", function (e) {

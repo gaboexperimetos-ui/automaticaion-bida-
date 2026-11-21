@@ -156,9 +156,17 @@ fn cost(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.
     return jsonResponse(allocator, 200, .{ .object = obj });
 }
 
+pub const model_catalog = [_][]const u8{
+    "cohere/north-mini-code:free",
+    "minimax/minimax-m3.1-flash:free",
+    "google/gemini-2.0-flash-exp:free",
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "openai/gpt-4o-mini",
+};
+
 fn models(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config) !http.Response {
     const selected = currentModel(allocator, db, config) catch config.openrouter_model;
-    const entries = [_][]const u8{ "cohere/north-mini-code:free", "minimax/minimax-m3.1-flash:free", "google/gemini-2.0-flash-exp:free", "meta-llama/llama-3.3-70b-instruct:free", "openai/gpt-4o-mini" };
+    const entries = model_catalog;
     var list = std.json.Array.init(allocator);
     for (entries) |id| {
         var item = std.json.ObjectMap.init(allocator);
@@ -171,6 +179,7 @@ fn models(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mo
     var obj = std.json.ObjectMap.init(allocator);
     try obj.put("models", .{ .array = list });
     try obj.put("selected", .{ .string = selected });
+    try obj.put("active", .{ .string = selected });
     try obj.put("openrouter_configured", .{ .bool = config.openrouter_api_key != null });
     return jsonResponse(allocator, 200, .{ .object = obj });
 }

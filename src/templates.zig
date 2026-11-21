@@ -3,6 +3,7 @@ const assets = @import("assets.zig");
 const security = @import("security.zig");
 const panel = @import("panel.zig");
 const mcp_client = @import("mcp_client.zig");
+const ai = @import("ai.zig");
 
 pub const TemplatePage = enum { dashboard, calendar, assistant, notes, mcp, material, settings };
 
@@ -161,20 +162,58 @@ pub fn fillPage(allocator: std.mem.Allocator, page: TemplatePage, source: []cons
         .{ .slot = "MATERIA_OPTIONS", .value = "<option value=\"\">Selecciona una asignatura</option>" },
         .{ .slot = "MCP_STATUS", .value = "Mikareno no está conectado" },
     };
+    // Ajustes con datos reales: modelo efectivo (BD o .env), estado de la
+    // clave, presupuesto y endpoint MCP tal como los ve el servidor.
+    const current_ai_model = panel.aiModel(allocator, db, model);
+    const safe_ai_model = try security.htmlEscape(allocator, current_ai_model);
+    const safe_mcp_url = try security.htmlEscape(allocator, datos.mikareno_mcp_url);
+    const ai_dot = if (datos.ai_configured) status_on else status_off;
+    const ai_status = if (datos.ai_configured)
+        "Clave de OpenRouter configurada. El asistente consulta el modelo real."
+    else
+        "Sin clave de OpenRouter: el asistente responde en modo simulado.";
+    const ai_badge = if (datos.ai_configured) "Configurado" else "Modo demo";
+    const ai_budget = try std.fmt.allocPrint(allocator, "${d:.2} al mes", .{datos.ai_max_cost});
+    const ai_tokens = try std.fmt.allocPrint(allocator, "{d}", .{datos.ai_max_tokens});
+    const auth_mode = if (datos.auth_disabled) "Sin contraseña (solo local)" else "Sesión con contraseña";
+    const mcp_status = if (datos.connected) "Conectado y respondiendo" else "Mikareno no responde ahora";
+    const ai_env = try std.fmt.allocPrint(
+        allocator,
+        "<pre class=\"nx-settings-env\">OPENROUTER_MODEL={s}\nOPENROUTER_MAX_TOKENS={d}\nOPENROUTER_MAX_COST_USD={d:.2}\nOPENROUTER_API_KEY={s}</pre>",
+        .{ safe_ai_model, datos.ai_max_tokens, datos.ai_max_cost, if (datos.ai_configured) "(configurada)" else "(ausente)" },
+    );
+
+    var ai_form_buf = std.ArrayList(u8).init(allocator);
+    try ai_form_buf.appendSlice(
+        "<form id=\"ai-model-form\" class=\"nx-settings-editor-form\"><label for=\"ai-model\">Modelo de IA<select id=\"ai-model\" name=\"model\">",
+    );
+    for (ai.model_catalog) |catalog_id| {
+        const escaped_id = try security.htmlEscape(allocator, catalog_id);
+        const selected = if (std.mem.eql(u8, catalog_id, current_ai_model)) " selected" else "";
+        try ai_form_buf.writer().print("<option value=\"{s}\"{s}>{s}</option>", .{ escaped_id, selected, escaped_id });
+    }
+    if (!inCatalog(current_ai_model)) {
+        try ai_form_buf.writer().print("<option value=\"{s}\" selected>{s}</option>", .{ safe_ai_model, safe_ai_model });
+    }
+    try ai_form_buf.appendSlice(
+        "</select></label><button type=\"submit\">Guardar modelo</button><p class=\"nx-settings-hint\">Se guarda en la base de datos local; el resto de parámetros vive en <code>.env</code>.</p></form>",
+    );
+    const ai_form = ai_form_buf.items;
+
     const settings_values = [_]Replacement{
-        .{ .slot = "AI_BADGE", .value = if (model.len > 0) "Configurado" else "Modo demo" },
-        .{ .slot = "AI_BUDGET", .value = "2.00" },
-        .{ .slot = "AI_DOT", .value = "<span class=\"w-2 h-2 rounded-full bg-outline\"></span>" },
-        .{ .slot = "AI_DOT2", .value = "<span class=\"w-2 h-2 rounded-full bg-outline\"></span>" },
-        .{ .slot = "AI_ENV", .value = "OPENROUTER_API_KEY=(guardada solo en .env)" },
-        .{ .slot = "AI_FORM", .value = "" },
-        .{ .slot = "AI_MAX_TOKENS", .value = "8192" },
-        .{ .slot = "AI_MODEL", .value = safe_model },
-        .{ .slot = "AI_STATUS", .value = "Sin clave API" },
-        .{ .slot = "AUTH_MODE", .value = "Protegido por sesión" },
+        .{ .slot = "AI_BADGE", .value = ai_badge },
+        .{ .slot = "AI_BUDGET", .value = ai_budget },
+        .{ .slot = "AI_DOT", .value = ai_dot },
+        .{ .slot = "AI_DOT2", .value = ai_dot },
+        .{ .slot = "AI_ENV", .value = ai_env },
+        .{ .slot = "AI_FORM", .value = ai_form },
+        .{ .slot = "AI_MAX_TOKENS", .value = ai_tokens },
+        .{ .slot = "AI_MODEL", .value = safe_ai_model },
+        .{ .slot = "AI_STATUS", .value = ai_status },
+        .{ .slot = "AUTH_MODE", .value = auth_mode },
         .{ .slot = "MCP_DOT", .value = if (datos.connected) status_on else status_off },
-        .{ .slot = "MCP_STATUS", .value = if (datos.connected) "Conectado" else "Mikareno no responde ahora" },
-        .{ .slot = "MCP_URL", .value = "127.0.0.1:8080" },
+        .{ .slot = "MCP_STATUS", .value = mcp_status },
+        .{ .slot = "MCP_URL", .value = safe_mcp_url },
         .{ .slot = "VERSION", .value = "0.2.0" },
     };
 
@@ -198,6 +237,11 @@ pub fn fillPage(allocator: std.mem.Allocator, page: TemplatePage, source: []cons
 }
 
 const Replacement = struct { slot: []const u8, value: []const u8 };
+
+fn inCatalog(id: []const u8) bool {
+    for (ai.model_catalog) |entry| if (std.mem.eql(u8, entry, id)) return true;
+    return false;
+}
 
 fn clearUnknownSlots(allocator: std.mem.Allocator, source: []const u8) ![]const u8 {
     var output: std.ArrayListUnmanaged(u8) = .empty;

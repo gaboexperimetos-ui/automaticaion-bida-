@@ -331,6 +331,12 @@ pub const App = struct {
         // MCP no responde, los huecos lo dicen en vez de inventar numeros.
         var datos = panel.fetch(allocator, self.db, self.config.mikareno_mcp_url, self.config.mcp_timeout_ms) catch panel.Datos{};
         datos.genoffice_connected = self.probeGenOffice(allocator);
+        datos.ai_configured = self.config.openrouter_api_key != null;
+        datos.ai_model = self.config.openrouter_model;
+        datos.ai_max_tokens = self.config.openrouter_max_tokens;
+        datos.ai_max_cost = self.config.openrouter_max_cost_usd;
+        datos.mikareno_mcp_url = self.config.mikareno_mcp_url;
+        datos.auth_disabled = self.config.auth_disabled;
         if (page == .mcp) {
             datos.mcp_tools = mcp_client.listTools(allocator, self.config.mikareno_mcp_url, self.config.mcp_timeout_ms, true) catch &.{};
         }

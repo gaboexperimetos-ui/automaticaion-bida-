@@ -11,6 +11,7 @@
 //!   promedios, horario, calendario y tareas.
 
 const std = @import("std");
+const sqlite = @import("sqlite.zig");
 const json = @import("jsonutil.zig");
 const security = @import("security.zig");
 const mcp_client = @import("mcp_client.zig");
@@ -38,7 +39,24 @@ pub const Datos = struct {
     genoffice_connected: bool = false,
     /// Herramientas que anuncia Mikareno ahora mismo (`tools/list`).
     mcp_tools: []const []const u8 = &.{},
+    /// Configuración efectiva que la página de Ajustes muestra tal cual.
+    ai_configured: bool = false,
+    ai_model: []const u8 = "",
+    ai_max_tokens: u32 = 0,
+    ai_max_cost: f64 = 0,
+    mikareno_mcp_url: []const u8 = "",
+    auth_disabled: bool = false,
 };
+
+/// Modelo de IA efectivo: el elegido en la app (`app_config`) o el de `.env`.
+pub fn aiModel(allocator: std.mem.Allocator, db: anytype, fallback: []const u8) []const u8 {
+    const stmt = db.prepare("SELECT value FROM app_config WHERE key='ai.model'") catch return allocator.dupe(u8, fallback) catch "";
+    var query = stmt;
+    defer query.deinit();
+    const has_row = query.next() catch false;
+    if (has_row) return allocator.dupe(u8, query.text(0)) catch fallback;
+    return allocator.dupe(u8, fallback) catch "";
+}
 
 /// Lee Mikareno una vez (`get_student_full`) y los contadores locales.
 ///
@@ -1204,4 +1222,15 @@ test "la fecha ISO generada no lleva signo y es parseable" {
     const iso = try std.fmt.bufPrint(&buf, "{d:0>4}-{d:0>2}-01", .{ @as(u32, @intCast(@as(i32, 2026))), @as(u32, 11) });
     try std.testing.expectEqualStrings("2026-11-01", iso);
     try std.testing.expect(weekdayOf(iso) != null);
+}
+
+test "aiModel usa la BD y cae al valor de .env" {
+    var db = try sqlite.Db.open(std.testing.allocator, ":memory:");
+    defer db.close();
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    try std.testing.expectEqualStrings("fallback/model", aiModel(a, &db, "fallback/model"));
+    try db.exec("INSERT INTO app_config(key,value) VALUES('ai.model','elegido/model');");
+    try std.testing.expectEqualStrings("elegido/model", aiModel(a, &db, "fallback/model"));
 }

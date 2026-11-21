@@ -554,6 +554,13 @@ a { text-decoration: none; }
 .nx-settings-editor form label { display: grid; gap: 6px; color: var(--nx-muted); font-size: 9px; }
 .nx-settings-editor form input { width: 100%; min-width: 0; padding: 9px; background: var(--nx-surface-2); border: 1px solid var(--nx-line); border-radius: 7px; font-size: 10px; }
 .nx-settings-editor form button { grid-column: 1/-1; justify-self: start; padding: 8px 10px; color: var(--nx-text-2); background: var(--nx-surface-3); border-radius: 7px; font-size: 10px; }
+.nx-settings-editor-form { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 10px; align-items: end; margin-top: 14px; }
+.nx-settings-editor-form label { display: grid; gap: 6px; color: var(--nx-muted); font-size: 9px; }
+.nx-settings-editor-form select { width: 100%; min-width: 0; padding: 9px; color: var(--nx-text); background: var(--nx-surface-2); border: 1px solid var(--nx-line); border-radius: 7px; font-size: 10px; }
+.nx-settings-editor-form button { padding: 9px 12px; color: var(--nx-text-2); background: var(--nx-surface-3); border-radius: 7px; font-size: 10px; cursor: pointer; }
+.nx-settings-editor-form button:hover { color: var(--nx-text); }
+.nx-settings-hint { grid-column: 1/-1; margin: 0; color: var(--nx-muted); font-size: 9px; line-height: 1.5; }
+.nx-settings-env { overflow: auto; margin: 14px 0 0; padding: 12px; color: var(--nx-text-2); background: var(--nx-surface-2); border: 1px solid var(--nx-line); border-radius: 8px; font-size: 9px; line-height: 1.6; white-space: pre; }
 .nx-settings-footer { display: flex; justify-content: space-between; margin-top: 20px; color: var(--nx-muted); font-size: 9px; }
 
 /* Academia --------------------------------------------------------------- */
