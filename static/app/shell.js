@@ -2221,9 +2221,493 @@
     });
   }
 
+  /* =================================================================
+   *  TEMAS: selector persistente (paletas portadas de Cortex)
+   * ================================================================= */
+  var THEMES = [
+    { id: "nebula", label: "Nébula", bg: "#14101c", accent: "#a88af5" },
+    { id: "osaka-jade", label: "Osaka Jade", bg: "#0e1813", accent: "#2dd5b7" },
+    { id: "tokyo-night", label: "Tokyo Night", bg: "#1a1b26", accent: "#7aa2f7" },
+    { id: "catppuccin", label: "Catppuccin Mocha", bg: "#1e1e2e", accent: "#94e2d5" },
+    { id: "gruvbox", label: "Gruvbox", bg: "#282828", accent: "#fabd2f" },
+    { id: "nord", label: "Nord", bg: "#2e3440", accent: "#88c0d0" },
+    { id: "dracula", label: "Dracula", bg: "#282a36", accent: "#bd93f9" },
+    { id: "rose-pine", label: "Rosé Pine", bg: "#191724", accent: "#ebbcba" },
+    { id: "everforest", label: "Everforest", bg: "#2d353b", accent: "#a7c080" },
+    { id: "solarized", label: "Solarized", bg: "#002b36", accent: "#268bd2" },
+    { id: "kanagawa", label: "Kanagawa", bg: "#1f1f28", accent: "#7e9cd8" }
+  ];
+  var THEME_KEY = "nova.theme";
+
+  function themeById(id) {
+    for (var i = 0; i < THEMES.length; i++) { if (THEMES[i].id === id) { return THEMES[i]; } }
+    return THEMES[0];
+  }
+  function currentTheme() {
+    return document.documentElement.getAttribute("data-theme") || "nebula";
+  }
+  function syncThemeUI() {
+    var active = currentTheme();
+    var nodes = document.querySelectorAll("[data-nova-theme]");
+    for (var i = 0; i < nodes.length; i++) {
+      nodes[i].setAttribute("aria-pressed", nodes[i].getAttribute("data-nova-theme") === active ? "true" : "false");
+      nodes[i].setAttribute("data-active", nodes[i].getAttribute("data-nova-theme") === active ? "true" : "false");
+    }
+    var brand = document.querySelectorAll(".nx-brand-copy small");
+    for (var j = 0; j < brand.length; j++) {
+      brand[j].textContent = "PERSONAL OS · " + themeById(active).label.toUpperCase();
+    }
+  }
+  function applyTheme(id) {
+    var t = themeById(id);
+    document.documentElement.setAttribute("data-theme", t.id);
+    try { localStorage.setItem(THEME_KEY, t.id); } catch (e) {}
+    try { document.cookie = "nova_theme=" + encodeURIComponent(t.id) + "; path=/; max-age=31536000; samesite=lax"; } catch (e) {}
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) { meta.setAttribute("content", t.bg); }
+    syncThemeUI();
+  }
+  function initThemeGuard() {
+    function reapply() {
+      var saved = null;
+      try { saved = localStorage.getItem(THEME_KEY); } catch (e) {}
+      if (!saved) {
+        var c = document.cookie.match(/(?:^|;\s*)nova_theme=([^;]+)/);
+        if (c) { try { saved = decodeURIComponent(c[1]); } catch (e) {} }
+      }
+      if (!saved || themeById(saved).id !== saved) { return; }
+      if (currentTheme() !== saved) {
+        document.documentElement.setAttribute("data-theme", saved);
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) { meta.setAttribute("content", themeById(saved).bg); }
+      }
+      syncThemeUI();
+    }
+    document.addEventListener("htmx:afterSwap", reapply);
+    document.addEventListener("htmx:afterSettle", reapply);
+    window.addEventListener("pageshow", reapply);
+    document.addEventListener("visibilitychange", reapply);
+  }
+  function themeSwatch(t, compact) {
+    var b = el("button", compact ? "nova-theme-dot" : "nova-theme-option");
+    b.type = "button";
+    b.setAttribute("data-nova-theme", t.id);
+    b.title = t.label;
+    b.setAttribute("aria-label", "Tema " + t.label);
+    if (compact) { b.setAttribute("role", "menuitemradio"); }
+    var dot = el("span", "nova-theme-dot-color");
+    dot.style.background = "linear-gradient(135deg," + t.accent + " 0 48%," + t.bg + " 52% 100%)";
+    b.appendChild(dot);
+    if (!compact) {
+      b.appendChild(el("span", "nova-theme-label", t.label));
+      b.appendChild(icon("check"));
+    } else {
+      b.appendChild(el("span", "nova-theme-dot-label", t.label));
+    }
+    b.addEventListener("click", function () {
+      applyTheme(t.id);
+      SP.toast("Tema: " + t.label, "ok", 1600);
+    });
+    return b;
+  }
+
+  function initThemePicker() {
+    var host = document.querySelector(".nx-settings-content");
+    if (!host || document.getElementById("nova-theme-card")) { return; }
+    var card = el("section", "nx-settings-card nova-theme-card");
+    card.id = "nova-theme-card";
+    var head = el("header");
+    var ic = el("span", "nx-settings-card-icon material-symbols-outlined", "palette");
+    ic.setAttribute("aria-hidden", "true");
+    var titles = el("div");
+    titles.appendChild(el("p", null, "APARIENCIA"));
+    titles.appendChild(el("h2", null, "Tema de la interfaz"));
+    head.appendChild(ic);
+    head.appendChild(titles);
+    card.appendChild(head);
+    card.appendChild(el("p", "nx-settings-status", "Cambia la paleta del dashboard. Se guarda en este navegador; las 10 paletas de Cortex están disponibles junto a Nébula."));
+    var grid = el("div", "nova-theme-grid");
+    for (var i = 0; i < THEMES.length; i++) { grid.appendChild(themeSwatch(THEMES[i], false)); }
+    card.appendChild(grid);
+    host.appendChild(card);
+    syncThemeUI();
+  }
+
+  function initThemeQuick() {
+    var actions = document.querySelector(".nx-topbar-actions");
+    if (!actions || document.getElementById("nova-theme-quick")) { return; }
+    var wrap = el("div", "nova-theme-quick");
+    wrap.id = "nova-theme-quick";
+    var btn = el("button", "nx-icon-button nova-theme-trigger");
+    btn.type = "button";
+    btn.setAttribute("aria-label", "Cambiar tema");
+    btn.setAttribute("aria-haspopup", "true");
+    btn.setAttribute("aria-expanded", "false");
+    btn.title = "Cambiar tema";
+    btn.appendChild(icon("palette"));
+    var pop = el("div", "nova-theme-pop");
+    pop.setAttribute("role", "menu");
+    pop.hidden = true;
+    pop.appendChild(el("p", "nova-theme-pop-title", "Tema"));
+    var grid = el("div", "nova-theme-pop-grid");
+    for (var i = 0; i < THEMES.length; i++) { grid.appendChild(themeSwatch(THEMES[i], true)); }
+    pop.appendChild(grid);
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      pop.hidden = !pop.hidden;
+      btn.setAttribute("aria-expanded", pop.hidden ? "false" : "true");
+    });
+    pop.addEventListener("click", function () { pop.hidden = true; btn.setAttribute("aria-expanded", "false"); });
+    document.addEventListener("click", function (e) {
+      if (!wrap.contains(e.target)) { pop.hidden = true; btn.setAttribute("aria-expanded", "false"); }
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") { pop.hidden = true; btn.setAttribute("aria-expanded", "false"); }
+    });
+    wrap.appendChild(btn);
+    wrap.appendChild(pop);
+    actions.insertBefore(wrap, actions.firstChild);
+    syncThemeUI();
+  }
+
+
+  /* =================================================================
+   *  MÚSICA: reproductor flotante con playlist local
+   * ================================================================= */
+  var MUSIC_TRACKS_KEY = "nova.music.tracks";
+  var MUSIC_VOL_KEY = "nova.music.volume";
+  var musicLocal = [];
+  var musicIndex = -1;
+  var musicEls = null;
+
+  function musicStored() {
+    try {
+      var raw = JSON.parse(localStorage.getItem(MUSIC_TRACKS_KEY) || "[]");
+      return Array.isArray(raw) ? raw.filter(function (t) { return t && t.url; }) : [];
+    } catch (e) { return []; }
+  }
+  function musicSave() {
+    try {
+      var persist = musicStored().concat(musicLocal.filter(function (t) { return !t.local; }));
+      var clean = persist.map(function (t) { return { title: t.title, url: t.url }; });
+      var seen = {};
+      var out = [];
+      for (var i = 0; i < clean.length; i++) {
+        if (!seen[clean[i].url]) { seen[clean[i].url] = 1; out.push(clean[i]); }
+      }
+      localStorage.setItem(MUSIC_TRACKS_KEY, JSON.stringify(out));
+    } catch (e) {}
+  }
+  function musicAll() { return musicStored().concat(musicLocal); }
+  function trackTitle(url) {
+    try {
+      var clean = String(url).split("?")[0].split("#")[0];
+      var last = decodeURIComponent(clean.substring(clean.lastIndexOf("/") + 1)) || url;
+      return last.replace(/\.(mp3|ogg|oga|wav|m4a|aac|flac|opus|webm)$/i, "");
+    } catch (e) { return String(url); }
+  }
+  function musicCurrent() {
+    var list = musicAll();
+    return (musicIndex >= 0 && musicIndex < list.length) ? list[musicIndex] : null;
+  }
+  function musicRender() {
+    if (!musicEls) { return; }
+    var list = musicAll();
+    var cur = musicCurrent();
+    var audio = musicEls.audio;
+
+    musicEls.station.textContent = list.length ? (list.length + (list.length === 1 ? " pista" : " pistas")) : "Sin pistas";
+    musicEls.title.textContent = cur ? cur.title : "Ninguna pista";
+    musicEls.sub.textContent = cur ? (cur.local ? "Archivo local" : "URL / streaming") : "Añade una URL o archivos de audio";
+    musicEls.panel.setAttribute("data-playing", audio && !audio.paused ? "true" : "false");
+    musicEls.root.setAttribute("data-playing", audio && !audio.paused ? "true" : "false");
+    musicEls.playIcon.textContent = audio && !audio.paused ? "pause" : "play_arrow";
+
+    musicEls.list.innerHTML = "";
+    if (!list.length) {
+      var empty = el("li", "nmp-empty", "La lista está vacía. Pega una URL de audio o elige archivos.");
+      musicEls.list.appendChild(empty);
+      return;
+    }
+    for (var i = 0; i < list.length; i++) {
+      (function (idx) {
+        var t = list[idx];
+        var li = el("li");
+        if (idx === musicIndex) { li.setAttribute("data-active", "true"); }
+        var pick = el("button", "nmp-pick");
+        pick.type = "button";
+        pick.appendChild(icon(idx === musicIndex && audio && !audio.paused ? "graphic_eq" : "music_note"));
+        pick.appendChild(el("span", null, t.title));
+        pick.addEventListener("click", function () { musicPlay(idx); });
+        var rm = el("button", "nmp-remove");
+        rm.type = "button";
+        rm.setAttribute("aria-label", "Quitar " + t.title);
+        rm.title = "Quitar de la lista";
+        rm.appendChild(icon("close"));
+        rm.addEventListener("click", function (e) {
+          e.stopPropagation();
+          musicRemove(idx);
+        });
+        li.appendChild(pick);
+        li.appendChild(rm);
+        musicEls.list.appendChild(li);
+      })(i);
+    }
+  }
+  function musicPlay(idx) {
+    var list = musicAll();
+    if (idx < 0 || idx >= list.length) { return; }
+    musicIndex = idx;
+    var t = list[idx];
+    musicEls.audio.src = t.url;
+    var p = musicEls.audio.play();
+    if (p && p.catch) {
+      p.catch(function () {
+        SP.toast("El navegador bloqueó la reproducción. Pulsa play de nuevo.", "info", 4000);
+        musicRender();
+      });
+    }
+    if ("mediaSession" in navigator) {
+      try {
+        navigator.mediaSession.metadata = new window.MediaMetadata({ title: t.title, artist: "NOVA", album: "Música" });
+      } catch (e) {}
+    }
+    musicRender();
+  }
+  function musicToggle() {
+    var list = musicAll();
+    if (!list.length) { SP.toast("Añade primero una pista con una URL o un archivo.", "info"); return; }
+    if (musicIndex < 0) { musicPlay(0); return; }
+    if (musicEls.audio.paused) {
+      var p = musicEls.audio.play();
+      if (p && p.catch) { p.catch(function () { SP.toast("No se pudo reproducir esta pista.", "err"); }); }
+    } else {
+      musicEls.audio.pause();
+    }
+  }
+  function musicStep(dir) {
+    var list = musicAll();
+    if (!list.length) { return; }
+    var next = musicIndex + dir;
+    if (next >= list.length) { next = 0; }
+    if (next < 0) { next = list.length - 1; }
+    musicPlay(next);
+  }
+  function musicRemove(idx) {
+    var stored = musicStored();
+    if (idx < stored.length) {
+      stored.splice(idx, 1);
+      try { localStorage.setItem(MUSIC_TRACKS_KEY, JSON.stringify(stored)); } catch (e) {}
+    } else {
+      var localIdx = idx - stored.length;
+      musicLocal.splice(localIdx, 1);
+    }
+    var list = musicAll();
+    if (idx === musicIndex) {
+      musicEls.audio.pause();
+      musicEls.audio.removeAttribute("src");
+      musicIndex = list.length ? Math.min(idx, list.length - 1) : -1;
+    } else if (idx < musicIndex) {
+      musicIndex -= 1;
+    }
+    musicRender();
+  }
+  function musicAddUrl(url) {
+    url = String(url || "").trim();
+    if (!url) { return false; }
+    if (!/^(https?:|blob:|data:|file:)/i.test(url)) {
+      SP.toast("La URL debe empezar por http:// o https://.", "err");
+      return false;
+    }
+    var list = musicStored();
+    for (var i = 0; i < list.length; i++) { if (list[i].url === url) { SP.toast("Esa pista ya está en la lista.", "info"); return false; } }
+    list.push({ title: trackTitle(url), url: url });
+    try { localStorage.setItem(MUSIC_TRACKS_KEY, JSON.stringify(list)); } catch (e) {}
+    if (musicEls && musicEls.audio) {
+      musicIndex = list.length - 1;
+      musicEls.audio.src = list[musicIndex].url;
+    }
+    musicRender();
+    return true;
+  }
+  function initMusicPlayer() {
+    if (document.getElementById("nova-music")) { return; }
+    var root = el("div", "nmp");
+    root.id = "nova-music";
+    root.setAttribute("data-open", "false");
+    root.setAttribute("data-playing", "false");
+
+    var panel = el("section", "nmp-panel");
+    panel.setAttribute("role", "region");
+    panel.setAttribute("aria-label", "Reproductor de música");
+    var head = el("header", "nmp-head");
+    var headCopy = el("div");
+    headCopy.appendChild(el("p", "nmp-eyebrow", "Música"));
+    var station = el("strong", "nmp-station", "Sin pistas");
+    headCopy.appendChild(station);
+    var close = el("button", "nmp-close");
+    close.type = "button";
+    close.setAttribute("aria-label", "Cerrar reproductor");
+    close.appendChild(icon("close"));
+    head.appendChild(headCopy);
+    head.appendChild(close);
+    panel.appendChild(head);
+
+    var now = el("div", "nmp-now");
+    var art = el("div", "nmp-art");
+    art.appendChild(icon("graphic_eq"));
+    var nowCopy = el("div", "nmp-now-copy");
+    var title = el("strong", "nmp-title", "Ninguna pista");
+    var sub = el("small", "nmp-sub", "Añade una URL o archivos de audio");
+    nowCopy.appendChild(title);
+    nowCopy.appendChild(sub);
+    now.appendChild(art);
+    now.appendChild(nowCopy);
+    panel.appendChild(now);
+
+    var controls = el("div", "nmp-controls");
+    var prev = el("button");
+    prev.type = "button";
+    prev.setAttribute("aria-label", "Pista anterior");
+    prev.appendChild(icon("skip_previous"));
+    var play = el("button", "nmp-play");
+    play.type = "button";
+    play.setAttribute("aria-label", "Reproducir o pausar");
+    var playIcon = icon("play_arrow");
+    play.appendChild(playIcon);
+    var next = el("button");
+    next.type = "button";
+    next.setAttribute("aria-label", "Pista siguiente");
+    next.appendChild(icon("skip_next"));
+    var vol = el("div", "nmp-vol");
+    vol.appendChild(icon("volume_up"));
+    var range = el("input");
+    range.type = "range";
+    range.min = "0";
+    range.max = "100";
+    range.value = "70";
+    range.setAttribute("aria-label", "Volumen");
+    vol.appendChild(range);
+    controls.appendChild(prev);
+    controls.appendChild(play);
+    controls.appendChild(next);
+    controls.appendChild(vol);
+    panel.appendChild(controls);
+
+    var add = el("div", "nmp-add");
+    var url = el("input", "nmp-url");
+    url.type = "url";
+    url.placeholder = "URL de audio (mp3, ogg, radio)";
+    url.setAttribute("aria-label", "URL de audio");
+    var addBtn = el("button", "nmp-addurl", "Añadir");
+    addBtn.type = "button";
+    var fileLabel = el("label", "nmp-file");
+    fileLabel.appendChild(icon("upload_file"));
+    fileLabel.appendChild(el("span", null, "Elegir archivos…"));
+    var file = el("input");
+    file.type = "file";
+    file.accept = "audio/*";
+    file.multiple = true;
+    file.hidden = true;
+    fileLabel.appendChild(file);
+    add.appendChild(url);
+    add.appendChild(addBtn);
+    add.appendChild(fileLabel);
+    panel.appendChild(add);
+
+    var listEl = el("ul", "nmp-list");
+    panel.appendChild(listEl);
+    panel.appendChild(el("p", "nmp-note", "Las pistas por URL se guardan en este navegador. Los archivos locales duran hasta recargar la página."));
+
+    var audio = document.createElement("audio");
+    audio.id = "nova-audio";
+    audio.preload = "none";
+    root.appendChild(panel);
+    root.appendChild(audio);
+
+    var toggle = el("button", "nmp-toggle");
+    toggle.type = "button";
+    toggle.setAttribute("aria-label", "Abrir reproductor de música");
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.appendChild(icon("music_note"));
+    root.appendChild(toggle);
+    document.body.appendChild(root);
+
+    musicEls = { root: root, panel: panel, station: station, title: title, sub: sub, playIcon: playIcon, list: listEl, audio: audio };
+
+    function setOpen(open) {
+      root.setAttribute("data-open", open ? "true" : "false");
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+    toggle.addEventListener("click", function () { setOpen(root.getAttribute("data-open") !== "true"); });
+    close.addEventListener("click", function () { setOpen(false); });
+    play.addEventListener("click", musicToggle);
+    prev.addEventListener("click", function () { musicStep(-1); });
+    next.addEventListener("click", function () { musicStep(1); });
+    addBtn.addEventListener("click", function () {
+      if (musicAddUrl(url.value)) { url.value = ""; }
+    });
+    url.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); addBtn.click(); }
+    });
+    file.addEventListener("change", function () {
+      var files = file.files || [];
+      if (!files.length) { return; }
+      var added = 0;
+      for (var i = 0; i < files.length; i++) {
+        var blobUrl = URL.createObjectURL(files[i]);
+        musicLocal.push({ title: files[i].name.replace(/\.[^.]+$/, ""), url: blobUrl, local: true });
+        added += 1;
+      }
+      file.value = "";
+      if (added) {
+        musicIndex = musicAll().length - 1;
+        audio.src = musicAll()[musicIndex].url;
+        musicRender();
+        SP.toast(added + (added === 1 ? " pista añadida" : " pistas añadidas"), "ok");
+      } else {
+        musicRender();
+      }
+    });
+    range.addEventListener("input", function () {
+      audio.volume = Number(range.value) / 100;
+      try { localStorage.setItem(MUSIC_VOL_KEY, range.value); } catch (e) {}
+    });
+    audio.addEventListener("ended", function () { musicStep(1); });
+    audio.addEventListener("play", musicRender);
+    audio.addEventListener("pause", musicRender);
+    audio.addEventListener("error", function () {
+      if (audio.getAttribute("src")) { SP.toast("No se pudo cargar esa pista. Revisa la URL.", "err"); }
+      musicRender();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") { setOpen(false); }
+    });
+
+    var savedVol = 70;
+    try { savedVol = Number(localStorage.getItem(MUSIC_VOL_KEY) || 70); } catch (e) {}
+    if (!isFinite(savedVol)) { savedVol = 70; }
+    range.value = String(savedVol);
+    audio.volume = savedVol / 100;
+
+    if ("mediaSession" in navigator) {
+      try {
+        navigator.mediaSession.setActionHandler("previoustrack", function () { musicStep(-1); });
+        navigator.mediaSession.setActionHandler("nexttrack", function () { musicStep(1); });
+        navigator.mediaSession.setActionHandler("play", musicToggle);
+        navigator.mediaSession.setActionHandler("pause", musicToggle);
+      } catch (e) {}
+    }
+    musicRender();
+  }
+
   function boot() {
     injectCss();
     initSearch();
+    initThemePicker();
+    initThemeQuick();
+    initThemeGuard();
+    initMusicPlayer();
     initBell();
     initTopbarCreate();
     initDashboards();

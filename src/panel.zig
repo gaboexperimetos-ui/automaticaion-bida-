@@ -695,7 +695,7 @@ pub fn weekCal(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
         out.appendSlice(try std.fmt.allocPrint(
             allocator,
             "<div class=\"{s}\" title=\"{d:0>4}-{d:0>2}-{d:0>2}\"><span>{s}</span><span>{d}</span></div>",
-            .{ cls, y, m, dd, labels[i], dd },
+            .{ cls, @as(u32, @intCast(y)), m, dd, labels[i], dd },
         )) catch {};
     }
     return out.items;
@@ -894,14 +894,22 @@ pub fn calUpcoming(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
     return out.items;
 }
 
+/// Celdas vacias antes del dia 1 del mes (lunes = 0).
+fn monthOffset(year: i32, month: u32) usize {
+    // Ojo: {d:0>4} sobre un entero con signo imprime "+2026"; hay que pasar a
+    // sin signo para que la fecha ISO sea parseable.
+    var buf: [16]u8 = undefined;
+    const iso = std.fmt.bufPrint(&buf, "{d:0>4}-{d:0>2}-01", .{ @as(u32, @intCast(year)), month }) catch return 0;
+    return weekdayIndex(weekdayOf(iso) orelse "lunes");
+}
+
 /// Rejilla del mes: 7 columnas x 6 semanas con chips por dia.
 pub fn calGrid(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
     const hoy = try todayIso(allocator);
     const year = std.fmt.parseInt(i32, hoy[0..4], 10) catch 2026;
     const month = std.fmt.parseInt(u32, hoy[5..7], 10) catch 1;
     const total = diasDelMes(year, month);
-    const first_iso = try std.fmt.allocPrint(allocator, "{d:0>4}-{d:0>2}-01", .{ year, month });
-    const offset = weekdayIndex(weekdayOf(first_iso) orelse "lunes");
+    const offset = monthOffset(year, month);
 
     var out = std.ArrayList(u8).init(allocator);
     out.appendSlice(try std.fmt.allocPrint(
@@ -920,7 +928,7 @@ pub fn calGrid(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
 
     var day: u32 = 1;
     while (day <= total) : (day += 1) {
-        const iso = try std.fmt.allocPrint(allocator, "{d:0>4}-{d:0>2}-{d:0>2}", .{ year, month, day });
+        const iso = try std.fmt.allocPrint(allocator, "{d:0>4}-{d:0>2}-{d:0>2}", .{ @as(u32, @intCast(year)), month, day });
         const is_today = std.mem.eql(u8, iso, hoy);
         var cls: []const u8 = "nx-cal-day";
         if (is_today) cls = "nx-cal-day nx-cal-today";
@@ -1115,4 +1123,20 @@ test "las clases de hoy se pintan como lineas con hora y materia" {
     const html = try classesList(a, Datos{ .horario = &horario });
     try std.testing.expect(std.mem.indexOf(u8, html, "Religion [RELI]") != null);
     try std.testing.expect(std.mem.indexOf(u8, html, "07:35") != null);
+}
+
+test "el offset del mes usa el dia real (sin el signo + de los enteros con signo)" {
+    // 2026-11-01 fue domingo: 6 celdas vacias antes (lunes = 0).
+    try std.testing.expectEqual(@as(usize, 6), monthOffset(2026, 11));
+    // 2026-06-01 fue lunes.
+    try std.testing.expectEqual(@as(usize, 0), monthOffset(2026, 6));
+    // 2026-02-01 fue domingo.
+    try std.testing.expectEqual(@as(usize, 6), monthOffset(2026, 2));
+}
+
+test "la fecha ISO generada no lleva signo y es parseable" {
+    var buf: [16]u8 = undefined;
+    const iso = try std.fmt.bufPrint(&buf, "{d:0>4}-{d:0>2}-01", .{ @as(u32, @intCast(@as(i32, 2026))), @as(u32, 11) });
+    try std.testing.expectEqualStrings("2026-11-01", iso);
+    try std.testing.expect(weekdayOf(iso) != null);
 }

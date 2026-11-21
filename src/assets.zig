@@ -51,7 +51,14 @@ pub const files = [_]Asset{
     .{ .path = "/calendar-ics.js", .mime = "application/javascript; charset=utf-8", .bytes = @embedFile("../static/app/calendar-ics.js") },
     .{ .path = "/office-sheets.js", .mime = "application/javascript; charset=utf-8", .bytes = @embedFile("../static/app/office-sheets.js") },
     .{ .path = "/office-html.js", .mime = "application/javascript; charset=utf-8", .bytes = @embedFile("../static/app/office-html.js") },
+    .{ .path = "/static/app/themes.css", .mime = "text/css; charset=utf-8", .bytes = @embedFile("../static/app/themes.css") },
+    .{ .path = "/static/app/music.css", .mime = "text/css; charset=utf-8", .bytes = @embedFile("../static/app/music.css") },
 };
+
+fn assetByPath(wanted: []const u8) ?Asset {
+    for (files) |file| if (std.mem.eql(u8, wanted, file.path)) return file;
+    return null;
+}
 
 pub fn find(path: []const u8) ?Asset {
     for (files) |file| if (std.mem.eql(u8, path, file.path)) return file;
@@ -59,6 +66,8 @@ pub fn find(path: []const u8) ?Asset {
     if (std.mem.eql(u8, path, "/nova.css")) return files[1];
     if (std.mem.eql(u8, path, "/polish.css")) return files[2];
     if (std.mem.eql(u8, path, "/shell.js")) return files[3];
+    if (std.mem.eql(u8, path, "/themes.css")) return assetByPath("/static/app/themes.css");
+    if (std.mem.eql(u8, path, "/music.css")) return assetByPath("/static/app/music.css");
     if (std.mem.eql(u8, path, "/styles.css")) return files[16];
     if (std.mem.eql(u8, path, "/app.js")) return files[17];
     if (std.mem.startsWith(u8, path, "/app-assets/")) {

@@ -1,13 +1,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="shell-type" content="web_dashboard">
-<meta name="theme-color" content="#080b14">
+<meta name="theme-color" content="#14101c">
 <meta name="color-scheme" content="dark">
 <title>NOVA Nébula · Tu espacio académico</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
 <style>
   @layer base {
     html, body { margin: 0; padding: 0; }
@@ -16,8 +16,46 @@
     main > :last-child { margin-bottom: 0 !important; }
   }
 </style>
+<script>
+  (function () {
+    var map = { "osaka-jade":"#0e1813","tokyo-night":"#1a1b26","catppuccin":"#1e1e2e","gruvbox":"#282828","nord":"#2e3440","dracula":"#282a36","rose-pine":"#191724","everforest":"#2d353b","solarized":"#002b36","kanagawa":"#1f1f28","nebula":"#14101c" };
+    var t = "";
+    try { t = localStorage.getItem("nova.theme") || ""; } catch (e) {}
+    if (!map[t]) {
+      var c = document.cookie.match(/(?:^|;\s*)nova_theme=([^;]+)/);
+      if (c) { try { t = decodeURIComponent(c[1]); } catch (e) {} }
+    }
+    if (!map[t]) t = "nebula";
+    document.documentElement.setAttribute("data-theme", t);
+    try { localStorage.setItem("nova.theme", t); } catch (e) {}
+    document.cookie = "nova_theme=" + encodeURIComponent(t) + "; path=/; max-age=31536000; samesite=lax";
+    var m = document.querySelector('meta[name="theme-color"]');
+    if (m) m.setAttribute("content", map[t]);
+    // Red de seguridad: si un swap de HTMX o una navegación deja el <html>
+    // sin el tema guardado, se reaplica antes de repintar.
+    function reapplyTheme() {
+      var saved = "";
+      try { saved = localStorage.getItem("nova.theme"); } catch (e) {}
+      if (!saved) {
+        var cookie = document.cookie.match(/(?:^|;\s*)nova_theme=([^;]+)/);
+        if (cookie) { try { saved = decodeURIComponent(cookie[1]); } catch (e) {} }
+      }
+      if (!saved || !map[saved]) return;
+      if (document.documentElement.getAttribute("data-theme") !== saved) {
+        document.documentElement.setAttribute("data-theme", saved);
+      }
+      var meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute("content", map[saved]);
+    }
+    document.addEventListener("htmx:afterSwap", reapplyTheme);
+    document.addEventListener("htmx:afterSettle", reapplyTheme);
+    window.addEventListener("pageshow", reapplyTheme);
+  })();
+</script>
 <link rel="stylesheet" href="/polish.css">
 <link rel="stylesheet" href="/nova.css">
+<link rel="stylesheet" href="/themes.css">
+<link rel="stylesheet" href="/music.css">
 <script src="/vendor/htmx-2.0.3.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
 <script id="tailwind-config">
@@ -26,59 +64,59 @@
     theme: {
       extend: {
         colors: {
-          "background": "#080b14",
-          "on-background": "#f3f6ff",
-          "surface": "#111827",
-          "surface-dim": "#060911",
-          "surface-bright": "#2a3852",
-          "surface-container-lowest": "#090e19",
-          "surface-container-low": "#111827",
-          "surface-container": "#141d30",
-          "surface-container-high": "#1a253a",
-          "surface-container-highest": "#22304a",
-          "surface-variant": "#22304a",
-          "on-surface": "#f3f6ff",
-          "on-surface-variant": "#a8b3c9",
-          "inverse-surface": "#f3f6ff",
-          "inverse-on-surface": "#140d26",
-          "outline": "#71809e",
-          "outline-variant": "#2c3a56",
-          "surface-tint": "#a78bfa",
-          "primary": "#a78bfa",
-          "on-primary": "#140d26",
-          "primary-container": "#a78bfa",
-          "on-primary-container": "#140d26",
-          "inverse-primary": "#8b5cf6",
-          "primary-fixed": "#ddd6fe",
-          "primary-fixed-dim": "#a78bfa",
-          "on-primary-fixed": "#140d26",
-          "on-primary-fixed-variant": "#3b2d63",
-          "secondary": "#67e8f9",
-          "on-secondary": "#082f49",
-          "secondary-container": "#164e63",
-          "on-secondary-container": "#d9efff",
-          "secondary-fixed": "#a5f3fc",
-          "secondary-fixed-dim": "#67e8f9",
-          "on-secondary-fixed": "#082f49",
-          "on-secondary-fixed-variant": "#164e63",
-          "tertiary": "#ffbd7a",
-          "on-tertiary": "#291a0b",
-          "tertiary-container": "#4c3219",
-          "on-tertiary-container": "#ffe7cc",
-          "tertiary-fixed": "#ffdbb5",
-          "tertiary-fixed-dim": "#ffbd7a",
-          "on-tertiary-fixed": "#291a0b",
-          "on-tertiary-fixed-variant": "#4c3219",
-          "error": "#ffb4ab",
-          "on-error": "#690005",
-          "error-container": "#93000a",
-          "on-error-container": "#ffdad6"
+          "background": "rgb(var(--c-background) / <alpha-value>)",
+          "on-background": "rgb(var(--c-on-background) / <alpha-value>)",
+          "surface": "rgb(var(--c-surface) / <alpha-value>)",
+          "surface-dim": "rgb(var(--c-surface-dim) / <alpha-value>)",
+          "surface-bright": "rgb(var(--c-surface-bright) / <alpha-value>)",
+          "surface-container-lowest": "rgb(var(--c-surface-lowest) / <alpha-value>)",
+          "surface-container-low": "rgb(var(--c-surface-low) / <alpha-value>)",
+          "surface-container": "rgb(var(--c-surface-container) / <alpha-value>)",
+          "surface-container-high": "rgb(var(--c-surface-high) / <alpha-value>)",
+          "surface-container-highest": "rgb(var(--c-surface-highest) / <alpha-value>)",
+          "surface-variant": "rgb(var(--c-surface-variant) / <alpha-value>)",
+          "on-surface": "rgb(var(--c-on-surface) / <alpha-value>)",
+          "on-surface-variant": "rgb(var(--c-on-surface-variant) / <alpha-value>)",
+          "inverse-surface": "rgb(var(--c-inverse-surface) / <alpha-value>)",
+          "inverse-on-surface": "rgb(var(--c-inverse-on-surface) / <alpha-value>)",
+          "outline": "rgb(var(--c-outline) / <alpha-value>)",
+          "outline-variant": "rgb(var(--c-outline-variant) / <alpha-value>)",
+          "surface-tint": "rgb(var(--c-surface-tint) / <alpha-value>)",
+          "primary": "rgb(var(--c-primary) / <alpha-value>)",
+          "on-primary": "rgb(var(--c-on-primary) / <alpha-value>)",
+          "primary-container": "rgb(var(--c-primary-container) / <alpha-value>)",
+          "on-primary-container": "rgb(var(--c-on-primary-container) / <alpha-value>)",
+          "inverse-primary": "rgb(var(--c-inverse-primary) / <alpha-value>)",
+          "primary-fixed": "rgb(var(--c-primary-fixed) / <alpha-value>)",
+          "primary-fixed-dim": "rgb(var(--c-primary-fixed-dim) / <alpha-value>)",
+          "on-primary-fixed": "rgb(var(--c-on-primary-fixed) / <alpha-value>)",
+          "on-primary-fixed-variant": "rgb(var(--c-on-primary-fixed-variant) / <alpha-value>)",
+          "secondary": "rgb(var(--c-secondary) / <alpha-value>)",
+          "on-secondary": "rgb(var(--c-on-secondary) / <alpha-value>)",
+          "secondary-container": "rgb(var(--c-secondary-container) / <alpha-value>)",
+          "on-secondary-container": "rgb(var(--c-on-secondary-container) / <alpha-value>)",
+          "secondary-fixed": "rgb(var(--c-secondary-fixed) / <alpha-value>)",
+          "secondary-fixed-dim": "rgb(var(--c-secondary-fixed-dim) / <alpha-value>)",
+          "on-secondary-fixed": "rgb(var(--c-on-secondary-fixed) / <alpha-value>)",
+          "on-secondary-fixed-variant": "rgb(var(--c-on-secondary-fixed-variant) / <alpha-value>)",
+          "tertiary": "rgb(var(--c-tertiary) / <alpha-value>)",
+          "on-tertiary": "rgb(var(--c-on-tertiary) / <alpha-value>)",
+          "tertiary-container": "rgb(var(--c-tertiary-container) / <alpha-value>)",
+          "on-tertiary-container": "rgb(var(--c-on-tertiary-container) / <alpha-value>)",
+          "tertiary-fixed": "rgb(var(--c-tertiary-fixed) / <alpha-value>)",
+          "tertiary-fixed-dim": "rgb(var(--c-tertiary-fixed-dim) / <alpha-value>)",
+          "on-tertiary-fixed": "rgb(var(--c-on-tertiary-fixed) / <alpha-value>)",
+          "on-tertiary-fixed-variant": "rgb(var(--c-on-tertiary-fixed-variant) / <alpha-value>)",
+          "error": "rgb(var(--c-error) / <alpha-value>)",
+          "on-error": "rgb(var(--c-on-error) / <alpha-value>)",
+          "error-container": "rgb(var(--c-error-container) / <alpha-value>)",
+          "on-error-container": "rgb(var(--c-on-error-container) / <alpha-value>)"
         },
         borderRadius: {
           "DEFAULT": "0.625rem",
           "lg": "0.875rem",
-          "xl": "1.125rem",
-          "full": "9999px"
+          "xl": "0.875rem",
+          "full": "999px"
         },
         spacing: {
           "space-lg": "1.25rem",
@@ -92,16 +130,16 @@
           "margin": "1rem"
         },
         fontFamily: {
-          "headline-lg": ["Space Grotesk", "sans-serif"],
-          "headline-md": ["Space Grotesk", "sans-serif"],
-          "headline-sm": ["Space Grotesk", "sans-serif"],
-          "display": ["Space Grotesk", "sans-serif"],
-          "display-mobile": ["Space Grotesk", "sans-serif"],
-          "body-lg": ["DM Sans", "sans-serif"],
-          "body-md": ["DM Sans", "sans-serif"],
-          "body-sm": ["DM Sans", "sans-serif"],
-          "label-md": ["DM Sans", "sans-serif"],
-          "label-sm": ["DM Sans", "sans-serif"],
+          "headline-lg": ["var(--nx-font)"],
+          "headline-md": ["var(--nx-font)"],
+          "headline-sm": ["var(--nx-font)"],
+          "display": ["var(--nx-font)"],
+          "display-mobile": ["var(--nx-font)"],
+          "body-lg": ["var(--nx-font)"],
+          "body-md": ["var(--nx-font)"],
+          "body-sm": ["var(--nx-font)"],
+          "label-md": ["var(--nx-font)"],
+          "label-sm": ["var(--nx-font)"],
           "code-inline": ["ui-monospace", "SFMono-Regular", "Consolas", "monospace"]
         },
         fontSize: {
