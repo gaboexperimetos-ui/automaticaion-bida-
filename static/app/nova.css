@@ -111,6 +111,14 @@ a { text-decoration: none; }
 #user-menu { color: var(--nx-text); background: var(--nx-surface-2) !important; border: 1px solid var(--nx-line) !important; border-radius: 12px !important; box-shadow: var(--nx-shadow); }
 #toast-region { z-index: 150; }
 
+/* Chip de usuario de la barra superior (el topbar de Zig no usa #topProfile) */
+.nx-topbar .topbar-user { display: flex; align-items: center; gap: 8px; flex: none; min-width: 0; padding-left: 10px; }
+.nx-topbar .topbar-user > span:first-child { display: inline-grid; place-items: center; flex: none; }
+.nx-topbar .topbar-user-copy { display: grid; min-width: 0; text-align: left; }
+.nx-topbar .topbar-user-name { display: block; max-width: 120px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 11px; font-weight: 600; line-height: 1.25; }
+.nx-topbar .topbar-user-role { display: block; color: var(--nx-muted); font-size: 9px; line-height: 1.2; }
+.nx-topbar .topbar-user-chevron { color: var(--nx-muted); font-size: 16px; }
+
 /* Shared page primitives ------------------------------------------------- */
 .nx-page { width: min(100%, 1500px); margin: 0 auto; padding: 38px 38px 64px; }
 .nx-page-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 28px; margin-bottom: 30px; }

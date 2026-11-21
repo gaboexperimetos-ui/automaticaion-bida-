@@ -208,7 +208,7 @@ pub fn renderShell(allocator: std.mem.Allocator, active_route: []const u8, conte
     const safe_mcp_url = try security.htmlEscape(allocator, mcp_url);
     _ = safe_mcp_url; // La URL no se inserta en el shell ni se expone en HTML.
 
-    const css = "<style>html,body{margin:0;background:#080b14;color:#f3f6ff}.app-rail{position:fixed;inset:0 auto 0 0;width:250px;overflow:auto;z-index:50}.app-rail-content{margin-left:250px}.app-topbar{position:sticky;top:0;z-index:40}.skip-link{position:absolute;left:-9999px;top:0;background:#a78bfa;color:#140d26;padding:.75rem;z-index:100}.skip-link:focus{left:1rem}.app-main{min-height:100vh;padding-top:4rem}@media(max-width:900px){.app-rail{transform:translateX(-100%)}.app-rail-content{margin-left:0}.app-topbar{left:0!important}}</style>";
+    const css = "<style>html,body{margin:0;background:var(--nx-bg,#080b14);color:var(--nx-text,#f3f6ff)}.app-rail{position:fixed;inset:0 auto 0 0;width:250px;overflow:auto;z-index:50}.app-rail-content{margin-left:250px}.app-topbar{position:sticky;top:0;z-index:40}.skip-link{position:absolute;left:-9999px;top:0;background:#a78bfa;color:#140d26;padding:.75rem;z-index:100}.skip-link:focus{left:1rem}.app-main{min-height:100vh;padding-top:4rem}@media(max-width:900px){.app-rail{transform:translateX(-100%)}.app-rail-content{margin-left:0}.app-topbar{left:0!important}}</style>";
     const head = try std.fmt.allocPrint(allocator, "<head>{s}{s}<script>window.__STITCH_V2_AUTH__={{\"authenticated\":{s}}}</script></head>", .{ assets.head, css, if (authenticated) "true" else "false" });
     return std.fmt.allocPrint(
         allocator,
