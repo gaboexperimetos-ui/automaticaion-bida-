@@ -92,6 +92,11 @@ pub const App = struct {
         }
         if (std.mem.startsWith(u8, path, "/admin") or std.mem.startsWith(u8, path, "/api/admin/")) return self.admin(allocator, request, username);
         if (std.mem.startsWith(u8, path, "/office")) return self.office(allocator, request, username);
+        // El calendario mensual tiene vista propia: rejilla 7x6 con chips por
+        // dia, KPIs del mes y proximos eventos. No es un volcado JSON.
+        if (std.mem.eql(u8, path, "/dashboard/calendar") or std.mem.eql(u8, path, "/dashboard/calendar/")) {
+            return self.cleanPage(allocator, .calendar, path, username);
+        }
         if (std.mem.startsWith(u8, path, "/dashboard/")) return self.academic(allocator, request, username);
 
         if (std.mem.eql(u8, path, "/api/notes")) return jsonError(allocator, 404, "not_found");
@@ -434,11 +439,6 @@ pub const App = struct {
                 .{ .key = "connected", .value = .{ .bool = true } },
                 .{ .key = "schedule", .value = result },
             }));
-        }
-        // El calendario mensual tiene vista propia: rejilla 7x6 con chips por
-        // dia, KPIs del mes y proximos eventos. No es un volcado JSON.
-        if (std.mem.startsWith(u8, path, "/dashboard/calendar")) {
-            return self.cleanPage(allocator, .calendar, path, username);
         }
         const title = if (std.mem.indexOf(u8, path, "calendar") != null) "Mi agenda" else if (std.mem.indexOf(u8, path, "planner") != null) "Planificador semanal" else if (std.mem.indexOf(u8, path, "horario") != null) "Horario" else if (std.mem.indexOf(u8, path, "subjects") != null) "Asignaturas" else if (std.mem.indexOf(u8, path, "examenes") != null) "Evaluaciones" else if (std.mem.indexOf(u8, path, "vida-escolar") != null) "Vida escolar" else "Espacio académico";
         const tool_name = academicTool(path);
