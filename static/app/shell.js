@@ -1008,6 +1008,7 @@
 
     SP.api("/api/notes").then(function (data) {
       allNotes = (data.notes || []).filter(function (n) { return n && n.slug; });
+      renderLibrary(allNotes);
       var found = null;
       if (current.title) {
         for (var i = 0; i < allNotes.length; i++) {
@@ -1022,12 +1023,99 @@
       hydrate(found.slug);
     }).catch(function (err) { SP.toast(msgErr(err), "err"); });
 
+    function tagsOf(note) {
+      return String(note && note.tags || "").split(",").map(function (t) { return t.trim(); }).filter(Boolean);
+    }
+
+    function renderLibrary(notes) {
+      var count = document.querySelector(".nx-notes-library header > span");
+      if (count) { count.textContent = notes.length === 1 ? "1 nota" : notes.length + " notas"; }
+
+      var tree = document.querySelector(".nx-library-tree");
+      if (tree) {
+        tree.innerHTML = "";
+        notes.forEach(function (n) {
+          var row = document.createElement("a");
+          row.href = "/app/notes/" + encodeURIComponent(n.slug);
+          row.className = "nx-tree-item";
+          row.dataset.slug = n.slug;
+          row.dataset.tags = n.tags || "";
+          row.title = n.title || n.slug;
+          var icon = document.createElement("span");
+          icon.className = "material-symbols-outlined";
+          icon.textContent = "description";
+          var label = document.createElement("span");
+          label.className = "nx-tree-title";
+          label.textContent = n.title || n.slug;
+          row.appendChild(icon);
+          row.appendChild(label);
+          row.addEventListener("click", function (ev) {
+            ev.preventDefault();
+            hydrate(n.slug);
+          });
+          tree.appendChild(row);
+        });
+        if (!notes.length) {
+          tree.innerHTML = '<p class="nx-library-empty">Todavía no hay notas. Crea la primera con «Nueva nota».</p>';
+        }
+      }
+
+      var recent = document.querySelector(".nx-library-details > div:not(.nx-library-tags)");
+      if (recent) {
+        recent.innerHTML = "";
+        notes.slice(0, 3).forEach(function (n) {
+          var a = document.createElement("a");
+          a.href = "/app/notes/" + encodeURIComponent(n.slug);
+          a.textContent = n.title || n.slug;
+          a.addEventListener("click", function (ev) { ev.preventDefault(); hydrate(n.slug); });
+          recent.appendChild(a);
+          recent.appendChild(document.createElement("br"));
+        });
+      }
+
+      var tags = document.querySelector(".nx-library-tags");
+      if (tags) {
+        tags.innerHTML = "";
+        var seen = {};
+        notes.forEach(function (n) {
+          tagsOf(n).forEach(function (tag) {
+            if (seen[tag.toLowerCase()]) { return; }
+            seen[tag.toLowerCase()] = true;
+            var chip = document.createElement("button");
+            chip.type = "button";
+            chip.className = "nx-tag-chip";
+            chip.textContent = tag;
+            chip.addEventListener("click", function () { filterLibrary(tag); });
+            tags.appendChild(chip);
+          });
+        });
+        if (!tags.children.length) { tags.innerHTML = '<span class="nx-library-empty">Sin etiquetas.</span>'; }
+      }
+    }
+
+    function filterLibrary(query) {
+      var q = String(query || "").trim().toLowerCase();
+      var input = document.querySelector(".nx-notes-library .nx-chat-search input");
+      if (input && q) { input.value = q; }
+      document.querySelectorAll(".nx-library-tree .nx-tree-item").forEach(function (row) {
+        var hay = (row.textContent + " " + (row.dataset.tags || "")).toLowerCase();
+        row.style.display = !q || hay.indexOf(q) !== -1 ? "" : "none";
+      });
+    }
+
+    function setActiveNote(slug) {
+      document.querySelectorAll(".nx-library-tree .nx-tree-item").forEach(function (row) {
+        row.classList.toggle("is-active", row.dataset.slug === slug);
+      });
+    }
+
     function hydrate(slug) {
       SP.api("/api/notes/" + slug).then(function (d) {
         var n = d.note || {};
         current = { slug: slug, title: n.title || slug, content: String(d.content || ""), tags: n.tags || "" };
         titleInput.value = current.title;
         editor.value = current.content;
+        setActiveNote(slug);
         buildSaveButton();
         setMode(window.matchMedia("(max-width: 860px)").matches ? "edit" : "split");
         updateStats();
@@ -1092,6 +1180,11 @@
         });
       }
     });
+
+    var libraryFilter = document.querySelector(".nx-notes-library .nx-chat-search input");
+    if (libraryFilter) {
+      libraryFilter.addEventListener("input", function () { filterLibrary(libraryFilter.value); });
+    }
 
     function markDirty() { dirty = true; updateSaveState(); debouncedRender(); }
     function surround(pre, post) {

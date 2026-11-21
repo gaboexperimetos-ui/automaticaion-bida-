@@ -77,7 +77,7 @@ a { text-decoration: none; }
 .nx-vault div span { color: var(--nx-muted); font-size: 9px; }
 .nx-vault-value { color: var(--nx-text-2); font: 600 10px ui-monospace, monospace; }
 
-.nx-topbar { position: fixed; top: 0; right: 0; z-index: 60; display: grid; grid-template-columns: minmax(170px,1fr) minmax(260px,520px) minmax(170px,1fr); align-items: center; gap: 20px; height: 72px; padding: 0 24px; background: rgba(10,12,11,.92); border-bottom: 1px solid var(--nx-line); backdrop-filter: blur(18px); }
+.nx-topbar { position: fixed; top: 0; right: 0; z-index: 60; display: grid; grid-template-columns: minmax(0,1fr) minmax(260px,520px) max-content; align-items: center; gap: 20px; height: 72px; padding: 0 24px; background: rgba(10,12,11,.92); border-bottom: 1px solid var(--nx-line); backdrop-filter: blur(18px); }
 .nx-topbar-leading { display: flex; align-items: center; min-width: 0; }
 #rail-toggle { display: inline-grid; place-items: center; width: 36px; height: 36px; margin-right: 12px; padding: 0; color: var(--nx-text-2); background: transparent; border: 1px solid var(--nx-line); border-radius: 9px; }
 #rail-toggle:hover { color: var(--nx-accent); background: var(--nx-accent-soft); }
@@ -407,6 +407,15 @@ a { text-decoration: none; }
 .nx-library-tree { flex: 1; min-height: 90px; margin: 10px -4px; padding: 0 4px; overflow-y: auto; }
 .nx-library-tree > * { display: block; width: 100%; margin: 3px 0; padding: 10px; color: var(--nx-text-2); background: transparent; border: 1px solid transparent; border-radius: 8px; font-size: 11px; }
 .nx-library-tree > *:hover { color: var(--nx-text); background: var(--nx-surface-2); }
+.nx-library-tree .nx-tree-item { display: flex; align-items: center; gap: 7px; text-decoration: none; }
+.nx-library-tree .nx-tree-item .material-symbols-outlined { flex: none; color: var(--nx-muted); font-size: 15px; }
+.nx-library-tree .nx-tree-item .nx-tree-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nx-library-tree .nx-tree-item.is-active { color: var(--nx-accent); background: var(--nx-accent-soft); border-color: rgba(167,139,250,.22); }
+.nx-library-tree .nx-tree-item.is-active .material-symbols-outlined { color: var(--nx-accent); }
+.nx-library-empty { color: var(--nx-muted); font-size: 10px; }
+.nx-tag-chip { padding: 3px 8px; color: var(--nx-text-2); background: var(--nx-surface-2); border: 1px solid var(--nx-line); border-radius: 999px; font-size: 9px; }
+.nx-tag-chip:hover { color: var(--nx-accent); border-color: rgba(167,139,250,.3); }
+.nx-library-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .nx-library-details { padding: 10px 4px; border-top: 1px solid var(--nx-line); }
 .nx-library-details summary { display: flex; justify-content: space-between; color: var(--nx-text-2); font-size: 10px; cursor: pointer; }
 .nx-library-details summary .material-symbols-outlined { font-size: 14px; }
@@ -794,7 +803,7 @@ a.nx-calendar-event:hover { border-color: rgba(167,139,250,.25); background: var
 /* Responsive ------------------------------------------------------------- */
 @media (max-width: 1320px) {
   .nx-page { padding-inline: 28px; }
-  .nx-topbar { grid-template-columns: minmax(130px,.7fr) minmax(240px,440px) minmax(170px,.8fr); gap: 12px; padding-inline: 18px; }
+  .nx-topbar { grid-template-columns: minmax(0,.7fr) minmax(240px,440px) max-content; gap: 12px; padding-inline: 18px; }
   .nx-connection { display: none; }
   .nx-notes-layout { grid-template-columns: 215px minmax(360px,1fr); }
   .nx-knowledge { display: none; }
@@ -810,7 +819,7 @@ a.nx-calendar-event:hover { border-color: rgba(167,139,250,.25); background: var
   .nx-mobile-brand strong { font-size: 13px; letter-spacing: .1em; }
   .nx-mobile-brand small { color: var(--nx-accent); font-size: 8px; }
   .nx-topbar-context { display: none; }
-  .nx-topbar { grid-template-columns: minmax(120px,1fr) minmax(230px,450px) minmax(120px,1fr); }
+  .nx-topbar { grid-template-columns: minmax(0,1fr) minmax(230px,450px) max-content; }
   .nx-notes-page { height: calc(100dvh - 72px); }
   .nx-material-layout { grid-template-columns: 320px minmax(0,1fr); }
   .nx-calendar-layout { grid-template-columns: minmax(0,1fr) 270px; }
