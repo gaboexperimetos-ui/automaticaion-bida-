@@ -450,7 +450,7 @@ def run_mainline_merge_smoke(binary: Path, workspace: Path, temp: Path):
             ("/vendor/htmx-2.0.3.min.js", b"htmx"),
             ("/vendor/xlsx-0.20.3.full.min.js", b"XLSX"),
             ("/calendar-ics.js", b"parseIcs"),
-            ("/office-sheets.js", b"workbookFromAoa"),
+            ("/office-sheets.js", b"loadXlsx"),
             ("/office-html.js", b"previewDocument"),
         ):
             status, headers, body = request(base, path)
@@ -501,7 +501,7 @@ def run_mainline_merge_smoke(binary: Path, workspace: Path, temp: Path):
         status, _, body = request(base, "/office/sheets/excel-bridge", headers={"Accept": "text/html"})
         assert status == 200 and b"office-xlsx-file" in body and b"office-xlsx-sheet" in body
         assert b"office-xlsx-import" in body and b"office-xlsx-export" in body
-        assert b"/vendor/xlsx-0.20.3.full.min.js" in body and b"/office-sheets.js" in body
+        assert b"/vendor/xlsx-0.20.3.full.min.js" not in body and b"/office-sheets.js" in body
 
         html_source = "<!doctype html><html lang=\"es\"><body><h1>Preview</h1><script>bad()</script></body></html>"
         status, headers, _ = request(base, "/office/html", "POST", {"title": "Safe Page", "content": html_source}, office_form)
