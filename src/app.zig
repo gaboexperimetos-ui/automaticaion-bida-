@@ -337,6 +337,7 @@ pub const App = struct {
         datos.ai_max_cost = self.config.openrouter_max_cost_usd;
         datos.mikareno_mcp_url = self.config.mikareno_mcp_url;
         datos.auth_disabled = self.config.auth_disabled;
+        datos.vault_path = self.config.vault_dir;
         if (page == .mcp) {
             datos.mcp_tools = mcp_client.listTools(allocator, self.config.mikareno_mcp_url, self.config.mcp_timeout_ms, true) catch &.{};
         }

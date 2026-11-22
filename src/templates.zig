@@ -132,7 +132,7 @@ pub fn fillPage(allocator: std.mem.Allocator, page: TemplatePage, source: []cons
         .{ .slot = "OUTLINKS", .value = "" },
         .{ .slot = "OUTLINKS_COUNT", .value = "0" },
         .{ .slot = "TAGS", .value = "" },
-        .{ .slot = "VAULT_PATH", .value = "notes/" },
+        .{ .slot = "VAULT_PATH", .value = if (datos.vault_path.len > 0) datos.vault_path else "notes/" },
     };
     const mcp_values = [_]Replacement{
         .{ .slot = "MCP_BUDGET", .value = "2.00" },

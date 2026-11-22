@@ -46,6 +46,8 @@ pub const Datos = struct {
     ai_max_cost: f64 = 0,
     mikareno_mcp_url: []const u8 = "",
     auth_disabled: bool = false,
+    /// Ruta del vault de Obsidian mostrada en el panel de notas.
+    vault_path: []const u8 = "",
 };
 
 /// Modelo de IA efectivo: el elegido en la app (`app_config`) o el de `.env`.
