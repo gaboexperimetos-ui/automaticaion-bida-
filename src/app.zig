@@ -327,6 +327,13 @@ pub const App = struct {
     }
 
     fn cleanPage(self: *App, allocator: std.mem.Allocator, page: templates.TemplatePage, route: []const u8, username: []const u8) !http.Response {
+        // Triángulo del vault: al abrir el panel de notas se importa lo que
+        // OpenCode/Hermes hayan escrito en el vault, sin pulsar el botón.
+        if (page == .notes) {
+            _ = notes.syncVaultCounts(allocator, self.db, self.config) catch |err| {
+                std.log.warn("Auto-sync del vault falló: {s}", .{@errorName(err)});
+            };
+        }
         // Datos reales una sola vez: Mikareno y los contadores locales. Si el
         // MCP no responde, los huecos lo dicen en vez de inventar numeros.
         var datos = panel.fetch(allocator, self.db, self.config.mikareno_mcp_url, self.config.mcp_timeout_ms) catch panel.Datos{};

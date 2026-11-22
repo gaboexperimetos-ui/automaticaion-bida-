@@ -1272,6 +1272,13 @@ fn updateNoteDB(
     _ = fts.next() catch {};
 }
 
+pub const SyncCounts = struct {
+    imported: usize = 0,
+    updated: usize = 0,
+    skipped: usize = 0,
+    errors: []const []const u8 = &.{},
+};
+
 /// Sincroniza el vault de Obsidian (`config.vault_dir`) con la base de datos.
 /// Importa cada `.md` del vault: crea notas nuevas y actualiza las que
 /// cambiaron. Devuelve conteos de importadas, actualizadas y omitidas.
@@ -1280,14 +1287,38 @@ pub fn syncVault(
     db: *sqlite.Db,
     config: *const config_mod.Config,
 ) !http.Response {
-    var dir = try std.fs.cwd().openDir(config.vault_dir, .{ .iterate = true });
+    const counts = try syncVaultCounts(allocator, db, config);
+    var obj = std.json.ObjectMap.init(allocator);
+    try obj.put("imported", .{ .integer = @intCast(counts.imported) });
+    try obj.put("updated", .{ .integer = @intCast(counts.updated) });
+    try obj.put("skipped", .{ .integer = @intCast(counts.skipped) });
+    try obj.put("vault_dir", .{ .string = config.vault_dir });
+    var err_list = std.json.Array.init(allocator);
+    for (counts.errors) |err_name| {
+        try err_list.append(.{ .string = err_name });
+    }
+    try obj.put("errors", .{ .array = err_list });
+    return jsonResponse(allocator, 200, .{ .object = obj });
+}
+
+/// Núcleo reutilizable de la sincronización: lo usan la ruta API y la carga de
+/// `/dashboard/notes`, de modo que lo editado por OpenCode/Hermes en el vault
+/// aparece sin pulsar el botón.
+pub fn syncVaultCounts(
+    allocator: std.mem.Allocator,
+    db: *sqlite.Db,
+    config: *const config_mod.Config,
+) !SyncCounts {
+    var dir = std.fs.cwd().openDir(config.vault_dir, .{ .iterate = true }) catch |err| switch (err) {
+        error.FileNotFound => return .{},
+        else => return err,
+    };
     defer dir.close();
 
     var imported: usize = 0;
     var updated: usize = 0;
     var skipped: usize = 0;
     var errors: std.ArrayList([]const u8) = .init(allocator);
-    defer errors.deinit();
 
     var iter = dir.iterate();
     while (try iter.next()) |entry| {
@@ -1357,17 +1388,7 @@ pub fn syncVault(
         }
     }
 
-    var obj = std.json.ObjectMap.init(allocator);
-    try obj.put("imported", .{ .integer = @intCast(imported) });
-    try obj.put("updated", .{ .integer = @intCast(updated) });
-    try obj.put("skipped", .{ .integer = @intCast(skipped) });
-    try obj.put("vault_dir", .{ .string = config.vault_dir });
-    var err_list = std.json.Array.init(allocator);
-    for (errors.items) |err_name| {
-        try err_list.append(.{ .string = err_name });
-    }
-    try obj.put("errors", .{ .array = err_list });
-    return jsonResponse(allocator, 200, .{ .object = obj });
+    return .{ .imported = imported, .updated = updated, .skipped = skipped, .errors = try errors.toOwnedSlice() };
 }
 
 test "slug validation rejects traversal" {
