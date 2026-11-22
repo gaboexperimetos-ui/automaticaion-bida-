@@ -608,6 +608,16 @@ fn isLeapYear(year: u16) bool {
 }
 
 fn createNote(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, title_raw: []const u8, content: []const u8, tags: []const u8, strict_duplicate: bool) !Note {
+    return createNoteAs(allocator, db, config, title_raw, content, tags, null, strict_duplicate, true);
+}
+
+/// Igual que `createNote`, pero permite conservar el nombre de archivo original
+/// (usado al importar `.md` del vault de Obsidian para no duplicar el archivo
+/// al reescribirlo). Con `filename_override = null` usa `{slug}.md`.
+/// `export_vault` controla si además se escribe en `VAULT_DIR`: la importación
+/// desde el vault lo pone en `false` para no reescribir el archivo del usuario
+/// (y no perder frontmatter extra como `created` o `aliases`).
+fn createNoteAs(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, title_raw: []const u8, content: []const u8, tags: []const u8, filename_override: ?[]const u8, strict_duplicate: bool, export_vault: bool) !Note {
     const title = std.mem.trim(u8, title_raw, " \t\r\n");
     if (title.len == 0) return error.InvalidTitle;
     if (try charCount(title) > 200) return error.TitleTooLong;
@@ -615,7 +625,10 @@ fn createNote(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const confi
     if (tags.len > 500) return error.TagsTooLong;
     const slug = try slugify(allocator, title);
     if (!safeSlug(slug)) return error.InvalidTitle;
-    const filename = try std.fmt.allocPrint(allocator, "{s}.md", .{slug});
+    const filename = if (filename_override) |f| blk: {
+        if (std.mem.indexOfAny(u8, f, "/\\") != null or f.len == 0) return error.InvalidTitle;
+        break :blk try allocator.dupe(u8, f);
+    } else try std.fmt.allocPrint(allocator, "{s}.md", .{slug});
     const summary = summarize(content);
     var stmt = db.prepare("INSERT INTO notes(title,slug,filename,tags,word_count,summary) VALUES(?1,?2,?3,?4,?5,?6)") catch |err| {
         if (strict_duplicate and isConstraint(err, db)) return error.NoteExists;
@@ -646,7 +659,11 @@ fn createNote(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const confi
     try fts.bindText(2, title);
     try fts.bindText(3, content);
     _ = fts.next() catch {};
-    try writeMarkdown(allocator, config, filename, title, tags, content);
+    if (export_vault) {
+        try writeMarkdown(allocator, config, filename, title, tags, content);
+    } else {
+        try writeMarkdownAt(allocator, config.notes_dir, filename, title, tags, content);
+    }
     return .{ .id = id, .title = title, .slug = slug, .filename = filename, .tags = tags, .word_count = wordCount(content), .summary = summary, .created_at = "", .updated_at = "" };
 }
 
@@ -711,6 +728,11 @@ fn deleteNote(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const confi
     _ = try stmt.next();
     const path = try std.fs.path.join(allocator, &.{ config.notes_dir, note.filename });
     std.fs.cwd().deleteFile(path) catch {};
+    const vault = config.vault_dir;
+    if (vault.len > 0 and !std.mem.eql(u8, vault, config.notes_dir)) {
+        const vault_path = try std.fs.path.join(allocator, &.{ vault, note.filename });
+        std.fs.cwd().deleteFile(vault_path) catch {};
+    }
     return if (api) jsonResponse(allocator, 200, try json.object(allocator, &.{.{ .key = "deleted", .value = .{ .bool = true } }})) else jsonResponse(allocator, 200, try json.object(allocator, &.{.{ .key = "message", .value = .{ .string = "Note deleted" } }}));
 }
 
@@ -825,8 +847,58 @@ fn loadContent(allocator: std.mem.Allocator, config: *const config_mod.Config, n
 
 fn writeMarkdown(allocator: std.mem.Allocator, config: *const config_mod.Config, filename: []const u8, title: []const u8, tags: []const u8, content: []const u8) !void {
     if (std.mem.indexOfAny(u8, filename, "/\\") != null) return error.InvalidPath;
-    try std.fs.cwd().makePath(config.notes_dir);
-    const path = try std.fs.path.join(allocator, &.{ config.notes_dir, filename });
+    try writeMarkdownAt(allocator, config.notes_dir, filename, title, tags, content);
+    // Exportación hacia el vault de Obsidian: si está configurado y es otra
+    // carpeta, se escribe el mismo `.md` para que Obsidian/OpenCode lo vean.
+    // Un fallo del vault no debe impedir guardar la nota en NOTES_DIR.
+    const vault = config.vault_dir;
+    if (vault.len > 0 and !std.mem.eql(u8, vault, config.notes_dir)) {
+        writeVaultMarkdown(allocator, vault, filename, title, tags, content) catch |err| {
+            std.log.warn("No se pudo escribir {s} en el vault ({s}): {s}", .{ filename, vault, @errorName(err) });
+        };
+    }
+}
+
+/// Escribe en el vault conservando cualquier campo de frontmatter que ya
+/// existiera (`created`, `aliases`, `cssclass`…). Sólo reemplaza `title` y
+/// `tags` y el cuerpo; el resto del encabezado se mantiene.
+fn writeVaultMarkdown(allocator: std.mem.Allocator, vault: []const u8, filename: []const u8, title: []const u8, tags: []const u8, content: []const u8) !void {
+    try std.fs.cwd().makePath(vault);
+    const path = try std.fs.path.join(allocator, &.{ vault, filename });
+
+    var extra: std.ArrayList(u8) = .init(allocator);
+    if (std.fs.cwd().openFile(path, .{})) |f| {
+        defer f.close();
+        const raw = f.readToEndAlloc(allocator, 1_000_000) catch "";
+        if (std.mem.startsWith(u8, raw, "---\n")) {
+            if (std.mem.indexOf(u8, raw[4..], "\n---\n")) |closing| {
+                var lines = std.mem.splitScalar(u8, raw[4 .. 4 + closing], '\n');
+                while (lines.next()) |line| {
+                    const t = std.mem.trim(u8, line, " \t");
+                    if (t.len == 0) continue;
+                    if (std.mem.startsWith(u8, t, "title:") or std.mem.startsWith(u8, t, "tags:")) continue;
+                    try extra.appendSlice(t);
+                    try extra.append('\n');
+                }
+            }
+        }
+    } else |_| {}
+
+    const file = try std.fs.cwd().createFile(path, .{ .truncate = true });
+    defer file.close();
+    try file.writeAll("---\ntitle: \"");
+    try file.writeAll(title);
+    try file.writeAll("\"\ntags: \"");
+    try file.writeAll(tags);
+    try file.writeAll("\"\n");
+    try file.writeAll(extra.items);
+    try file.writeAll("---\n\n");
+    try file.writeAll(content);
+}
+
+fn writeMarkdownAt(allocator: std.mem.Allocator, dir: []const u8, filename: []const u8, title: []const u8, tags: []const u8, content: []const u8) !void {
+    try std.fs.cwd().makePath(dir);
+    const path = try std.fs.path.join(allocator, &.{ dir, filename });
     const file = try std.fs.cwd().createFile(path, .{ .truncate = true });
     defer file.close();
     const frontmatter = try std.fmt.allocPrint(allocator, "---\ntitle: \"{s}\"\ntags: \"{s}\"\n---\n\n", .{ title, tags });
@@ -1271,11 +1343,11 @@ pub fn syncVault(
                 continue;
             }
             try updateNoteDB(db, note.id, title, fm.tags, fm.body);
-            try writeMarkdown(allocator, config, note.filename, title, fm.tags, fm.body);
+            try writeMarkdownAt(allocator, config.notes_dir, note.filename, title, fm.tags, fm.body);
             updated += 1;
         } else |err| {
             if (err == error.NotFound) {
-                _ = try createNote(allocator, db, config, title, fm.body, fm.tags, false);
+                _ = try createNoteAs(allocator, db, config, title, fm.body, fm.tags, entry.name, false, false);
                 imported += 1;
             } else {
                 const name_copy = allocator.dupe(u8, entry.name) catch continue;
@@ -1321,4 +1393,37 @@ test "parseFrontmatter sin frontmatter usa todo el texto como cuerpo" {
     try std.testing.expectEqualStrings("", fm.title);
     try std.testing.expectEqualStrings("", fm.tags);
     try std.testing.expectEqualStrings("Solo texto plano.", fm.body);
+}
+
+test "writeMarkdownAt escribe frontmatter y cuerpo" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const dir = try tmp.dir.realpathAlloc(arena.allocator(), ".");
+    try writeMarkdownAt(arena.allocator(), dir, "nota.md", "Titulo", "a, b", "Cuerpo");
+    const data = try tmp.dir.readFileAlloc(arena.allocator(), "nota.md", 10000);
+    try std.testing.expect(std.mem.indexOf(u8, data, "title: \"Titulo\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, data, "tags: \"a, b\"") != null);
+    try std.testing.expect(std.mem.endsWith(u8, data, "Cuerpo"));
+}
+
+test "writeVaultMarkdown conserva el frontmatter extra" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const dir = try tmp.dir.realpathAlloc(arena.allocator(), ".");
+    {
+        const f = try tmp.dir.createFile("nota.md", .{});
+        defer f.close();
+        try f.writeAll("---\ntitle: \"Viejo\"\ntags: [x]\ncreated: 2026-11-20\naliases: [a]\n---\n\nViejo cuerpo.\n");
+    }
+    try writeVaultMarkdown(arena.allocator(), dir, "nota.md", "Nuevo", "y", "Cuerpo nuevo");
+    const data = try tmp.dir.readFileAlloc(arena.allocator(), "nota.md", 10000);
+    try std.testing.expect(std.mem.indexOf(u8, data, "title: \"Nuevo\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, data, "tags: \"y\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, data, "created: 2026-11-20") != null);
+    try std.testing.expect(std.mem.indexOf(u8, data, "aliases: [a]") != null);
+    try std.testing.expect(std.mem.endsWith(u8, data, "Cuerpo nuevo"));
 }

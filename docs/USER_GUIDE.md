@@ -207,12 +207,21 @@ a `POST /api/notes/sync-vault`, que recorre la carpeta configurada en `VAULT_DIR
 
 El `frontmatter` YAML se respeta: `title` se usa como título si está presente
 (si no, se deriva del nombre del archivo) y `tags` se importan como etiquetas.
-La **BD SQLite sigue siendo la fuente de verdad**; el vault es la entrada de la
-sincronización y `NOTES_DIR` es el espejo `.md` que escribe la propia app. Un
-archivo ilegible o con frontmatter inválido se lista en `errors` y no detiene el
-resto del lote. Las notas importadas reciben un `slug` a partir del nombre del
-archivo, así que renombrar un `.md` en Obsidian crea una nota nueva en lugar de
-renombrar la existente.
+La **BD SQLite sigue siendo la fuente de verdad**, y la sincronización es en dos
+direcciones:
+
+- **Vault → app**: el botón importa lo editado en Obsidian u OpenCode (arriba).
+- **App → vault**: al crear, editar o restaurar una nota en la plataforma, el
+  `.md` se escribe en `NOTES_DIR` y también en `VAULT_DIR` (si es otra carpeta),
+  así Obsidian ve el cambio. Al escribir en el vault se conservan los campos de
+  frontmatter ajenos a `title`/`tags` (`created`, `aliases`, `cssclass`…). Al
+  borrar una nota se elimina de ambos sitios.
+
+Las notas importadas **conservan el nombre de archivo original** del vault (por
+ejemplo `Mi-Nota.md`), de modo que al reescribirlas no se crea un duplicado con
+otro nombre. Un archivo ilegible o con frontmatter inválido se lista en `errors`
+y no detiene el resto del lote. El `slug` se deriva del título, así que renombrar
+un `.md` en Obsidian crea una nota nueva en lugar de renombrar la existente.
 
 ### 3.10 `/dashboard/material` — Generador de material con IA
 

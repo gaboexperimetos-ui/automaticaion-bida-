@@ -62,6 +62,7 @@ class Server:
                 "SESSION_SECRET": "zig-smoke-secret-0123456789abcdef-0123456789",
                 "DB_PATH": str(data_dir / "app.db"),
                 "NOTES_DIR": str(data_dir / "notes"),
+                "VAULT_DIR": str(data_dir / "vault"),
                 "AUTH_DISABLED": "true",
                 "OPENROUTER_API_KEY": "",
                 "CUSTOM_MCP_API_KEY": "smoke-mcp-key",
