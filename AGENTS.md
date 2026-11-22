@@ -41,6 +41,7 @@ python3 tests/http_smoke.py --binary zig-out/bin/study-platform
 - `static/`: frontend Stitch/NOVA y archivos estáticos preservados.
 - `migrations/`: ocho migraciones SQL preservadas; no sustituirlas por schema duplicado en Zig.
 - Variables actuales: `src/config.zig` y `.env.example`; rutas: `src/app.zig`, `src/notes.zig`, `src/ai.zig`, `src/mcp.zig` y `docs/API.md`.
+- Vault de Obsidian: `VAULT_DIR` (por defecto `$HOME/SegundoCerebro`) es la carpeta que `POST /api/notes/sync-vault` importa. La BD SQLite es la fuente de verdad; `NOTES_DIR` es el espejo `.md` que escribe la app. No borres `VAULT_DIR` sin confirmar: puede contener notas personales.
 
 ## Build y ejecución segura
 

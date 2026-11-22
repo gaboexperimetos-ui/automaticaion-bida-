@@ -29,6 +29,9 @@ pub fn handle(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const confi
     if (std.mem.eql(u8, path, "/dashboard/search")) return searchPage(allocator, db, config, request, username);
     if (std.mem.eql(u8, path, "/api/calendar/annotations")) return annotations(allocator, db, request, null);
     if (std.mem.eql(u8, path, "/api/calendar/annotations/import")) return importAnnotations(allocator, db, request);
+    if (std.mem.eql(u8, path, "/api/notes/sync-vault") and std.mem.eql(u8, request.method, "POST")) {
+        return syncVault(allocator, db, config);
+    }
     if (std.mem.startsWith(u8, path, "/api/calendar/annotations/")) {
         const id = path["/api/calendar/annotations/".len..];
         return annotations(allocator, db, request, id);
@@ -1095,8 +1098,227 @@ fn appendIcsLine(allocator: std.mem.Allocator, output: *std.ArrayListUnmanaged(u
     try output.appendSlice(allocator, "\r\n");
 }
 
+/// Parsea el frontmatter YAML mínimo de una nota del vault:
+/// `title: "..."` y `tags: ...` (lista entre corchetes o separada por comas).
+/// Devuelve título, etiquetas y el cuerpo Markdown sin el frontmatter.
+fn parseFrontmatter(allocator: std.mem.Allocator, raw: []const u8) !Frontmatter {
+    if (!std.mem.startsWith(u8, raw, "---\n")) {
+        return .{ .title = "", .tags = "", .body = std.mem.trim(u8, raw, "\n") };
+    }
+    const closing = std.mem.indexOf(u8, raw[4..], "\n---\n") orelse return error.InvalidFrontmatter;
+    const header = raw[4 .. 4 + closing];
+    const body = std.mem.trim(u8, raw[4 + closing + 5 ..], "\n");
+    var title: []const u8 = "";
+    var tags_raw: []const u8 = "";
+    var lines = std.mem.splitScalar(u8, header, '\n');
+    while (lines.next()) |line| {
+        const trimmed = std.mem.trim(u8, line, " \t");
+        if (std.mem.startsWith(u8, trimmed, "title:")) {
+            title = try frontmatterValue(allocator, trimmed[6..]);
+        } else if (std.mem.startsWith(u8, trimmed, "tags:")) {
+            tags_raw = try frontmatterValue(allocator, trimmed[5..]);
+        }
+    }
+    const tags = try tagsValueToTags(allocator, tags_raw);
+    return .{ .title = title, .tags = tags, .body = body };
+}
+
+/// Devuelve el valor de una clave del frontmatter, quitando comillas.
+fn frontmatterValue(allocator: std.mem.Allocator, value: []const u8) ![]const u8 {
+    var v = std.mem.trim(u8, value, " \t");
+    if (v.len >= 2 and v[0] == '"' and v[v.len - 1] == '"') {
+        v = v[1 .. v.len - 1];
+    } else if (v.len >= 2 and v[0] == '\'' and v[v.len - 1] == '\'') {
+        v = v[1 .. v.len - 1];
+    }
+    return try allocator.dupe(u8, v);
+}
+
+/// Convierte el valor crudo de `tags` en una cadena separada por comas.
+/// Acepta `etiqueta1, etiqueta2`, `[etiqueta1, etiqueta2]` o `etiqueta1`.
+fn tagsValueToTags(allocator: std.mem.Allocator, raw: []const u8) ![]const u8 {
+    var v = std.mem.trim(u8, raw, " \t");
+    if (v.len >= 2 and v[0] == '[' and v[v.len - 1] == ']') v = v[1 .. v.len - 1];
+    if (v.len == 0) return allocator.dupe(u8, "");
+    var out: std.ArrayList([]const u8) = .init(allocator);
+    defer out.deinit();
+    var parts = std.mem.splitScalar(u8, v, ',');
+    while (parts.next()) |part| {
+        var tag = std.mem.trim(u8, part, " \t\"'");
+        tag = std.mem.trim(u8, tag, "#");
+        if (tag.len == 0) continue;
+        try out.append(try allocator.dupe(u8, tag));
+    }
+    if (out.items.len == 0) return allocator.dupe(u8, "");
+    var joined: std.ArrayList(u8) = .init(allocator);
+    for (out.items, 0..) |tag, i| {
+        if (i > 0) try joined.appendSlice(", ");
+        try joined.appendSlice(tag);
+    }
+    return joined.toOwnedSlice();
+}
+
+const Frontmatter = struct {
+    title: []const u8,
+    tags: []const u8,
+    body: []const u8,
+};
+
+/// Actualiza una nota existente en BD, fichero `.md` (espejo en notes_dir),
+/// FTS y versiones. Usado por la sincronización del vault.
+fn updateNoteDB(
+    db: *sqlite.Db,
+    id: i64,
+    title: []const u8,
+    tags: []const u8,
+    content: []const u8,
+) !void {
+    var stmt = try db.prepare(
+        "UPDATE notes SET title=?1,tags=?2,word_count=?3,summary=?4,updated_at=datetime('now') WHERE id=?5",
+    );
+    defer stmt.deinit();
+    try stmt.bindText(1, title);
+    try stmt.bindText(2, tags);
+    try stmt.bindInt(3, wordCount(content));
+    try stmt.bindText(4, summarize(content));
+    try stmt.bindInt(5, id);
+    _ = try stmt.next();
+
+    var ver = try db.prepare("INSERT INTO note_versions(note_id,content,word_count) VALUES(?1,?2,?3)");
+    defer ver.deinit();
+    try ver.bindInt(1, id);
+    try ver.bindText(2, content);
+    try ver.bindInt(3, wordCount(content));
+    _ = try ver.next();
+    try pruneVersions(db, id);
+
+    var fts = try db.prepare("INSERT OR REPLACE INTO notes_fts(rowid,title,content) VALUES(?1,?2,?3)");
+    defer fts.deinit();
+    try fts.bindInt(1, id);
+    try fts.bindText(2, title);
+    try fts.bindText(3, content);
+    _ = fts.next() catch {};
+}
+
+/// Sincroniza el vault de Obsidian (`config.vault_dir`) con la base de datos.
+/// Importa cada `.md` del vault: crea notas nuevas y actualiza las que
+/// cambiaron. Devuelve conteos de importadas, actualizadas y omitidas.
+pub fn syncVault(
+    allocator: std.mem.Allocator,
+    db: *sqlite.Db,
+    config: *const config_mod.Config,
+) !http.Response {
+    var dir = try std.fs.cwd().openDir(config.vault_dir, .{ .iterate = true });
+    defer dir.close();
+
+    var imported: usize = 0;
+    var updated: usize = 0;
+    var skipped: usize = 0;
+    var errors: std.ArrayList([]const u8) = .init(allocator);
+    defer errors.deinit();
+
+    var iter = dir.iterate();
+    while (try iter.next()) |entry| {
+        if (entry.kind != .file) continue;
+        if (!std.mem.endsWith(u8, entry.name, ".md")) continue;
+
+        const path = try std.fs.path.join(allocator, &.{ config.vault_dir, entry.name });
+
+        var file: std.fs.File = undefined;
+        {
+            const open_result = std.fs.cwd().openFile(path, .{});
+            if (open_result) |f| {
+                file = f;
+            } else |_| {
+                const name_copy = allocator.dupe(u8, entry.name) catch continue;
+                _ = errors.append(name_copy) catch {};
+                continue;
+            }
+        }
+        defer file.close();
+
+        var raw: []const u8 = "";
+        {
+            const read_result = file.readToEndAlloc(allocator, 500_000);
+            if (read_result) |r| {
+                raw = r;
+            } else |_| {
+                const name_copy = allocator.dupe(u8, entry.name) catch continue;
+                _ = errors.append(name_copy) catch {};
+                continue;
+            }
+        }
+
+        var fm: Frontmatter = .{ .title = "", .tags = "", .body = "" };
+        {
+            const parse_result = parseFrontmatter(allocator, raw);
+            if (parse_result) |p| {
+                fm = p;
+            } else |_| {
+                const name_copy = allocator.dupe(u8, entry.name) catch continue;
+                _ = errors.append(name_copy) catch {};
+                continue;
+            }
+        }
+
+        const title = if (fm.title.len > 0) fm.title else entry.name[0 .. entry.name.len - 3];
+        const slug = try slugify(allocator, title);
+
+        if (getNote(allocator, db, slug)) |note| {
+            const current = std.mem.trim(u8, loadContent(allocator, config, note) catch "", "\n");
+            if (std.mem.eql(u8, current, fm.body)) {
+                skipped += 1;
+                continue;
+            }
+            try updateNoteDB(db, note.id, title, fm.tags, fm.body);
+            try writeMarkdown(allocator, config, note.filename, title, fm.tags, fm.body);
+            updated += 1;
+        } else |err| {
+            if (err == error.NotFound) {
+                _ = try createNote(allocator, db, config, title, fm.body, fm.tags, false);
+                imported += 1;
+            } else {
+                const name_copy = allocator.dupe(u8, entry.name) catch continue;
+                _ = errors.append(name_copy) catch {};
+                continue;
+            }
+        }
+    }
+
+    var obj = std.json.ObjectMap.init(allocator);
+    try obj.put("imported", .{ .integer = @intCast(imported) });
+    try obj.put("updated", .{ .integer = @intCast(updated) });
+    try obj.put("skipped", .{ .integer = @intCast(skipped) });
+    try obj.put("vault_dir", .{ .string = config.vault_dir });
+    var err_list = std.json.Array.init(allocator);
+    for (errors.items) |err_name| {
+        try err_list.append(.{ .string = err_name });
+    }
+    try obj.put("errors", .{ .array = err_list });
+    return jsonResponse(allocator, 200, .{ .object = obj });
+}
+
 test "slug validation rejects traversal" {
     try std.testing.expect(safeSlug("apuntes-algebra"));
     try std.testing.expect(!safeSlug("../secret"));
     try std.testing.expect(!safeSlug("a\\b"));
+}
+
+test "parseFrontmatter extrae title y tags y limpia el cuerpo" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const raw = "---\ntitle: \"Nota de prueba\"\ntags: [es, test]\n---\n\nCuerpo real.\n";
+    const fm = try parseFrontmatter(arena.allocator(), raw);
+    try std.testing.expectEqualStrings("Nota de prueba", fm.title);
+    try std.testing.expectEqualStrings("es, test", fm.tags);
+    try std.testing.expectEqualStrings("Cuerpo real.", fm.body);
+}
+
+test "parseFrontmatter sin frontmatter usa todo el texto como cuerpo" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const fm = try parseFrontmatter(arena.allocator(), "Solo texto plano.\n");
+    try std.testing.expectEqualStrings("", fm.title);
+    try std.testing.expectEqualStrings("", fm.tags);
+    try std.testing.expectEqualStrings("Solo texto plano.", fm.body);
 }

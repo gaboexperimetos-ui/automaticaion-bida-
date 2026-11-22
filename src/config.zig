@@ -7,6 +7,7 @@ pub const Config = struct {
     session_secret: []const u8,
     db_path: []const u8,
     notes_dir: []const u8,
+    vault_dir: []const u8,
     openrouter_api_key: ?[]const u8,
     openrouter_model: []const u8,
     openrouter_max_tokens: u32,
@@ -31,6 +32,8 @@ pub const Config = struct {
         if (secret.len < 32) return error.SessionSecretRequired;
         const db_path = try value(allocator, &vars, "DB_PATH", "./data/app.db");
         const notes_dir = try value(allocator, &vars, "NOTES_DIR", "./notes");
+        var vault_dir = try value(allocator, &vars, "VAULT_DIR", defaultVaultDir(allocator) catch "./vault");
+        if (std.mem.trim(u8, vault_dir, " \t\r\n").len == 0) vault_dir = defaultVaultDir(allocator) catch "./vault";
         const openrouter_key = try optionalValue(allocator, &vars, "OPENROUTER_API_KEY");
         const openrouter_model = try value(allocator, &vars, "OPENROUTER_MODEL", "cohere/north-mini-code:free");
         const max_tokens = try parseInt(u32, allocator, &vars, "OPENROUTER_MAX_TOKENS", "8192");
@@ -52,6 +55,7 @@ pub const Config = struct {
             .session_secret = secret,
             .db_path = db_path,
             .notes_dir = notes_dir,
+            .vault_dir = vault_dir,
             .openrouter_api_key = openrouter_key,
             .openrouter_model = openrouter_model,
             .openrouter_max_tokens = max_tokens,
@@ -122,8 +126,26 @@ pub fn truthy(s: []const u8) bool {
     return std.ascii.eqlIgnoreCase(s, "true") or std.ascii.eqlIgnoreCase(s, "yes") or std.ascii.eqlIgnoreCase(s, "on") or std.mem.eql(u8, s, "1");
 }
 
+/// Ruta por defecto del vault de Obsidian: `$HOME/SegundoCerebro` cuando se
+/// puede resolver el directorio personal, `./vault` como respaldo.
+pub fn defaultVaultDir(allocator: std.mem.Allocator) ![]const u8 {
+    if (std.process.getEnvVarOwned(allocator, "HOME")) |home| {
+        if (home.len > 0) {
+            return std.fs.path.join(allocator, &.{ home, "SegundoCerebro" });
+        }
+    } else |_| {}
+    return allocator.dupe(u8, "./vault");
+}
+
 test "truthy values are case insensitive" {
     try std.testing.expect(truthy("TRUE"));
     try std.testing.expect(truthy("yes"));
     try std.testing.expect(!truthy("no"));
+}
+
+test "defaultVaultDir apunta a $HOME/SegundoCerebro" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const dir = try defaultVaultDir(arena.allocator());
+    try std.testing.expect(std.mem.endsWith(u8, dir, "/SegundoCerebro"));
 }

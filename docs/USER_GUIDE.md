@@ -194,6 +194,26 @@ destino **no existe**, queda como texto plano. No existe ninguna variante
 **Búsqueda**: por título, slug y etiquetas, coincidencia parcial, ordenadas por
 fecha de actualización, con un máximo de 50 resultados.
 
+**Sincronizar el vault de Obsidian**
+
+El panel `/dashboard/notes` tiene el botón **Sincronizar vault**. Su acción llama
+a `POST /api/notes/sync-vault`, que recorre la carpeta configurada en `VAULT_DIR`
+(por defecto `$HOME/SegundoCerebro`) y, por cada `.md`:
+
+- **Nueva**: la nota no existe en la app → se importa (`imported`).
+- **Actualizada**: existe pero el cuerpo cambió (por ejemplo, la editaste en
+  Obsidian o en OpenCode) → se actualiza (`updated`).
+- **Sin cambios**: el contenido es idéntico → se omite (`skipped`).
+
+El `frontmatter` YAML se respeta: `title` se usa como título si está presente
+(si no, se deriva del nombre del archivo) y `tags` se importan como etiquetas.
+La **BD SQLite sigue siendo la fuente de verdad**; el vault es la entrada de la
+sincronización y `NOTES_DIR` es el espejo `.md` que escribe la propia app. Un
+archivo ilegible o con frontmatter inválido se lista en `errors` y no detiene el
+resto del lote. Las notas importadas reciben un `slug` a partir del nombre del
+archivo, así que renombrar un `.md` en Obsidian crea una nota nueva en lugar de
+renombrar la existente.
+
 ### 3.10 `/dashboard/material` — Generador de material con IA
 
 Formulario con tres campos: **materia** (select con las notas reales de

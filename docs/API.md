@@ -79,6 +79,7 @@ Rutas que viven en el router "público" pero llevan su propia capa `require_auth
 | GET | `/api/notes/{slug}` | Sí | — | `200 {"note":{…}, "content":"<markdown>", "content_available":true}` (`content_available:false` y `content:""` si el `.md` no se pudo leer); `404 {"error":"not found"}`; `400 {"error":"Invalid slug"}`. |
 | PUT | `/api/notes/{slug}` | Sí | JSON: `{title?, content?, tags?}` | `200 {"updated":true}`; `404 {"error":"not found"}`; `400` slug inválido o límites de longitud. |
 | DELETE | `/api/notes/{slug}` | Sí | — | `200 {"deleted":true}`; `404 {"error":"not found"}`. |
+| POST | `/api/notes/sync-vault` | Sí | — | `200 {"imported":N, "updated":N, "skipped":N, "vault_dir":"/ruta", "errors":[nombre.md…]}`. Importa cada `.md` del vault de Obsidian (`VAULT_DIR`, por defecto `$HOME/SegundoCerebro`): crea las notas nuevas, actualiza las que cambiaron de contenido, omite las idénticas. La BD es la fuente de verdad; los `.md` importados se reflejan como espejo en `NOTES_DIR`. Un `.md` ilegible o con frontmatter inválido se registra en `errors` y no aborta el resto. |
 
 ## Búsqueda
 

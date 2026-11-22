@@ -987,6 +987,28 @@
         });
       });
     }
+    var syncButton = document.getElementById("btn-sync-vault");
+    if (syncButton) {
+      once(syncButton, "spVaultSync", function (button) {
+        button.addEventListener("click", function () {
+          button.disabled = true;
+          var original = button.textContent;
+          button.textContent = "Sincronizando…";
+          SP.api("/api/notes/sync-vault", { method: "POST" }).then(function (data) {
+            var d = data || {};
+            SP.toast("Vault sincronizado: " + (d.imported || 0) + " nuevas, " + (d.updated || 0) + " actualizadas, " + (d.skipped || 0) + " sin cambios.", "ok", 7000);
+            if (location.pathname.indexOf("/dashboard/notes") === 0 || location.pathname.indexOf("/app/notes") === 0) {
+              setTimeout(function () { location.reload(); }, 700);
+            }
+          }).catch(function (err) {
+            SP.toast(msgErr(err) || "No se pudo sincronizar el vault", "err", 7000);
+          }).finally(function () {
+            button.disabled = false;
+            button.textContent = original;
+          });
+        });
+      });
+    }
   }
 
   function initNotesEditor() {
