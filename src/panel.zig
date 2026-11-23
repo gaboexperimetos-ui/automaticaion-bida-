@@ -1476,7 +1476,7 @@ pub fn gradesKpis(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
     );
 }
 
-pub fn gradesPageHtml(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
+pub fn gradesPageHtml(allocator: std.mem.Allocator, d: Datos, portal_url: []const u8) ![]const u8 {
     const banner = try syncBanner(allocator, d);
     const kpis = try gradesKpis(allocator, d);
     const grid = try gradesGrid(allocator, d);
@@ -1486,15 +1486,26 @@ pub fn gradesPageHtml(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
         "Datos reales de Mikareno; si no hay notas, la página lo dice."
     else
         try std.fmt.allocPrint(allocator, "{d} asignaturas · datos reales de Mikareno · primero lo que hay que recuperar.", .{d.grades.len});
+    const portal = if (std.mem.startsWith(u8, portal_url, "https://") or std.mem.startsWith(u8, portal_url, "http://"))
+        try std.fmt.allocPrint(
+            allocator,
+            "<a class=\"nx-button nx-button-primary\" href=\"{s}\" target=\"_blank\" rel=\"noopener\" title=\"Abrir tus notas en Mikareno\"><span class=\"material-symbols-outlined\">open_in_new</span>Libreta oficial</a>",
+            .{try esc(allocator, portal_url)},
+        )
+    else
+        "";
     return std.fmt.allocPrint(
         allocator,
         "<div class=\"nx-page nx-subjects nova-page nova-subjects-page\">" ++
             "<header class=\"nx-page-header nova-page-head\"><div><p class=\"nx-eyebrow\">Aprendizaje · Notas</p><h1>Tu progreso,<br>materia por materia.</h1><p>{s}</p></div>" ++
-            "<a class=\"nx-button nx-button-secondary\" href=\"/dashboard/subjects\"><span class=\"material-symbols-outlined\">refresh</span>Actualizar datos</a></header>" ++
+            "<div class=\"nx-button-row\">" ++
+            "{s}" ++
+            "<a class=\"nx-button nx-button-secondary\" href=\"/dashboard/subjects\"><span class=\"material-symbols-outlined\">refresh</span>Actualizar datos</a>" ++
+            "</div></header>" ++
             "{s}{s}" ++
             "<section class=\"nx-collection nova-subjects-collection\"><div class=\"nx-section-head\"><div><p class=\"nx-eyebrow\">{s}</p><h2>Progreso por asignatura</h2></div><p>Las materias con promedio más bajo aparecen primero.</p></div>{s}</section>" ++
             "</div>",
-        .{ caption, banner, kpis, safe_label, grid },
+        .{ caption, portal, banner, kpis, safe_label, grid },
     );
 }
 
@@ -1921,4 +1932,18 @@ test "el plan para 8 usa los pesos reales (caso Matemática)" {
     try std.testing.expect(std.mem.indexOf(u8, html, "7.48") != null);
     try std.testing.expect(std.mem.indexOf(u8, html, "5.65") != null);
     try std.testing.expect(std.mem.indexOf(u8, html, "EXAMEN TRIMESTRAL 25%") != null);
+}
+
+test "la libreta oficial usa la URL configurada y se escapa" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    const d = Datos{};
+    const html = try gradesPageHtml(a, d, "https://colegio.test/app?x=1&y=2");
+    try std.testing.expect(std.mem.indexOf(u8, html, "Libreta oficial") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "https://colegio.test/app?x=1&amp;y=2") != null);
+    const sin = try gradesPageHtml(a, d, "");
+    try std.testing.expect(std.mem.indexOf(u8, sin, "Libreta oficial") == null);
+    const peligro = try gradesPageHtml(a, d, "javascript:alert(1)");
+    try std.testing.expect(std.mem.indexOf(u8, peligro, "Libreta oficial") == null);
 }

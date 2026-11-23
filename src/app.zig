@@ -448,7 +448,7 @@ pub const App = struct {
         }
         if (std.mem.eql(u8, path, "/dashboard/subjects")) {
             const datos = panel.fetch(allocator, self.db, self.config.mikareno_mcp_url, self.config.mcp_timeout_ms) catch panel.Datos{};
-            const body = try panel.gradesPageHtml(allocator, datos);
+            const body = try panel.gradesPageHtml(allocator, datos, self.config.mikareno_portal_url);
             return .{ .status = 200, .content_type = "text/html; charset=utf-8", .body = try templates.renderShell(allocator, path, body, username, true, self.config.mikareno_mcp_url) };
         }
         if (std.mem.startsWith(u8, path, "/dashboard/subjects/")) {

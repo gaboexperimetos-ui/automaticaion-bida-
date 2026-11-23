@@ -13,6 +13,7 @@ pub const Config = struct {
     openrouter_max_tokens: u32,
     openrouter_max_cost_usd: f64,
     mikareno_mcp_url: []const u8,
+    mikareno_portal_url: []const u8,
     genoffice_mcp_url: []const u8,
     genoffice_work_dir: []const u8,
     genoffice_timeout_ms: u64,
@@ -39,6 +40,7 @@ pub const Config = struct {
         const max_tokens = try parseInt(u32, allocator, &vars, "OPENROUTER_MAX_TOKENS", "8192");
         const max_cost = try parseFloat(allocator, &vars, "OPENROUTER_MAX_COST_USD", "2.0");
         const mikareno_url = try value(allocator, &vars, "MIKARENO_MCP_URL", "http://127.0.0.1:8080/mcp");
+        const mikareno_portal = try value(allocator, &vars, "MIKARENO_PORTAL_URL", "https://alamos.mikareno.com/app/#/scores/student-score-table");
         const genoffice_url = try value(allocator, &vars, "GENOFFICE_MCP_URL", "http://127.0.0.1:8453/mcp");
         const genoffice_work_dir = try value(allocator, &vars, "GENOFFICE_WORK_DIR", "");
         const genoffice_timeout_ms = try parseInt(u64, allocator, &vars, "GENOFFICE_TIMEOUT_MS", "90000");
@@ -61,6 +63,7 @@ pub const Config = struct {
             .openrouter_max_tokens = max_tokens,
             .openrouter_max_cost_usd = max_cost,
             .mikareno_mcp_url = mikareno_url,
+            .mikareno_portal_url = mikareno_portal,
             .genoffice_mcp_url = genoffice_url,
             .genoffice_work_dir = genoffice_work_dir,
             .genoffice_timeout_ms = genoffice_timeout_ms,

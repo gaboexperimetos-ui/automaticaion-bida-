@@ -32,6 +32,7 @@
 | `OPENROUTER_API_KEY` | API key para OpenRouter (aplicación) | Env var, no en source, $2 budget límite |
 | `SESSION_SECRET` | Firma de cookies HTTP | 32 bytes random, generado via `openssl rand -hex 32` |
 | `MIKARENO_MCP_URL` | URL del MCP de Mikareno | Default `http://127.0.0.1:8080/mcp` |
+| `MIKARENO_PORTAL_URL` | Enlace "Libreta oficial" de la vista de notas | Vacío = sin botón; default `https://alamos.mikareno.com/app/#/scores/student-score-table` |
 | `GENOFFICE_MCP_URL` | URL del MCP de GenOffice | Default `http://127.0.0.1:8453/mcp` |
 | `CUSTOM_MCP_API_KEY` | API key para MCP propio | Header `X-API-Key`, comparado con `crypto_secure_eq` |
 
