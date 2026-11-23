@@ -2356,17 +2356,22 @@
    *  TEMAS: selector persistente (paletas portadas de Cortex)
    * ================================================================= */
   var THEMES = [
-    { id: "nebula", label: "Nébula", bg: "#14101c", accent: "#a88af5" },
-    { id: "osaka-jade", label: "Osaka Jade", bg: "#0e1813", accent: "#2dd5b7" },
-    { id: "tokyo-night", label: "Tokyo Night", bg: "#1a1b26", accent: "#7aa2f7" },
-    { id: "catppuccin", label: "Catppuccin Mocha", bg: "#1e1e2e", accent: "#94e2d5" },
-    { id: "gruvbox", label: "Gruvbox", bg: "#282828", accent: "#fabd2f" },
-    { id: "nord", label: "Nord", bg: "#2e3440", accent: "#88c0d0" },
-    { id: "dracula", label: "Dracula", bg: "#282a36", accent: "#bd93f9" },
-    { id: "rose-pine", label: "Rosé Pine", bg: "#191724", accent: "#ebbcba" },
-    { id: "everforest", label: "Everforest", bg: "#2d353b", accent: "#a7c080" },
-    { id: "solarized", label: "Solarized", bg: "#002b36", accent: "#268bd2" },
-    { id: "kanagawa", label: "Kanagawa", bg: "#1f1f28", accent: "#7e9cd8" }
+    { id: "cyberhex-neon", label: "CyberHex Neon", bg: "#0F0F23", accent: "#22C55E" },
+    { id: "cyberhex-amoled", label: "CyberHex AMOLED", bg: "#000000", accent: "#22C55E" },
+    { id: "cyberhex-light", label: "CyberHex Claro", bg: "#F7F7FB", accent: "#0E9F6E" },
+    { id: "cyberhex-materialYou", label: "CyberHex Material You", bg: "#14121A", accent: "#D0BCFF" },
+    { id: "cyberhex-cyberpunk", label: "CyberHex Cyberpunk", bg: "#0B0713", accent: "#F472B6" },
+    { id: "nebula", label: "Nébula", bg: "#14101C", accent: "#A88AF5" },
+    { id: "osaka-jade", label: "Osaka Jade", bg: "#0E1813", accent: "#2DD5B7" },
+    { id: "tokyo-night", label: "Tokyo Night", bg: "#1A1B26", accent: "#7AA2F7" },
+    { id: "catppuccin", label: "Catppuccin Mocha", bg: "#1E1E2E", accent: "#94E2D5" },
+    { id: "gruvbox", label: "Gruvbox", bg: "#282828", accent: "#FABD2F" },
+    { id: "nord", label: "Nord", bg: "#2E3440", accent: "#88C0D0" },
+    { id: "dracula", label: "Dracula", bg: "#282A36", accent: "#BD93F9" },
+    { id: "rose-pine", label: "Rosé Pine", bg: "#191724", accent: "#EBBCBA" },
+    { id: "everforest", label: "Everforest", bg: "#2D353B", accent: "#A7C080" },
+    { id: "solarized", label: "Solarized", bg: "#002B36", accent: "#268BD2" },
+    { id: "kanagawa", label: "Kanagawa", bg: "#1F1F28", accent: "#7E9CD8" }
   ];
   var THEME_KEY = "nova.theme";
 
@@ -2456,7 +2461,7 @@
     head.appendChild(ic);
     head.appendChild(titles);
     card.appendChild(head);
-    card.appendChild(el("p", "nx-settings-status", "Cambia la paleta del dashboard. Se guarda en este navegador; las 10 paletas de Cortex están disponibles junto a Nébula."));
+    card.appendChild(el("p", "nx-settings-status", "Cambia la paleta del dashboard. Se guarda en este navegador; 5 temas CyberHex + 10 paletas Cortex + Nébula."));
     var grid = el("div", "nova-theme-grid");
     for (var i = 0; i < THEMES.length; i++) { grid.appendChild(themeSwatch(THEMES[i], false)); }
     card.appendChild(grid);
