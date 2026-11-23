@@ -738,8 +738,9 @@ a.nx-calendar-event:hover { border-color: rgba(167,139,250,.25); background: var
 .nx-grade-empty strong { color: var(--nx-text); }
 .nx-activity-name { color: var(--nx-text); font-weight: 600; }
 .nx-activity-weight { color: var(--nx-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.nx-subject-goal { display: inline-flex; align-items: center; gap: 5px; margin: 0 0 12px; padding: 5px 9px; color: var(--nx-blue); background: var(--nx-blue-soft); border-radius: 7px; font-size: 10px; font-weight: 600; }
+.nx-subject-goal { display: inline-flex; align-items: flex-start; gap: 5px; margin: 0 0 12px; padding: 5px 9px; color: var(--nx-blue); background: var(--nx-blue-soft); border-radius: 7px; font-size: 10px; font-weight: 600; line-height: 1.5; }
 .nx-subject-goal .material-symbols-outlined { font-size: 14px; }
+.nx-subject-goal > span:last-child { flex: 1; }
 .nx-subject-plan { margin-bottom: 18px; padding: 22px; background: var(--nx-surface); border: 1px solid var(--nx-line); border-radius: var(--nx-radius); }
 .nx-plan-head h2 { margin: 0; font: 600 21px/1.25 "Space Grotesk", sans-serif; }
 .nx-plan-head > p:last-child { max-width: 70ch; margin: 8px 0 0; color: var(--nx-text-2); font-size: 12px; line-height: 1.6; }

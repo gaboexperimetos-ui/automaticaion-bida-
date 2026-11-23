@@ -1529,23 +1529,13 @@ fn gradeCard(allocator: std.mem.Allocator, g: SubjectGrade) ![]const u8 {
     const nota = try std.fmt.allocPrint(allocator, "{d:.2}", .{g.nota});
     const real_txt = if (g.real) |r| try std.fmt.allocPrint(allocator, "{d:.2}", .{r}) else try allocator.dupe(u8, "—");
     const real_tone = if (g.real) |r| toneFor(r) else Tone{ .color = "#7f8ea3", .label = "sin datos", .pct = 0 };
-    var best_need: ?f64 = null;
-    var best_label: []const u8 = "";
-    for (g.axes, 0..) |_, i| {
-        const need = axisMinNeeded(g.axes, i, plan_target) orelse continue;
-        if (best_need == null or need < best_need.?) {
-            best_need = need;
-            best_label = try esc(allocator, shortAxisName(g.axes[i].nombre));
-        }
-    }
+    const axes_goal = try axisGoalHtml(allocator, g.axes);
     const q_exam = (plan_target - g.nota) / weight_examen;
     const goal = if (g.nota >= plan_target)
         try allocator.dupe(u8, "meta de 8 cumplida")
-    else if (best_need) |need| blk: {
-        if (need <= 0) break :blk try allocator.dupe(u8, "para 8: ya asegurado");
-        if (need <= 10) break :blk try std.fmt.allocPrint(allocator, "para 8: en {s} ≥ {d:.1}", .{ best_label, need });
-        break :blk try allocator.dupe(u8, "para 8: ningún eje solo basta");
-    } else if (q_exam <= 10)
+    else if (axes_goal.len > 0)
+        try std.fmt.allocPrint(allocator, "para 8: {s}", .{axes_goal})
+    else if (q_exam <= 10)
         try std.fmt.allocPrint(allocator, "para 8: examen ≥ {d:.1}", .{q_exam})
     else
         try allocator.dupe(u8, "para 8: el examen solo no basta");
@@ -1738,7 +1728,7 @@ pub fn gradesPageHtml(allocator: std.mem.Allocator, d: Datos, portal_url: []cons
             "<a class=\"nx-button nx-button-secondary\" href=\"/dashboard/subjects\"><span class=\"material-symbols-outlined\">refresh</span>Actualizar datos</a>" ++
             "</div></header>" ++
             "{s}{s}" ++
-            "<section class=\"nx-collection nova-subjects-collection\"><div class=\"nx-section-head\"><div><p class=\"nx-eyebrow\">{s}</p><h2>Progreso por asignatura</h2></div><p class=\"nx-modo-note\" data-modo-note>Ordenado por la nota del colegio (lo pendiente y el examen sin subir cuentan como 0).</p></div>{s}</section>" ++
+            "<section class=\"nx-collection nova-subjects-collection\"><div class=\"nx-section-head\"><div><p class=\"nx-eyebrow\">{s}</p><h2>Progreso por asignatura</h2></div><p class=\"nx-modo-note\" data-modo-note aria-live=\"polite\">Ordenado por la nota del colegio (lo pendiente y el examen sin subir cuentan como 0).</p></div>{s}</section>" ++
             "{s}</div>",
         .{ caption, modoToggleHtml(), portal, banner, kpis, safe_label, grid, modo_script },
     );
@@ -1956,7 +1946,8 @@ fn buildAxes(allocator: std.mem.Allocator, submenus: []const DetailSubmenu) ![]A
     }
     // El árbol del detalle no siempre trae el submenú del examen: su 25%
     // sigue pendiente y debe aparecer en el desglose y en las cuentas.
-    if (!has_exam) try out.append(.{
+    // Sin ningún submenú no se inventa nada (la carga pudo fallar).
+    if (!has_exam and submenus.len > 0) try out.append(.{
         .nombre = "EXAMEN TRIMESTRAL",
         .peso = weight_examen,
         .total = 1,
@@ -2009,6 +2000,27 @@ fn shortAxisName(name: []const u8) []const u8 {
     return name;
 }
 
+/// Resumen de todos los ejes del parcial para la tarjeta: el mínimo de
+/// cada uno, o ✓ si ya no le quedan pendientes. Es la versión compacta
+/// de la tabla del detalle.
+fn axisGoalHtml(allocator: std.mem.Allocator, axes: []const Axis) ![]const u8 {
+    if (axes.len == 0) return "";
+    var buf = std.ArrayList(u8).init(allocator);
+    for (axes, 0..) |a, i| {
+        if (i > 0) try buf.appendSlice(" · ");
+        const short = try esc(allocator, shortAxisName(a.nombre));
+        const need = axisMinNeeded(axes, i, plan_target);
+        if (need == null or need.? <= 0) {
+            try buf.appendSlice(try std.fmt.allocPrint(allocator, "{s} ✓", .{short}));
+        } else if (need.? <= 10) {
+            try buf.appendSlice(try std.fmt.allocPrint(allocator, "{s} ≥{d:.1}", .{ short, need.? }));
+        } else {
+            try buf.appendSlice(try std.fmt.allocPrint(allocator, "{s} &gt;10", .{short}));
+        }
+    }
+    return buf.items;
+}
+
 fn axisTableHtml(allocator: std.mem.Allocator, axes: []const Axis) ![]const u8 {
     if (axes.len == 0) return "";
     var buf = std.ArrayList(u8).init(allocator);
@@ -2047,7 +2059,7 @@ fn axisTableHtml(allocator: std.mem.Allocator, axes: []const Axis) ![]const u8 {
             .{ cls, name, a.peso * 100.0, meta, value },
         ));
     }
-    try buf.appendSlice("</ul><p class=\"nx-plan-axis-note\">La cifra es la media mínima en lo que falta de ese eje si en los demás sacas 10. Es la vía más corta para llegar a 8.</p></div>");
+    try buf.appendSlice("</ul><p class=\"nx-plan-axis-note\">La cifra es la media mínima en lo que falta de ese eje si en lo que falta de los demás sacas 10. Es la vía más corta para llegar a 8.</p></div>");
     return buf.items;
 }
 
@@ -2169,8 +2181,12 @@ pub fn planHtml(allocator: std.mem.Allocator, d: SubjectDetail) ![]const u8 {
     const current = d.nota;
     const axes = try buildAxes(allocator, d.submenus);
     var unknown = false;
+    var unknown_names = std.ArrayList(u8).init(allocator);
     for (d.submenus) |sm| {
-        if (sm.total > 0 and submenuWeight(sm.nombre) == null) unknown = true;
+        if (sm.total == 0 or submenuWeight(sm.nombre) != null) continue;
+        unknown = true;
+        if (unknown_names.items.len > 0) unknown_names.appendSlice(", ") catch {};
+        unknown_names.appendSlice(try esc(allocator, sm.nombre)) catch {};
     }
     var has_pending = false;
     var exam_graded = false;
@@ -2255,7 +2271,7 @@ pub fn planHtml(allocator: std.mem.Allocator, d: SubjectDetail) ![]const u8 {
 
     const weights = "<div class=\"nx-plan-weights\"><span class=\"nx-weight-chip\">TAREAS 20%</span><span class=\"nx-weight-chip\">TRABAJOS 40%</span><span class=\"nx-weight-chip\">EVALUACIONES 15%</span><span class=\"nx-weight-chip\">EXAMEN TRIMESTRAL 25%</span></div>";
     const note_base = if (unknown)
-        "Hay un submenú con un esquema no reconocido; el plan podría variar. Los pesos mostrados se deducen de tus promedios reales y coinciden con las 14 materias calificadas."
+        try std.fmt.allocPrint(allocator, "Hay un submenú con un esquema no reconocido ({s}); el plan podría variar. Los pesos mostrados se deducen de tus promedios reales y coinciden con las 14 materias calificadas.", .{unknown_names.items})
     else
         "Pesos deducidos de tus promedios reales (error ≤ 0.011 en las 14 materias). Dentro de cada submenú todas las actividades valen lo mismo; el examen trimestral vale 25% y hoy cuenta como 0.";
     const real_note = if (d.real) |r|
@@ -2554,7 +2570,7 @@ test "la tarjeta muestra el eje más barato y los dos modos" {
     const html = try gradeCard(a, g);
     try std.testing.expect(std.mem.indexOf(u8, html, "data-oficial=\"6.13\"") != null);
     try std.testing.expect(std.mem.indexOf(u8, html, "data-modo-real=\"") != null);
-    try std.testing.expect(std.mem.indexOf(u8, html, "en Tareas ≥ 0.4") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "Tareas ≥0.4 · Trabajos ≥2.0 · Evaluaciones ✓ · Examen ≥5.7") != null);
     try std.testing.expect(std.mem.indexOf(u8, html, "solo calificado:") != null);
 }
 
