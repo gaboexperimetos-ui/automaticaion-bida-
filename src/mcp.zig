@@ -103,6 +103,7 @@ fn toolDefinitions(allocator: std.mem.Allocator) !std.json.Value {
         .{ .name = "calendar_add", .description = "Create a calendar annotation", .props = "title,date,content", .required = &.{"title"} },
         .{ .name = "calendar_delete", .description = "Delete a calendar annotation by id", .props = "id", .required = &.{"id"} },
         .{ .name = "app_status", .description = "Platform status and configuration summary", .props = "", .required = &.{} },
+        .{ .name = "student_report", .description = "Build the student report (Markdown) from real Mikareno + local notes data", .props = "format", .required = &.{} },
     };
     var list = std.json.Array.init(allocator);
     for (definitions) |definition| {
@@ -256,6 +257,11 @@ fn callTool(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_
         return calendarDelete(allocator, db, id);
     }
     if (std.mem.eql(u8, name, "app_status")) return appStatus(allocator, db, config);
+    if (std.mem.eql(u8, name, "student_report")) {
+        const fmt = json.getString(args, "format") orelse "markdown";
+        if (!std.mem.eql(u8, fmt, "markdown") and !std.mem.eql(u8, fmt, "md")) return error.InvalidParams;
+        return studentReport(allocator, db, config);
+    }
     return error.MethodNotFound;
 }
 
@@ -497,6 +503,24 @@ fn calendarDelete(allocator: std.mem.Allocator, db: *sqlite.Db, id: i64) !std.js
     });
 }
 
+/// Informe del estudiante en Markdown, construido con datos reales de
+/// Mikareno (perfil, calificaciones, calendario) y las notas locales.
+fn studentReport(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config) !std.json.Value {
+    const markdown = try office_mod.buildStudentReport(allocator, db, config);
+    const genoffice_ready = blk: {
+        const url = std.mem.trim(u8, config.genoffice_mcp_url, " \t\r\n");
+        if (url.len == 0) break :blk false;
+        break :blk mcp_client.probe(allocator, url, @min(config.genoffice_timeout_ms, 2500), true) catch false;
+    };
+    return json.object(allocator, &.{
+        .{ .key = "format", .value = .{ .string = "markdown" } },
+        .{ .key = "markdown", .value = .{ .string = markdown } },
+        .{ .key = "bytes", .value = .{ .integer = @intCast(markdown.len) } },
+        .{ .key = "genoffice_ready", .value = .{ .bool = genoffice_ready } },
+        .{ .key = "note", .value = .{ .string = "Si GenOffice responde, /office/report devuelve el mismo informe empaquetado en DOCX." } },
+    });
+}
+
 fn appStatus(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config) !std.json.Value {
     const notes_n = db.scalarInt("SELECT COUNT(*) FROM notes") catch null;
     const ann_n = db.scalarInt("SELECT COUNT(*) FROM calendar_annotations") catch null;
@@ -725,25 +749,28 @@ test "MCP exposes the protocol version and the full tool catalog" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const tools = try toolDefinitions(allocator);
-    // 9 herramientas base + 6 de CyberHex + 12 de la plataforma (notas,
-    // Office, calendario y estado). Se comprueba que estén las familias para
-    // que un cambio no deje el catálogo a medias.
-    try std.testing.expectEqual(@as(usize, 27), tools.array.items.len);
+    // 9 herramientas base + 6 de CyberHex + 13 de la plataforma (notas,
+    // Office, calendario, informe y estado). Se comprueba que estén las
+    // familias para que un cambio no deje el catálogo a medias.
+    try std.testing.expectEqual(@as(usize, 28), tools.array.items.len);
     var has_notes = false;
     var has_cyberhex = false;
     var has_office = false;
     var has_calendar = false;
+    var has_report = false;
     for (tools.array.items) |tool| {
         const name = json.getString(tool, "name") orelse "";
         if (std.mem.eql(u8, name, "search_notes")) has_notes = true;
         if (std.mem.eql(u8, name, "cyberhex_status")) has_cyberhex = true;
         if (std.mem.eql(u8, name, "office_write")) has_office = true;
         if (std.mem.eql(u8, name, "calendar_add")) has_calendar = true;
+        if (std.mem.eql(u8, name, "student_report")) has_report = true;
     }
     try std.testing.expect(has_notes);
     try std.testing.expect(has_cyberhex);
     try std.testing.expect(has_office);
     try std.testing.expect(has_calendar);
+    try std.testing.expect(has_report);
     const initialized = try dispatch(allocator, undefined, undefined, "initialize", try json.object(allocator, &.{}), null);
     try std.testing.expectEqualStrings("2025-03-26", json.getString(initialized, "protocolVersion").?);
 }

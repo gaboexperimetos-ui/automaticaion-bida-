@@ -66,6 +66,10 @@ class Server:
                 "AUTH_DISABLED": "true",
                 "OPENROUTER_API_KEY": "",
                 "CUSTOM_MCP_API_KEY": "smoke-mcp-key",
+                # Aislar: el smoke no debe depender de un GenOffice real que
+                # esté escuchando en el host. Sin URL, /office/report sirve el
+                # informe en Markdown (comportamiento honesto y verificable).
+                "GENOFFICE_MCP_URL": "",
             }
         )
         env.update(extra_env or {})
@@ -225,8 +229,12 @@ def run_public_smoke(binary: Path, workspace: Path, temp: Path):
         assert status == 200 and headers.get_content_type() == "text/markdown" and b"Office Preview" in body
         status, _, body = request(base, "/office/library/search?q=deck")
         assert status == 200 and b"smoke-deck" in body
-        status, _, body = request(base, "/office/report")
-        assert status == 503 and json.loads(body)["error"] == "GenOffice no disponible"
+        # GenOffice es opcional: sin él, el informe se sirve en Markdown con
+        # los mismos datos reales (nunca un error seco).
+        status, headers, body = request(base, "/office/report")
+        assert status == 200 and headers.get_content_type() == "text/markdown"
+        assert headers.get_content_charset() == "utf-8"
+        assert b"Informe del estudiante" in body
 
         status, _, body = request(base, "/api/ai/cost")
         assert status == 200 and "budget_limit" in json.loads(body)

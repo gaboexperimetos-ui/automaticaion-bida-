@@ -56,6 +56,47 @@ pub fn callTool(
     return unwrapToolResult(allocator, result);
 }
 
+/// Igual que `callTool`, pero devuelve el JSON del resultado incluso cuando la
+/// herramienta responde con `isError: true`. Sirve para leer el motivo real
+/// (por ejemplo, los `allowed_roots` de GenOffice cuando rechaza una ruta).
+pub fn callToolAllowError(
+    allocator: std.mem.Allocator,
+    url: []const u8,
+    timeout_ms: u64,
+    tool_name: []const u8,
+    arguments: std.json.Value,
+    require_private_host: bool,
+) !std.json.Value {
+    if (url.len == 0) return error.NotConfigured;
+    if (require_private_host and !allowsPrivateHost(allocator, url)) return error.HostNotAllowed;
+
+    const init_params = try json.object(allocator, &.{
+        .{ .key = "protocolVersion", .value = .{ .string = "2025-03-26" } },
+        .{ .key = "capabilities", .value = try json.object(allocator, &.{}) },
+        .{ .key = "clientInfo", .value = try json.object(allocator, &.{
+            .{ .key = "name", .value = .{ .string = "study-platform-zig" } },
+            .{ .key = "version", .value = .{ .string = "0.2.0" } },
+        }) },
+    });
+    const initialized = try rpcRequest(allocator, url, timeout_ms, "initialize", init_params, 1, null, true);
+    const init_message = initialized.message orelse return error.InvalidRpcResponse;
+    if (json.get(init_message, "error") != null) return error.RemoteRpcError;
+    const session_id = initialized.session_id;
+
+    _ = rpcRequest(allocator, url, timeout_ms, "notifications/initialized", try json.object(allocator, &.{}), null, session_id, false) catch {};
+
+    const call_params = try json.object(allocator, &.{
+        .{ .key = "name", .value = .{ .string = tool_name } },
+        .{ .key = "arguments", .value = arguments },
+    });
+    const response = try rpcRequest(allocator, url, timeout_ms, "tools/call", call_params, 2, session_id, true);
+    const message = response.message orelse return error.InvalidRpcResponse;
+    if (json.get(message, "error") != null) return error.RemoteRpcError;
+    const result = json.get(message, "result") orelse return error.InvalidRpcResponse;
+    // Se devuelve el contenido incluso con isError: el llamador decide.
+    return unwrapToolResult(allocator, result);
+}
+
 /// Lists the tool names the server advertises right now. The MCP page uses
 /// this instead of a hardcoded catalog, so a server upgrade (more or fewer
 /// tools) shows up without touching the platform.

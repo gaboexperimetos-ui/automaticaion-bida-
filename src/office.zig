@@ -475,15 +475,9 @@ fn humanSizeFromPath(allocator: std.mem.Allocator, root: []const u8, kind: []con
     return std.fmt.allocPrint(allocator, "{d} B", .{stat.size});
 }
 
-fn report(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config) !http.Response {
-    const root = try officeRoot(allocator, config);
-    const genoffice_url = std.mem.trim(u8, config.genoffice_mcp_url, " \t\r\n");
-    if (genoffice_url.len == 0) return jsonErrorWithReason(allocator, 503, "GenOffice no disponible", "GENOFFICE_MCP_URL no está configurada.");
-
-    // Probe first so an unavailable document service does not hold up data collection.
-    const genoffice_up = mcp_client.probe(allocator, genoffice_url, @min(config.genoffice_timeout_ms, 2500), true) catch false;
-    const export_timeout = if (genoffice_up) config.genoffice_timeout_ms else @min(config.genoffice_timeout_ms, 5000);
-
+/// Construye el informe del estudiante en Markdown a partir de datos reales.
+/// Devuelve el texto completo; las secciones sin datos disponibles se marcan.
+pub fn buildStudentReport(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config) ![]const u8 {
     var markdown = std.ArrayList(u8).init(allocator);
     const generated = try timestampIsoUtc(allocator);
     try markdown.writer().print("# Informe del estudiante\n\nGenerado el {s} por Study Platform. Cada sección indica su fuente; las secciones sin datos disponibles se marcan como tales.\n\n", .{generated});
@@ -497,8 +491,155 @@ fn report(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mo
     const academic = mcp_client.callTool(allocator, config.mikareno_mcp_url, mikareno_timeout, "get_student_full", academic_args, true) catch null;
     try appendGradeSection(allocator, &markdown, "Promedios por materia", academic, true);
     try appendGradeSection(allocator, &markdown, "Notas por materia", academic, false);
+    try appendCalendarSection(allocator, &markdown, academic);
     const tasks = mcp_client.callTool(allocator, config.mikareno_mcp_url, mikareno_timeout, "get_tareas", try json.object(allocator, &.{}), true) catch null;
     try appendTasksSection(allocator, &markdown, tasks);
+    return markdown.items;
+}
+
+/// Recorta "2026-10-26 00:00:00" o "2026-10-26T00:00:00Z" a "2026-10-26".
+fn shortReportDate(allocator: std.mem.Allocator, raw: []const u8) ![]const u8 {
+    if (raw.len >= 10 and raw[4] == '-' and raw[7] == '-') return allocator.dupe(u8, raw[0..10]);
+    return allocator.dupe(u8, if (raw.len == 0) "—" else raw);
+}
+
+fn appendCalendarSection(allocator: std.mem.Allocator, markdown: *std.ArrayList(u8), academic: ?std.json.Value) !void {
+    try markdown.appendSlice("## Agenda\n\n");
+    const data = academic orelse {
+        try markdown.appendSlice("_Agenda no disponible: la fuente académica no respondió._\n\n");
+        return;
+    };
+    const items = json.get(data, "calendario") orelse .null;
+    if (items != .array or items.array.items.len == 0) {
+        try markdown.appendSlice("_No hay eventos próximos._\n\n");
+        return;
+    }
+    try markdown.appendSlice("| Fecha | Evento | Tipo |\n| --- | --- | --- |\n");
+    var count: usize = 0;
+    for (items.array.items) |ev| {
+        if (ev != .object) continue;
+        // Mikareno usa start/end ("AAAA-MM-DD HH:MM:SS"); se aceptan también
+        // las variantes ISO y de fecha simple.
+        const fecha = firstReportString(ev, &.{ "start", "fecha", "date", "startDate" });
+        const titulo = firstReportString(ev, &.{ "title", "titulo", "nombre", "name", "summary" });
+        const tipo = firstReportString(ev, &.{ "dayType", "tipo", "type", "status" });
+        if (fecha.len == 0 and titulo.len == 0) continue;
+        try markdown.writer().print("| {s} | {s} | {s} |\n", .{
+            try markdownTableEscape(allocator, try shortReportDate(allocator, fecha)),
+            try markdownTableEscape(allocator, if (titulo.len == 0) "—" else titulo),
+            try markdownTableEscape(allocator, if (tipo.len == 0) "—" else tipo),
+        });
+        count += 1;
+    }
+    if (count == 0) {
+        try markdown.appendSlice("_No hay eventos próximos._\n\n");
+    } else {
+        try markdown.appendSlice("\n");
+    }
+    try markdown.appendSlice("Fuente: MCP Mikareno (get_student_full → calendario).\n\n");
+}
+
+/// Reintenta create_docx dentro de un origen permitido por GenOffice y copia
+/// el resultado a `local_out`. Devuelve la ruta donde quedó el DOCX, o null.
+///
+/// GenOffice limita la escritura a sus propios orígenes (error
+/// outside_allowed_roots) y los lista en el propio mensaje. Aquí se provocan
+/// esos orígenes, se toma el primero y se le pide escribir dentro.
+fn genofficeRetryInsideRoots(
+    allocator: std.mem.Allocator,
+    genoffice_url: []const u8,
+    timeout_ms: u64,
+    markdown: []const u8,
+    local_out: []const u8,
+) !?[]const u8 {
+    // 1) Provocar el error para conocer los orígenes permitidos.
+    const probe_out = try std.fmt.allocPrint(allocator, "{s}/__probe__.docx", .{local_out});
+    const probe_args = try json.object(allocator, &.{
+        .{ .key = "markdown", .value = .{ .string = "x" } },
+        .{ .key = "out", .value = .{ .string = probe_out } },
+        .{ .key = "force", .value = .{ .bool = true } },
+    });
+    const err_payload = mcp_client.callToolAllowError(allocator, genoffice_url, timeout_ms, "create_docx", probe_args, true) catch return null;
+
+    // 2) Extraer el primer allowed_root del texto del error.
+    const allowed = firstAllowedRoot(allocator, err_payload) orelse return null;
+
+    const stamp = try timestampForFile(allocator);
+    const placed = try std.fmt.allocPrint(allocator, "{s}/informe-estudiante-{s}.docx", .{ allowed, stamp });
+    const args = try json.object(allocator, &.{
+        .{ .key = "markdown", .value = .{ .string = markdown } },
+        .{ .key = "out", .value = .{ .string = placed } },
+        .{ .key = "force", .value = .{ .bool = true } },
+    });
+    const ok = mcp_client.callTool(allocator, genoffice_url, timeout_ms, "create_docx", args, true) catch return null;
+    _ = ok;
+
+    // 3) Copiar al destino local para leerlo con el mismo flujo.
+    const src = std.fs.cwd().openFile(placed, .{}) catch return null;
+    defer src.close();
+    const dst = std.fs.cwd().createFile(local_out, .{ .truncate = true }) catch return null;
+    defer dst.close();
+    const n = src.readToEndAlloc(allocator, 64 * 1024 * 1024) catch return null;
+    dst.writeAll(n) catch return null;
+    return placed;
+}
+
+/// Saca el primer ruta de `allowed_roots` del JSON de error de GenOffice.
+fn firstAllowedRoot(allocator: std.mem.Allocator, payload: std.json.Value) ?[]const u8 {
+    // El texto del error puede venir como string JSON dentro del contenido.
+    var node = payload;
+    if (deepestStringValue(payload)) |text| {
+        if (json.parse(allocator, text)) |parsed| node = parsed else |_| {}
+    }
+    // Buscar detail.allowed_roots[0] y, si no, cualquier "allowed_roots".
+    if (json.get(node, "detail")) |detail| {
+        if (json.get(detail, "allowed_roots")) |roots| {
+            if (roots == .array and roots.array.items.len > 0) {
+                if (roots.array.items[0] == .string) return roots.array.items[0].string;
+            }
+        }
+    }
+    if (json.get(node, "allowed_roots")) |roots| {
+        if (roots == .array and roots.array.items.len > 0) {
+            if (roots.array.items[0] == .string) return roots.array.items[0].string;
+        }
+    }
+    return null;
+}
+
+/// Primer string anidado de un JSON, para cuando el error viene empaquetado.
+fn deepestStringValue(v: std.json.Value) ?[]const u8 {
+    return switch (v) {
+        .string => |s| s,
+        .object => |obj| blk: {
+            var it = obj.iterator();
+            while (it.next()) |entry| {
+                if (deepestStringValue(entry.value_ptr.*)) |found| break :blk found;
+            }
+            break :blk null;
+        },
+        else => null,
+    };
+}
+
+fn report(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config) !http.Response {
+    const root = try officeRoot(allocator, config);
+    const genoffice_url = std.mem.trim(u8, config.genoffice_mcp_url, " \t\r\n");
+    // GenOffice es opcional: sin URL configurada se devuelve el Markdown del
+    // informe (mismos datos, sin empaquetar en DOCX). Así la ruta nunca falla
+    // seca y el usuario siempre obtiene el informe.
+    if (genoffice_url.len == 0) {
+        const markdown = try buildStudentReport(allocator, db, config);
+        const headers = try allocator.alloc(http.Header, 1);
+        headers[0] = .{ .name = "Content-Disposition", .value = "attachment; filename=\"informe-estudiante.md\"" };
+        return .{ .status = 200, .content_type = "text/markdown; charset=utf-8", .body = markdown, .headers = headers };
+    }
+
+    // Probe first so an unavailable document service does not hold up data collection.
+    const genoffice_up = mcp_client.probe(allocator, genoffice_url, @min(config.genoffice_timeout_ms, 2500), true) catch false;
+    const export_timeout = if (genoffice_up) config.genoffice_timeout_ms else @min(config.genoffice_timeout_ms, 5000);
+
+    const markdown = try buildStudentReport(allocator, db, config);
 
     const configured_work_dir = std.mem.trim(u8, config.genoffice_work_dir, " \t\r\n");
     const output_dir = if (configured_work_dir.len > 0)
@@ -511,15 +652,33 @@ fn report(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mo
     const output_name = try std.fmt.allocPrint(allocator, "informe-estudiante-{s}.docx", .{stamp});
     const output = try std.fs.path.join(allocator, &.{ absolute_dir, output_name });
     const args = try json.object(allocator, &.{
-        .{ .key = "markdown", .value = .{ .string = markdown.items } },
+        .{ .key = "markdown", .value = .{ .string = markdown } },
         .{ .key = "out", .value = .{ .string = output } },
         .{ .key = "force", .value = .{ .bool = true } },
     });
-    _ = mcp_client.callTool(allocator, genoffice_url, export_timeout, "create_docx", args, true) catch {
-        std.fs.cwd().deleteFile(output) catch {};
-        return jsonErrorWithReason(allocator, 503, "GenOffice no disponible", if (genoffice_up) "No se pudo invocar create_docx en el servidor MCP configurado." else "El MCP de GenOffice no respondió al sondeo ni pudo generar el documento.");
-    };
-    const file = std.fs.cwd().openFile(output, .{}) catch return jsonErrorWithReason(allocator, 503, "GenOffice no disponible", "La herramienta respondió, pero el archivo DOCX no apareció en el volumen compartido.");
+    const gen_result = mcp_client.callTool(allocator, genoffice_url, export_timeout, "create_docx", args, true) catch null;
+    var docx_path: []const u8 = output;
+    var used_gen_root = false;
+    if (gen_result) |gr| {
+        _ = gr;
+    } else {
+        // GenOffice puede estar vivo pero limitado a sus propios orígenes
+        // (outside_allowed_roots). Se reintenta escribiendo dentro del primer
+        // origen permitido y luego se copia el archivo aquí.
+        if (try genofficeRetryInsideRoots(allocator, genoffice_url, export_timeout, markdown, output)) |placed| {
+            docx_path = placed;
+            used_gen_root = true;
+        } else {
+            std.fs.cwd().deleteFile(output) catch {};
+            // Sin GenOffice utilizable: informe en Markdown como respaldo
+            // honesto, nunca un error seco.
+            const headers = try allocator.alloc(http.Header, 1);
+            headers[0] = .{ .name = "Content-Disposition", .value = "attachment; filename=\"informe-estudiante.md\"" };
+            return .{ .status = 200, .content_type = "text/markdown; charset=utf-8", .body = markdown, .headers = headers };
+        }
+    }
+    defer if (used_gen_root) std.fs.cwd().deleteFile(docx_path) catch {};
+    const file = std.fs.cwd().openFile(docx_path, .{}) catch return jsonErrorWithReason(allocator, 503, "GenOffice no disponible", "La herramienta respondió, pero el archivo DOCX no apareció en el volumen compartido.");
     defer {
         file.close();
         std.fs.cwd().deleteFile(output) catch {};
