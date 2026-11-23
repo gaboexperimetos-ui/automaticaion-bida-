@@ -35,6 +35,10 @@
 | `MIKARENO_PORTAL_URL` | Enlace "Libreta oficial" de la vista de notas | Vacío = sin botón; default `https://alamos.mikareno.com/app/#/scores/student-score-table` |
 | `CYBERHEX_API_URL` | URL base de la REST local de CyberHex | Vacío = herramientas `cyberhex_*` responden "no conectado" |
 | `CYBERHEX_API_KEY` | Clave Bearer de CyberHex (Ajustes → Conectar) | Vacío = deshabilitado; nunca se registra |
+| `GOOGLE_CLIENT_ID` | ID de cliente OAuth de Google | Vacío = login clásico y sin botón de Google |
+| `GOOGLE_CLIENT_SECRET` | Secreto del cliente OAuth | Nunca en el repo; si se filtra, rotarlo en Google Cloud |
+| `GOOGLE_REDIRECT_URI` | URL de vuelta registrada en Google | Default `http://127.0.0.1:8090/auth/google/callback` |
+| `OAUTH_TIMEOUT_MS` | Tope de espera contra Google | Default `10000` |
 | `CYBERHEX_TIMEOUT_MS` | Tope de espera por llamada a CyberHex | Default `4000` |
 | `GENOFFICE_MCP_URL` | URL del MCP de GenOffice | Default `http://127.0.0.1:8453/mcp` |
 | `CUSTOM_MCP_API_KEY` | API key para MCP propio | Header `X-API-Key`, comparado con `crypto_secure_eq` |

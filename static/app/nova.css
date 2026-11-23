@@ -3469,3 +3469,9 @@ body:has(#chat-messages-container) #chat-messages-container img {
   .nx-cal-day { min-height: 68px; }
   .nx-cal-chip { font-size: 8.5px; padding: 1px 4px; }
 }
+
+.nova-google { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: .2rem; padding: .8rem; color: #e8eefc; background: #1b2540; border: 1px solid #2c3a56; border-radius: .5rem; font-weight: 600; text-decoration: none; }
+.nova-google:hover { background: #22304f; border-color: #3d5178; }
+.nova-google .material-symbols-outlined { font-size: 18px; }
+.nova-or { margin: .9rem 0 .1rem; border: 0; border-top: 1px solid #2c3a56; }
+.nova-oauth-error { margin: .8rem 0 0; padding: .6rem .7rem; color: #fecaca; background: rgba(248,113,113,.1); border: 1px solid rgba(248,113,113,.35); border-radius: .5rem; font-size: .85rem; line-height: 1.45; }

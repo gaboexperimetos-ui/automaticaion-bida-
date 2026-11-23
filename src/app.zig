@@ -12,6 +12,7 @@ const mcp = @import("mcp.zig");
 const system_metrics = @import("system_metrics.zig");
 const mcp_client = @import("mcp_client.zig");
 const office_mod = @import("office.zig");
+const oauth_google = @import("oauth_google.zig");
 const panel = @import("panel.zig");
 const academico = @import("academico.zig");
 
@@ -57,6 +58,8 @@ pub const App = struct {
             const legacy = assets.find("/static/study-platform-ui/index.html").?;
             return text(allocator, 200, legacy.mime, legacy.bytes);
         }
+        if (std.mem.eql(u8, path, "/auth/google")) return self.googleLoginStart(allocator, request);
+        if (std.mem.eql(u8, path, "/auth/google/callback")) return self.googleLoginCallback(allocator, request);
         if (std.mem.eql(u8, path, "/login")) return self.login(allocator, request);
         if (std.mem.eql(u8, path, "/register")) return self.register(allocator, request);
         if (std.mem.eql(u8, path, "/logout")) return self.logout(allocator, request);
@@ -197,10 +200,146 @@ pub const App = struct {
         return self.loginSubmit(allocator, request);
     }
 
+    /// Config de Google lista para usar, o null si falta algo.
+    fn googleConfig(self: *App) ?oauth_google.Config {
+        if (self.config.google_client_id.len == 0 or self.config.google_client_secret.len == 0) return null;
+        return .{
+            .client_id = self.config.google_client_id,
+            .client_secret = self.config.google_client_secret,
+            .redirect_uri = self.config.google_redirect_uri,
+            .timeout_ms = self.config.oauth_timeout_ms,
+        };
+    }
+
+    /// Paso 1: manda el navegador a Google con state y PKCE guardados en
+    /// una cookie de 10 minutos.
+    fn googleLoginStart(self: *App, allocator: std.mem.Allocator, request: *const http.Request) !http.Response {
+        const cfg = self.googleConfig() orelse return redirect(allocator, "/login?google=off", 302);
+        const state = try oauth_google.randomToken(allocator);
+        const verifier = try oauth_google.randomToken(allocator);
+        const challenge = try oauth_google.codeChallenge(allocator, verifier);
+        const url = try oauth_google.authorizationUrl(allocator, cfg, state, challenge);
+        const cookie = try oauth_google.buildStateCookie(allocator, state, verifier, requestSecure(request));
+        const headers = try allocator.alloc(http.Header, 2);
+        headers[0] = .{ .name = "Set-Cookie", .value = cookie };
+        headers[1] = .{ .name = "Location", .value = url };
+        return .{ .status = 302, .content_type = "text/plain; charset=utf-8", .body = "", .headers = headers };
+    }
+
+    /// Paso 2: Google vuelve con `code` y `state`. Se comprueba el state
+    /// contra la cookie, se canjea el código y se crea o recupera la cuenta.
+    fn googleLoginCallback(self: *App, allocator: std.mem.Allocator, request: *const http.Request) !http.Response {
+        const cfg = self.googleConfig() orelse return redirect(allocator, "/login?google=off", 302);
+        if (!std.mem.eql(u8, request.method, "GET")) return methodNotAllowed(allocator);
+
+        // Si el usuario cancela, Google manda `error=access_denied`.
+        if (try http.queryParam(allocator, request.query, "error")) |_| {
+            return redirect(allocator, "/login?google=cancelled", 302);
+        }
+        const code = (try http.queryParam(allocator, request.query, "code")) orelse return redirect(allocator, "/login?google=missing", 302);
+        const state = (try http.queryParam(allocator, request.query, "state")) orelse return redirect(allocator, "/login?google=state", 302);
+
+        const cookie = request.header("cookie") orelse "";
+        const saved = oauth_google.parseStateCookie(allocator, cookie) catch null;
+        const stored = saved orelse return redirect(allocator, "/login?google=state", 302);
+        // Comparación en tiempo constante: el state es el que cortaba el CSRF.
+        if (!security.constantTimeEq(stored.state, state)) return redirect(allocator, "/login?google=state", 302);
+
+        const identity = oauth_google.exchange(allocator, cfg, code, stored.verifier) catch {
+            return redirect(allocator, "/login?google=failed", 302);
+        };
+
+        const user_id = try self.upsertGoogleUser(allocator, identity);
+        const token = try security.generateSessionToken(allocator);
+        const hashed = try security.hashSessionToken(allocator, self.config.session_secret, token);
+        var save = self.db.prepare("INSERT INTO sessions(id,user_id,expires_at,user_agent) VALUES(?1,?2,datetime('now','+1 day'),?3)") catch {
+            return text(allocator, 500, "text/plain; charset=utf-8", "No se pudo abrir la sesión");
+        };
+        defer save.deinit();
+        try save.bindText(1, hashed);
+        try save.bindInt(2, user_id);
+        try save.bindText(3, request.header("user-agent") orelse "");
+        _ = try save.next();
+
+        const cookie_value = try security.cookieValue(allocator, token, requestSecure(request));
+        const clear = try oauth_google.clearStateCookie(allocator, requestSecure(request));
+        const headers = try allocator.alloc(http.Header, 3);
+        headers[0] = .{ .name = "Set-Cookie", .value = cookie_value };
+        headers[1] = .{ .name = "Set-Cookie", .value = clear };
+        headers[2] = .{ .name = "Location", .value = "/dashboard" };
+        return .{ .status = 302, .content_type = "text/plain; charset=utf-8", .body = "", .headers = headers };
+    }
+
+    /// Crea la cuenta en la primera entrada o la recupera si ya existía.
+    ///
+    /// La contraseña es aleatoria y no se guarda en claro: la cuenta solo
+    /// entra por Google, y si alguien intenta el login clásico fallará.
+    fn upsertGoogleUser(self: *App, allocator: std.mem.Allocator, identity: oauth_google.Identity) !i64 {
+        var find = self.db.prepare("SELECT id FROM users WHERE oauth_provider='google' AND oauth_subject=?1") catch return error.DbError;
+        defer find.deinit();
+        try find.bindText(1, identity.subject);
+        if (try find.next()) return find.int64(0);
+
+        // Si ya existe un usuario local con ese correo, se vincula en vez de
+        // crear un duplicado.
+        var by_email = self.db.prepare("SELECT id FROM users WHERE username=?1 AND oauth_provider=''") catch return error.DbError;
+        defer by_email.deinit();
+        try by_email.bindText(1, identity.email);
+        if (try by_email.next()) {
+            const existing_id = by_email.int64(0);
+            var link = self.db.prepare("UPDATE users SET oauth_provider='google', oauth_subject=?1, oauth_email=?2 WHERE id=?3") catch return error.DbError;
+            defer link.deinit();
+            try link.bindText(1, identity.subject);
+            try link.bindText(2, identity.email);
+            try link.bindInt(3, existing_id);
+            _ = try link.next();
+            return existing_id;
+        }
+
+        var pwd_bytes: [32]u8 = undefined;
+        std.crypto.random.bytes(&pwd_bytes);
+        const plain = try std.fmt.allocPrint(allocator, "{x}", .{std.fmt.fmtSliceHexLower(&pwd_bytes)});
+        const hash = try security.hashPassword(allocator, plain);
+        var insert = self.db.prepare("INSERT INTO users(username,password_hash,oauth_provider,oauth_subject,oauth_email) VALUES(?1,?2,'google',?3,?4)") catch return error.DbError;
+        defer insert.deinit();
+        try insert.bindText(1, identity.email);
+        try insert.bindText(2, hash);
+        try insert.bindText(3, identity.subject);
+        try insert.bindText(4, identity.email);
+        _ = try insert.next();
+        return self.db.lastInsertRowId();
+    }
+
     fn loginSubmit(self: *App, allocator: std.mem.Allocator, request: *const http.Request) !http.Response {
         if (std.mem.eql(u8, request.method, "GET")) {
             if (try self.authFor(request, allocator)) |_| return redirect(allocator, "/dashboard", 302);
-            return text(allocator, 200, "text/html; charset=utf-8", templates.loginPage());
+            var google_btn: []const u8 = "";
+            if (self.googleConfig() != null) {
+                google_btn = "<a class=\"nova-google\" href=\"/auth/google\"><span class=\"material-symbols-outlined\">login</span>Entrar con Google</a><hr class=\"nova-or\">";
+            }
+            // Motivo del fallo, para que el usuario sepa qué hacer.
+            if (try http.queryParam(allocator, request.query, "google")) |reason| {
+                const msg: []const u8 = if (std.mem.eql(u8, reason, "cancelled"))
+                    "Cancelaste el acceso con Google."
+                else if (std.mem.eql(u8, reason, "state"))
+                    "La petición de acceso venció o no coincidía. Inténtalo otra vez."
+                else if (std.mem.eql(u8, reason, "missing"))
+                    "Faltan datos en la vuelta de Google. Inténtalo otra vez."
+                else if (std.mem.eql(u8, reason, "failed"))
+                    "Google no pudo validar el acceso. Revisa la configuración OAuth."
+                else if (std.mem.eql(u8, reason, "off"))
+                    "El acceso con Google no está configurado en el servidor."
+                else
+                    "";
+                if (msg.len > 0) {
+                    google_btn = try std.fmt.allocPrint(
+                        allocator,
+                        "<p class=\"nova-oauth-error\" role=\"status\">{s}</p>{s}",
+                        .{ msg, google_btn },
+                    );
+                }
+            }
+            return text(allocator, 200, "text/html; charset=utf-8", templates.loginPage(google_btn));
         }
         return self.loginPost(allocator, request);
     }
@@ -274,7 +413,7 @@ pub const App = struct {
         _ = self;
         const headers = try allocator.alloc(http.Header, 1);
         headers[0] = .{ .name = "Set-Cookie", .value = try security.clearCookie(allocator, requestSecure(request)) };
-        return .{ .status = 200, .content_type = "text/html; charset=utf-8", .body = templates.loginPage(), .headers = headers };
+        return .{ .status = 200, .content_type = "text/html; charset=utf-8", .body = templates.loginPage(""), .headers = headers };
     }
 
     fn password(self: *App, allocator: std.mem.Allocator, request: *const http.Request, auth: Auth) !http.Response {

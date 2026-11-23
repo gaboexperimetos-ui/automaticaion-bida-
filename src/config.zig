@@ -17,6 +17,10 @@ pub const Config = struct {
     cyberhex_api_url: []const u8,
     cyberhex_api_key: []const u8,
     cyberhex_timeout_ms: u64,
+    google_client_id: []const u8,
+    google_client_secret: []const u8,
+    google_redirect_uri: []const u8,
+    oauth_timeout_ms: u64,
     genoffice_mcp_url: []const u8,
     genoffice_work_dir: []const u8,
     genoffice_timeout_ms: u64,
@@ -49,6 +53,12 @@ pub const Config = struct {
         const cyberhex_url = try value(allocator, &vars, "CYBERHEX_API_URL", "");
         const cyberhex_key = try value(allocator, &vars, "CYBERHEX_API_KEY", "");
         const cyberhex_timeout = try parseInt(u64, allocator, &vars, "CYBERHEX_TIMEOUT_MS", "4000");
+        // Google OAuth: sin ID y secreto la app sigue funcionando con el
+        // login clásico; el botón de Google no se muestra.
+        const google_client_id = try value(allocator, &vars, "GOOGLE_CLIENT_ID", "");
+        const google_client_secret = try value(allocator, &vars, "GOOGLE_CLIENT_SECRET", "");
+        const google_redirect = try value(allocator, &vars, "GOOGLE_REDIRECT_URI", "http://127.0.0.1:8090/auth/google/callback");
+        const oauth_timeout = try parseInt(u64, allocator, &vars, "OAUTH_TIMEOUT_MS", "10000");
         const genoffice_url = try value(allocator, &vars, "GENOFFICE_MCP_URL", "http://127.0.0.1:8453/mcp");
         const genoffice_work_dir = try value(allocator, &vars, "GENOFFICE_WORK_DIR", "");
         const genoffice_timeout_ms = try parseInt(u64, allocator, &vars, "GENOFFICE_TIMEOUT_MS", "90000");
@@ -75,6 +85,10 @@ pub const Config = struct {
             .cyberhex_api_url = cyberhex_url,
             .cyberhex_api_key = cyberhex_key,
             .cyberhex_timeout_ms = cyberhex_timeout,
+            .google_client_id = google_client_id,
+            .google_client_secret = google_client_secret,
+            .google_redirect_uri = google_redirect,
+            .oauth_timeout_ms = oauth_timeout,
             .genoffice_mcp_url = genoffice_url,
             .genoffice_work_dir = genoffice_work_dir,
             .genoffice_timeout_ms = genoffice_timeout_ms,

@@ -389,8 +389,16 @@ fn routeForPath(data_path: []const u8) []const u8 {
     return "/dashboard";
 }
 
-pub fn loginPage() []const u8 {
-    return "<!DOCTYPE html><html lang=\"es\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Iniciar sesión · NOVA</title><link rel=\"stylesheet\" href=\"/nova.css\"><style>body{margin:0;background:#080b14;color:#f3f6ff;font:16px system-ui;display:grid;place-items:center;min-height:100vh}.card{width:min(92vw,420px);padding:2rem;border:1px solid #2c3a56;border-radius:1rem;background:#141d30}label{display:block;margin:.8rem 0 .3rem}input{width:100%;box-sizing:border-box;padding:.8rem;background:#090e19;color:white;border:1px solid #71809e;border-radius:.5rem}button{margin-top:1.2rem;width:100%;padding:.8rem;background:#a78bfa;color:#140d26;border:0;border-radius:.5rem;font-weight:700}</style></head><body><main class=\"card\"><p>NOVA · PERSONAL OS</p><h1>Inicia sesión</h1><form method=\"post\" action=\"/login\"><label for=\"username\">Usuario</label><input id=\"username\" name=\"username\" autocomplete=\"username\" required><label for=\"password\">Contraseña</label><input id=\"password\" name=\"password\" type=\"password\" autocomplete=\"current-password\" required><button type=\"submit\">Entrar a mi espacio</button></form><p>Tu sesión se protege con una cookie HttpOnly.</p></main></body></html>";
+/// Pantalla de acceso. `google` es el botón de Google ya armado, o vacío si
+/// OAuth no está configurado. Se reemplaza un marcador en vez de usar
+/// `allocPrint` porque el CSS del bloque lleva llaves.
+pub fn loginPage(google: []const u8) []const u8 {
+    const template = loginTemplate();
+    return std.mem.replaceOwned(u8, std.heap.page_allocator, template, "<!--GOOGLE-->", google) catch template;
+}
+
+fn loginTemplate() []const u8 {
+    return "<!DOCTYPE html><html lang=\"es\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Iniciar sesión · NOVA</title><link rel=\"stylesheet\" href=\"/nova.css\"><style>body{margin:0;background:#080b14;color:#f3f6ff;font:16px system-ui;display:grid;place-items:center;min-height:100vh}.card{width:min(92vw,420px);padding:2rem;border:1px solid #2c3a56;border-radius:1rem;background:#141d30}label{display:block;margin:.8rem 0 .3rem}input{width:100%;box-sizing:border-box;padding:.8rem;background:#090e19;color:white;border:1px solid #71809e;border-radius:.5rem}button{margin-top:1.2rem;width:100%;padding:.8rem;background:#a78bfa;color:#140d26;border:0;border-radius:.5rem;font-weight:700}</style></head><body><main class=\"card\"><p>NOVA · PERSONAL OS</p><h1>Inicia sesión</h1><form method=\"post\" action=\"/login\"><label for=\"username\">Usuario</label><input id=\"username\" name=\"username\" autocomplete=\"username\" required><label for=\"password\">Contraseña</label><input id=\"password\" name=\"password\" type=\"password\" autocomplete=\"current-password\" required><button type=\"submit\">Entrar a mi espacio</button></form><p>Tu sesión se protege con una cookie HttpOnly.</p><!--GOOGLE--></main></body></html>";
 }
 
 pub fn simplePage(allocator: std.mem.Allocator, title: []const u8, body: []const u8) ![]const u8 {

@@ -16,4 +16,5 @@ test {
     _ = @import("academico.zig");
     _ = @import("charts.zig");
     _ = @import("cyberhex.zig");
+    _ = @import("oauth_google.zig");
 }
