@@ -13,4 +13,7 @@ test {
     _ = @import("office.zig");
     _ = @import("panel.zig");
     _ = @import("app.zig");
+    _ = @import("academico.zig");
+    _ = @import("charts.zig");
+    _ = @import("cyberhex.zig");
 }

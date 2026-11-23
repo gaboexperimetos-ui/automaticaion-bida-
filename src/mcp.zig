@@ -6,6 +6,7 @@ const json = @import("jsonutil.zig");
 const security = @import("security.zig");
 const notes = @import("notes.zig");
 const mcp_client = @import("mcp_client.zig");
+const cyberhex_mod = @import("cyberhex.zig");
 
 pub fn handle(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, request: *const http.Request) !http.Response {
     if (!std.mem.eql(u8, request.path, "/mcp") and !std.mem.eql(u8, request.path, "/mcp/sse")) return jsonError(allocator, 404, "not_found");
@@ -83,6 +84,12 @@ fn toolDefinitions(allocator: std.mem.Allocator) !std.json.Value {
         .{ .name = "app_list_backups", .description = "List database backups", .props = "", .required = &.{} },
         .{ .name = "app_backup_now", .description = "Create a database backup", .props = "", .required = &.{} },
         .{ .name = "app_ai_cost", .description = "Get monthly AI cost summary", .props = "", .required = &.{} },
+        .{ .name = "cyberhex_status", .description = "Current CyberHex track and playback state", .props = "", .required = &.{} },
+        .{ .name = "cyberhex_library_search", .description = "Search the CyberHex scanned library", .props = "query", .required = &.{"query"} },
+        .{ .name = "cyberhex_queue", .description = "Read the CyberHex play queue", .props = "", .required = &.{} },
+        .{ .name = "cyberhex_playback", .description = "Control CyberHex: play, pause, toggle, next, previous or seek", .props = "command,value", .required = &.{"command"} },
+        .{ .name = "cyberhex_set_volume", .description = "Set CyberHex volume between 0 and 1", .props = "volume", .required = &.{"volume"} },
+        .{ .name = "cyberhex_queue_add", .description = "Add a library track to the CyberHex queue", .props = "path", .required = &.{"path"} },
     };
     var list = std.json.Array.init(allocator);
     for (definitions) |definition| {
@@ -156,7 +163,125 @@ fn callTool(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_
     if (std.mem.eql(u8, name, "app_list_backups")) return backups(allocator, config);
     if (std.mem.eql(u8, name, "app_backup_now")) return backupNow(allocator, db, config);
     if (std.mem.eql(u8, name, "app_ai_cost")) return aiCost(allocator, db, config);
+    if (std.mem.eql(u8, name, "cyberhex_status")) return cyberhexStatus(allocator, config);
+    if (std.mem.eql(u8, name, "cyberhex_library_search")) {
+        const query = json.getString(args, "query") orelse return error.InvalidParams;
+        return cyberhexLibrary(allocator, config, query);
+    }
+    if (std.mem.eql(u8, name, "cyberhex_queue")) return cyberhexQueue(allocator, config);
+    if (std.mem.eql(u8, name, "cyberhex_playback")) {
+        const command_v = json.getString(args, "command") orelse return error.InvalidParams;
+        if (!validCyberHexCommand(command_v)) return error.InvalidParams;
+        return cyberhexCommand(allocator, config, command_v, json.get(args, "value"));
+    }
+    if (std.mem.eql(u8, name, "cyberhex_set_volume")) {
+        const raw = json.get(args, "volume") orelse return error.InvalidParams;
+        const volume = switch (raw) {
+            .float => |f| f,
+            .integer => |i| @as(f64, @floatFromInt(i)),
+            else => return error.InvalidParams,
+        };
+        if (std.math.isNan(volume) or volume < 0 or volume > 1) return error.InvalidParams;
+        return cyberhexVolume(allocator, config, volume);
+    }
+    if (std.mem.eql(u8, name, "cyberhex_queue_add")) {
+        const path = json.getString(args, "path") orelse return error.InvalidParams;
+        if (path.len == 0) return error.InvalidParams;
+        return cyberhexQueueAdd(allocator, config, path);
+    }
     return error.MethodNotFound;
+}
+
+/// Solo se aceptan las acciones que la REST de CyberHex reconoce.
+fn validCyberHexCommand(command_v: []const u8) bool {
+    const allowed = [_][]const u8{ "play", "pause", "toggle", "next", "previous", "seek" };
+    for (allowed) |name| if (std.mem.eql(u8, command_v, name)) return true;
+    return false;
+}
+
+/// Config del cliente de CyberHex, o error si no está configurado.
+fn cyberhexConfig(config: *const config_mod.Config) !cyberhex_mod.Config {
+    if (config.cyberhex_api_url.len == 0 or config.cyberhex_api_key.len == 0) return error.NotConfigured;
+    return .{
+        .url = config.cyberhex_api_url,
+        .key = config.cyberhex_api_key,
+        .timeout_ms = config.cyberhex_timeout_ms,
+    };
+}
+
+/// Mensaje estable para "CyberHex no está conectado", sin inventar nada.
+fn cyberhexNoConfigured(allocator: std.mem.Allocator) !std.json.Value {
+    return json.object(allocator, &.{
+        .{ .key = "connected", .value = .{ .bool = false } },
+        .{ .key = "configured", .value = .{ .bool = false } },
+        .{ .key = "message", .value = .{ .string = "CyberHex no está conectado: configura CYBERHEX_API_URL y CYBERHEX_API_KEY." } },
+    });
+}
+
+fn cyberhexStatus(allocator: std.mem.Allocator, config: *const config_mod.Config) !std.json.Value {
+    const cfg = cyberhexConfig(config) catch return cyberhexNoConfigured(allocator);
+    const payload = cyberhex_mod.status(allocator, cfg) catch |err| switch (err) {
+        error.CyberHexUnavailable => return json.object(allocator, &.{
+            .{ .key = "connected", .value = .{ .bool = false } },
+            .{ .key = "configured", .value = .{ .bool = true } },
+            .{ .key = "message", .value = .{ .string = "CyberHex no responde en su puerto local." } },
+        }),
+        error.CyberHexUnauthorized => return json.object(allocator, &.{
+            .{ .key = "connected", .value = .{ .bool = false } },
+            .{ .key = "configured", .value = .{ .bool = true } },
+            .{ .key = "message", .value = .{ .string = "CyberHex rechazó la clave (Authorization Bearer)." } },
+        }),
+        else => return error.CyberHexUnavailable,
+    };
+    var out = payload;
+    if (out != .object) return error.CyberHexBadResponse;
+    try out.object.put("connected", .{ .bool = true });
+    try out.object.put("configured", .{ .bool = true });
+    return out;
+}
+
+fn cyberhexLibrary(allocator: std.mem.Allocator, config: *const config_mod.Config, query: []const u8) !std.json.Value {
+    const cfg = cyberhexConfig(config) catch return cyberhexNoConfigured(allocator);
+    return cyberhex_mod.library(allocator, cfg, query) catch return json.object(allocator, &.{
+        .{ .key = "connected", .value = .{ .bool = false } },
+        .{ .key = "query", .value = .{ .string = query } },
+        .{ .key = "results", .value = try json.array(allocator, &.{}) },
+    });
+}
+
+fn cyberhexQueue(allocator: std.mem.Allocator, config: *const config_mod.Config) !std.json.Value {
+    const cfg = cyberhexConfig(config) catch return cyberhexNoConfigured(allocator);
+    return cyberhex_mod.queue(allocator, cfg) catch return json.object(allocator, &.{
+        .{ .key = "connected", .value = .{ .bool = false } },
+        .{ .key = "queue", .value = try json.array(allocator, &.{}) },
+    });
+}
+
+fn cyberhexCommand(allocator: std.mem.Allocator, config: *const config_mod.Config, accion: []const u8, valor: ?std.json.Value) !std.json.Value {
+    const cfg = cyberhexConfig(config) catch return cyberhexNoConfigured(allocator);
+    return cyberhex_mod.command(allocator, cfg, accion, valor) catch return json.object(allocator, &.{
+        .{ .key = "connected", .value = .{ .bool = false } },
+        .{ .key = "command", .value = .{ .string = accion } },
+        .{ .key = "ok", .value = .{ .bool = false } },
+    });
+}
+
+fn cyberhexVolume(allocator: std.mem.Allocator, config: *const config_mod.Config, volumen: f64) !std.json.Value {
+    const cfg = cyberhexConfig(config) catch return cyberhexNoConfigured(allocator);
+    return cyberhex_mod.setVolume(allocator, cfg, volumen) catch return json.object(allocator, &.{
+        .{ .key = "connected", .value = .{ .bool = false } },
+        .{ .key = "volume", .value = .{ .float = volumen } },
+        .{ .key = "ok", .value = .{ .bool = false } },
+    });
+}
+
+fn cyberhexQueueAdd(allocator: std.mem.Allocator, config: *const config_mod.Config, path: []const u8) !std.json.Value {
+    const cfg = cyberhexConfig(config) catch return cyberhexNoConfigured(allocator);
+    return cyberhex_mod.queueAdd(allocator, cfg, path) catch return json.object(allocator, &.{
+        .{ .key = "connected", .value = .{ .bool = false } },
+        .{ .key = "path", .value = .{ .string = path } },
+        .{ .key = "ok", .value = .{ .bool = false } },
+    });
 }
 
 fn studySheets(allocator: std.mem.Allocator, db: *sqlite.Db, args: std.json.Value) !std.json.Value {
@@ -347,12 +472,62 @@ fn jsonError(allocator: std.mem.Allocator, status: u16, message: []const u8) !ht
     return jsonResponse(allocator, status, try json.object(allocator, &.{.{ .key = "error", .value = .{ .string = message } }}));
 }
 
-test "MCP exposes the protocol version and exactly nine tools" {
+test "MCP exposes the protocol version and the full tool catalog" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
     const tools = try toolDefinitions(allocator);
-    try std.testing.expectEqual(@as(usize, 9), tools.array.items.len);
+    // 9 herramientas propias + 6 de CyberHex. Se comprueba que estén las dos
+    // familias para que un cambio no deje el catálogo a medias.
+    try std.testing.expectEqual(@as(usize, 15), tools.array.items.len);
+    var has_notes = false;
+    var has_cyberhex = false;
+    for (tools.array.items) |tool| {
+        const name = json.getString(tool, "name") orelse "";
+        if (std.mem.eql(u8, name, "search_notes")) has_notes = true;
+        if (std.mem.eql(u8, name, "cyberhex_status")) has_cyberhex = true;
+    }
+    try std.testing.expect(has_notes);
+    try std.testing.expect(has_cyberhex);
     const initialized = try dispatch(allocator, undefined, undefined, "initialize", try json.object(allocator, &.{}), null);
     try std.testing.expectEqualStrings("2025-03-26", json.getString(initialized, "protocolVersion").?);
+}
+
+test "las herramientas de CyberHex avisan sin configurar" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    const config = testConfig(a);
+    const payload = try callTool(a, undefined, &config, "cyberhex_status", try json.object(a, &.{}));
+    try std.testing.expectEqual(@as(bool, false), json.getBool(payload, "connected").?);
+    try std.testing.expectEqual(@as(bool, false), json.getBool(payload, "configured").?);
+}
+
+fn testConfig(a: std.mem.Allocator) config_mod.Config {
+    return .{
+        .allocator = a,
+        .host = "127.0.0.1",
+        .port = 8090,
+        .session_secret = "0123456789abcdef0123456789abcdef",
+        .db_path = "./data/app.db",
+        .notes_dir = "./notes",
+        .vault_dir = "./vault",
+        .openrouter_api_key = null,
+        .openrouter_model = "cohere/north-mini-code:free",
+        .openrouter_max_tokens = 8192,
+        .openrouter_max_cost_usd = 2.0,
+        .mikareno_mcp_url = "http://127.0.0.1:8080/mcp",
+        .mikareno_portal_url = "",
+        .cyberhex_api_url = "",
+        .cyberhex_api_key = "",
+        .cyberhex_timeout_ms = 500,
+        .genoffice_mcp_url = "http://127.0.0.1:8453/mcp",
+        .genoffice_work_dir = "",
+        .genoffice_timeout_ms = 90000,
+        .custom_mcp_api_key = null,
+        .auth_disabled = true,
+        .registration_token = null,
+        .db_max_connections = 4,
+        .mcp_timeout_ms = 5000,
+    };
 }

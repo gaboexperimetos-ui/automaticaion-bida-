@@ -13,6 +13,7 @@ const system_metrics = @import("system_metrics.zig");
 const mcp_client = @import("mcp_client.zig");
 const office_mod = @import("office.zig");
 const panel = @import("panel.zig");
+const academico = @import("academico.zig");
 
 pub const App = struct {
     allocator: std.mem.Allocator,
@@ -431,6 +432,23 @@ pub const App = struct {
         return .{ .status = 200, .content_type = "text/calendar; charset=utf-8", .body = try notes.calendarIcs(allocator, self.db), .headers = headers };
     }
 
+    /// Vista académica real de una ruta, con su herramienta de Mikareno.
+    fn renderAcademicView(self: *App, allocator: std.mem.Allocator, view: AcademicView) ![]const u8 {
+        var args = try json.object(allocator, &.{});
+        if (view == .evaluaciones) args = try json.object(allocator, &.{.{ .key = "trimestre", .value = .{ .integer = 1 } }});
+        const result = mcp_client.callTool(allocator, self.config.mikareno_mcp_url, view.timeoutMs(self.config.mcp_timeout_ms), view.tool(), args, true) catch {
+            return templates.simplePage(allocator, view.title(), "<div class=\"nx-panel nx-academic-empty\"><span class=\"material-symbols-outlined\">cloud_off</span><p><strong>Mikareno no responde</strong><br>No se muestran datos académicos inventados. Reintenta en un momento.</p><a class=\"nx-button nx-button-secondary\" href=\"/dashboard/mcp\"><span class=\"material-symbols-outlined\">refresh</span>Revisar conexión</a></div>");
+        };
+        return switch (view) {
+            .horario => academico.horarioHtml(allocator, result),
+            .tareas => academico.tareasHtml(allocator, result),
+            .evaluaciones => academico.examenesHtml(allocator, result),
+            .asistencia => academico.asistenciaHtml(allocator, result),
+            .perfil => academico.perfilHtml(allocator, result),
+            .mensajes => academico.mensajesHtml(allocator, result),
+        };
+    }
+
     fn academic(self: *App, allocator: std.mem.Allocator, request: *const http.Request, username: []const u8) !http.Response {
         const path = request.path;
         if (std.mem.eql(u8, path, "/dashboard/schedule")) {
@@ -449,6 +467,12 @@ pub const App = struct {
         if (std.mem.eql(u8, path, "/dashboard/subjects")) {
             const datos = panel.fetch(allocator, self.db, self.config.mikareno_mcp_url, self.config.mcp_timeout_ms) catch panel.Datos{};
             const body = try panel.gradesPageHtml(allocator, datos, self.config.mikareno_portal_url);
+            return .{ .status = 200, .content_type = "text/html; charset=utf-8", .body = try templates.renderShell(allocator, path, body, username, true, self.config.mikareno_mcp_url) };
+        }
+        // Vistas académicas reales: cada ruta pide su herramienta y la
+        // convierte en HTML. Si Mikareno no responde, la vista lo dice.
+        if (academicView(path)) |view| {
+            const body = try self.renderAcademicView(allocator, view);
             return .{ .status = 200, .content_type = "text/html; charset=utf-8", .body = try templates.renderShell(allocator, path, body, username, true, self.config.mikareno_mcp_url) };
         }
         if (std.mem.startsWith(u8, path, "/dashboard/subjects/")) {
@@ -694,6 +718,57 @@ pub const App = struct {
 
 pub const Auth = struct { user_id: i64, username: []const u8, session_id: []const u8 };
 /// Cubo general para rutas dinamicas (paginas, HTMX y API).
+/// Vistas académicas con datos reales. Cada una nombra su herramienta.
+const AcademicView = enum {
+    horario,
+    tareas,
+    evaluaciones,
+    asistencia,
+    perfil,
+    mensajes,
+
+    fn tool(self: AcademicView) []const u8 {
+        return switch (self) {
+            .horario => "get_horario",
+            .tareas => "get_tareas",
+            .evaluaciones => "get_pendientes_calificacion",
+            .asistencia => "get_asistencia",
+            .perfil => "get_perfil",
+            .mensajes => "get_mensajes",
+        };
+    }
+
+    fn title(self: AcademicView) []const u8 {
+        return switch (self) {
+            .horario => "Horario",
+            .tareas => "Planificador",
+            .evaluaciones => "Evaluaciones",
+            .asistencia => "Asistencia",
+            .perfil => "Perfil",
+            .mensajes => "Mensajes",
+        };
+    }
+
+    /// La bandeja de entrada es la más lenta de Mikareno: se le da margen
+    /// para no mostrar un falso "no responde".
+    fn timeoutMs(self: AcademicView, base_ms: u64) u64 {
+        return switch (self) {
+            .mensajes => @max(base_ms, 20000),
+            else => base_ms,
+        };
+    }
+};
+
+fn academicView(path: []const u8) ?AcademicView {
+    if (std.mem.eql(u8, path, "/dashboard/horario")) return .horario;
+    if (std.mem.eql(u8, path, "/dashboard/planner")) return .tareas;
+    if (std.mem.eql(u8, path, "/dashboard/examenes")) return .evaluaciones;
+    if (std.mem.eql(u8, path, "/dashboard/vida-escolar")) return .asistencia;
+    if (std.mem.eql(u8, path, "/dashboard/perfil") or std.mem.eql(u8, path, "/dashboard/profile")) return .perfil;
+    if (std.mem.eql(u8, path, "/dashboard/mensajes")) return .mensajes;
+    return null;
+}
+
 const GENERAL_RATE_LIMIT: u32 = 240;
 
 const RateBucket = struct { window_start: i64, count: u32 };

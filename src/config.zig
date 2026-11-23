@@ -14,6 +14,9 @@ pub const Config = struct {
     openrouter_max_cost_usd: f64,
     mikareno_mcp_url: []const u8,
     mikareno_portal_url: []const u8,
+    cyberhex_api_url: []const u8,
+    cyberhex_api_key: []const u8,
+    cyberhex_timeout_ms: u64,
     genoffice_mcp_url: []const u8,
     genoffice_work_dir: []const u8,
     genoffice_timeout_ms: u64,
@@ -41,6 +44,11 @@ pub const Config = struct {
         const max_cost = try parseFloat(allocator, &vars, "OPENROUTER_MAX_COST_USD", "2.0");
         const mikareno_url = try value(allocator, &vars, "MIKARENO_MCP_URL", "http://127.0.0.1:8080/mcp");
         const mikareno_portal = try value(allocator, &vars, "MIKARENO_PORTAL_URL", "https://alamos.mikareno.com/app/#/scores/student-score-table");
+        // CyberHex solo se activa si hay URL y clave; si no, las herramientas
+        // de música dicen que no está configurado en vez de fallar raro.
+        const cyberhex_url = try value(allocator, &vars, "CYBERHEX_API_URL", "");
+        const cyberhex_key = try value(allocator, &vars, "CYBERHEX_API_KEY", "");
+        const cyberhex_timeout = try parseInt(u64, allocator, &vars, "CYBERHEX_TIMEOUT_MS", "4000");
         const genoffice_url = try value(allocator, &vars, "GENOFFICE_MCP_URL", "http://127.0.0.1:8453/mcp");
         const genoffice_work_dir = try value(allocator, &vars, "GENOFFICE_WORK_DIR", "");
         const genoffice_timeout_ms = try parseInt(u64, allocator, &vars, "GENOFFICE_TIMEOUT_MS", "90000");
@@ -64,6 +72,9 @@ pub const Config = struct {
             .openrouter_max_cost_usd = max_cost,
             .mikareno_mcp_url = mikareno_url,
             .mikareno_portal_url = mikareno_portal,
+            .cyberhex_api_url = cyberhex_url,
+            .cyberhex_api_key = cyberhex_key,
+            .cyberhex_timeout_ms = cyberhex_timeout,
             .genoffice_mcp_url = genoffice_url,
             .genoffice_work_dir = genoffice_work_dir,
             .genoffice_timeout_ms = genoffice_timeout_ms,

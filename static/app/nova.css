@@ -771,6 +771,82 @@ a.nx-calendar-event:hover { border-color: rgba(167,139,250,.25); background: var
 .nx-plan-axis.is-good > strong { color: #2dd4bf; }
 .nx-plan-axis.is-bad > strong { color: #f87171; }
 .nx-plan-axis-note { margin: 9px 0 0; color: var(--nx-muted); font-size: 10px; line-height: 1.5; }
+
+/* Vistas académicas y gráficos ------------------------------------------- */
+.nx-academic-page { display: grid; gap: 20px; align-content: start; }
+.nx-academic-kpis { grid-template-columns: repeat(3,minmax(0,1fr)); margin: 0; }
+.nx-academic-panel { padding: 20px; }
+.nx-academic-card { display: grid; gap: 14px; align-content: start; }
+.nx-academic-grid { display: grid; gap: 16px; }
+.nx-academic-empty { display: grid; justify-items: center; gap: 10px; padding: 34px 22px; text-align: center; }
+.nx-academic-empty > .material-symbols-outlined { color: var(--nx-muted); font-size: 30px; }
+.nx-academic-empty p { margin: 0; color: var(--nx-muted); font-size: 12px; line-height: 1.6; }
+.nx-academic-empty strong { color: var(--nx-text); font-size: 13px; }
+.nx-academic-muted { margin: 0; color: var(--nx-muted); font-size: 11px; }
+.nx-academic-note { margin: 0; color: var(--nx-muted); font-size: 10px; line-height: 1.55; }
+.nx-perfil-grid { grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); }
+
+/* Horario */
+.nx-horario-grid { grid-template-columns: repeat(auto-fit,minmax(210px,1fr)); }
+.nx-horario-dia { padding: 16px; background: var(--nx-surface); border: 1px solid var(--nx-line); border-radius: 11px; }
+.nx-horario-dia h2 { margin: 0 0 12px; font: 600 13px "Space Grotesk",sans-serif; text-transform: capitalize; }
+.nx-horario-dia ul { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.nx-horario-clase { display: grid; gap: 2px; padding: 9px 10px; background: var(--nx-surface-2); border-left: 2px solid var(--nx-accent); border-radius: 7px; }
+.nx-horario-hora { color: var(--nx-muted); font-size: 9px; font-variant-numeric: tabular-nums; }
+.nx-horario-nombre { color: var(--nx-text); font-size: 11px; font-weight: 600; }
+.nx-horario-clase small { color: var(--nx-muted); font-size: 9px; }
+
+/* Mensajes */
+.nx-mensajes-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.nx-mensaje { display: flex; align-items: flex-start; gap: 10px; padding: 12px 13px; background: var(--nx-surface-2); border: 1px solid var(--nx-line); border-radius: 9px; }
+.nx-mensaje.is-unread { border-color: rgba(167,139,250,.35); background: rgba(167,139,250,.06); }
+.nx-mensaje > div { flex: 1; min-width: 0; }
+.nx-mensaje strong { display: block; color: var(--nx-text); font-size: 11px; line-height: 1.45; }
+.nx-mensaje-clip { color: var(--nx-muted); font-size: 15px; }
+
+/* Gráficos ------------------------------------------------------------ */
+.nx-chart-panel { display: grid; gap: 16px; }
+.nx-chart-donut { position: relative; display: grid; justify-items: center; gap: 8px; }
+.nx-chart-donut svg { width: 132px; height: 132px; transform: rotate(-90deg); }
+.nx-chart-donut-track { fill: none; stroke: var(--nx-surface-3); stroke-width: 10; }
+.nx-chart-donut-value { fill: none; stroke-width: 10; stroke-linecap: round; transition: stroke-dasharray .3s ease; }
+.nx-chart-donut-center { position: absolute; top: 30px; display: grid; justify-items: center; gap: 1px; pointer-events: none; }
+.nx-chart-donut-center strong { font: 600 26px "Space Grotesk",sans-serif; }
+.nx-chart-donut-center span { color: var(--nx-muted); font-size: 9px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+.nx-chart-donut-foot { margin: 0; color: var(--nx-muted); font-size: 10px; }
+.nx-chart-split { display: grid; grid-template-columns: 200px minmax(0,1fr); align-items: center; gap: 24px; }
+
+.nx-chart-bars ul { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.nx-chart-bar-row { display: grid; grid-template-columns: 96px minmax(0,1fr) 96px; align-items: center; gap: 10px; }
+.nx-chart-bar-label { color: var(--nx-text-2); font-size: 10px; font-weight: 600; text-align: right; text-transform: capitalize; }
+.nx-chart-bar-track { position: relative; height: 8px; overflow: hidden; background: var(--nx-surface-3); border-radius: 999px; }
+.nx-chart-bar-track > i { position: absolute; inset: 0 auto 0 0; display: block; border-radius: inherit; transition: width .3s ease; }
+.nx-chart-bar-ghost { opacity: .35; }
+.nx-chart-bar-fill { background: var(--nx-accent); }
+.nx-chart-bar-value { color: var(--nx-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.nx-chart-note { margin: 12px 0 0; color: var(--nx-muted); font-size: 10px; line-height: 1.55; }
+
+.nx-chart-stack { display: grid; gap: 12px; }
+.nx-chart-stack-bar { display: flex; height: 12px; overflow: hidden; background: var(--nx-surface-3); border-radius: 999px; }
+.nx-chart-stack-bar > i { display: block; height: 100%; }
+.nx-chart-legend { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.nx-chart-legend li { display: grid; grid-template-columns: 9px minmax(0,1fr) auto auto; align-items: center; gap: 8px; color: var(--nx-text-2); font-size: 10px; }
+.nx-chart-legend i { width: 9px; height: 9px; border-radius: 3px; }
+.nx-chart-legend strong { font-variant-numeric: tabular-nums; }
+.nx-chart-legend small { color: var(--nx-muted); font-variant-numeric: tabular-nums; }
+
+.nx-chart-progress { display: grid; gap: 7px; }
+.nx-chart-progress-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; color: var(--nx-text-2); font-size: 11px; }
+.nx-chart-progress-head strong { font-variant-numeric: tabular-nums; }
+.nx-chart-progress-track { height: 8px; overflow: hidden; background: var(--nx-surface-3); border-radius: 999px; }
+.nx-chart-progress-track i { display: block; height: 100%; border-radius: inherit; transition: width .3s ease; }
+.nx-chart-progress small { color: var(--nx-muted); font-size: 10px; }
+
+@media (max-width: 900px) {
+  .nx-academic-kpis { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .nx-chart-split { grid-template-columns: 1fr; justify-items: center; gap: 18px; }
+  .nx-chart-bar-row { grid-template-columns: 74px minmax(0,1fr) 78px; }
+}
 .nx-modo-toggle { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; color: var(--nx-text-2); background: var(--nx-surface-2); border: 1px solid var(--nx-line); border-radius: 999px; font: 600 11px "Space Grotesk", sans-serif; cursor: pointer; }
 .nx-modo-toggle:hover { border-color: var(--nx-accent); }
 .nx-modo-toggle .nx-modo-knob { position: relative; width: 28px; height: 16px; border-radius: 999px; background: var(--nx-surface-3); border: 1px solid var(--nx-line); }
@@ -1842,6 +1918,10 @@ a.nx-calendar-event:hover { border-color: rgba(167,139,250,.25); background: var
   .calendar-day-items, .calendar-event-count { display: none !important; }
   .nx-calendar .calendar-cell[data-total]:not([data-total="0"])::after { content: ""; display: block; width: 5px; height: 5px; margin: 7px auto 0; background: var(--nx-accent); border-radius: 50%; }
   .nx-calendar-hint { align-items: flex-start; flex-direction: column; }
+  .nx-academic-kpis { grid-template-columns: 1fr; }
+  .nx-chart-bar-row { grid-template-columns: minmax(0,1fr) auto; row-gap: 4px; }
+  .nx-chart-bar-label { grid-column: 1/-1; text-align: left; }
+  .nx-horario-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 1100px) {
   .nx-calendar-layout { display: flex !important; flex-direction: column !important; align-items: stretch !important; width: 100%; }
