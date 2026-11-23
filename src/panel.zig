@@ -19,6 +19,21 @@ const mcp_client = @import("mcp_client.zig");
 pub const Evento = struct { fecha: []const u8, titulo: []const u8, tipo: []const u8 };
 pub const Tarea = struct { titulo: []const u8, vencimiento: []const u8 };
 pub const Nota = struct { materia: []const u8, nota: f64, trimestre: u8 };
+
+/// Una asignatura del parcial en curso con todo lo que la vista de notas
+/// necesita: código real, máximo, si es cuantitativa, si está bloqueada y
+/// si Mikareno ya publicó un promedio (`tiene_nota`).
+pub const SubjectGrade = struct {
+    materia: []const u8,
+    codigo: []const u8,
+    parcial: []const u8,
+    nota: f64,
+    tiene_nota: bool,
+    maximo: f64,
+    cuantitativa: bool,
+    bloqueada: bool,
+};
+
 pub const Clase = struct { dia: []const u8, etiqueta: []const u8 };
 
 /// Todo lo que el inicio y el calendario necesitan, ya leído.
@@ -28,6 +43,11 @@ pub const Datos = struct {
     eventos: []Evento = &.{},
     tareas: []Tarea = &.{},
     notas: []Nota = &.{},
+    /// Todas las asignaturas del parcial (incluidas las que aún no tienen
+    /// promedio), para la vista de notas.
+    grades: []SubjectGrade = &.{},
+    /// Etiqueta legible del parcial en curso (`2026 · Trimestre 3 · Parcial 1`).
+    partial_label: []const u8 = "",
     horario: []Clase = &.{},
     notes_count: ?i64 = null,
     conversations_count: ?i64 = null,
@@ -97,6 +117,13 @@ pub fn fetch(
     d.tasks_today = tarea_stats.hoy;
     d.tasks_week = tarea_stats.semana;
     d.notas = parseNotas(allocator, full);
+    d.grades = parseGrades(allocator, full);
+    for (d.grades) |g| {
+        if (g.parcial.len > 0) {
+            d.partial_label = partialLabel(allocator, g.parcial) catch "";
+            break;
+        }
+    }
     d.eventos = parseEventos(allocator, full);
     d.tareas = parseTareas(allocator, full);
     d.horario = parseHorario(allocator, full);
@@ -1235,4 +1262,663 @@ test "aiModel usa la BD y cae al valor de .env" {
     try std.testing.expectEqualStrings("fallback/model", aiModel(a, &db, "fallback/model"));
     try db.exec("INSERT INTO app_config(key,value) VALUES('ai.model','elegido/model');");
     try std.testing.expectEqualStrings("elegido/model", aiModel(a, &db, "fallback/model"));
+}
+
+// ── Vista de notas: asignaturas y detalle ────────────────────────────
+//
+// Portada de las páginas Rust `academic/subjects.rs` y
+// `academic/subject_detail.rs`. Fuente única: Mikareno. Si no hay nota, la
+// tarjeta dice "sin promedio"; nunca se inventa un cero.
+
+fn floatField(value: json.Value, key: []const u8) ?f64 {
+    const v = json.get(value, key) orelse return null;
+    return switch (v) {
+        .float => |f| f,
+        .integer => |i| @floatFromInt(i),
+        else => null,
+    };
+}
+
+fn parseGrades(allocator: std.mem.Allocator, full: json.Value) []SubjectGrade {
+    const promedios = json.get(full, "promedios") orelse return &.{};
+    const stats = json.get(promedios, "stats") orelse return &.{};
+    if (stats != .array) return &.{};
+    var out = std.ArrayList(SubjectGrade).init(allocator);
+    for (stats.array.items) |item| {
+        if (item != .object) continue;
+        const materia = json.getString(item, "courseName") orelse json.getString(item, "materia") orelse "";
+        if (materia.len == 0) continue;
+        const nota_v = json.get(item, "average") orelse json.get(item, "nota") orelse json.get(item, "promedio");
+        var nota: f64 = 0;
+        var tiene_nota = false;
+        if (nota_v) |v| switch (v) {
+            .float => |f| {
+                nota = f;
+                tiene_nota = true;
+            },
+            .integer => |i| {
+                nota = @floatFromInt(i);
+                tiene_nota = true;
+            },
+            else => {},
+        };
+        out.append(.{
+            .materia = materia,
+            .codigo = json.getString(item, "courseCode") orelse "",
+            .parcial = json.getString(item, "partialId") orelse "",
+            .nota = nota,
+            .tiene_nota = tiene_nota,
+            .maximo = floatField(item, "maxScore") orelse 10,
+            .cuantitativa = json.getBool(item, "isAverageableQuantitative") orelse true,
+            .bloqueada = json.getBool(item, "isLocked") orelse false,
+        }) catch {};
+    }
+    return out.items;
+}
+
+/// `2026:T3:1` → `2026 · Trimestre 3 · Parcial 1`.
+fn partialLabel(allocator: std.mem.Allocator, parcial: []const u8) ![]const u8 {
+    var partes = std.mem.splitScalar(u8, parcial, ':');
+    const year = partes.next() orelse "";
+    var tri: []const u8 = "";
+    var par: []const u8 = "";
+    if (partes.next()) |p| tri = if (std.mem.startsWith(u8, p, "T")) p[1..] else p;
+    if (partes.next()) |p| par = p;
+    if (year.len == 0) return allocator.dupe(u8, "Parcial actual");
+    if (tri.len > 0 and par.len > 0) return std.fmt.allocPrint(allocator, "{s} · Trimestre {s} · Parcial {s}", .{ year, tri, par });
+    if (tri.len > 0) return std.fmt.allocPrint(allocator, "{s} · Trimestre {s}", .{ year, tri });
+    return allocator.dupe(u8, parcial);
+}
+
+const Tone = struct { color: []const u8, label: []const u8, pct: u32 };
+
+/// Escala 0–10: verde ≥ 7, ámbar 5–6.99, rojo < 5. El color va inline
+/// para que `.nx-subject-progress > div` no lo pise con el acento global.
+fn toneFor(nota: f64) Tone {
+    const clamped = @max(0.0, @min(1.0, nota / 10.0));
+    const pct: u32 = @intFromFloat(@floor(clamped * 100.0));
+    if (nota >= 7) return .{ .color = "#2dd4bf", .label = "Aprobada", .pct = pct };
+    if (nota >= 5) return .{ .color = "#fbbf24", .label = "En riesgo", .pct = pct };
+    return .{ .color = "#f87171", .label = "Reprobada", .pct = pct };
+}
+
+fn lessGrade(grades: []SubjectGrade, a: usize, b: usize) bool {
+    const ga = grades[a];
+    const gb = grades[b];
+    if (ga.tiene_nota != gb.tiene_nota) return ga.tiene_nota;
+    if (ga.tiene_nota and gb.tiene_nota and ga.nota != gb.nota) return ga.nota < gb.nota;
+    return std.mem.lessThan(u8, ga.materia, gb.materia);
+}
+
+fn shortCode(codigo: []const u8) []const u8 {
+    if (codigo.len == 0) return "";
+    if (std.mem.indexOf(u8, codigo, " - ")) |at| return codigo[0..at];
+    return codigo;
+}
+
+fn urlEncodePath(allocator: std.mem.Allocator, s: []const u8) ![]const u8 {
+    var out = std.ArrayList(u8).init(allocator);
+    for (s) |b| {
+        const keep = (b >= 'A' and b <= 'Z') or (b >= 'a' and b <= 'z') or
+            (b >= '0' and b <= '9') or b == '-' or b == '_' or b == '.' or b == '~';
+        if (keep) {
+            try out.append(b);
+        } else {
+            try out.writer().print("%{X:0>2}", .{b});
+        }
+    }
+    return out.items;
+}
+
+fn gradeCard(allocator: std.mem.Allocator, g: SubjectGrade) ![]const u8 {
+    const name = try esc(allocator, g.materia);
+    const href_name = try urlEncodePath(allocator, g.materia);
+    const short = try esc(allocator, shortCode(g.codigo));
+    const full_code = try esc(allocator, g.codigo);
+    const chip = if (short.len == 0)
+        ""
+    else
+        try std.fmt.allocPrint(allocator, "<span class=\"nx-grade-chip\" title=\"{s}\">{s}</span>", .{ full_code, short });
+    if (!g.tiene_nota) {
+        return std.fmt.allocPrint(
+            allocator,
+            "<a href=\"/dashboard/subjects/{s}\" class=\"nx-subject-card nova-subject-card\">" ++
+                "<div class=\"nx-subject-top\"><span class=\"nx-subject-mark\"><span class=\"material-symbols-outlined\">menu_book</span></span>{s}<span class=\"material-symbols-outlined nx-subject-arrow\">arrow_outward</span></div>" ++
+                "<h3>{s}</h3>" ++
+                "<div class=\"nx-subject-grade\"><strong style=\"color:#7f8ea3\">—</strong><span>sin promedio todavía</span></div>" ++
+                "<div class=\"nx-subject-progress\"><div style=\"height:100%;width:0%;background:#7f8ea3;border-radius:inherit\"></div></div>" ++
+                "<footer><span>Sin calificar</span><span>Ver actividades<span class=\"material-symbols-outlined\">arrow_forward</span></span></footer></a>",
+            .{ href_name, chip, name },
+        );
+    }
+    const tone = toneFor(g.nota);
+    const nota = try std.fmt.allocPrint(allocator, "{d:.2}", .{g.nota});
+    const q_exam = (plan_target - g.nota) / weight_examen;
+    const goal = if (g.nota >= plan_target)
+        try allocator.dupe(u8, "meta de 8 cumplida")
+    else if (q_exam <= 10)
+        try std.fmt.allocPrint(allocator, "para 8: examen ≥ {d:.1}", .{q_exam})
+    else
+        try allocator.dupe(u8, "para 8: el examen solo no basta");
+    return std.fmt.allocPrint(
+        allocator,
+        "<a href=\"/dashboard/subjects/{s}\" class=\"nx-subject-card nova-subject-card\">" ++
+            "<div class=\"nx-subject-top\"><span class=\"nx-subject-mark\"><span class=\"material-symbols-outlined\">menu_book</span></span>{s}<span class=\"material-symbols-outlined nx-subject-arrow\">arrow_outward</span></div>" ++
+            "<h3>{s}</h3>" ++
+            "<div class=\"nx-subject-grade\"><strong style=\"color:{s}\">{s}</strong><span>{s}</span></div>" ++
+            "<div class=\"nx-subject-progress\"><div style=\"height:100%;width:{d}%;background:{s};border-radius:inherit\"></div></div>" ++
+            "<div class=\"nx-subject-goal\"><span class=\"material-symbols-outlined\">flag</span>{s}</div>" ++
+            "<footer><span>Sobre {d:.0} puntos</span><span>Ver actividades<span class=\"material-symbols-outlined\">arrow_forward</span></span></footer></a>",
+        .{ href_name, chip, name, tone.color, nota, tone.label, tone.pct, tone.color, goal, g.maximo },
+    );
+}
+
+pub fn gradesGrid(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
+    if (d.grades.len == 0) {
+        const msg = if (!d.connected)
+            "No hay notas: el MCP de Mikareno no está disponible."
+        else
+            "Mikareno no devolvió notas para el parcial actual.";
+        const hint = if (!d.connected)
+            "Verifica el MCP en Integraciones y vuelve a cargar."
+        else
+            "Solo se muestran asignaturas con datos reales; reintenta más tarde.";
+        return std.fmt.allocPrint(
+            allocator,
+            "<div class=\"nx-grade-empty\" id=\"subject-empty\"><span class=\"material-symbols-outlined\">school</span><p>{s}</p><p>{s}</p><a class=\"nx-button nx-button-secondary\" href=\"/dashboard/subjects\"><span class=\"material-symbols-outlined\">refresh</span>Reintentar</a></div>",
+            .{ msg, hint },
+        );
+    }
+    const idx = try allocator.alloc(usize, d.grades.len);
+    for (idx, 0..) |*p, i| p.* = i;
+    std.mem.sort(usize, idx, d.grades, lessGrade);
+    var buf = std.ArrayList(u8).init(allocator);
+    try buf.appendSlice("<div class=\"nx-subject-grid nova-subject-grid\">");
+    for (idx) |i| try buf.appendSlice(try gradeCard(allocator, d.grades[i]));
+    try buf.appendSlice("</div>");
+    return buf.items;
+}
+
+pub fn gradesKpis(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
+    var count: u32 = 0;
+    var with_note: u32 = 0;
+    var total: f64 = 0;
+    var approved: u32 = 0;
+    var risk: u32 = 0;
+    var failed: u32 = 0;
+    for (d.grades) |g| {
+        count += 1;
+        if (!g.tiene_nota) continue;
+        with_note += 1;
+        total += g.nota;
+        if (g.nota >= 7) {
+            approved += 1;
+        } else if (g.nota >= 5) {
+            risk += 1;
+        } else {
+            failed += 1;
+        }
+    }
+    const avg_txt = if (with_note > 0)
+        try std.fmt.allocPrint(allocator, "{d:.2}", .{total / @as(f64, @floatFromInt(with_note))})
+    else
+        try allocator.dupe(u8, "—");
+    return std.fmt.allocPrint(
+        allocator,
+        "<section class=\"nx-grade-kpis\" aria-label=\"Resumen de notas\">" ++
+            "<div class=\"nx-grade-kpi\"><span>Promedio general</span><strong>{s}</strong><small>sobre 10</small></div>" ++
+            "<div class=\"nx-grade-kpi\"><span>Materias</span><strong>{d}</strong><small>{d} con nota</small></div>" ++
+            "<div class=\"nx-grade-kpi is-good\"><span>Aprobadas</span><strong>{d}</strong><small>7.0 o más</small></div>" ++
+            "<div class=\"nx-grade-kpi is-warn\"><span>En riesgo</span><strong>{d}</strong><small>5.0 – 6.99</small></div>" ++
+            "<div class=\"nx-grade-kpi is-bad\"><span>Reprobadas</span><strong>{d}</strong><small>menos de 5.0</small></div>" ++
+            "</section>",
+        .{ avg_txt, count, with_note, approved, risk, failed },
+    );
+}
+
+pub fn gradesPageHtml(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
+    const banner = try syncBanner(allocator, d);
+    const kpis = try gradesKpis(allocator, d);
+    const grid = try gradesGrid(allocator, d);
+    const label = if (d.partial_label.len > 0) d.partial_label else "Parcial actual";
+    const safe_label = try esc(allocator, label);
+    const caption = if (d.grades.len == 0)
+        "Datos reales de Mikareno; si no hay notas, la página lo dice."
+    else
+        try std.fmt.allocPrint(allocator, "{d} asignaturas · datos reales de Mikareno · primero lo que hay que recuperar.", .{d.grades.len});
+    return std.fmt.allocPrint(
+        allocator,
+        "<div class=\"nx-page nx-subjects nova-page nova-subjects-page\">" ++
+            "<header class=\"nx-page-header nova-page-head\"><div><p class=\"nx-eyebrow\">Aprendizaje · Notas</p><h1>Tu progreso,<br>materia por materia.</h1><p>{s}</p></div>" ++
+            "<a class=\"nx-button nx-button-secondary\" href=\"/dashboard/subjects\"><span class=\"material-symbols-outlined\">refresh</span>Actualizar datos</a></header>" ++
+            "{s}{s}" ++
+            "<section class=\"nx-collection nova-subjects-collection\"><div class=\"nx-section-head\"><div><p class=\"nx-eyebrow\">{s}</p><h2>Progreso por asignatura</h2></div><p>Las materias con promedio más bajo aparecen primero.</p></div>{s}</section>" ++
+            "</div>",
+        .{ caption, banner, kpis, safe_label, grid },
+    );
+}
+
+// ── Detalle de una asignatura (actividades) ──────────────────────────
+
+pub const DetailActivity = struct {
+    nombre: []const u8,
+    descripcion: []const u8,
+    fecha: []const u8,
+    nota: ?f64,
+    calificada: bool,
+};
+
+pub const DetailSubmenu = struct {
+    nombre: []const u8,
+    total: usize,
+    calificadas: usize,
+    /// Suma de las notas calificadas (para el plan, sin redondeo).
+    suma: f64,
+    subtotal: ?f64,
+    actividades: []DetailActivity,
+};
+
+pub const SubjectDetail = struct {
+    connected: bool = false,
+    found: bool = false,
+    materia: []const u8 = "",
+    codigo: []const u8 = "",
+    parcial: []const u8 = "",
+    nota: f64 = 0,
+    tiene_nota: bool = false,
+    maximo: f64 = 10,
+    bloqueada: bool = false,
+    cualitativa: bool = false,
+    observacion: []const u8 = "",
+    submenus: []DetailSubmenu = &.{},
+};
+
+fn lastSegmentInt(s: []const u8, fallback: u8) u8 {
+    const at = std.mem.lastIndexOfScalar(u8, s, ':') orelse return fallback;
+    return std.fmt.parseInt(u8, s[at + 1 ..], 10) catch fallback;
+}
+
+/// `2026-09-30` → `30/09/2026`. Otras formas se dejan tal cual.
+fn formatDate(allocator: std.mem.Allocator, iso: []const u8) ![]const u8 {
+    if (iso.len == 10 and iso[4] == '-' and iso[7] == '-') {
+        var digits = true;
+        for (iso[0..4]) |c| {
+            if (c < '0' or c > '9') digits = false;
+        }
+        for (iso[5..7]) |c| {
+            if (c < '0' or c > '9') digits = false;
+        }
+        for (iso[8..10]) |c| {
+            if (c < '0' or c > '9') digits = false;
+        }
+        if (digits) return std.fmt.allocPrint(allocator, "{s}/{s}/{s}", .{ iso[8..10], iso[5..7], iso[0..4] });
+    }
+    return allocator.dupe(u8, iso);
+}
+
+fn loadSubmenus(allocator: std.mem.Allocator, url: []const u8, timeout_ms: u64, materia: []const u8, parcial: u8) ![]DetailSubmenu {
+    const raw = mcp_client.callTool(allocator, url, timeout_ms, "get_actividades_materia", try json.object(allocator, &.{
+        .{ .key = "materia", .value = .{ .string = materia } },
+        .{ .key = "trimestre", .value = .{ .integer = @intCast(parcial) } },
+        .{ .key = "bg", .value = .{ .bool = true } },
+    }), true) catch return &.{};
+    const materias = json.get(raw, "materias") orelse return &.{};
+    if (materias != .array) return &.{};
+    for (materias.array.items) |m| {
+        if (!std.mem.eql(u8, json.getString(m, "materia") orelse "", materia)) continue;
+        const subs = json.get(m, "submenus") orelse return &.{};
+        if (subs != .array) return &.{};
+        var list = std.ArrayList(DetailSubmenu).init(allocator);
+        for (subs.array.items) |sm| {
+            var acts = std.ArrayList(DetailActivity).init(allocator);
+            var derivadas: usize = 0;
+            var suma: f64 = 0;
+            if (json.get(sm, "actividades")) |arr| {
+                if (arr == .array) {
+                    for (arr.array.items) |a| {
+                        const nombre = json.getString(a, "actividad") orelse "";
+                        if (nombre.len == 0) continue;
+                        const nota = floatField(a, "nota");
+                        const calificada = (json.getBool(a, "calificada") orelse false) or nota != null;
+                        if (calificada) {
+                            derivadas += 1;
+                            if (nota) |n| suma += n;
+                        }
+                        acts.append(.{
+                            .nombre = nombre,
+                            .descripcion = json.getString(a, "descripcion") orelse "",
+                            .fecha = try formatDate(allocator, json.getString(a, "fecha") orelse ""),
+                            .nota = nota,
+                            .calificada = calificada,
+                        }) catch {};
+                    }
+                }
+            }
+            const total = json.getInt(sm, "total_actividades") orelse @as(i64, @intCast(acts.items.len));
+            // Mikareno a veces omite `actividades_calificadas`; se derivan de
+            // las filas reales para no mostrar "0 calificadas" junto a notas.
+            const calif = json.getInt(sm, "actividades_calificadas") orelse 0;
+            const calificadas: usize = if (calif > 0) @intCast(calif) else derivadas;
+            list.append(.{
+                .nombre = json.getString(sm, "submenu") orelse "",
+                .total = @intCast(@max(0, total)),
+                .calificadas = calificadas,
+                .suma = suma,
+                .subtotal = floatField(sm, "subtotal"),
+                .actividades = acts.items,
+            }) catch {};
+        }
+        return list.items;
+    }
+    return &.{};
+}
+
+pub fn fetchSubjectDetail(allocator: std.mem.Allocator, url: []const u8, timeout_ms: u64, query: []const u8) !SubjectDetail {
+    var out = SubjectDetail{};
+    if (url.len == 0 or query.len == 0 or query.len > 96) return out;
+    const raw = mcp_client.callTool(allocator, url, timeout_ms, "get_detalle_materia", try json.object(allocator, &.{
+        .{ .key = "materia", .value = .{ .string = query } },
+        .{ .key = "bg", .value = .{ .bool = true } },
+    }), true) catch return out;
+    out.connected = true;
+    const det = json.get(raw, "materias_detalladas") orelse return out;
+    if (det != .array) return out;
+    for (det.array.items) |item| {
+        const name = json.getString(item, "materia") orelse "";
+        if (!std.mem.eql(u8, name, query)) continue;
+        out.found = true;
+        out.materia = name;
+        out.codigo = json.getString(item, "codigo") orelse "";
+        out.parcial = json.getString(item, "partial_id") orelse "";
+        if (floatField(item, "nota_promedio")) |n| {
+            out.nota = n;
+            out.tiene_nota = true;
+        }
+        out.maximo = floatField(item, "maximo") orelse 10;
+        out.bloqueada = json.getBool(item, "bloqueada") orelse false;
+        const tipo = json.getString(item, "tipo") orelse "";
+        out.cualitativa = std.mem.eql(u8, tipo, "cualitativa");
+        if (out.cualitativa) out.observacion = json.getString(item, "observacion") orelse "";
+        break;
+    }
+    if (!out.found) return out;
+    const parcial_num = lastSegmentInt(out.parcial, 1);
+    out.submenus = try loadSubmenus(allocator, url, timeout_ms, out.materia, parcial_num);
+    if (out.submenus.len == 0 and parcial_num != 0) {
+        out.submenus = try loadSubmenus(allocator, url, timeout_ms, out.materia, 0);
+    }
+    return out;
+}
+
+/// Peso real de cada submenú en el parcial. Deducido del árbol de notas:
+/// coincide con las 14 materias con promedio (error máx. 0.011, redondeo).
+/// El EXAMEN vale 25% y, mientras no haya nota, cuenta como 0.
+pub const weight_tareas: f64 = 0.20;
+pub const weight_trabajos: f64 = 0.40;
+pub const weight_evaluaciones: f64 = 0.15;
+pub const weight_examen: f64 = 0.25;
+
+fn containsIgnoreCase(haystack: []const u8, needle: []const u8) bool {
+    if (needle.len == 0 or haystack.len < needle.len) return false;
+    var i: usize = 0;
+    while (i + needle.len <= haystack.len) : (i += 1) {
+        var j: usize = 0;
+        var ok = true;
+        while (j < needle.len) : (j += 1) {
+            if (std.ascii.toUpper(haystack[i + j]) != std.ascii.toUpper(needle[j])) {
+                ok = false;
+                break;
+            }
+        }
+        if (ok) return true;
+    }
+    return false;
+}
+
+fn submenuWeight(name: []const u8) ?f64 {
+    if (containsIgnoreCase(name, "TAREA")) return weight_tareas;
+    if (containsIgnoreCase(name, "TRABAJO")) return weight_trabajos;
+    if (containsIgnoreCase(name, "EVALUAC")) return weight_evaluaciones;
+    if (containsIgnoreCase(name, "EXAMEN")) return weight_examen;
+    return null;
+}
+
+/// Porcentaje que aporta cada actividad del submenú a la nota de la materia.
+fn activityPercent(sm: DetailSubmenu) ?f64 {
+    const w = submenuWeight(sm.nombre) orelse return null;
+    if (sm.total == 0) return null;
+    return (w / @as(f64, @floatFromInt(sm.total))) * 100.0;
+}
+
+fn activityRow(allocator: std.mem.Allocator, a: DetailActivity, pct: ?f64) ![]const u8 {
+    const nota_txt = if (a.nota) |n| try std.fmt.allocPrint(allocator, "{d:.2}", .{n}) else try allocator.dupe(u8, "—");
+    const nota_color: []const u8 = if (a.nota) |n| blk: {
+        break :blk if (n >= 7) "#2dd4bf" else if (n >= 5) "#fbbf24" else "#f87171";
+    } else "#7f8ea3";
+    const peso_txt = if (pct) |p| try std.fmt.allocPrint(allocator, "{d:.1}%", .{p}) else try allocator.dupe(u8, "—");
+    const estado = if (a.calificada)
+        "<span class=\"nx-mini-chip is-good\">Calificada</span>"
+    else
+        "<span class=\"nx-mini-chip\">Pendiente</span>";
+    return std.fmt.allocPrint(
+        allocator,
+        "<tr><td data-label=\"Actividad\" class=\"nx-activity-name\">{s}</td><td data-label=\"Fecha\">{s}</td><td data-label=\"Descripción\">{s}</td><td data-label=\"Peso\" class=\"nx-activity-weight\">{s}</td><td data-label=\"Nota\" style=\"font-weight:700;color:{s}\">{s}</td><td data-label=\"Estado\">{s}</td></tr>",
+        .{ try esc(allocator, a.nombre), try esc(allocator, a.fecha), try esc(allocator, a.descripcion), peso_txt, nota_color, nota_txt, estado },
+    );
+}
+
+fn submenuSection(allocator: std.mem.Allocator, sm: DetailSubmenu) ![]const u8 {
+    const pct = activityPercent(sm);
+    var rows = std.ArrayList(u8).init(allocator);
+    for (sm.actividades) |a| try rows.appendSlice(try activityRow(allocator, a, pct));
+    const subtotal = if (sm.subtotal) |s| try std.fmt.allocPrint(allocator, "{d:.2}", .{s}) else try allocator.dupe(u8, "—");
+    const weight_txt = if (submenuWeight(sm.nombre)) |w| try std.fmt.allocPrint(allocator, " · {d:.0}% de la nota", .{w * 100.0}) else try allocator.dupe(u8, "");
+    return std.fmt.allocPrint(
+        allocator,
+        "<section class=\"nx-subject-activities nova-subject-activities\">" ++
+            "<div class=\"nx-section-head\"><div><p class=\"nx-eyebrow\">Evaluaciones y tareas</p><h2>{s}{s}</h2></div><span>{d} actividades · {d} calificadas · subtotal {s}</span></div>" ++
+            "<div class=\"nx-table-wrap\"><table class=\"nx-table nx-activity-table\"><thead><tr><th>Actividad</th><th>Fecha</th><th>Descripción</th><th>Peso</th><th>Nota</th><th>Estado</th></tr></thead><tbody>{s}</tbody></table></div></section>",
+        .{ try esc(allocator, sm.nombre), weight_txt, sm.total, sm.calificadas, subtotal, rows.items },
+    );
+}
+
+pub const plan_target: f64 = 8.0;
+
+/// Plan "qué necesito para llegar a 8" con los pesos reales del parcial.
+///
+/// Dos vías honestas, calculadas con datos reales:
+///  * solo el examen trimestral (25%, hoy en 0);
+///  * examen a 10 + una media uniforme `p` en las actividades pendientes.
+pub fn planHtml(allocator: std.mem.Allocator, d: SubjectDetail) ![]const u8 {
+    if (!d.tiene_nota) {
+        return "<section class=\"nx-subject-plan nova-subject-plan\"><div class=\"nx-plan-head\"><p class=\"nx-eyebrow\">Plan para llegar a 8</p><h2>Sin promedio todavía</h2><p>Cuando Mikareno publique una nota, aquí aparecerá exactamente cuánto necesitas y en qué.</p></div></section>";
+    }
+    const current = d.nota;
+    var has_exam_sub = false;
+    var unknown = false;
+    var has_pending = false;
+    var denom: f64 = 0;
+    var sum_wnm: f64 = 0;
+    var submenus_max: f64 = 0;
+    var pending_total: usize = 0;
+
+    for (d.submenus) |sm| {
+        const w = submenuWeight(sm.nombre) orelse {
+            if (sm.total > 0) unknown = true;
+            continue;
+        };
+        if (w == weight_examen) has_exam_sub = true;
+        const pending = if (sm.total > sm.calificadas) sm.total - sm.calificadas else 0;
+        const c = @as(f64, @floatFromInt(sm.calificadas));
+        const n = @as(f64, @floatFromInt(pending));
+        const den = c + n;
+        if (den > 0) submenus_max += w * ((sm.suma + 10.0 * n) / den);
+        if (pending > 0 and den > 0) {
+            has_pending = true;
+            pending_total += pending;
+            const m = if (sm.calificadas > 0) sm.suma / c else 0.0;
+            denom += w * n / den;
+            sum_wnm += w * n * m / den;
+        }
+    }
+    const exam_w: f64 = if (has_exam_sub) 0.0 else weight_examen;
+    if (exam_w > 0) submenus_max += exam_w * 10.0;
+
+    const q_need: f64 = if (exam_w > 0) (plan_target - current) / exam_w else 99.0;
+    var p_need: ?f64 = null;
+    if (denom > 1e-9) {
+        const room = plan_target - exam_w * 10.0 - current;
+        const p = (room + sum_wnm) / denom;
+        p_need = if (p < 0) 0 else p;
+    }
+
+    const gap = plan_target - current;
+    const head = if (gap <= 0)
+        try std.fmt.allocPrint(allocator, "<h2>Ya estás en {d:.2}, sobre la meta</h2><p>Mantén el nivel: con el examen en 0 ya superas 8. Cualquier nota en el examen solo suma.</p>", .{current})
+    else
+        try std.fmt.allocPrint(allocator, "<h2>Te faltan {d:.2} puntos para 8</h2><p>Promedio actual {d:.2} sobre {d:.0}. Las cuentas usan los pesos reales de tu colegio.</p>", .{ gap, current, d.maximo });
+
+    const exam_lever = if (exam_w <= 0)
+        "<div class=\"nx-plan-lever\"><span>Examen trimestral · 25%</span><strong>con nota</strong><small>Ya está dentro del promedio; usa las pendientes.</small></div>"
+    else if (q_need <= 10)
+        try std.fmt.allocPrint(allocator, "<div class=\"nx-plan-lever\"><span>Examen trimestral · 25%</span><strong>≥ {d:.2}</strong><small>Vía rápida, dejando las pendientes como están.</small></div>", .{q_need})
+    else
+        try std.fmt.allocPrint(allocator, "<div class=\"nx-plan-lever is-warn\"><span>Examen trimestral · 25%</span><strong>&gt; 10</strong><small>Solo el examen no alcanza: necesitarías {d:.2}.</small></div>", .{q_need});
+
+    const pending_lever = if (!has_pending)
+        "<div class=\"nx-plan-lever\"><span>Actividades pendientes</span><strong>sin pendientes</strong><small>No quedan entregas por calificar en este parcial.</small></div>"
+    else if (p_need) |p| blk: {
+        if (p <= 10) break :blk try std.fmt.allocPrint(allocator, "<div class=\"nx-plan-lever is-good\"><span>Actividades pendientes</span><strong>≥ {d:.2}</strong><small>Con 10 en el examen · {d} entregas por calificar.</small></div>", .{ p, pending_total });
+        break :blk "<div class=\"nx-plan-lever is-bad\"><span>Actividades pendientes</span><strong>&gt; 10</strong><small>Ni con todo a 10 se llega a 8 este parcial.</small></div>";
+    } else "<div class=\"nx-plan-lever\"><span>Actividades pendientes</span><strong>—</strong><small>Sin actividades computables.</small></div>";
+
+    const max_lever = try std.fmt.allocPrint(allocator, "<div class=\"nx-plan-lever\"><span>Máximo alcanzable</span><strong>{d:.2}</strong><small>Si sacas 10 en todo lo que queda.</small></div>", .{submenus_max});
+
+    var tasks = std.ArrayList(u8).init(allocator);
+    if (has_pending and p_need != null and p_need.? <= 10) {
+        try tasks.appendSlice("<div class=\"nx-plan-tasks\"><p class=\"nx-plan-tasks-title\">Entregas que faltan y cuánto valen</p><ul>");
+        for (d.submenus) |sm| {
+            if (submenuWeight(sm.nombre) == null) continue;
+            const pct = activityPercent(sm);
+            for (sm.actividades) |a| {
+                if (a.calificada) continue;
+                const pct_txt = if (pct) |pv| try std.fmt.allocPrint(allocator, "{d:.1}%", .{pv}) else try allocator.dupe(u8, "—");
+                try tasks.appendSlice(try std.fmt.allocPrint(allocator, "<li><span class=\"nx-plan-task-name\">{s}</span><span class=\"nx-plan-task-meta\">{s} · {s} · meta ≥ {d:.2}</span></li>", .{ try esc(allocator, a.nombre), try esc(allocator, sm.nombre), pct_txt, p_need.? }));
+            }
+        }
+        try tasks.appendSlice("</ul></div>");
+    }
+
+    const weights = "<div class=\"nx-plan-weights\"><span class=\"nx-weight-chip\">TAREAS 20%</span><span class=\"nx-weight-chip\">TRABAJOS 40%</span><span class=\"nx-weight-chip\">EVALUACIONES 15%</span><span class=\"nx-weight-chip\">EXAMEN TRIMESTRAL 25%</span></div>";
+    const note = if (unknown)
+        "<p class=\"nx-plan-note\">Hay un submenú con un esquema no reconocido; el plan podría variar. Los pesos mostrados se deducen de tus promedios reales y coinciden con las 14 materias calificadas.</p>"
+    else
+        "<p class=\"nx-plan-note\">Pesos deducidos de tus promedios reales (error ≤ 0.011 en las 14 materias). Dentro de cada submenú todas las actividades valen lo mismo; el examen trimestral vale 25% y hoy cuenta como 0.</p>";
+
+    return std.fmt.allocPrint(
+        allocator,
+        "<section class=\"nx-subject-plan nova-subject-plan\"><div class=\"nx-plan-head\"><p class=\"nx-eyebrow\">Plan para llegar a 8</p>{s}</div>" ++
+            "<div class=\"nx-plan-levers\">{s}{s}{s}</div>{s}{s}{s}</section>",
+        .{ head, exam_lever, pending_lever, max_lever, tasks.items, weights, note },
+    );
+}
+
+pub fn subjectDetailHtml(allocator: std.mem.Allocator, d: SubjectDetail) ![]const u8 {
+    const name = try esc(allocator, d.materia);
+    const code = try esc(allocator, d.codigo);
+    const trim_txt = if (d.parcial.len > 0) try partialLabel(allocator, d.parcial) else try allocator.dupe(u8, "Parcial actual");
+    const tone = if (d.tiene_nota) toneFor(d.nota) else Tone{ .color = "#7f8ea3", .label = "Sin calificar", .pct = 0 };
+    const nota_txt = if (d.tiene_nota) try std.fmt.allocPrint(allocator, "{d:.2}", .{d.nota}) else try allocator.dupe(u8, "—");
+    const max_txt = try std.fmt.allocPrint(allocator, "{d:.0}", .{d.maximo});
+    const bloqueada = if (d.bloqueada) "Sí" else "No";
+    const tipo = if (d.cualitativa) "Cualitativa" else "Cuantitativa";
+    const banner = try syncBanner(allocator, Datos{ .connected = d.connected, .timeout = false });
+    const obs = if (d.observacion.len > 0)
+        try std.fmt.allocPrint(allocator, "<aside class=\"nx-subject-observation nova-subject-observation\"><span class=\"material-symbols-outlined\">sticky_note_2</span><div><h2>Observación</h2><p>{s}</p></div></aside>", .{try esc(allocator, d.observacion)})
+    else
+        "";
+
+    var acts = std.ArrayList(u8).init(allocator);
+    if (d.submenus.len == 0) {
+        try acts.appendSlice("<div class=\"nx-grade-empty\"><span class=\"material-symbols-outlined\">event_busy</span><p>No hay actividades registradas para esta asignatura.</p><a class=\"nx-button nx-button-secondary\" href=\"/dashboard/subjects\">Volver a notas</a></div>");
+    } else {
+        for (d.submenus) |sm| try acts.appendSlice(try submenuSection(allocator, sm));
+    }
+    const plan = try planHtml(allocator, d);
+
+    return std.fmt.allocPrint(
+        allocator,
+        "<div class=\"nx-page nx-subject-detail nova-page nova-subject-detail-page\">{s}" ++
+            "<header class=\"nx-subject-hero nova-subject-detail-hero\"><a href=\"/dashboard/subjects\" class=\"nx-back-link\"><span class=\"material-symbols-outlined\">arrow_back</span>Todas las asignaturas</a>" ++
+            "<div><p class=\"nx-eyebrow\">Detalle académico</p><h1>{s}</h1><p>Código {s} · {s}</p></div>" ++
+            "<div class=\"nx-subject-note\"><span class=\"nx-grade-chip\" style=\"color:{s}\">{s}</span></div></header>" ++
+            "<section class=\"nx-subject-summary nova-subject-summary\"><div class=\"nx-subject-summary-grade\"><span>Promedio actual</span><strong style=\"color:{s}\">{s}</strong><p>sobre {s}</p><div class=\"nx-subject-progress\"><div style=\"height:100%;width:{d}%;background:{s};border-radius:inherit\"></div></div></div>" ++
+            "<div class=\"nx-subject-summary-facts\"><div><span>Calificación</span><strong>{s}</strong></div><div><span>Código</span><strong>{s}</strong></div><div><span>Máximo</span><strong>{s}</strong></div><div><span>Bloqueada</span><strong>{s}</strong></div><div><span>Tipo</span><strong>{s}</strong></div></div></section>" ++
+            "{s}{s}{s}</div>",
+        .{ banner, name, code, trim_txt, tone.color, tone.label, tone.color, nota_txt, max_txt, tone.pct, tone.color, tone.label, code, max_txt, bloqueada, tipo, plan, obs, acts.items },
+    );
+}
+
+pub fn subjectMissingHtml(allocator: std.mem.Allocator, query: []const u8) ![]const u8 {
+    const q = try esc(allocator, query);
+    return std.fmt.allocPrint(
+        allocator,
+        "<div class=\"nx-page nx-subject-detail nova-page nova-subject-detail-page\">" ++
+            "<header class=\"nx-subject-hero nova-subject-detail-hero\"><a href=\"/dashboard/subjects\" class=\"nx-back-link\"><span class=\"material-symbols-outlined\">arrow_back</span>Todas las asignaturas</a><div><p class=\"nx-eyebrow\">Detalle académico</p><h1>{s}</h1><p>No se encontró esta asignatura en el parcial actual.</p></div><div class=\"nx-subject-note\"></div></header>" ++
+            "<div class=\"nx-grade-empty\"><span class=\"material-symbols-outlined\">search_off</span><p>Mikareno no devolvió datos para <strong>{s}</strong>.</p><p>Puede que el nombre haya cambiado o que el MCP no esté respondiendo ahora.</p><a class=\"nx-button nx-button-secondary\" href=\"/dashboard/subjects\"><span class=\"material-symbols-outlined\">arrow_back</span>Volver a notas</a></div></div>",
+        .{ q, q },
+    );
+}
+
+test "toneFor usa la escala acordada" {
+    try std.testing.expectEqualStrings("Aprobada", toneFor(7.0).label);
+    try std.testing.expectEqualStrings("En riesgo", toneFor(5.0).label);
+    try std.testing.expectEqualStrings("Reprobada", toneFor(4.99).label);
+    try std.testing.expectEqual(@as(u32, 50), toneFor(5.0).pct);
+}
+
+test "partialLabel traduce un partialId real" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    try std.testing.expectEqualStrings("2026 · Trimestre 3 · Parcial 1", try partialLabel(a, "2026:T3:1"));
+}
+
+test "los pesos reales de cada submenú" {
+    try std.testing.expectApproxEqAbs(weight_tareas, submenuWeight("TAREAS").?, 1e-9);
+    try std.testing.expectApproxEqAbs(weight_trabajos, submenuWeight("TRABAJOS").?, 1e-9);
+    try std.testing.expectApproxEqAbs(weight_evaluaciones, submenuWeight("EVALUACIONES").?, 1e-9);
+    try std.testing.expectApproxEqAbs(weight_examen, submenuWeight("EXAMEN TRIMESTRAL").?, 1e-9);
+    try std.testing.expect(submenuWeight("LECCIONES") == null);
+}
+
+test "las fechas ISO se muestran en formato local" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    try std.testing.expectEqualStrings("30/09/2026", try formatDate(a, "2026-09-30"));
+    try std.testing.expectEqualStrings("sin fecha", try formatDate(a, "sin fecha"));
+}
+
+test "el plan para 8 usa los pesos reales (caso Matemática)" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var acts = [_]DetailActivity{
+        .{ .nombre = "Carátula", .descripcion = "", .fecha = "08/09/2026", .nota = 7, .calificada = true },
+        .{ .nombre = "Trucos", .descripcion = "", .fecha = "09/09/2026", .nota = 9, .calificada = true },
+        .{ .nombre = "Monomio", .descripcion = "", .fecha = "16/09/2026", .nota = 10, .calificada = true },
+        .{ .nombre = "Polinomio", .descripcion = "", .fecha = "16/09/2026", .nota = 8, .calificada = true },
+        .{ .nombre = "Pendiente", .descripcion = "", .fecha = "25/11/2026", .nota = null, .calificada = false },
+    };
+    var subs = [_]DetailSubmenu{
+        .{ .nombre = "TAREAS", .total = 9, .calificadas = 4, .suma = 34, .subtotal = 8.5, .actividades = &acts },
+        .{ .nombre = "TRABAJOS", .total = 3, .calificadas = 2, .suma = 16, .subtotal = 8.0, .actividades = acts[0..0] },
+        .{ .nombre = "EVALUACIONES", .total = 2, .calificadas = 2, .suma = 16.5, .subtotal = 8.25, .actividades = acts[0..0] },
+    };
+    const d = SubjectDetail{ .tiene_nota = true, .nota = 6.13, .maximo = 10, .submenus = &subs };
+    const html = try planHtml(a, d);
+    try std.testing.expect(std.mem.indexOf(u8, html, "7.48") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "5.65") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "EXAMEN TRIMESTRAL 25%") != null);
 }

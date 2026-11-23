@@ -446,6 +446,22 @@ pub const App = struct {
                 .{ .key = "schedule", .value = result },
             }));
         }
+        if (std.mem.eql(u8, path, "/dashboard/subjects")) {
+            const datos = panel.fetch(allocator, self.db, self.config.mikareno_mcp_url, self.config.mcp_timeout_ms) catch panel.Datos{};
+            const body = try panel.gradesPageHtml(allocator, datos);
+            return .{ .status = 200, .content_type = "text/html; charset=utf-8", .body = try templates.renderShell(allocator, path, body, username, true, self.config.mikareno_mcp_url) };
+        }
+        if (std.mem.startsWith(u8, path, "/dashboard/subjects/")) {
+            const code = path["/dashboard/subjects/".len..];
+            const body = if (code.len == 0 or code.len > 96 or std.mem.indexOfAny(u8, code, "/\\") != null)
+                try panel.subjectMissingHtml(allocator, code)
+            else blk: {
+                const detail = panel.fetchSubjectDetail(allocator, self.config.mikareno_mcp_url, self.config.mcp_timeout_ms, code) catch panel.SubjectDetail{};
+                if (detail.found) break :blk try panel.subjectDetailHtml(allocator, detail);
+                break :blk try panel.subjectMissingHtml(allocator, code);
+            };
+            return .{ .status = 200, .content_type = "text/html; charset=utf-8", .body = try templates.renderShell(allocator, path, body, username, true, self.config.mikareno_mcp_url) };
+        }
         const title = if (std.mem.indexOf(u8, path, "calendar") != null) "Mi agenda" else if (std.mem.indexOf(u8, path, "planner") != null) "Planificador semanal" else if (std.mem.indexOf(u8, path, "horario") != null) "Horario" else if (std.mem.indexOf(u8, path, "subjects") != null) "Asignaturas" else if (std.mem.indexOf(u8, path, "examenes") != null) "Evaluaciones" else if (std.mem.indexOf(u8, path, "vida-escolar") != null) "Vida escolar" else "Espacio académico";
         const tool_name = academicTool(path);
         var args = try json.object(allocator, &.{});
