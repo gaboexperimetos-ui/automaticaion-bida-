@@ -207,23 +207,56 @@ fn callUrl(allocator: std.mem.Allocator, cfg: Config, url: []const u8, body: ?st
     return json.parse(allocator, trimmed) catch return error.CyberHexBadResponse;
 }
 
+/// Acción de reproducción. Los nombres coinciden con los que acepta la
+/// REST local de CyberHex (`action`), no con los del README.
+pub const Accion = enum {
+    play,
+    pause,
+    toggle,
+    next,
+    previous,
+    seek,
+
+    fn wire(self: Accion) []const u8 {
+        return @tagName(self);
+    }
+};
+
+/// `command` envía `{"action": ...}` y, para `seek`, `positionSeconds`.
 pub fn command(allocator: std.mem.Allocator, cfg: Config, accion: []const u8, valor: ?std.json.Value) Error!std.json.Value {
-    var pairs = [_]json.Pair{.{ .key = "command", .value = .{ .string = accion } }};
-    var obj = try json.object(allocator, &pairs);
+    if (!validCommand(accion)) return error.CyberHexRejected;
+    var obj = try json.object(allocator, &.{.{ .key = "action", .value = .{ .string = accion } }});
     if (valor) |v| {
         if (obj != .object) return error.CyberHexBadResponse;
-        try obj.object.put("value", v);
+        // Para seek CyberHex espera `positionSeconds`; se aceptan ambas
+        // escrituras para no fallar si el llamador manda `value` o `seek`.
+        if (std.mem.eql(u8, accion, "seek")) {
+            try obj.object.put("positionSeconds", v);
+        } else {
+            try obj.object.put("value", v);
+        }
     }
     return call(allocator, cfg.url, cfg.key, cfg.timeout_ms, .command, obj);
 }
 
-pub fn setVolume(allocator: std.mem.Allocator, cfg: Config, volumen: f64) Error!std.json.Value {
-    const clamped = @max(0.0, @min(1.0, volumen));
-    return call(allocator, cfg.url, cfg.key, cfg.timeout_ms, .volume, try json.object(allocator, &.{.{ .key = "volume", .value = .{ .float = clamped } }}));
+fn validCommand(accion: []const u8) bool {
+    const allowed = [_][]const u8{ "play", "pause", "toggle", "next", "previous", "seek" };
+    for (allowed) |name| if (std.mem.eql(u8, accion, name)) return true;
+    return false;
 }
 
+/// Volumen: la REST lo llama `value`.
+pub fn setVolume(allocator: std.mem.Allocator, cfg: Config, volumen: f64) Error!std.json.Value {
+    const clamped = @max(0.0, @min(1.0, volumen));
+    return call(allocator, cfg.url, cfg.key, cfg.timeout_ms, .volume, try json.object(allocator, &.{.{ .key = "value", .value = .{ .float = clamped } }}));
+}
+
+/// Añadir a la cola: la REST lo cuelga de `/api/v1/queue` con `action:add`.
 pub fn queueAdd(allocator: std.mem.Allocator, cfg: Config, pista: []const u8) Error!std.json.Value {
-    return call(allocator, cfg.url, cfg.key, cfg.timeout_ms, .queue_add, try json.object(allocator, &.{.{ .key = "path", .value = .{ .string = pista } }}));
+    return call(allocator, cfg.url, cfg.key, cfg.timeout_ms, .queue_add, try json.object(allocator, &.{
+        .{ .key = "action", .value = .{ .string = "add" } },
+        .{ .key = "path", .value = .{ .string = pista } },
+    }));
 }
 
 /// Configuración mínima que necesita el cliente.

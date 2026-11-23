@@ -7,6 +7,7 @@ const security = @import("security.zig");
 const notes = @import("notes.zig");
 const mcp_client = @import("mcp_client.zig");
 const cyberhex_mod = @import("cyberhex.zig");
+const office_mod = @import("office.zig");
 
 pub fn handle(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, request: *const http.Request) !http.Response {
     if (!std.mem.eql(u8, request.path, "/mcp") and !std.mem.eql(u8, request.path, "/mcp/sse")) return jsonError(allocator, 404, "not_found");
@@ -90,6 +91,18 @@ fn toolDefinitions(allocator: std.mem.Allocator) !std.json.Value {
         .{ .name = "cyberhex_playback", .description = "Control CyberHex: play, pause, toggle, next, previous or seek", .props = "command,value", .required = &.{"command"} },
         .{ .name = "cyberhex_set_volume", .description = "Set CyberHex volume between 0 and 1", .props = "volume", .required = &.{"volume"} },
         .{ .name = "cyberhex_queue_add", .description = "Add a library track to the CyberHex queue", .props = "path", .required = &.{"path"} },
+        .{ .name = "note_update", .description = "Update an existing note (title, content or tags)", .props = "slug,title,content,tags", .required = &.{"slug"} },
+        .{ .name = "note_delete", .description = "Delete a note and its Markdown files", .props = "slug", .required = &.{"slug"} },
+        .{ .name = "note_versions", .description = "List the version history of a note", .props = "slug", .required = &.{"slug"} },
+        .{ .name = "notes_sync_vault", .description = "Import the Obsidian vault into the database", .props = "", .required = &.{} },
+        .{ .name = "office_list", .description = "List Office files: docs, sheets, presentations or html", .props = "kind", .required = &.{} },
+        .{ .name = "office_read", .description = "Read an Office file by kind and slug", .props = "kind,slug", .required = &.{ "kind", "slug" } },
+        .{ .name = "office_write", .description = "Create or overwrite an Office file (document, sheet, deck, page)", .props = "kind,title,content", .required = &.{ "kind", "title" } },
+        .{ .name = "office_delete", .description = "Delete an Office file by kind and slug", .props = "kind,slug", .required = &.{ "kind", "slug" } },
+        .{ .name = "calendar_list", .description = "List calendar annotations", .props = "", .required = &.{} },
+        .{ .name = "calendar_add", .description = "Create a calendar annotation", .props = "title,date,content", .required = &.{"title"} },
+        .{ .name = "calendar_delete", .description = "Delete a calendar annotation by id", .props = "id", .required = &.{"id"} },
+        .{ .name = "app_status", .description = "Platform status and configuration summary", .props = "", .required = &.{} },
     };
     var list = std.json.Array.init(allocator);
     for (definitions) |definition| {
@@ -189,6 +202,60 @@ fn callTool(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_
         if (path.len == 0) return error.InvalidParams;
         return cyberhexQueueAdd(allocator, config, path);
     }
+    // ── Notas: CRUD completo, igual que desde la interfaz ──
+    if (std.mem.eql(u8, name, "note_update")) {
+        const slug = json.getString(args, "slug") orelse return error.InvalidParams;
+        return noteUpdate(allocator, db, config, slug, json.getString(args, "title"), json.getString(args, "content"), json.getString(args, "tags"));
+    }
+    if (std.mem.eql(u8, name, "note_delete")) {
+        const slug = json.getString(args, "slug") orelse return error.InvalidParams;
+        return noteDelete(allocator, db, config, slug);
+    }
+    if (std.mem.eql(u8, name, "note_versions")) {
+        const slug = json.getString(args, "slug") orelse return error.InvalidParams;
+        return noteVersions(allocator, db, slug);
+    }
+    if (std.mem.eql(u8, name, "notes_sync_vault")) return notesSyncVault(allocator, db, config);
+
+    // ── Office: documentos, hojas, presentaciones y páginas ──
+    if (std.mem.eql(u8, name, "office_list")) {
+        const kind = officeKind(json.getString(args, "kind") orelse "docs") orelse return error.InvalidParams;
+        return office_mod.listFilesForMcp(allocator, config, kind);
+    }
+    if (std.mem.eql(u8, name, "office_read")) {
+        const kind = officeKind(json.getString(args, "kind") orelse "") orelse return error.InvalidParams;
+        const slug = json.getString(args, "slug") orelse return error.InvalidParams;
+        return officeRead(allocator, config, kind, slug);
+    }
+    if (std.mem.eql(u8, name, "office_write")) {
+        const kind = officeKind(json.getString(args, "kind") orelse "") orelse return error.InvalidParams;
+        const title = json.getString(args, "title") orelse return error.InvalidParams;
+        const content = json.getString(args, "content") orelse "";
+        return officeWrite(allocator, config, kind, title, content);
+    }
+    if (std.mem.eql(u8, name, "office_delete")) {
+        const kind = officeKind(json.getString(args, "kind") orelse "") orelse return error.InvalidParams;
+        const slug = json.getString(args, "slug") orelse return error.InvalidParams;
+        return officeDelete(allocator, config, kind, slug);
+    }
+
+    // ── Calendario: anotaciones reales ──
+    if (std.mem.eql(u8, name, "calendar_list")) return calendarList(allocator, db);
+    if (std.mem.eql(u8, name, "calendar_add")) {
+        const title = json.getString(args, "title") orelse return error.InvalidParams;
+        const date = json.getString(args, "date") orelse "";
+        const body = json.getString(args, "content") orelse "";
+        return calendarAdd(allocator, db, title, date, body);
+    }
+    if (std.mem.eql(u8, name, "calendar_delete")) {
+        const raw = json.get(args, "id") orelse return error.InvalidParams;
+        const id: i64 = switch (raw) {
+            .integer => |i| i,
+            else => return error.InvalidParams,
+        };
+        return calendarDelete(allocator, db, id);
+    }
+    if (std.mem.eql(u8, name, "app_status")) return appStatus(allocator, db, config);
     return error.MethodNotFound;
 }
 
@@ -281,6 +348,187 @@ fn cyberhexQueueAdd(allocator: std.mem.Allocator, config: *const config_mod.Conf
         .{ .key = "connected", .value = .{ .bool = false } },
         .{ .key = "path", .value = .{ .string = path } },
         .{ .key = "ok", .value = .{ .bool = false } },
+    });
+}
+
+/// Traduce el nombre corto de un tipo de Office al enum; null si no vale.
+fn officeKind(raw: []const u8) ?office_mod.Kind {
+    if (std.mem.eql(u8, raw, "docs") or std.mem.eql(u8, raw, "doc") or std.mem.eql(u8, raw, "document")) return .docs;
+    if (std.mem.eql(u8, raw, "sheets") or std.mem.eql(u8, raw, "sheet") or std.mem.eql(u8, raw, "xlsx")) return .sheets;
+    if (std.mem.eql(u8, raw, "presentations") or std.mem.eql(u8, raw, "deck")) return .presentations;
+    if (std.mem.eql(u8, raw, "html") or std.mem.eql(u8, raw, "page")) return .html;
+    return null;
+}
+
+fn noteUpdate(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, slug: []const u8, title: ?[]const u8, content: ?[]const u8, tags: ?[]const u8) !std.json.Value {
+    const final_slug = notes.updateNoteForMcp(allocator, db, config, slug, title, content, tags) catch |err| switch (err) {
+        error.InvalidSlug, error.InvalidTitle, error.ContentTooLarge, error.TagsTooLong => return error.InvalidParams,
+        else => return error.NotFound,
+    };
+    return json.object(allocator, &.{
+        .{ .key = "updated", .value = .{ .bool = true } },
+        .{ .key = "slug", .value = .{ .string = final_slug } },
+        .{ .key = "url", .value = .{ .string = try std.fmt.allocPrint(allocator, "/dashboard/notes/{s}", .{final_slug}) } },
+    });
+}
+
+fn noteDelete(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, slug: []const u8) !std.json.Value {
+    try notes.deleteNoteForMcp(allocator, db, config, slug);
+    return json.object(allocator, &.{
+        .{ .key = "deleted", .value = .{ .bool = true } },
+        .{ .key = "slug", .value = .{ .string = slug } },
+    });
+}
+
+fn noteVersions(allocator: std.mem.Allocator, db: *sqlite.Db, slug: []const u8) !std.json.Value {
+    const list = try notes.noteVersionsForMcp(allocator, db, slug);
+    const n: usize = if (list == .array) list.array.items.len else 0;
+    return json.object(allocator, &.{
+        .{ .key = "slug", .value = .{ .string = slug } },
+        .{ .key = "count", .value = .{ .integer = @intCast(n) } },
+        .{ .key = "versions", .value = list },
+    });
+}
+
+fn notesSyncVault(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config) !std.json.Value {
+    const counts = try notes.syncVaultCounts(allocator, db, config);
+    return json.object(allocator, &.{
+        .{ .key = "imported", .value = .{ .integer = @intCast(counts.imported) } },
+        .{ .key = "updated", .value = .{ .integer = @intCast(counts.updated) } },
+        .{ .key = "skipped", .value = .{ .integer = @intCast(counts.skipped) } },
+        .{ .key = "vault_dir", .value = .{ .string = config.vault_dir } },
+    });
+}
+
+fn officeRead(allocator: std.mem.Allocator, config: *const config_mod.Config, kind: office_mod.Kind, slug: []const u8) !std.json.Value {
+    const file = try office_mod.readFileForMcp(allocator, config, kind, slug);
+    return json.object(allocator, &.{
+        .{ .key = "kind", .value = .{ .string = kind.dir() } },
+        .{ .key = "slug", .value = .{ .string = file.slug } },
+        .{ .key = "path", .value = .{ .string = file.path } },
+        .{ .key = "content", .value = .{ .string = file.content } },
+        .{ .key = "bytes", .value = .{ .integer = @intCast(file.content.len) } },
+    });
+}
+
+fn officeWrite(allocator: std.mem.Allocator, config: *const config_mod.Config, kind: office_mod.Kind, title: []const u8, content: []const u8) !std.json.Value {
+    const slug = office_mod.createFileForMcp(allocator, config, kind, title, content) catch |err| switch (err) {
+        error.InvalidTitle, error.ContentTooLarge, error.InvalidSlug => return error.InvalidParams,
+        else => return error.InternalError,
+    };
+    return json.object(allocator, &.{
+        .{ .key = "saved", .value = .{ .bool = true } },
+        .{ .key = "kind", .value = .{ .string = kind.dir() } },
+        .{ .key = "slug", .value = .{ .string = slug } },
+        .{ .key = "bytes", .value = .{ .integer = @intCast(content.len) } },
+    });
+}
+
+fn officeDelete(allocator: std.mem.Allocator, config: *const config_mod.Config, kind: office_mod.Kind, slug: []const u8) !std.json.Value {
+    office_mod.deleteFileForMcp(allocator, config, kind, slug) catch |err| switch (err) {
+        error.InvalidSlug => return error.InvalidParams,
+        error.NotFound => return error.NotFound,
+        else => return error.InternalError,
+    };
+    return json.object(allocator, &.{
+        .{ .key = "deleted", .value = .{ .bool = true } },
+        .{ .key = "kind", .value = .{ .string = kind.dir() } },
+        .{ .key = "slug", .value = .{ .string = slug } },
+    });
+}
+
+fn calendarList(allocator: std.mem.Allocator, db: *sqlite.Db) !std.json.Value {
+    var stmt = try db.prepare("SELECT id,date,title,COALESCE(body,''),created_at FROM calendar_annotations ORDER BY date DESC, id DESC LIMIT 200");
+    defer stmt.deinit();
+    var list = std.json.Array.init(allocator);
+    while (try stmt.next()) {
+        try list.append(try json.object(allocator, &.{
+            .{ .key = "id", .value = .{ .integer = stmt.int64(0) } },
+            .{ .key = "date", .value = .{ .string = try allocator.dupe(u8, stmt.text(1)) } },
+            .{ .key = "title", .value = .{ .string = try allocator.dupe(u8, stmt.text(2)) } },
+            .{ .key = "body", .value = .{ .string = try allocator.dupe(u8, stmt.text(3)) } },
+            .{ .key = "created_at", .value = .{ .string = try allocator.dupe(u8, stmt.text(4)) } },
+        }));
+    }
+    return json.object(allocator, &.{
+        .{ .key = "count", .value = .{ .integer = @intCast(list.items.len) } },
+        .{ .key = "annotations", .value = .{ .array = list } },
+    });
+}
+
+fn calendarAdd(allocator: std.mem.Allocator, db: *sqlite.Db, title: []const u8, date: []const u8, body: []const u8) !std.json.Value {
+    const trimmed = std.mem.trim(u8, title, " \t\r\n");
+    if (trimmed.len == 0 or trimmed.len > 200) return error.InvalidParams;
+    if (body.len > 20_000) return error.InvalidParams;
+    // Sin fecha se usa hoy: una anotación siempre cae en algún día.
+    var final_date: []const u8 = date;
+    if (std.mem.trim(u8, date, " \t\r\n").len == 0) {
+        final_date = try todayKey(allocator);
+    }
+    var stmt = try db.prepare("INSERT INTO calendar_annotations(date,title,body) VALUES(?1,?2,?3)");
+    defer stmt.deinit();
+    try stmt.bindText(1, final_date);
+    try stmt.bindText(2, trimmed);
+    try stmt.bindText(3, body);
+    _ = try stmt.next();
+    return json.object(allocator, &.{
+        .{ .key = "created", .value = .{ .bool = true } },
+        .{ .key = "date", .value = .{ .string = final_date } },
+        .{ .key = "title", .value = .{ .string = trimmed } },
+    });
+}
+
+/// Fecha de hoy en formato `AAAA-MM-DD`.
+fn todayKey(allocator: std.mem.Allocator) ![]const u8 {
+    const e = std.time.epoch.EpochSeconds{ .secs = @intCast(@max(0, std.time.timestamp())) };
+    const year_day = e.getEpochDay().calculateYearDay();
+    const month_day = year_day.calculateMonthDay();
+    return std.fmt.allocPrint(allocator, "{d:0>4}-{d:0>2}-{d:0>2}", .{ year_day.year, month_day.month.numeric(), month_day.day_index + 1 });
+}
+
+fn calendarDelete(allocator: std.mem.Allocator, db: *sqlite.Db, id: i64) !std.json.Value {
+    var stmt = try db.prepare("DELETE FROM calendar_annotations WHERE id=?1");
+    defer stmt.deinit();
+    try stmt.bindInt(1, id);
+    _ = try stmt.next();
+    return json.object(allocator, &.{
+        .{ .key = "deleted", .value = .{ .bool = true } },
+        .{ .key = "id", .value = .{ .integer = id } },
+    });
+}
+
+fn appStatus(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config) !std.json.Value {
+    const notes_n = db.scalarInt("SELECT COUNT(*) FROM notes") catch null;
+    const ann_n = db.scalarInt("SELECT COUNT(*) FROM calendar_annotations") catch null;
+    const chat_n = db.scalarInt("SELECT COUNT(DISTINCT subject) FROM chat_history") catch null;
+    var docs: usize = 0;
+    var sheets: usize = 0;
+    var decks: usize = 0;
+    for ([_]office_mod.Kind{ .docs, .sheets, .presentations }) |kind| {
+        const listed = office_mod.listFilesForMcp(allocator, config, kind) catch continue;
+        const c = json.get(listed, "count") orelse continue;
+        if (c != .integer) continue;
+        const n: usize = @intCast(@max(0, c.integer));
+        switch (kind) {
+            .docs => docs = n,
+            .sheets => sheets = n,
+            .presentations => decks = n,
+            else => {},
+        }
+    }
+    return json.object(allocator, &.{
+        .{ .key = "app", .value = .{ .string = "NOVA · study-platform" } },
+        .{ .key = "port", .value = .{ .integer = config.port } },
+        .{ .key = "notes", .value = .{ .integer = notes_n orelse 0 } },
+        .{ .key = "calendar_annotations", .value = .{ .integer = ann_n orelse 0 } },
+        .{ .key = "conversations", .value = .{ .integer = chat_n orelse 0 } },
+        .{ .key = "office_docs", .value = .{ .integer = @intCast(docs) } },
+        .{ .key = "office_sheets", .value = .{ .integer = @intCast(sheets) } },
+        .{ .key = "office_presentations", .value = .{ .integer = @intCast(decks) } },
+        .{ .key = "cyberhex_connected", .value = .{ .bool = config.cyberhex_api_url.len > 0 and config.cyberhex_api_key.len > 0 } },
+        .{ .key = "mikareno_configured", .value = .{ .bool = config.mikareno_mcp_url.len > 0 } },
+        .{ .key = "ai_model", .value = .{ .string = config.openrouter_model } },
+        .{ .key = "vault_dir", .value = .{ .string = config.vault_dir } },
     });
 }
 
@@ -477,18 +725,25 @@ test "MCP exposes the protocol version and the full tool catalog" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const tools = try toolDefinitions(allocator);
-    // 9 herramientas propias + 6 de CyberHex. Se comprueba que estén las dos
-    // familias para que un cambio no deje el catálogo a medias.
-    try std.testing.expectEqual(@as(usize, 15), tools.array.items.len);
+    // 9 herramientas base + 6 de CyberHex + 12 de la plataforma (notas,
+    // Office, calendario y estado). Se comprueba que estén las familias para
+    // que un cambio no deje el catálogo a medias.
+    try std.testing.expectEqual(@as(usize, 27), tools.array.items.len);
     var has_notes = false;
     var has_cyberhex = false;
+    var has_office = false;
+    var has_calendar = false;
     for (tools.array.items) |tool| {
         const name = json.getString(tool, "name") orelse "";
         if (std.mem.eql(u8, name, "search_notes")) has_notes = true;
         if (std.mem.eql(u8, name, "cyberhex_status")) has_cyberhex = true;
+        if (std.mem.eql(u8, name, "office_write")) has_office = true;
+        if (std.mem.eql(u8, name, "calendar_add")) has_calendar = true;
     }
     try std.testing.expect(has_notes);
     try std.testing.expect(has_cyberhex);
+    try std.testing.expect(has_office);
+    try std.testing.expect(has_calendar);
     const initialized = try dispatch(allocator, undefined, undefined, "initialize", try json.object(allocator, &.{}), null);
     try std.testing.expectEqualStrings("2025-03-26", json.getString(initialized, "protocolVersion").?);
 }

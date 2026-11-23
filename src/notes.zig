@@ -611,6 +611,100 @@ fn createNote(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const confi
     return createNoteAs(allocator, db, config, title_raw, content, tags, null, strict_duplicate, true);
 }
 
+/// Crea una nota y devuelve su slug. La usa el MCP para que un agente pueda
+/// escribir en la libreta igual que lo haría la interfaz.
+pub fn createNoteForMcp(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, title: []const u8, content: []const u8, tags: []const u8) ![]const u8 {
+    const note = try createNote(allocator, db, config, title, content, tags, false);
+    return note.slug;
+}
+
+/// Reescribe una nota existente (título, etiquetas y contenido) y deja
+/// versión nueva. Devuelve el slug actualizado.
+pub fn updateNoteForMcp(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, slug: []const u8, title: ?[]const u8, content: ?[]const u8, tags: ?[]const u8) ![]const u8 {
+    if (!safeSlug(slug)) return error.InvalidSlug;
+    const existing = getNote(allocator, db, slug) catch return error.NoteNotFound;
+    const new_title = title orelse existing.title;
+    const new_content = content orelse (loadContent(allocator, config, existing) catch "");
+    const new_tags = tags orelse existing.tags;
+    if (std.mem.trim(u8, new_title, " \t\r\n").len == 0 or (try charCount(new_title)) > 200) return error.InvalidTitle;
+    if (new_content.len > 500_000) return error.ContentTooLarge;
+    if (new_tags.len > 500) return error.TagsTooLong;
+
+    var stmt = try db.prepare("UPDATE notes SET title=?1,tags=?2,word_count=?3,summary=?4,updated_at=datetime('now') WHERE slug=?5");
+    defer stmt.deinit();
+    try stmt.bindText(1, new_title);
+    try stmt.bindText(2, new_tags);
+    try stmt.bindInt(3, wordCount(new_content));
+    try stmt.bindText(4, summarize(new_content));
+    try stmt.bindText(5, slug);
+    _ = try stmt.next();
+
+    var ver = try db.prepare("INSERT INTO note_versions(note_id,content,word_count) VALUES(?1,?2,?3)");
+    defer ver.deinit();
+    try ver.bindInt(1, existing.id);
+    try ver.bindText(2, new_content);
+    try ver.bindInt(3, wordCount(new_content));
+    _ = try ver.next();
+    try pruneVersions(db, existing.id);
+
+    var fts = try db.prepare("INSERT OR REPLACE INTO notes_fts(rowid,title,content) VALUES(?1,?2,?3)");
+    defer fts.deinit();
+    try fts.bindInt(1, existing.id);
+    try fts.bindText(2, new_title);
+    try fts.bindText(3, new_content);
+    _ = fts.next() catch {};
+
+    try writeMarkdown(allocator, config, existing.filename, new_title, new_tags, new_content);
+    return existing.slug;
+}
+
+/// Borra una nota y sus archivos. La usan el MCP y la ruta API.
+pub fn deleteNoteForMcp(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, slug: []const u8) !void {
+    if (!safeSlug(slug)) return error.InvalidSlug;
+    const note = getNote(allocator, db, slug) catch return error.NoteNotFound;
+    var stmt = try db.prepare("DELETE FROM notes WHERE slug=?1");
+    defer stmt.deinit();
+    try stmt.bindText(1, slug);
+    _ = try stmt.next();
+    const path = try std.fs.path.join(allocator, &.{ config.notes_dir, note.filename });
+    std.fs.cwd().deleteFile(path) catch {};
+    const vault = config.vault_dir;
+    if (vault.len > 0 and !std.mem.eql(u8, vault, config.notes_dir)) {
+        const vault_path = try std.fs.path.join(allocator, &.{ vault, note.filename });
+        std.fs.cwd().deleteFile(vault_path) catch {};
+    }
+}
+
+/// Contenido Markdown de una nota (para leerla desde el MCP).
+pub fn noteContentForMcp(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, slug: []const u8) !struct { title: []const u8, tags: []const u8, content: []const u8, updated_at: []const u8 } {
+    if (!safeSlug(slug)) return error.InvalidSlug;
+    const note = getNote(allocator, db, slug) catch return error.NoteNotFound;
+    return .{
+        .title = note.title,
+        .tags = note.tags,
+        .content = loadContent(allocator, config, note) catch "",
+        .updated_at = note.updated_at,
+    };
+}
+
+/// Lista versiones de una nota (historial), de la más nueva a la más antigua.
+pub fn noteVersionsForMcp(allocator: std.mem.Allocator, db: *sqlite.Db, slug: []const u8) !std.json.Value {
+    if (!safeSlug(slug)) return error.InvalidSlug;
+    const note = getNote(allocator, db, slug) catch return error.NoteNotFound;
+    var stmt = try db.prepare("SELECT id,word_count,created_at FROM note_versions WHERE note_id=?1 ORDER BY id DESC LIMIT 20");
+    defer stmt.deinit();
+    try stmt.bindInt(1, note.id);
+    var list = std.json.Array.init(allocator);
+    while (try stmt.next()) {
+        try list.append(try json.object(allocator, &.{
+            .{ .key = "id", .value = .{ .integer = stmt.int64(0) } },
+            .{ .key = "word_count", .value = .{ .integer = stmt.int64(1) } },
+            .{ .key = "created_at", .value = .{ .string = try allocator.dupe(u8, stmt.text(2)) } },
+        }));
+    }
+    return .{ .array = list };
+}
+
 /// Igual que `createNote`, pero permite conservar el nombre de archivo original
 /// (usado al importar `.md` del vault de Obsidian para no duplicar el archivo
 /// al reescribirlo). Con `filename_override = null` usa `{slug}.md`.

@@ -1254,6 +1254,129 @@ fn officeRoot(allocator: std.mem.Allocator, config: *const config_mod.Config) ![
     const parent = std.fs.path.dirname(config.db_path) orelse ".";
     return std.fs.path.join(allocator, &.{ parent, "office" });
 }
+
+/// Tipos de archivo que reconoce NOVA Office.
+pub const Kind = enum {
+    docs,
+    sheets,
+    presentations,
+    html,
+
+    pub fn dir(self: Kind) []const u8 {
+        return @tagName(self);
+    }
+
+    pub fn ext(self: Kind) []const u8 {
+        return switch (self) {
+            .docs => ".md",
+            .sheets => ".csv",
+            .presentations => ".json",
+            .html => ".html",
+        };
+    }
+};
+
+pub const OfficeError = error{
+    InvalidTitle,
+    TitleTooLong,
+    ContentTooLarge,
+    FileExists,
+    NotFound,
+    InvalidSlug,
+    IoError,
+};
+
+/// Crea (o reescribe) un archivo de Office con el contenido dado. Lo usa el
+/// MCP para que un agente pueda escribir en la plataforma igual que desde la
+/// interfaz: documentos, hojas de cálculo, presentaciones y páginas HTML.
+pub fn createFileForMcp(
+    allocator: std.mem.Allocator,
+    config: *const config_mod.Config,
+    kind: Kind,
+    title: []const u8,
+    content: []const u8,
+) OfficeError![]const u8 {
+    const trimmed = std.mem.trim(u8, title, " \t\r\n");
+    if (trimmed.len == 0) return error.InvalidTitle;
+    if (trimmed.len > 200) return error.TitleTooLong;
+    const max: usize = if (kind == .docs) 500_000 else 2_000_000;
+    if (content.len > max) return error.ContentTooLarge;
+
+    const root = officeRoot(allocator, config) catch return error.IoError;
+    const dir = officeDir(allocator, root, kind.dir()) catch return error.IoError;
+    std.fs.cwd().makePath(dir) catch return error.IoError;
+
+    const slug = slugify(allocator, trimmed) catch return error.IoError;
+    if (!safeSlug(slug)) return error.InvalidSlug;
+    const path = std.fmt.allocPrint(allocator, "{s}/{s}{s}", .{ dir, slug, kind.ext() }) catch return error.IoError;
+
+    if (fileExists(path) catch false) {
+        // Reescribir lo existente es lo esperable al "guardar" desde un agente.
+        writeReplace(path, content) catch return error.IoError;
+        return slug;
+    }
+    writeNew(path, content) catch return error.IoError;
+    return slug;
+}
+
+/// Contenido de un archivo de Office ya guardado.
+pub const OfficeFile = struct { slug: []const u8, content: []const u8, path: []const u8 };
+
+pub fn readFileForMcp(allocator: std.mem.Allocator, config: *const config_mod.Config, kind: Kind, slug: []const u8) OfficeError!OfficeFile {
+    if (!safeSlug(slug)) return error.InvalidSlug;
+    const root = officeRoot(allocator, config) catch return error.IoError;
+    const dir = officeDir(allocator, root, kind.dir()) catch return error.IoError;
+    const path = std.fmt.allocPrint(allocator, "{s}/{s}{s}", .{ dir, slug, kind.ext() }) catch return error.IoError;
+    const limit: usize = if (kind == .sheets) 4_000_000 else 2_000_000;
+    const content = readFile(allocator, path, limit) catch return error.NotFound;
+    return .{ .slug = slug, .content = content, .path = path };
+}
+
+/// Lista los archivos de un tipo de Office.
+pub fn listFilesForMcp(allocator: std.mem.Allocator, config: *const config_mod.Config, kind: Kind) !std.json.Value {
+    const root = officeRoot(allocator, config) catch return error.IoError;
+    const dir_path = try officeDir(allocator, root, kind.dir());
+    var list = std.json.Array.init(allocator);
+    var dir = std.fs.cwd().openDir(dir_path, .{ .iterate = true }) catch {
+        return json.object(allocator, &.{
+            .{ .key = "kind", .value = .{ .string = kind.dir() } },
+            .{ .key = "count", .value = .{ .integer = 0 } },
+            .{ .key = "files", .value = .{ .array = list } },
+        });
+    };
+    defer dir.close();
+    var iter = dir.iterate();
+    while (try iter.next()) |entry| {
+        if (entry.kind != .file or !std.mem.endsWith(u8, entry.name, kind.ext())) continue;
+        const full = try std.fs.path.join(allocator, &.{ dir_path, entry.name });
+        const stat = std.fs.cwd().statFile(full) catch continue;
+        var slug = entry.name;
+        if (std.mem.endsWith(u8, slug, kind.ext())) slug = slug[0 .. slug.len - kind.ext().len];
+        try list.append(try json.object(allocator, &.{
+            .{ .key = "slug", .value = .{ .string = try allocator.dupe(u8, slug) } },
+            .{ .key = "name", .value = .{ .string = try allocator.dupe(u8, entry.name) } },
+            .{ .key = "bytes", .value = .{ .integer = @intCast(stat.size) } },
+            .{ .key = "modified", .value = .{ .integer = @intCast(@max(0, stat.mtime)) } },
+        }));
+    }
+    return json.object(allocator, &.{
+        .{ .key = "kind", .value = .{ .string = kind.dir() } },
+        .{ .key = "count", .value = .{ .integer = @intCast(list.items.len) } },
+        .{ .key = "files", .value = .{ .array = list } },
+    });
+}
+
+/// Borra un archivo de Office.
+pub fn deleteFileForMcp(allocator: std.mem.Allocator, config: *const config_mod.Config, kind: Kind, slug: []const u8) OfficeError!void {
+    if (!safeSlug(slug)) return error.InvalidSlug;
+    const root = officeRoot(allocator, config) catch return error.IoError;
+    const dir = officeDir(allocator, root, kind.dir()) catch return error.IoError;
+    const path = std.fmt.allocPrint(allocator, "{s}/{s}{s}", .{ dir, slug, kind.ext() }) catch return error.IoError;
+    std.fs.cwd().deleteFile(path) catch |err| switch (err) {
+        error.FileNotFound => return error.NotFound,
+        else => return error.IoError,
+    };
+}
 fn officeDir(allocator: std.mem.Allocator, root: []const u8, kind: []const u8) ![]const u8 {
     return std.fs.path.join(allocator, &.{ root, kind });
 }
