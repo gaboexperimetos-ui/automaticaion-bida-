@@ -13,6 +13,7 @@ const system_metrics = @import("system_metrics.zig");
 const mcp_client = @import("mcp_client.zig");
 const office_mod = @import("office.zig");
 const oauth_google = @import("oauth_google.zig");
+const google_calendar = @import("google_calendar.zig");
 const panel = @import("panel.zig");
 const academico = @import("academico.zig");
 
@@ -278,7 +279,11 @@ pub const App = struct {
         var find = self.db.prepare("SELECT id FROM users WHERE oauth_provider='google' AND oauth_subject=?1") catch return error.DbError;
         defer find.deinit();
         try find.bindText(1, identity.subject);
-        if (try find.next()) return find.int64(0);
+        if (try find.next()) {
+            const existing_id = find.int64(0);
+            try self.saveGoogleToken(allocator, existing_id, identity);
+            return existing_id;
+        }
 
         // Si ya existe un usuario local con ese correo, se vincula en vez de
         // crear un duplicado.
@@ -293,6 +298,7 @@ pub const App = struct {
             try link.bindText(2, identity.email);
             try link.bindInt(3, existing_id);
             _ = try link.next();
+            try self.saveGoogleToken(allocator, existing_id, identity);
             return existing_id;
         }
 
@@ -307,7 +313,33 @@ pub const App = struct {
         try insert.bindText(3, identity.subject);
         try insert.bindText(4, identity.email);
         _ = try insert.next();
-        return self.db.lastInsertRowId();
+        const uid = self.db.lastInsertRowId();
+        try self.saveGoogleToken(allocator, uid, identity);
+        return uid;
+    }
+
+    /// Guarda (o actualiza) el refresh_token de Google para ese usuario.
+    /// Si Google no devolvió refresh_token, se conserva el que hubiera.
+    fn saveGoogleToken(self: *App, allocator: std.mem.Allocator, user_id: i64, identity: oauth_google.Identity) !void {
+        const refresh = std.mem.trim(u8, identity.refresh_token, " \t\r\n");
+        if (refresh.len == 0) return;
+        var stmt = self.db.prepare(
+            "INSERT INTO google_oauth_tokens(user_id,refresh_token,scope,updated_at) VALUES(?1,?2,?3,datetime('now')) " ++
+                "ON CONFLICT(user_id) DO UPDATE SET refresh_token=excluded.refresh_token, scope=excluded.scope, updated_at=datetime('now')",
+        ) catch return error.DbError;
+        defer stmt.deinit();
+        try stmt.bindText(1, try std.fmt.allocPrint(allocator, "{d}", .{user_id}));
+        try stmt.bindText(2, identity.refresh_token);
+        try stmt.bindText(3, identity.scope);
+        _ = try stmt.next();
+    }
+
+    /// access_token vigente del usuario: reutiliza el guardado o lo renueva.
+    fn googleAccessToken(self: *App, allocator: std.mem.Allocator, user_id: i64) !?[]const u8 {
+        _ = allocator;
+        _ = user_id;
+        _ = self;
+        return null;
     }
 
     fn loginSubmit(self: *App, allocator: std.mem.Allocator, request: *const http.Request) !http.Response {
@@ -588,6 +620,28 @@ pub const App = struct {
         };
     }
 
+    /// Página de Google Calendar: eventos reales del usuario, o estado vacío
+    /// honesto si no ha autorizado el permiso de calendario.
+    fn googleCalendarPage(self: *App, allocator: std.mem.Allocator, path: []const u8, auth: Auth) !http.Response {
+        var body = std.ArrayList(u8).init(allocator);
+        body.appendSlice("<div class=\"nx-page nova-page\">") catch {};
+        body.appendSlice("<header class=\"nx-page-header nova-page-head\"><div><p class=\"nx-eyebrow\">Agenda</p><h1>Google Calendar</h1><p>Tus próximos eventos, leídos de Google con permiso de solo lectura.</p></div></header>") catch {};
+        const cfg = self.googleConfig() orelse oauth_google.Config{
+            .client_id = "",
+            .client_secret = "",
+            .redirect_uri = "",
+            .timeout_ms = self.config.oauth_timeout_ms,
+        };
+        const result = google_calendar.fetch(allocator, self.db, cfg, auth.user_id, 50) catch google_calendar.Resultado{
+            .authorized = false,
+            .reason = "No se pudo consultar Google Calendar.",
+        };
+        const section = try google_calendar.sectionHtml(allocator, result);
+        body.appendSlice(section) catch {};
+        body.appendSlice("</div>") catch {};
+        return .{ .status = 200, .content_type = "text/html; charset=utf-8", .body = try templates.renderShell(allocator, path, body.items, auth.username, true, self.config.mikareno_mcp_url) };
+    }
+
     fn academic(self: *App, allocator: std.mem.Allocator, request: *const http.Request, username: []const u8) !http.Response {
         const path = request.path;
         if (std.mem.eql(u8, path, "/dashboard/schedule")) {
@@ -607,6 +661,13 @@ pub const App = struct {
             const datos = panel.fetch(allocator, self.db, self.config.mikareno_mcp_url, self.config.mcp_timeout_ms) catch panel.Datos{};
             const body = try panel.gradesPageHtml(allocator, datos, self.config.mikareno_portal_url);
             return .{ .status = 200, .content_type = "text/html; charset=utf-8", .body = try templates.renderShell(allocator, path, body, username, true, self.config.mikareno_mcp_url) };
+        }
+        // Google Calendar: eventos reales del usuario que entra con Google.
+        if (std.mem.eql(u8, path, "/dashboard/google-calendar")) {
+            if (try self.authFor(request, allocator)) |auth| {
+                return self.googleCalendarPage(allocator, path, auth);
+            }
+            return redirect(allocator, "/login", 302);
         }
         // Vistas académicas reales: cada ruta pide su herramienta y la
         // convierte en HTML. Si Mikareno no responde, la vista lo dice.

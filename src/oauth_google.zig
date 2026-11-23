@@ -41,6 +41,12 @@ pub const Identity = struct {
     subject: []const u8,
     email: []const u8,
     name: []const u8,
+    /// Token para renovar el acceso; vacío si Google no lo dio.
+    refresh_token: []const u8 = "",
+    /// Scopes efectivamente concedidos por el usuario.
+    scope: []const u8 = "",
+    /// access_token recién obtenido (válido ~1 h), para el primer uso.
+    access_token: []const u8 = "",
 };
 
 const AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -92,12 +98,16 @@ pub fn authorizationUrl(allocator: std.mem.Allocator, cfg: Config, state: []cons
             AUTH_ENDPOINT,
             try urlEncode(allocator, cfg.client_id),
             try urlEncode(allocator, cfg.redirect_uri),
-            try urlEncode(allocator, "openid email profile"),
+            try urlEncode(allocator, SCOPES),
             try urlEncode(allocator, state),
             try urlEncode(allocator, challenge),
         },
     );
 }
+
+/// Scopes pedidos: identidad + lectura de Google Calendar.
+/// `access_type=offline` y `prompt=consent` fuerzan el refresh_token.
+pub const SCOPES = "openid email profile https://www.googleapis.com/auth/calendar.readonly";
 
 fn postForm(allocator: std.mem.Allocator, url: []const u8, body: []const u8, timeout_ms: u64) Error![]const u8 {
     var client = std_http.Client{ .allocator = allocator };
@@ -186,12 +196,72 @@ pub fn exchange(allocator: std.mem.Allocator, cfg: Config, code: []const u8, ver
     const raw = try postForm(allocator, TOKEN_ENDPOINT, body, cfg.timeout_ms);
     const token_json = json.parse(allocator, raw) catch return error.BadResponse;
     const access = json.getString(token_json, "access_token") orelse return error.BadResponse;
+    const refresh = json.getString(token_json, "refresh_token") orelse "";
+    const scope = json.getString(token_json, "scope") orelse "";
 
     const info = try getJson(allocator, USERINFO_ENDPOINT, access, cfg.timeout_ms);
     const subject = json.getString(info, "sub") orelse return error.BadResponse;
     const email = json.getString(info, "email") orelse return error.EmailMissing;
     const name = json.getString(info, "name") orelse json.getString(info, "email") orelse "";
-    return .{ .subject = subject, .email = email, .name = name };
+    return .{
+        .subject = subject,
+        .email = email,
+        .name = name,
+        .refresh_token = refresh,
+        .scope = scope,
+        .access_token = access,
+    };
+}
+
+const CALENDAR_ENDPOINT = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
+
+/// Lista los próximos eventos del Google Calendar del usuario.
+/// Devuelve el JSON crudo de la API de Google Calendar.
+pub fn calendarEvents(
+    allocator: std.mem.Allocator,
+    cfg: Config,
+    access_token: []const u8,
+    max_results: usize,
+) Error!std.json.Value {
+    if (cfg.client_id.len == 0) return error.NotConfigured;
+    if (access_token.len == 0) return error.HttpError;
+    const url = try std.fmt.allocPrint(
+        allocator,
+        "{s}?maxResults={d}&singleEvents=true&orderBy=startTime&timeMin={s}",
+        .{ CALENDAR_ENDPOINT, max_results, try rfc3339NowUtc(allocator) },
+    );
+    return getJson(allocator, url, access_token, cfg.timeout_ms);
+}
+
+/// Renueva el access_token a partir del refresh_token guardado.
+pub fn refreshAccessToken(allocator: std.mem.Allocator, cfg: Config, refresh_token: []const u8) Error![]const u8 {
+    if (cfg.client_id.len == 0 or cfg.client_secret.len == 0) return error.NotConfigured;
+    if (refresh_token.len == 0) return error.HttpError;
+    const body = try std.fmt.allocPrint(
+        allocator,
+        "client_id={s}&client_secret={s}&refresh_token={s}&grant_type=refresh_token",
+        .{
+            try urlEncode(allocator, cfg.client_id),
+            try urlEncode(allocator, cfg.client_secret),
+            try urlEncode(allocator, refresh_token),
+        },
+    );
+    const raw = try postForm(allocator, TOKEN_ENDPOINT, body, cfg.timeout_ms);
+    const token_json = json.parse(allocator, raw) catch return error.BadResponse;
+    return json.getString(token_json, "access_token") orelse error.BadResponse;
+}
+
+/// Minuto actual en RFC 3339 UTC para acotar la consulta de Calendar.
+fn rfc3339NowUtc(allocator: std.mem.Allocator) ![]const u8 {
+    const e = std.time.epoch.EpochSeconds{ .secs = @intCast(@max(0, std.time.timestamp())) };
+    const year_day = e.getEpochDay().calculateYearDay();
+    const month_day = year_day.calculateMonthDay();
+    const day_seconds = e.getDaySeconds();
+    return std.fmt.allocPrint(
+        allocator,
+        "{d:0>4}-{d:0>2}-{d:0>2}T{d:0>2}:{d:0>2}:{d:0>2}Z",
+        .{ year_day.year, month_day.month.numeric(), month_day.day_index + 1, day_seconds.getHoursIntoDay(), day_seconds.getMinutesIntoHour(), day_seconds.getSecondsIntoMinute() },
+    );
 }
 
 /// Cookie corta que guarda el `state` y el `code_verifier` de este intento.

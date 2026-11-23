@@ -17,4 +17,5 @@ test {
     _ = @import("charts.zig");
     _ = @import("cyberhex.zig");
     _ = @import("oauth_google.zig");
+    _ = @import("google_calendar.zig");
 }

@@ -122,6 +122,7 @@ pub const Db = struct {
             .{ .version = "20240101000007", .sql = @embedFile("../migrations/20240101000007_calendar_annotations.sql") },
             .{ .version = "20240101000008", .sql = @embedFile("../migrations/20240101000008_calendar_planner_category.sql") },
             .{ .version = "20240101000009", .sql = @embedFile("../migrations/20240101000009_oauth_google.sql") },
+            .{ .version = "20240101000010", .sql = @embedFile("../migrations/20240101000010_google_oauth_tokens.sql") },
         };
         for (migrations) |migration| {
             var applied = try self.prepare("SELECT 1 FROM schema_migrations WHERE version=?1");
