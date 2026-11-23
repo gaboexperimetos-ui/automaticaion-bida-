@@ -23,6 +23,15 @@ pub const Nota = struct { materia: []const u8, nota: f64, trimestre: u8 };
 /// Una asignatura del parcial en curso con todo lo que la vista de notas
 /// necesita: código real, máximo, si es cuantitativa, si está bloqueada y
 /// si Mikareno ya publicó un promedio (`tiene_nota`).
+/// Un submenú del parcial, ya normalizado para las cuentas.
+pub const Axis = struct {
+    nombre: []const u8,
+    peso: f64,
+    total: usize,
+    calificadas: usize,
+    suma: f64,
+};
+
 pub const SubjectGrade = struct {
     materia: []const u8,
     codigo: []const u8,
@@ -32,6 +41,11 @@ pub const SubjectGrade = struct {
     maximo: f64,
     cuantitativa: bool,
     bloqueada: bool,
+    /// Desglose real por submenú: base para el mínimo por eje y para la
+    /// vista "solo lo calificado".
+    axes: []const Axis = &.{},
+    /// Promedio renormalizado a lo ya calificado; null si no hay nada con nota.
+    real: ?f64 = null,
 };
 
 pub const Clase = struct { dia: []const u8, etiqueta: []const u8 };
@@ -118,6 +132,16 @@ pub fn fetch(
     d.tasks_week = tarea_stats.semana;
     d.notas = parseNotas(allocator, full);
     d.grades = parseGrades(allocator, full);
+    const subject_axes = parseSubjectAxes(allocator, full);
+    for (d.grades) |*g| {
+        for (subject_axes) |sa| {
+            if (!gradeCodeMatches(sa.codigo, g.codigo)) continue;
+            if (g.parcial.len > 0 and sa.parcial.len > 0 and !std.mem.eql(u8, sa.parcial, g.parcial)) continue;
+            g.axes = sa.axes;
+            g.real = realGradeAxes(sa.axes);
+            break;
+        }
+    }
     for (d.grades) |g| {
         if (g.parcial.len > 0) {
             d.partial_label = partialLabel(allocator, g.parcial) catch "";
@@ -1279,6 +1303,116 @@ fn floatField(value: json.Value, key: []const u8) ?f64 {
     };
 }
 
+/// `...::T3:1::TRABAJOS` → `TRABAJOS` cuando es un submenú conocido.
+fn supplyAxisName(supply: []const u8) ?[]const u8 {
+    const at = std.mem.lastIndexOf(u8, supply, "::") orelse return null;
+    const name = supply[at + 2 ..];
+    return if (submenuWeight(name) == null) null else name;
+}
+
+fn collectPartialIds(node: json.Value, out: *std.ArrayList([]const u8)) void {
+    if (json.get(node, "children")) |kids| {
+        if (kids == .array) for (kids.array.items) |c| collectPartialIds(c, out);
+    }
+    const pid = json.getString(node, "partialId") orelse return;
+    if (pid.len == 0) return;
+    for (out.items) |seen| if (std.mem.eql(u8, seen, pid)) return;
+    out.append(pid) catch {};
+}
+
+fn collectAxes(node: json.Value, parcial: []const u8, out: *std.ArrayList(Axis)) void {
+    if (json.get(node, "children")) |kids| {
+        if (kids == .array and kids.array.items.len > 0) {
+            for (kids.array.items) |c| collectAxes(c, parcial, out);
+            return;
+        }
+    }
+    const pid = json.getString(node, "partialId") orelse return;
+    if (!std.mem.eql(u8, pid, parcial)) return;
+    const supply = json.getString(node, "supplyId") orelse return;
+    const name = supplyAxisName(supply) orelse return;
+    const peso = submenuWeight(name) orelse return;
+    var total: usize = 0;
+    var calificadas: usize = 0;
+    var suma: f64 = 0;
+    if (json.get(node, "scoreValues")) |sv| {
+        if (sv == .array) for (sv.array.items) |v| {
+            total += 1;
+            const raw = json.getString(v, "value") orelse continue;
+            if (raw.len == 0) continue;
+            const n = std.fmt.parseFloat(f64, std.mem.trim(u8, raw, " \t")) catch continue;
+            calificadas += 1;
+            suma += n;
+        };
+    }
+    if (total == 0 and peso != weight_examen) return;
+    out.append(.{
+        .nombre = name,
+        .peso = peso,
+        .total = if (total == 0) 1 else total,
+        .calificadas = calificadas,
+        .suma = suma,
+    }) catch {};
+}
+
+fn mergeAxes(axes: *std.ArrayList(Axis)) void {
+    var i: usize = 0;
+    while (i < axes.items.len) : (i += 1) {
+        var j = i + 1;
+        while (j < axes.items.len) {
+            if (std.mem.eql(u8, axes.items[i].nombre, axes.items[j].nombre)) {
+                axes.items[i].total += axes.items[j].total;
+                axes.items[i].calificadas += axes.items[j].calificadas;
+                axes.items[i].suma += axes.items[j].suma;
+                _ = axes.orderedRemove(j);
+            } else j += 1;
+        }
+    }
+}
+
+/// `stats.courseCode` llega como `26EGB10A-LLAG - Lengua y Literatura`,
+/// mientras que el esquema trae solo `26EGB10A-LLAG`: acepta el prefijo
+/// cuando el separador es un espacio o un guion.
+fn gradeCodeMatches(scheme: []const u8, grade: []const u8) bool {
+    if (scheme.len == 0 or grade.len == 0) return false;
+    if (std.mem.eql(u8, scheme, grade)) return true;
+    if (grade.len > scheme.len and std.mem.startsWith(u8, grade, scheme)) {
+        const next = grade[scheme.len];
+        return next == ' ' or next == '-';
+    }
+    return false;
+}
+
+pub const SubjectAxes = struct {
+    codigo: []const u8,
+    parcial: []const u8,
+    axes: []const Axis,
+};
+
+/// Desglose por submenú de cada materia a partir del árbol que ya trae
+/// `get_student_full`. Evita pedir el detalle de las 15 materias.
+fn parseSubjectAxes(allocator: std.mem.Allocator, full: json.Value) []SubjectAxes {
+    const ec = json.get(full, "estructura_calificaciones") orelse return &.{};
+    const schemes = json.get(ec, "scoreSchemes") orelse return &.{};
+    if (schemes != .array) return &.{};
+    var out = std.ArrayList(SubjectAxes).init(allocator);
+    for (schemes.array.items) |sc| {
+        const course = json.get(sc, "course") orelse continue;
+        const codigo = json.getString(course, "courseCode") orelse json.getString(course, "code") orelse continue;
+        const root = json.get(sc, "root") orelse continue;
+        var parciales = std.ArrayList([]const u8).init(allocator);
+        collectPartialIds(root, &parciales);
+        for (parciales.items) |pid| {
+            var axes = std.ArrayList(Axis).init(allocator);
+            collectAxes(root, pid, &axes);
+            if (axes.items.len == 0) continue;
+            mergeAxes(&axes);
+            out.append(.{ .codigo = codigo, .parcial = pid, .axes = axes.items }) catch {};
+        }
+    }
+    return out.items;
+}
+
 fn parseGrades(allocator: std.mem.Allocator, full: json.Value) []SubjectGrade {
     const promedios = json.get(full, "promedios") orelse return &.{};
     const stats = json.get(promedios, "stats") orelse return &.{};
@@ -1393,23 +1527,46 @@ fn gradeCard(allocator: std.mem.Allocator, g: SubjectGrade) ![]const u8 {
     }
     const tone = toneFor(g.nota);
     const nota = try std.fmt.allocPrint(allocator, "{d:.2}", .{g.nota});
+    const real_txt = if (g.real) |r| try std.fmt.allocPrint(allocator, "{d:.2}", .{r}) else try allocator.dupe(u8, "—");
+    const real_tone = if (g.real) |r| toneFor(r) else Tone{ .color = "#7f8ea3", .label = "sin datos", .pct = 0 };
+    var best_need: ?f64 = null;
+    var best_label: []const u8 = "";
+    for (g.axes, 0..) |_, i| {
+        const need = axisMinNeeded(g.axes, i, plan_target) orelse continue;
+        if (best_need == null or need < best_need.?) {
+            best_need = need;
+            best_label = try esc(allocator, shortAxisName(g.axes[i].nombre));
+        }
+    }
     const q_exam = (plan_target - g.nota) / weight_examen;
     const goal = if (g.nota >= plan_target)
         try allocator.dupe(u8, "meta de 8 cumplida")
-    else if (q_exam <= 10)
+    else if (best_need) |need| blk: {
+        if (need <= 0) break :blk try allocator.dupe(u8, "para 8: ya asegurado");
+        if (need <= 10) break :blk try std.fmt.allocPrint(allocator, "para 8: en {s} ≥ {d:.1}", .{ best_label, need });
+        break :blk try allocator.dupe(u8, "para 8: ningún eje solo basta");
+    } else if (q_exam <= 10)
         try std.fmt.allocPrint(allocator, "para 8: examen ≥ {d:.1}", .{q_exam})
     else
         try allocator.dupe(u8, "para 8: el examen solo no basta");
+    const goal_real = if (g.real) |r|
+        if (r >= plan_target)
+            try std.fmt.allocPrint(allocator, "solo calificado: {d:.2} · meta cumplida", .{r})
+        else
+            try std.fmt.allocPrint(allocator, "solo calificado: {d:.2} · faltan {d:.2}", .{ r, plan_target - r })
+    else
+        try allocator.dupe(u8, "solo calificado: sin datos");
+    const real_sort = if (g.real) |r| try std.fmt.allocPrint(allocator, "{d:.2}", .{r}) else try allocator.dupe(u8, "");
     return std.fmt.allocPrint(
         allocator,
-        "<a href=\"/dashboard/subjects/{s}\" class=\"nx-subject-card nova-subject-card\">" ++
+        "<a href=\"/dashboard/subjects/{s}\" class=\"nx-subject-card nova-subject-card\" data-oficial=\"{s}\" data-real=\"{s}\">" ++
             "<div class=\"nx-subject-top\"><span class=\"nx-subject-mark\"><span class=\"material-symbols-outlined\">menu_book</span></span>{s}<span class=\"material-symbols-outlined nx-subject-arrow\">arrow_outward</span></div>" ++
             "<h3>{s}</h3>" ++
-            "<div class=\"nx-subject-grade\"><strong style=\"color:{s}\">{s}</strong><span>{s}</span></div>" ++
-            "<div class=\"nx-subject-progress\"><div style=\"height:100%;width:{d}%;background:{s};border-radius:inherit\"></div></div>" ++
-            "<div class=\"nx-subject-goal\"><span class=\"material-symbols-outlined\">flag</span>{s}</div>" ++
+            "<div class=\"nx-subject-grade\"><strong style=\"color:{s}\" data-modo-oficial=\"{s}\" data-modo-real=\"{s}\" data-color-oficial=\"{s}\" data-color-real=\"{s}\">{s}</strong><span data-modo-oficial=\"{s}\" data-modo-real=\"{s}\">{s}</span></div>" ++
+            "<div class=\"nx-subject-progress\"><div style=\"height:100%;width:{d}%;background:{s};border-radius:inherit\" data-bar-oficial=\"{d}\" data-bar-real=\"{d}\" data-bar-color-oficial=\"{s}\" data-bar-color-real=\"{s}\"></div></div>" ++
+            "<div class=\"nx-subject-goal\"><span class=\"material-symbols-outlined\">flag</span><span data-modo-oficial=\"{s}\" data-modo-real=\"{s}\">{s}</span></div>" ++
             "<footer><span>Sobre {d:.0} puntos</span><span>Ver actividades<span class=\"material-symbols-outlined\">arrow_forward</span></span></footer></a>",
-        .{ href_name, chip, name, tone.color, nota, tone.label, tone.pct, tone.color, goal, g.maximo },
+        .{ href_name, nota, real_sort, chip, name, tone.color, nota, real_txt, tone.color, real_tone.color, nota, tone.label, real_tone.label, tone.label, tone.pct, tone.color, tone.pct, real_tone.pct, tone.color, real_tone.color, goal, goal_real, goal, g.maximo },
     );
 }
 
@@ -1446,34 +1603,112 @@ pub fn gradesKpis(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
     var approved: u32 = 0;
     var risk: u32 = 0;
     var failed: u32 = 0;
+    var real_count: u32 = 0;
+    var real_total: f64 = 0;
+    var real_approved: u32 = 0;
+    var real_risk: u32 = 0;
+    var real_failed: u32 = 0;
     for (d.grades) |g| {
         count += 1;
-        if (!g.tiene_nota) continue;
-        with_note += 1;
-        total += g.nota;
-        if (g.nota >= 7) {
-            approved += 1;
-        } else if (g.nota >= 5) {
-            risk += 1;
-        } else {
-            failed += 1;
+        if (g.tiene_nota) {
+            with_note += 1;
+            total += g.nota;
+            if (g.nota >= 7) {
+                approved += 1;
+            } else if (g.nota >= 5) {
+                risk += 1;
+            } else {
+                failed += 1;
+            }
+        }
+        if (g.real) |r| {
+            real_count += 1;
+            real_total += r;
+            if (r >= 7) {
+                real_approved += 1;
+            } else if (r >= 5) {
+                real_risk += 1;
+            } else {
+                real_failed += 1;
+            }
         }
     }
     const avg_txt = if (with_note > 0)
         try std.fmt.allocPrint(allocator, "{d:.2}", .{total / @as(f64, @floatFromInt(with_note))})
     else
         try allocator.dupe(u8, "—");
+    const avg_real = if (real_count > 0)
+        try std.fmt.allocPrint(allocator, "{d:.2}", .{real_total / @as(f64, @floatFromInt(real_count))})
+    else
+        try allocator.dupe(u8, "—");
+    const small_oficial = try std.fmt.allocPrint(allocator, "{d} con nota", .{with_note});
+    const small_real = try std.fmt.allocPrint(allocator, "{d} con lo calificado", .{real_count});
     return std.fmt.allocPrint(
         allocator,
         "<section class=\"nx-grade-kpis\" aria-label=\"Resumen de notas\">" ++
-            "<div class=\"nx-grade-kpi\"><span>Promedio general</span><strong>{s}</strong><small>sobre 10</small></div>" ++
-            "<div class=\"nx-grade-kpi\"><span>Materias</span><strong>{d}</strong><small>{d} con nota</small></div>" ++
-            "<div class=\"nx-grade-kpi is-good\"><span>Aprobadas</span><strong>{d}</strong><small>7.0 o más</small></div>" ++
-            "<div class=\"nx-grade-kpi is-warn\"><span>En riesgo</span><strong>{d}</strong><small>5.0 – 6.99</small></div>" ++
-            "<div class=\"nx-grade-kpi is-bad\"><span>Reprobadas</span><strong>{d}</strong><small>menos de 5.0</small></div>" ++
+            "<div class=\"nx-grade-kpi\"><span>Promedio general</span><strong data-modo-oficial=\"{s}\" data-modo-real=\"{s}\">{s}</strong><small>sobre 10</small></div>" ++
+            "<div class=\"nx-grade-kpi\"><span>Materias</span><strong>{d}</strong><small data-modo-oficial=\"{s}\" data-modo-real=\"{s}\">{s}</small></div>" ++
+            "<div class=\"nx-grade-kpi is-good\"><span>Aprobadas</span><strong data-modo-oficial=\"{d}\" data-modo-real=\"{d}\">{d}</strong><small>7.0 o más</small></div>" ++
+            "<div class=\"nx-grade-kpi is-warn\"><span>En riesgo</span><strong data-modo-oficial=\"{d}\" data-modo-real=\"{d}\">{d}</strong><small>5.0 – 6.99</small></div>" ++
+            "<div class=\"nx-grade-kpi is-bad\"><span>Reprobadas</span><strong data-modo-oficial=\"{d}\" data-modo-real=\"{d}\">{d}</strong><small>menos de 5.0</small></div>" ++
             "</section>",
-        .{ avg_txt, count, with_note, approved, risk, failed },
+        .{ avg_txt, avg_real, avg_txt, count, small_oficial, small_real, small_oficial, approved, real_approved, approved, risk, real_risk, risk, failed, real_failed, failed },
     );
+}
+
+const modo_script =
+    \\<script>(function(){
+    \\var KEY='stypModoNotas';
+    \\var root=document.body;
+    \\var btn=document.querySelector('[data-modo-toggle]');
+    \\if(!btn)return;
+    \\function each(sel,fn){Array.prototype.forEach.call(document.querySelectorAll(sel),fn);}
+    \\function sortCards(){
+    \\var grid=document.querySelector('.nx-subject-grid');if(!grid)return;
+    \\var real=root.classList.contains('nx-real-mode');
+    \\var cards=Array.prototype.slice.call(grid.children);
+    \\cards.sort(function(a,b){
+    \\var ka=real?a.getAttribute('data-real'):a.getAttribute('data-oficial');
+    \\var kb=real?b.getAttribute('data-real'):b.getAttribute('data-oficial');
+    \\var na=ka?parseFloat(ka):-1,nb=kb?parseFloat(kb):-1;
+    \\if(na<0&&nb<0)return 0;if(na<0)return 1;if(nb<0)return -1;
+    \\return na-nb;
+    \\});
+    \\cards.forEach(function(c){grid.appendChild(c);});
+    \\}
+    \\function apply(real){
+    \\root.classList.toggle('nx-real-mode',real);
+    \\each('[data-modo-real]',function(el){
+    \\var v=el.getAttribute(real?'data-modo-real':'data-modo-oficial');
+    \\if(v!==null)el.textContent=v;
+    \\var c=el.getAttribute(real?'data-color-real':'data-color-oficial');
+    \\if(c)el.style.color=c;
+    \\});
+    \\each('[data-bar-real]',function(el){
+    \\var w=el.getAttribute(real?'data-bar-real':'data-bar-oficial');
+    \\var c=el.getAttribute(real?'data-bar-color-real':'data-bar-color-oficial');
+    \\if(w)el.style.width=w+'%';
+    \\if(c)el.style.background=c;
+    \\});
+    \\btn.setAttribute('aria-checked',real?'true':'false');
+    \\var l=btn.querySelector('[data-modo-label]');
+    \\if(l)l.textContent=real?'Solo lo calificado':'Nota del colegio';
+    \\var note=document.querySelector('[data-modo-note]');
+    \\if(note)note.textContent=real?'Reordenado por lo calificado. Lo pendiente y el examen sin subir no cuentan.':'Ordenado por la nota del colegio (lo pendiente y el examen sin subir cuentan como 0).';
+    \\sortCards();
+    \\}
+    \\btn.hidden=false;
+    \\try{apply(localStorage.getItem(KEY)==='1');}catch(e){}
+    \\btn.addEventListener('click',function(){
+    \\var real=!root.classList.contains('nx-real-mode');
+    \\try{localStorage.setItem(KEY,real?'1':'0');}catch(e){}
+    \\apply(real);
+    \\});
+    \\})();</script>
+;
+
+fn modoToggleHtml() []const u8 {
+    return "<button type=\"button\" class=\"nx-modo-toggle\" role=\"switch\" aria-checked=\"false\" hidden data-modo-toggle title=\"Alternar entre la nota del colegio y solo lo calificado\"><span class=\"nx-modo-knob\" aria-hidden=\"true\"></span><span data-modo-label>Nota del colegio</span></button>";
 }
 
 pub fn gradesPageHtml(allocator: std.mem.Allocator, d: Datos, portal_url: []const u8) ![]const u8 {
@@ -1482,10 +1717,6 @@ pub fn gradesPageHtml(allocator: std.mem.Allocator, d: Datos, portal_url: []cons
     const grid = try gradesGrid(allocator, d);
     const label = if (d.partial_label.len > 0) d.partial_label else "Parcial actual";
     const safe_label = try esc(allocator, label);
-    const caption = if (d.grades.len == 0)
-        "Datos reales de Mikareno; si no hay notas, la página lo dice."
-    else
-        try std.fmt.allocPrint(allocator, "{d} asignaturas · datos reales de Mikareno · primero lo que hay que recuperar.", .{d.grades.len});
     const portal = if (std.mem.startsWith(u8, portal_url, "https://") or std.mem.startsWith(u8, portal_url, "http://"))
         try std.fmt.allocPrint(
             allocator,
@@ -1494,18 +1725,22 @@ pub fn gradesPageHtml(allocator: std.mem.Allocator, d: Datos, portal_url: []cons
         )
     else
         "";
+    const caption = if (d.grades.len == 0)
+        "Datos reales de Mikareno; si no hay notas, la página lo dice."
+    else
+        try std.fmt.allocPrint(allocator, "{d} asignaturas · datos reales de Mikareno · primero lo que hay que recuperar.", .{d.grades.len});
     return std.fmt.allocPrint(
         allocator,
         "<div class=\"nx-page nx-subjects nova-page nova-subjects-page\">" ++
             "<header class=\"nx-page-header nova-page-head\"><div><p class=\"nx-eyebrow\">Aprendizaje · Notas</p><h1>Tu progreso,<br>materia por materia.</h1><p>{s}</p></div>" ++
             "<div class=\"nx-button-row\">" ++
-            "{s}" ++
+            "{s}{s}" ++
             "<a class=\"nx-button nx-button-secondary\" href=\"/dashboard/subjects\"><span class=\"material-symbols-outlined\">refresh</span>Actualizar datos</a>" ++
             "</div></header>" ++
             "{s}{s}" ++
-            "<section class=\"nx-collection nova-subjects-collection\"><div class=\"nx-section-head\"><div><p class=\"nx-eyebrow\">{s}</p><h2>Progreso por asignatura</h2></div><p>Las materias con promedio más bajo aparecen primero.</p></div>{s}</section>" ++
-            "</div>",
-        .{ caption, portal, banner, kpis, safe_label, grid },
+            "<section class=\"nx-collection nova-subjects-collection\"><div class=\"nx-section-head\"><div><p class=\"nx-eyebrow\">{s}</p><h2>Progreso por asignatura</h2></div><p class=\"nx-modo-note\" data-modo-note>Ordenado por la nota del colegio (lo pendiente y el examen sin subir cuentan como 0).</p></div>{s}</section>" ++
+            "{s}</div>",
+        .{ caption, modoToggleHtml(), portal, banner, kpis, safe_label, grid, modo_script },
     );
 }
 
@@ -1542,6 +1777,8 @@ pub const SubjectDetail = struct {
     cualitativa: bool = false,
     observacion: []const u8 = "",
     submenus: []DetailSubmenu = &.{},
+    /// Promedio renormalizado a lo ya calificado; null si no hay nada con nota.
+    real: ?f64 = null,
 };
 
 fn lastSegmentInt(s: []const u8, fallback: u8) u8 {
@@ -1658,6 +1895,7 @@ pub fn fetchSubjectDetail(allocator: std.mem.Allocator, url: []const u8, timeout
     if (out.submenus.len == 0 and parcial_num != 0) {
         out.submenus = try loadSubmenus(allocator, url, timeout_ms, out.materia, 0);
     }
+    out.real = realGradeAxes(try buildAxes(allocator, out.submenus));
     return out;
 }
 
@@ -1692,6 +1930,125 @@ fn submenuWeight(name: []const u8) ?f64 {
     if (containsIgnoreCase(name, "EVALUAC")) return weight_evaluaciones;
     if (containsIgnoreCase(name, "EXAMEN")) return weight_examen;
     return null;
+}
+
+/// Submenús del detalle normalizados para las cuentas. El examen sin
+/// actividades queda como un pendiente (25%) para no perder su peso.
+fn buildAxes(allocator: std.mem.Allocator, submenus: []const DetailSubmenu) ![]Axis {
+    var out = std.ArrayList(Axis).init(allocator);
+    var has_exam = false;
+    for (submenus) |sm| {
+        const w = submenuWeight(sm.nombre) orelse continue;
+        var total = sm.total;
+        if (total == 0) {
+            if (w != weight_examen) continue;
+            total = 1;
+        }
+        if (w == weight_examen) has_exam = true;
+        const cal = @min(sm.calificadas, total);
+        try out.append(.{
+            .nombre = sm.nombre,
+            .peso = w,
+            .total = total,
+            .calificadas = cal,
+            .suma = if (cal == 0) 0 else sm.suma,
+        });
+    }
+    // El árbol del detalle no siempre trae el submenú del examen: su 25%
+    // sigue pendiente y debe aparecer en el desglose y en las cuentas.
+    if (!has_exam) try out.append(.{
+        .nombre = "EXAMEN TRIMESTRAL",
+        .peso = weight_examen,
+        .total = 1,
+        .calificadas = 0,
+        .suma = 0,
+    });
+    return out.items;
+}
+
+/// Promedio renormalizado a lo que ya tiene nota: los submenús sin
+/// calificar no restan y los pesos se reparten entre los que sí cuentan.
+pub fn realGradeAxes(axes: []const Axis) ?f64 {
+    var num: f64 = 0;
+    var den: f64 = 0;
+    for (axes) |a| {
+        if (a.calificadas == 0) continue;
+        num += a.peso * (a.suma / @as(f64, @floatFromInt(a.calificadas)));
+        den += a.peso;
+    }
+    if (den <= 1e-9) return null;
+    return num / den;
+}
+
+/// Media mínima en lo pendiente de `axes[i]` para llegar a `target`, con 10
+/// en los demás ejes. `null` si ese eje no tiene pendientes.
+fn axisMinNeeded(axes: []const Axis, i: usize, target: f64) ?f64 {
+    if (i >= axes.len) return null;
+    const a = axes[i];
+    const cal = @min(a.calificadas, a.total);
+    if (a.total <= cal or a.total == 0) return null;
+    const pend = a.total - cal;
+    var others_max: f64 = 0;
+    for (axes, 0..) |o, j| {
+        if (j == i or o.total == 0) continue;
+        const oc = @min(o.calificadas, o.total);
+        const on = o.total - oc;
+        const den = @as(f64, @floatFromInt(o.total));
+        others_max += o.peso * ((o.suma + 10.0 * @as(f64, @floatFromInt(on))) / den);
+    }
+    const den_i = @as(f64, @floatFromInt(a.total));
+    const need_sum = (target - others_max) * den_i / a.peso;
+    return (need_sum - a.suma) / @as(f64, @floatFromInt(pend));
+}
+
+fn shortAxisName(name: []const u8) []const u8 {
+    if (containsIgnoreCase(name, "TAREA")) return "Tareas";
+    if (containsIgnoreCase(name, "TRABAJO")) return "Trabajos";
+    if (containsIgnoreCase(name, "EVALUAC")) return "Evaluaciones";
+    if (containsIgnoreCase(name, "EXAMEN")) return "Examen";
+    return name;
+}
+
+fn axisTableHtml(allocator: std.mem.Allocator, axes: []const Axis) ![]const u8 {
+    if (axes.len == 0) return "";
+    var buf = std.ArrayList(u8).init(allocator);
+    try buf.appendSlice("<div class=\"nx-plan-axes\"><p class=\"nx-plan-tasks-title\">Mínimo en cada eje para llegar a 8</p><ul>");
+    for (axes, 0..) |a, i| {
+        const name = try esc(allocator, a.nombre);
+        const cal = @min(a.calificadas, a.total);
+        const pend = a.total - cal;
+        var meta: []const u8 = undefined;
+        var value: []const u8 = undefined;
+        var cls: []const u8 = "nx-plan-axis";
+        if (pend == 0) {
+            meta = try std.fmt.allocPrint(allocator, "{d} calificadas · sin pendientes", .{a.total});
+            value = try std.fmt.allocPrint(allocator, "{d:.2}", .{a.suma / @as(f64, @floatFromInt(a.total))});
+        } else {
+            if (cal == 0) {
+                meta = try std.fmt.allocPrint(allocator, "{d} por calificar · sin nota", .{a.total});
+            } else {
+                meta = try std.fmt.allocPrint(allocator, "{d} de {d} por calificar · llevas {d:.2}", .{ pend, a.total, a.suma / @as(f64, @floatFromInt(cal)) });
+            }
+            const need = axisMinNeeded(axes, i, plan_target) orelse 0;
+            if (need <= 0) {
+                cls = "nx-plan-axis is-good";
+                value = "ya asegurado";
+            } else if (need <= 10) {
+                cls = "nx-plan-axis is-good";
+                value = try std.fmt.allocPrint(allocator, "≥ {d:.2} / 10", .{need});
+            } else {
+                cls = "nx-plan-axis is-bad";
+                value = try std.fmt.allocPrint(allocator, "imposible solo aquí ({d:.2})", .{need});
+            }
+        }
+        try buf.appendSlice(try std.fmt.allocPrint(
+            allocator,
+            "<li class=\"{s}\"><span class=\"nx-plan-axis-name\">{s} <em>{d:.0}%</em></span><span class=\"nx-plan-axis-meta\">{s}</span><strong>{s}</strong></li>",
+            .{ cls, name, a.peso * 100.0, meta, value },
+        ));
+    }
+    try buf.appendSlice("</ul><p class=\"nx-plan-axis-note\">La cifra es la media mínima en lo que falta de ese eje si en los demás sacas 10. Es la vía más corta para llegar a 8.</p></div>");
+    return buf.items;
 }
 
 /// Porcentaje que aporta cada actividad del submenú a la nota de la materia.
@@ -1735,44 +2092,119 @@ fn submenuSection(allocator: std.mem.Allocator, sm: DetailSubmenu) ![]const u8 {
 
 pub const plan_target: f64 = 8.0;
 
+const sim_script =
+    \\<script>(function(){
+    \\var s=document.querySelector('.nx-subject-sim');if(!s)return;
+    \\var base=parseFloat(s.getAttribute('data-base'))||0;
+    \\var cp=parseFloat(s.getAttribute('data-pend'))||0;
+    \\var ce=parseFloat(s.getAttribute('data-exam'))||0;
+    \\var target=parseFloat(s.getAttribute('data-target'))||8;
+    \\var pr=s.querySelector('[data-sim="pend"]');
+    \\var er=s.querySelector('[data-sim="exam"]');
+    \\var out=s.querySelector('[data-sim-result]');
+    \\var hint=s.querySelector('[data-sim-hint]');
+    \\var po=s.querySelector('[data-out="pend"]');
+    \\var eo=s.querySelector('[data-out="exam"]');
+    \\function fmt(x){return (Math.round(x*100)/100).toFixed(2);}
+    \\function upd(){
+    \\var p=pr?parseFloat(pr.value):0;
+    \\var e=er?parseFloat(er.value):0;
+    \\var f=base+cp*p+ce*e;
+    \\if(po)po.textContent=p.toFixed(1);
+    \\if(eo)eo.textContent=e.toFixed(1);
+    \\out.textContent=fmt(f);
+    \\out.style.color=f>=7?'#2dd4bf':(f>=5?'#fbbf24':'#f87171');
+    \\if(f>=target){hint.textContent='Llegas a la meta con estas notas.';}
+    \\else{hint.textContent='Te faltan '+fmt(target-f)+' puntos para '+target.toFixed(0)+'.';}
+    \\}
+    \\if(pr)pr.addEventListener('input',upd);
+    \\if(er)er.addEventListener('input',upd);
+    \\upd();
+    \\})();</script>
+;
+
+fn simulatorHtml(allocator: std.mem.Allocator, base: f64, pend: f64, exam: f64) ![]const u8 {
+    var controls = std.ArrayList(u8).init(allocator);
+    if (pend > 1e-9) {
+        try controls.appendSlice(
+            "<label class=\"nx-sim-control\"><span>Nota en lo pendiente <output data-out=\"pend\">8.0</output></span>" ++
+                "<input type=\"range\" min=\"0\" max=\"10\" step=\"0.1\" value=\"8\" data-sim=\"pend\"></label>",
+        );
+    }
+    if (exam > 1e-9) {
+        try controls.appendSlice(
+            "<label class=\"nx-sim-control\"><span>Examen trimestral <output data-out=\"exam\">8.0</output></span>" ++
+                "<input type=\"range\" min=\"0\" max=\"10\" step=\"0.1\" value=\"8\" data-sim=\"exam\"></label>",
+        );
+    }
+    if (controls.items.len == 0) return "";
+    const initial = base + pend * 8.0 + exam * 8.0;
+    const tone: []const u8 = if (initial >= 7) "#2dd4bf" else if (initial >= 5) "#fbbf24" else "#f87171";
+    const hint_txt = if (initial >= plan_target)
+        "Llegas a la meta con estas notas."
+    else
+        try std.fmt.allocPrint(allocator, "Te faltan {d:.2} puntos para {d:.0}.", .{ plan_target - initial, plan_target });
+    return std.fmt.allocPrint(
+        allocator,
+        "<div class=\"nx-subject-sim nova-subject-sim\" data-base=\"{d:.6}\" data-pend=\"{d:.6}\" data-exam=\"{d:.6}\" data-target=\"{d:.2}\">" ++
+            "<div class=\"nx-sim-head\"><p class=\"nx-eyebrow\">Simulador</p><h3>¿Y si saco…?</h3></div>" ++
+            "<div class=\"nx-sim-controls\">{s}</div>" ++
+            "<div class=\"nx-sim-result\" aria-live=\"polite\"><span>Nota final estimada</span><strong data-sim-result style=\"color:{s}\">{d:.2}</strong><small data-sim-hint>{s}</small></div>" ++
+            "{s}" ++
+            "</div>",
+        .{ base, pend, exam, plan_target, controls.items, tone, initial, hint_txt, sim_script },
+    );
+}
+
 /// Plan "qué necesito para llegar a 8" con los pesos reales del parcial.
 ///
-/// Dos vías honestas, calculadas con datos reales:
+/// Tres vías honestas, calculadas con datos reales:
 ///  * solo el examen trimestral (25%, hoy en 0);
-///  * examen a 10 + una media uniforme `p` en las actividades pendientes.
+///  * examen a 10 + una media uniforme `p` en las actividades pendientes;
+///  * simulador interactivo con deslizadores de pendientes y examen.
 pub fn planHtml(allocator: std.mem.Allocator, d: SubjectDetail) ![]const u8 {
     if (!d.tiene_nota) {
         return "<section class=\"nx-subject-plan nova-subject-plan\"><div class=\"nx-plan-head\"><p class=\"nx-eyebrow\">Plan para llegar a 8</p><h2>Sin promedio todavía</h2><p>Cuando Mikareno publique una nota, aquí aparecerá exactamente cuánto necesitas y en qué.</p></div></section>";
     }
     const current = d.nota;
-    var has_exam_sub = false;
+    const axes = try buildAxes(allocator, d.submenus);
     var unknown = false;
+    for (d.submenus) |sm| {
+        if (sm.total > 0 and submenuWeight(sm.nombre) == null) unknown = true;
+    }
     var has_pending = false;
+    var exam_graded = false;
     var denom: f64 = 0;
     var sum_wnm: f64 = 0;
     var submenus_max: f64 = 0;
     var pending_total: usize = 0;
+    var sim_base: f64 = 0;
+    var sim_pend: f64 = 0;
 
-    for (d.submenus) |sm| {
-        const w = submenuWeight(sm.nombre) orelse {
-            if (sm.total > 0) unknown = true;
-            continue;
-        };
-        if (w == weight_examen) has_exam_sub = true;
-        const pending = if (sm.total > sm.calificadas) sm.total - sm.calificadas else 0;
-        const c = @as(f64, @floatFromInt(sm.calificadas));
+    for (axes) |a| {
+        const cal = @min(a.calificadas, a.total);
+        const pending = a.total - cal;
+        const den = @as(f64, @floatFromInt(a.total));
         const n = @as(f64, @floatFromInt(pending));
-        const den = c + n;
-        if (den > 0) submenus_max += w * ((sm.suma + 10.0 * n) / den);
-        if (pending > 0 and den > 0) {
+        const c = @as(f64, @floatFromInt(cal));
+        if (a.peso == weight_examen) {
+            // Sin nota, su 25% se modela con el deslizador propio del examen.
+            // Es también el caso en que el árbol no trae el submenú.
+            if (cal == 0) continue;
+            exam_graded = true;
+        }
+        submenus_max += a.peso * ((a.suma + 10.0 * n) / den);
+        sim_base += a.peso * a.suma / den;
+        sim_pend += a.peso * n / den;
+        if (pending > 0) {
             has_pending = true;
             pending_total += pending;
-            const m = if (sm.calificadas > 0) sm.suma / c else 0.0;
-            denom += w * n / den;
-            sum_wnm += w * n * m / den;
+            const m = if (cal > 0) a.suma / c else 0.0;
+            denom += a.peso * n / den;
+            sum_wnm += a.peso * n * m / den;
         }
     }
-    const exam_w: f64 = if (has_exam_sub) 0.0 else weight_examen;
+    const exam_w: f64 = if (exam_graded) 0.0 else weight_examen;
     if (exam_w > 0) submenus_max += exam_w * 10.0;
 
     const q_need: f64 = if (exam_w > 0) (plan_target - current) / exam_w else 99.0;
@@ -1799,11 +2231,12 @@ pub fn planHtml(allocator: std.mem.Allocator, d: SubjectDetail) ![]const u8 {
     const pending_lever = if (!has_pending)
         "<div class=\"nx-plan-lever\"><span>Actividades pendientes</span><strong>sin pendientes</strong><small>No quedan entregas por calificar en este parcial.</small></div>"
     else if (p_need) |p| blk: {
-        if (p <= 10) break :blk try std.fmt.allocPrint(allocator, "<div class=\"nx-plan-lever is-good\"><span>Actividades pendientes</span><strong>≥ {d:.2}</strong><small>Con 10 en el examen · {d} entregas por calificar.</small></div>", .{ p, pending_total });
+        if (p <= 10) break :blk try std.fmt.allocPrint(allocator, "<div class=\"nx-plan-lever is-good\"><span>Actividades pendientes</span><strong>≥ {d:.2}</strong><small>{s} · {d} entregas por calificar.</small></div>", .{ p, if (exam_w > 0) "Con 10 en el examen" else "En las entregas pendientes", pending_total });
         break :blk "<div class=\"nx-plan-lever is-bad\"><span>Actividades pendientes</span><strong>&gt; 10</strong><small>Ni con todo a 10 se llega a 8 este parcial.</small></div>";
     } else "<div class=\"nx-plan-lever\"><span>Actividades pendientes</span><strong>—</strong><small>Sin actividades computables.</small></div>";
 
     const max_lever = try std.fmt.allocPrint(allocator, "<div class=\"nx-plan-lever\"><span>Máximo alcanzable</span><strong>{d:.2}</strong><small>Si sacas 10 en todo lo que queda.</small></div>", .{submenus_max});
+    const axes_block = try axisTableHtml(allocator, axes);
 
     var tasks = std.ArrayList(u8).init(allocator);
     if (has_pending and p_need != null and p_need.? <= 10) {
@@ -1821,16 +2254,22 @@ pub fn planHtml(allocator: std.mem.Allocator, d: SubjectDetail) ![]const u8 {
     }
 
     const weights = "<div class=\"nx-plan-weights\"><span class=\"nx-weight-chip\">TAREAS 20%</span><span class=\"nx-weight-chip\">TRABAJOS 40%</span><span class=\"nx-weight-chip\">EVALUACIONES 15%</span><span class=\"nx-weight-chip\">EXAMEN TRIMESTRAL 25%</span></div>";
-    const note = if (unknown)
-        "<p class=\"nx-plan-note\">Hay un submenú con un esquema no reconocido; el plan podría variar. Los pesos mostrados se deducen de tus promedios reales y coinciden con las 14 materias calificadas.</p>"
+    const note_base = if (unknown)
+        "Hay un submenú con un esquema no reconocido; el plan podría variar. Los pesos mostrados se deducen de tus promedios reales y coinciden con las 14 materias calificadas."
     else
-        "<p class=\"nx-plan-note\">Pesos deducidos de tus promedios reales (error ≤ 0.011 en las 14 materias). Dentro de cada submenú todas las actividades valen lo mismo; el examen trimestral vale 25% y hoy cuenta como 0.</p>";
+        "Pesos deducidos de tus promedios reales (error ≤ 0.011 en las 14 materias). Dentro de cada submenú todas las actividades valen lo mismo; el examen trimestral vale 25% y hoy cuenta como 0.";
+    const real_note = if (d.real) |r|
+        try std.fmt.allocPrint(allocator, " Con solo lo calificado tienes {d:.2}; este plan usa el esquema oficial del colegio.", .{r})
+    else
+        "";
+    const note = try std.fmt.allocPrint(allocator, "<p class=\"nx-plan-note\">{s}{s}</p>", .{ note_base, real_note });
 
+    const sim = try simulatorHtml(allocator, sim_base, sim_pend, exam_w);
     return std.fmt.allocPrint(
         allocator,
         "<section class=\"nx-subject-plan nova-subject-plan\"><div class=\"nx-plan-head\"><p class=\"nx-eyebrow\">Plan para llegar a 8</p>{s}</div>" ++
-            "<div class=\"nx-plan-levers\">{s}{s}{s}</div>{s}{s}{s}</section>",
-        .{ head, exam_lever, pending_lever, max_lever, tasks.items, weights, note },
+            "<div class=\"nx-plan-levers\">{s}{s}{s}</div>{s}{s}{s}{s}{s}</section>",
+        .{ head, exam_lever, pending_lever, max_lever, axes_block, sim, tasks.items, weights, note },
     );
 }
 
@@ -1840,6 +2279,8 @@ pub fn subjectDetailHtml(allocator: std.mem.Allocator, d: SubjectDetail) ![]cons
     const trim_txt = if (d.parcial.len > 0) try partialLabel(allocator, d.parcial) else try allocator.dupe(u8, "Parcial actual");
     const tone = if (d.tiene_nota) toneFor(d.nota) else Tone{ .color = "#7f8ea3", .label = "Sin calificar", .pct = 0 };
     const nota_txt = if (d.tiene_nota) try std.fmt.allocPrint(allocator, "{d:.2}", .{d.nota}) else try allocator.dupe(u8, "—");
+    const real_txt = if (d.real) |r| try std.fmt.allocPrint(allocator, "{d:.2}", .{r}) else try allocator.dupe(u8, "—");
+    const real_tone = if (d.real) |r| toneFor(r) else Tone{ .color = "#7f8ea3", .label = "sin datos", .pct = 0 };
     const max_txt = try std.fmt.allocPrint(allocator, "{d:.0}", .{d.maximo});
     const bloqueada = if (d.bloqueada) "Sí" else "No";
     const tipo = if (d.cualitativa) "Cualitativa" else "Cuantitativa";
@@ -1862,11 +2303,11 @@ pub fn subjectDetailHtml(allocator: std.mem.Allocator, d: SubjectDetail) ![]cons
         "<div class=\"nx-page nx-subject-detail nova-page nova-subject-detail-page\">{s}" ++
             "<header class=\"nx-subject-hero nova-subject-detail-hero\"><a href=\"/dashboard/subjects\" class=\"nx-back-link\"><span class=\"material-symbols-outlined\">arrow_back</span>Todas las asignaturas</a>" ++
             "<div><p class=\"nx-eyebrow\">Detalle académico</p><h1>{s}</h1><p>Código {s} · {s}</p></div>" ++
-            "<div class=\"nx-subject-note\"><span class=\"nx-grade-chip\" style=\"color:{s}\">{s}</span></div></header>" ++
-            "<section class=\"nx-subject-summary nova-subject-summary\"><div class=\"nx-subject-summary-grade\"><span>Promedio actual</span><strong style=\"color:{s}\">{s}</strong><p>sobre {s}</p><div class=\"nx-subject-progress\"><div style=\"height:100%;width:{d}%;background:{s};border-radius:inherit\"></div></div></div>" ++
-            "<div class=\"nx-subject-summary-facts\"><div><span>Calificación</span><strong>{s}</strong></div><div><span>Código</span><strong>{s}</strong></div><div><span>Máximo</span><strong>{s}</strong></div><div><span>Bloqueada</span><strong>{s}</strong></div><div><span>Tipo</span><strong>{s}</strong></div></div></section>" ++
-            "{s}{s}{s}</div>",
-        .{ banner, name, code, trim_txt, tone.color, tone.label, tone.color, nota_txt, max_txt, tone.pct, tone.color, tone.label, code, max_txt, bloqueada, tipo, plan, obs, acts.items },
+            "<div class=\"nx-subject-note\">{s}<span class=\"nx-grade-chip\" style=\"color:{s}\">{s}</span></div></header>" ++
+            "<section class=\"nx-subject-summary nova-subject-summary\"><div class=\"nx-subject-summary-grade\"><span>Promedio actual</span><strong style=\"color:{s}\" data-modo-oficial=\"{s}\" data-modo-real=\"{s}\" data-color-oficial=\"{s}\" data-color-real=\"{s}\">{s}</strong><p>sobre {s}</p><div class=\"nx-subject-progress\"><div style=\"height:100%;width:{d}%;background:{s};border-radius:inherit\" data-bar-oficial=\"{d}\" data-bar-real=\"{d}\" data-bar-color-oficial=\"{s}\" data-bar-color-real=\"{s}\"></div></div></div>" ++
+            "<div class=\"nx-subject-summary-facts\"><div><span>Calificación</span><strong>{s}</strong></div><div><span>Solo calificado</span><strong style=\"color:{s}\">{s}</strong></div><div><span>Código</span><strong>{s}</strong></div><div><span>Máximo</span><strong>{s}</strong></div><div><span>Bloqueada</span><strong>{s}</strong></div><div><span>Tipo</span><strong>{s}</strong></div></div></section>" ++
+            "{s}{s}{s}{s}</div>",
+        .{ banner, name, code, trim_txt, modoToggleHtml(), tone.color, tone.label, tone.color, nota_txt, real_txt, tone.color, real_tone.color, nota_txt, max_txt, tone.pct, tone.color, tone.pct, real_tone.pct, tone.color, real_tone.color, tone.label, real_tone.color, real_txt, code, max_txt, bloqueada, tipo, plan, obs, acts.items, modo_script },
     );
 }
 
@@ -1932,6 +2373,79 @@ test "el plan para 8 usa los pesos reales (caso Matemática)" {
     try std.testing.expect(std.mem.indexOf(u8, html, "7.48") != null);
     try std.testing.expect(std.mem.indexOf(u8, html, "5.65") != null);
     try std.testing.expect(std.mem.indexOf(u8, html, "EXAMEN TRIMESTRAL 25%") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "nx-subject-sim") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "data-sim=\"pend\"></label>") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "data-sim=\"exam\"></label>") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "data-base=\"4.126") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "data-pend=\"0.244444\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "data-exam=\"0.250000\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "9.07") != null);
+}
+
+test "el simulador omite el examen cuando ya tiene nota" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var subs = [_]DetailSubmenu{
+        .{ .nombre = "TAREAS", .total = 4, .calificadas = 2, .suma = 12, .subtotal = 6, .actividades = &.{} },
+        .{ .nombre = "EXAMEN TRIMESTRAL", .total = 1, .calificadas = 1, .suma = 9, .subtotal = 9, .actividades = &.{} },
+    };
+    const d = SubjectDetail{ .tiene_nota = true, .nota = 3.5, .maximo = 10, .submenus = &subs };
+    const html = try planHtml(a, d);
+    try std.testing.expect(std.mem.indexOf(u8, html, "data-sim=\"pend\"></label>") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "data-sim=\"exam\"></label>") == null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "con nota") != null);
+}
+
+test "el examen sin nota usa su propio deslizador" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var subs = [_]DetailSubmenu{
+        .{ .nombre = "TAREAS", .total = 4, .calificadas = 2, .suma = 12, .subtotal = 6, .actividades = &.{} },
+        .{ .nombre = "EXAMEN TRIMESTRAL", .total = 1, .calificadas = 0, .suma = 0, .subtotal = null, .actividades = &.{} },
+    };
+    const d = SubjectDetail{ .tiene_nota = true, .nota = 4, .maximo = 10, .submenus = &subs };
+    const html = try planHtml(a, d);
+    try std.testing.expect(std.mem.indexOf(u8, html, "data-sim=\"exam\"></label>") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "data-exam=\"0.250000\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "data-base=\"0.600000\"") != null);
+}
+
+test "sin pendientes ni examen se omite el simulador" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var subs = [_]DetailSubmenu{
+        .{ .nombre = "TAREAS", .total = 4, .calificadas = 4, .suma = 32, .subtotal = 8, .actividades = &.{} },
+        .{ .nombre = "EXAMEN TRIMESTRAL", .total = 1, .calificadas = 1, .suma = 9, .subtotal = 9, .actividades = &.{} },
+    };
+    const d = SubjectDetail{ .tiene_nota = true, .nota = 8.1, .maximo = 10, .submenus = &subs };
+    const html = try planHtml(a, d);
+    try std.testing.expect(std.mem.indexOf(u8, html, "nx-subject-sim") == null);
+}
+
+test "sin promedio no se inventa plan ni simulador" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    const d = SubjectDetail{ .tiene_nota = false, .maximo = 10 };
+    const html = try planHtml(a, d);
+    try std.testing.expect(std.mem.indexOf(u8, html, "Sin promedio") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "nx-subject-sim") == null);
+}
+
+test "un submenú desconocido avisa en el plan" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var subs = [_]DetailSubmenu{
+        .{ .nombre = "TAREAS", .total = 4, .calificadas = 4, .suma = 32, .subtotal = 8, .actividades = &.{} },
+        .{ .nombre = "LECCIONES", .total = 2, .calificadas = 0, .suma = 0, .subtotal = null, .actividades = &.{} },
+    };
+    const d = SubjectDetail{ .tiene_nota = true, .nota = 6, .maximo = 10, .submenus = &subs };
+    const html = try planHtml(a, d);
+    try std.testing.expect(std.mem.indexOf(u8, html, "esquema no reconocido") != null);
 }
 
 test "la libreta oficial usa la URL configurada y se escapa" {
@@ -1946,4 +2460,145 @@ test "la libreta oficial usa la URL configurada y se escapa" {
     try std.testing.expect(std.mem.indexOf(u8, sin, "Libreta oficial") == null);
     const peligro = try gradesPageHtml(a, d, "javascript:alert(1)");
     try std.testing.expect(std.mem.indexOf(u8, peligro, "Libreta oficial") == null);
+}
+
+test "el mínimo por eje asume 10 en los demás" {
+    const axes = [_]Axis{
+        .{ .nombre = "TAREAS", .peso = weight_tareas, .total = 9, .calificadas = 4, .suma = 34 },
+        .{ .nombre = "TRABAJOS", .peso = weight_trabajos, .total = 3, .calificadas = 2, .suma = 16 },
+        .{ .nombre = "EVALUACIONES", .peso = weight_evaluaciones, .total = 2, .calificadas = 2, .suma = 16.5 },
+        .{ .nombre = "EXAMEN TRIMESTRAL", .peso = weight_examen, .total = 1, .calificadas = 0, .suma = 0 },
+    };
+    try std.testing.expectApproxEqAbs(@as(f64, 0.3625), axisMinNeeded(&axes, 0, 8.0).?, 0.001);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.9688), axisMinNeeded(&axes, 1, 8.0).?, 0.001);
+    try std.testing.expectApproxEqAbs(@as(f64, 5.7167), axisMinNeeded(&axes, 3, 8.0).?, 0.001);
+    try std.testing.expect(axisMinNeeded(&axes, 2, 8.0) == null);
+}
+
+test "solo lo calificado renormaliza los pesos" {
+    const axes = [_]Axis{
+        .{ .nombre = "TAREAS", .peso = 0.20, .total = 4, .calificadas = 2, .suma = 12 },
+        .{ .nombre = "TRABAJOS", .peso = 0.40, .total = 1, .calificadas = 1, .suma = 7 },
+        .{ .nombre = "EVALUACIONES", .peso = 0.15, .total = 2, .calificadas = 2, .suma = 13.5 },
+        .{ .nombre = "EXAMEN TRIMESTRAL", .peso = 0.25, .total = 1, .calificadas = 0, .suma = 0 },
+    };
+    try std.testing.expectApproxEqAbs(@as(f64, 6.6833), realGradeAxes(&axes).?, 0.001);
+    const only_exam = [_]Axis{.{ .nombre = "EXAMEN TRIMESTRAL", .peso = 0.25, .total = 1, .calificadas = 0, .suma = 0 }};
+    try std.testing.expect(realGradeAxes(&only_exam) == null);
+}
+
+test "el examen sin actividades cuenta como pendiente" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var subs = [_]DetailSubmenu{
+        .{ .nombre = "TAREAS", .total = 3, .calificadas = 2, .suma = 18, .subtotal = 9, .actividades = &.{} },
+        .{ .nombre = "EXAMEN TRIMESTRAL", .total = 0, .calificadas = 0, .suma = 0, .subtotal = null, .actividades = &.{} },
+    };
+    const axes = try buildAxes(a, &subs);
+    try std.testing.expectEqual(@as(usize, 2), axes.len);
+    try std.testing.expectEqual(@as(usize, 1), axes[1].total);
+    try std.testing.expectApproxEqAbs(@as(f64, 9.0), realGradeAxes(axes).?, 1e-9);
+}
+
+test "el código del esquema casa con el de las estadísticas" {
+    try std.testing.expect(gradeCodeMatches("26EGB10A-MATE", "26EGB10A-MATE - Matematica"));
+    try std.testing.expect(gradeCodeMatches("26EGB10A-MATE", "26EGB10A-MATE"));
+    try std.testing.expect(!gradeCodeMatches("26EGB10A-MATE", "26EGB10A-MATEMATICAS"));
+    try std.testing.expect(!gradeCodeMatches("26EGB10A-MATE", "26EGB10A-BIOL - Biología"));
+}
+
+test "lee el desglose por submenú del árbol de Mikareno" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    const raw =
+        \\{"estructura_calificaciones":{"scoreSchemes":[{"course":{"courseCode":"26EGB10A-MATE","code":"MATE"},"root":{"children":[{"partialId":"2026:T3","supplyId":"L::COURSE::T3::Promedios","children":[{"partialId":"2026:T3:1","supplyId":"L::COURSE::T3:1::1 Trimestre","children":[{"partialId":"2026:T3:1","supplyId":"L::COURSE::T3:1::TAREAS","children":[{"partialId":"2026:T3:1","supplyId":"L::COURSE::T3:1::TAREAS","scoreValues":[{"value":"10.00"},{"value":""},{"value":"8.00"}]}]},{"partialId":"2026:T3:1","supplyId":"L::COURSE::T3:1::EXAMEN TRIMESTRAL","children":[]}]},{"partialId":"2026:T3:2","supplyId":"L::COURSE::T3:2::2 Trimestre","children":[]}]}]}}]}}
+    ;
+    const full = try json.parse(a, raw);
+    const got = parseSubjectAxes(a, full);
+    try std.testing.expectEqual(@as(usize, 1), got.len);
+    try std.testing.expectEqualStrings("26EGB10A-MATE", got[0].codigo);
+    try std.testing.expectEqualStrings("2026:T3:1", got[0].parcial);
+    try std.testing.expectEqual(@as(usize, 2), got[0].axes.len);
+    try std.testing.expectEqualStrings("TAREAS", got[0].axes[0].nombre);
+    try std.testing.expectEqual(@as(usize, 3), got[0].axes[0].total);
+    try std.testing.expectEqual(@as(usize, 2), got[0].axes[0].calificadas);
+    try std.testing.expectApproxEqAbs(@as(f64, 18.0), got[0].axes[0].suma, 1e-9);
+    try std.testing.expectEqualStrings("EXAMEN TRIMESTRAL", got[0].axes[1].nombre);
+    try std.testing.expectApproxEqAbs(@as(f64, 9.0), realGradeAxes(got[0].axes).?, 1e-9);
+}
+
+test "la tarjeta muestra el eje más barato y los dos modos" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    const axes = [_]Axis{
+        .{ .nombre = "TAREAS", .peso = weight_tareas, .total = 9, .calificadas = 4, .suma = 34 },
+        .{ .nombre = "TRABAJOS", .peso = weight_trabajos, .total = 3, .calificadas = 2, .suma = 16 },
+        .{ .nombre = "EVALUACIONES", .peso = weight_evaluaciones, .total = 2, .calificadas = 2, .suma = 16.5 },
+        .{ .nombre = "EXAMEN TRIMESTRAL", .peso = weight_examen, .total = 1, .calificadas = 0, .suma = 0 },
+    };
+    const g = SubjectGrade{
+        .materia = "Matematica",
+        .codigo = "26EGB10A-MATE",
+        .parcial = "2026:T3:1",
+        .nota = 6.13,
+        .tiene_nota = true,
+        .maximo = 10,
+        .cuantitativa = true,
+        .bloqueada = false,
+        .axes = &axes,
+        .real = realGradeAxes(&axes),
+    };
+    const html = try gradeCard(a, g);
+    try std.testing.expect(std.mem.indexOf(u8, html, "data-oficial=\"6.13\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "data-modo-real=\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "en Tareas ≥ 0.4") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "solo calificado:") != null);
+}
+
+test "el plan lista los cuatro ejes con su mínimo" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var subs = [_]DetailSubmenu{
+        .{ .nombre = "TAREAS", .total = 9, .calificadas = 4, .suma = 34, .subtotal = 8.5, .actividades = &.{} },
+        .{ .nombre = "TRABAJOS", .total = 3, .calificadas = 2, .suma = 16, .subtotal = 8.0, .actividades = &.{} },
+        .{ .nombre = "EVALUACIONES", .total = 2, .calificadas = 2, .suma = 16.5, .subtotal = 8.25, .actividades = &.{} },
+        .{ .nombre = "EXAMEN TRIMESTRAL", .total = 0, .calificadas = 0, .suma = 0, .subtotal = null, .actividades = &.{} },
+    };
+    const d = SubjectDetail{ .tiene_nota = true, .nota = 6.13, .maximo = 10, .submenus = &subs, .real = 7.4 };
+    const html = try planHtml(a, d);
+    try std.testing.expect(std.mem.indexOf(u8, html, "Mínimo en cada eje para llegar a 8") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "TAREAS <em>20%</em>") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "5 de 9 por calificar") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "1 por calificar · sin nota") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "Con solo lo calificado tienes 7.40") != null);
+}
+
+test "la vista de notas trae el interruptor de perspectiva" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    const axes = [_]Axis{
+        .{ .nombre = "TAREAS", .peso = weight_tareas, .total = 4, .calificadas = 2, .suma = 12 },
+    };
+    var grades = [_]SubjectGrade{.{
+        .materia = "Matematica",
+        .codigo = "26EGB10A-MATE",
+        .parcial = "2026:T3:1",
+        .nota = 4,
+        .tiene_nota = true,
+        .maximo = 10,
+        .cuantitativa = true,
+        .bloqueada = false,
+        .axes = &axes,
+        .real = realGradeAxes(&axes),
+    }};
+    const d = Datos{ .connected = true, .grades = &grades };
+    const html = try gradesPageHtml(a, d, "");
+    try std.testing.expect(std.mem.indexOf(u8, html, "data-modo-toggle") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "Solo lo calificado") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "data-modo-note") != null);
 }

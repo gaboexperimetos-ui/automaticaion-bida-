@@ -760,6 +760,34 @@ a.nx-calendar-event:hover { border-color: rgba(167,139,250,.25); background: var
 .nx-plan-task-name { color: var(--nx-text-2); font-size: 11px; }
 .nx-plan-task-meta { color: var(--nx-muted); font-size: 9px; white-space: nowrap; }
 .nx-plan-note { margin: 0; color: var(--nx-muted); font-size: 10px; line-height: 1.55; }
+.nx-plan-axes { margin: 0 0 14px; padding: 14px 16px; background: var(--nx-surface-2); border-radius: 10px; }
+.nx-plan-axes ul { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 5px 18px; margin: 0; padding: 0; list-style: none; }
+.nx-plan-axis { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 10px; padding: 7px 0; border-bottom: 1px solid var(--nx-line); }
+.nx-plan-axis-name { color: var(--nx-text-2); font-size: 11px; font-weight: 600; }
+.nx-plan-axis-name em { font-style: normal; color: var(--nx-muted); font-weight: 700; font-size: 9px; }
+.nx-plan-axis-meta { color: var(--nx-muted); font-size: 9px; }
+.nx-plan-axis > strong { font-variant-numeric: tabular-nums; font-size: 12px; }
+.nx-plan-axis.is-good > strong { color: #2dd4bf; }
+.nx-plan-axis.is-bad > strong { color: #f87171; }
+.nx-plan-axis-note { margin: 9px 0 0; color: var(--nx-muted); font-size: 10px; line-height: 1.5; }
+.nx-modo-toggle { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; color: var(--nx-text-2); background: var(--nx-surface-2); border: 1px solid var(--nx-line); border-radius: 999px; font: 600 11px "Space Grotesk", sans-serif; cursor: pointer; }
+.nx-modo-toggle:hover { border-color: var(--nx-accent); }
+.nx-modo-toggle .nx-modo-knob { position: relative; width: 28px; height: 16px; border-radius: 999px; background: var(--nx-surface-3); border: 1px solid var(--nx-line); }
+.nx-modo-toggle .nx-modo-knob::after { content: ""; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--nx-muted); transition: transform .16s ease,background .16s ease; }
+.nx-modo-toggle[aria-checked="true"] { color: var(--nx-text); border-color: var(--nx-accent); }
+.nx-modo-toggle[aria-checked="true"] .nx-modo-knob::after { transform: translateX(12px); background: var(--nx-accent); }
+.nx-modo-note { color: var(--nx-muted); font-size: 10px; }
+.nx-subject-sim { margin: 0 0 14px; padding: 16px; background: var(--nx-surface-2); border: 1px solid var(--nx-line); border-radius: 10px; }
+.nx-sim-head h3 { margin: 0; font: 600 16px "Space Grotesk", sans-serif; }
+.nx-sim-controls { display: grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap: 14px; margin-top: 12px; }
+.nx-sim-control { display: grid; gap: 6px; color: var(--nx-text-2); font-size: 11px; }
+.nx-sim-control > span { display: flex; justify-content: space-between; gap: 8px; }
+.nx-sim-control output { color: var(--nx-text); font-weight: 700; font-variant-numeric: tabular-nums; }
+.nx-sim-control input[type="range"] { width: 100%; accent-color: var(--nx-accent); }
+.nx-sim-result { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--nx-line); }
+.nx-sim-result > span { color: var(--nx-muted); font-size: 9px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+.nx-sim-result > strong { color: var(--nx-text); font: 600 26px "Space Grotesk", sans-serif; font-variant-numeric: tabular-nums; }
+.nx-sim-result > small { color: var(--nx-muted); font-size: 10px; }
 
 /* Administración --------------------------------------------------------- */
 .nx-admin-metrics { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin-bottom: 18px; }
@@ -882,6 +910,8 @@ a.nx-calendar-event:hover { border-color: rgba(167,139,250,.25); background: var
   .nx-grade-kpis { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .nx-plan-levers { grid-template-columns: 1fr; }
   .nx-plan-tasks ul { grid-template-columns: 1fr; }
+  .nx-plan-axes ul { grid-template-columns: 1fr; }
+  .nx-sim-controls { grid-template-columns: 1fr; }
   .nx-page-header, .nx-dashboard-hero { align-items: flex-start; flex-direction: column; gap: 18px; }
   .nx-dashboard-hero-actions { justify-items: start; }
   .nx-page-header .nx-button-row { width: 100%; }
