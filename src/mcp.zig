@@ -110,8 +110,9 @@ fn toolDefinitions(allocator: std.mem.Allocator) !std.json.Value {
         .{ .name = "app_status", .description = "Platform status and configuration summary", .props = "", .required = &.{} },
         .{ .name = "student_report", .description = "Build the student report (Markdown) from real Mikareno + local notes data", .props = "format", .required = &.{} },
         .{ .name = "google_calendar", .description = "List upcoming events from the user's Google Calendar", .props = "max_results", .required = &.{} },
-        .{ .name = "google_drive", .description = "List recent files from the user's Google Drive", .props = "max_results", .required = &.{} },
+        .{ .name = "google_drive", .description = "List or search files in the user's Google Drive", .props = "max_results,query", .required = &.{} },
         .{ .name = "google_contacts", .description = "List contacts from the user's Google Contacts", .props = "max_results", .required = &.{} },
+        .{ .name = "google_doc_read", .description = "Read the text of a Google Docs, Sheets or Slides file by file id", .props = "file_id", .required = &.{"file_id"} },
     };
     var list = std.json.Array.init(allocator);
     for (definitions) |definition| {
@@ -317,7 +318,18 @@ fn callTool(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_
             break :blk 50;
         } else 50;
         const is_drive = std.mem.eql(u8, name, "google_drive");
-        return googleWorkspaceTool(allocator, db, config, uid, max_results, is_drive);
+        const query = json.getString(args, "query") orelse "";
+        return googleWorkspaceTool(allocator, db, config, uid, max_results, is_drive, query);
+    }
+    if (std.mem.eql(u8, name, "google_doc_read")) {
+        const file_id = json.getString(args, "file_id") orelse return error.InvalidParams;
+        const uid: i64 = blk: {
+            var stmt = db.prepare("SELECT id FROM users ORDER BY id LIMIT 1") catch break :blk 0;
+            defer stmt.deinit();
+            if (try stmt.next()) break :blk stmt.int64(0);
+            break :blk 0;
+        };
+        return googleDocTool(allocator, db, config, uid, file_id);
     }
     return error.MethodNotFound;
 }
@@ -561,7 +573,31 @@ fn calendarDelete(allocator: std.mem.Allocator, db: *sqlite.Db, id: i64) !std.js
 }
 
 /// Archivos de Drive o contactos de Contacts, con estado honesto.
-fn googleWorkspaceTool(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, user_id: i64, max_results: usize, is_drive: bool) !std.json.Value {
+fn googleDocTool(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, user_id: i64, file_id: []const u8) !std.json.Value {
+    const cfg = oauth_google_mod.Config{
+        .client_id = config.google_client_id,
+        .client_secret = config.google_client_secret,
+        .redirect_uri = config.google_redirect_uri,
+        .timeout_ms = config.oauth_timeout_ms,
+    };
+    const doc = google_workspace_mod.readDocument(allocator, db, cfg, user_id, file_id) catch {
+        return json.object(allocator, &.{
+            .{ .key = "authorized", .value = .{ .bool = false } },
+            .{ .key = "found", .value = .{ .bool = false } },
+            .{ .key = "reason", .value = .{ .string = "No se pudo leer el documento." } },
+        });
+    };
+    return json.object(allocator, &.{
+        .{ .key = "authorized", .value = .{ .bool = doc.authorized } },
+        .{ .key = "found", .value = .{ .bool = doc.found } },
+        .{ .key = "name", .value = .{ .string = doc.name } },
+        .{ .key = "mime", .value = .{ .string = doc.mime } },
+        .{ .key = "text", .value = .{ .string = doc.text } },
+        .{ .key = "reason", .value = .{ .string = doc.reason } },
+    });
+}
+
+fn googleWorkspaceTool(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, user_id: i64, max_results: usize, is_drive: bool, query: []const u8) !std.json.Value {
     const cfg = oauth_google_mod.Config{
         .client_id = config.google_client_id,
         .client_secret = config.google_client_secret,
@@ -569,7 +605,11 @@ fn googleWorkspaceTool(allocator: std.mem.Allocator, db: *sqlite.Db, config: *co
         .timeout_ms = config.oauth_timeout_ms,
     };
     if (is_drive) {
-        const result = google_workspace_mod.driveFiles(allocator, db, cfg, user_id, max_results) catch {
+        const trimmed = std.mem.trim(u8, query, " \t\r\n");
+        const result = (if (trimmed.len > 0)
+            google_workspace_mod.driveSearch(allocator, db, cfg, user_id, trimmed, max_results)
+        else
+            google_workspace_mod.driveFiles(allocator, db, cfg, user_id, max_results)) catch {
             return json.object(allocator, &.{
                 .{ .key = "authorized", .value = .{ .bool = false } },
                 .{ .key = "files", .value = try json.array(allocator, &.{}) },
@@ -912,7 +952,7 @@ test "MCP exposes the protocol version and the full tool catalog" {
     // 9 herramientas base + 6 de CyberHex + 14 de la plataforma (notas,
     // Office, calendario, informe, Google Calendar y estado). Se comprueba
     // que estén las familias para que un cambio no deje el catálogo a medias.
-    try std.testing.expectEqual(@as(usize, 32), tools.array.items.len);
+    try std.testing.expectEqual(@as(usize, 33), tools.array.items.len);
     var has_notes = false;
     var has_cyberhex = false;
     var has_office = false;
@@ -922,6 +962,7 @@ test "MCP exposes the protocol version and the full tool catalog" {
     var has_drive = false;
     var has_contacts = false;
     var has_search_all = false;
+    var has_doc_read = false;
     for (tools.array.items) |tool| {
         const name = json.getString(tool, "name") orelse "";
         if (std.mem.eql(u8, name, "search_notes")) has_notes = true;
@@ -933,6 +974,7 @@ test "MCP exposes the protocol version and the full tool catalog" {
         if (std.mem.eql(u8, name, "google_drive")) has_drive = true;
         if (std.mem.eql(u8, name, "google_contacts")) has_contacts = true;
         if (std.mem.eql(u8, name, "search_all")) has_search_all = true;
+        if (std.mem.eql(u8, name, "google_doc_read")) has_doc_read = true;
     }
     try std.testing.expect(has_notes);
     try std.testing.expect(has_cyberhex);

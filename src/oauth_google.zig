@@ -53,7 +53,7 @@ const AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const USERINFO_ENDPOINT = "https://www.googleapis.com/oauth2/v3/userinfo";
 
-fn urlEncode(allocator: std.mem.Allocator, raw: []const u8) ![]const u8 {
+pub fn urlEncode(allocator: std.mem.Allocator, raw: []const u8) ![]const u8 {
     const hex = "0123456789ABCDEF";
     var out = std.ArrayList(u8).init(allocator);
     for (raw) |ch| {
@@ -175,6 +175,37 @@ fn getJson(allocator: std.mem.Allocator, url: []const u8, token: []const u8, tim
     if (status < 200 or status >= 300) return error.HttpError;
     const trimmed = std.mem.trim(u8, out.items, " \t\r\n");
     return json.parse(allocator, trimmed) catch return error.BadResponse;
+}
+
+/// GET autenticado que devuelve el cuerpo tal cual (para exportaciones de
+/// Drive que no son JSON: texto de Docs, CSV de Sheets, etc.).
+pub fn getTextPublic(allocator: std.mem.Allocator, url: []const u8, token: []const u8, timeout_ms: u64, max_bytes: usize) Error![]const u8 {
+    var client = std_http.Client{ .allocator = allocator };
+    defer client.deinit();
+    var header_buffer: [16 * 1024]u8 = undefined;
+    const uri = std.Uri.parse(url) catch return error.BadResponse;
+    var headers = std.ArrayList(std_http.Header).init(allocator);
+    try headers.append(.{ .name = "Authorization", .value = try std.fmt.allocPrint(allocator, "Bearer {s}", .{token}) });
+    var request = client.open(.GET, uri, .{
+        .server_header_buffer = &header_buffer,
+        .keep_alive = false,
+        .headers = .{
+            .accept_encoding = .{ .override = "identity" },
+            .connection = .{ .override = "close" },
+            .user_agent = .{ .override = "study-platform-zig/0.2.0" },
+        },
+        .extra_headers = headers.items,
+    }) catch return error.HttpError;
+    defer request.deinit();
+    if (request.connection) |connection| setSocketTimeout(connection.stream.handle, timeout_ms);
+    request.send() catch return error.HttpError;
+    request.finish() catch return error.HttpError;
+    request.wait() catch return error.HttpError;
+    const status: u16 = @intFromEnum(request.response.status);
+    var out = std.ArrayList(u8).init(allocator);
+    request.reader().readAllArrayList(&out, @max(max_bytes, 4096)) catch return error.BadResponse;
+    if (status < 200 or status >= 300) return error.HttpError;
+    return out.items;
 }
 
 fn setSocketTimeout(fd: anytype, timeout_ms: u64) void {
