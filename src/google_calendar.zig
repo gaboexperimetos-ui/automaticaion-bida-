@@ -26,6 +26,9 @@ pub const Evento = struct {
 
 pub const Resultado = struct {
     authorized: bool = false,
+    /// El servidor tiene client_id y client_secret: se puede ofrecer el botón
+    /// de conectar aunque todavía no haya autorización.
+    configured: bool = false,
     events: []Evento = &.{},
     reason: []const u8 = "",
 };
@@ -55,15 +58,19 @@ pub fn fetch(allocator: std.mem.Allocator, db: *sqlite.Db, cfg: oauth.Config, us
         return .{ .authorized = false, .reason = "Google OAuth no está configurado en el servidor." };
     }
     const pair = (try accessTokenFor(allocator, db, cfg, user_id)) orelse {
-        return .{ .authorized = false, .reason = "No has autorizado el acceso a Google Calendar. Vuelve a entrar con Google y acepta el permiso de calendario." };
+        return .{
+            .authorized = false,
+            .configured = true,
+            .reason = "No has autorizado el acceso a Google Calendar. Conéctalo para ver tus eventos aquí.",
+        };
     };
 
     const payload = oauth.calendarEvents(allocator, cfg, pair.token, max_results) catch {
-        return .{ .authorized = false, .reason = "Google Calendar no respondió o rechazó el acceso." };
+        return .{ .authorized = false, .configured = true, .reason = "Google Calendar no respondió o rechazó el acceso." };
     };
 
-    const items = json.get(payload, "items") orelse return .{ .authorized = true };
-    if (items != .array) return .{ .authorized = true };
+    const items = json.get(payload, "items") orelse return .{ .authorized = true, .configured = true };
+    if (items != .array) return .{ .authorized = true, .configured = true };
 
     var out = std.ArrayList(Evento).init(allocator);
     for (items.array.items) |ev| {
@@ -96,7 +103,7 @@ pub fn fetch(allocator: std.mem.Allocator, db: *sqlite.Db, cfg: oauth.Config, us
             .link = link,
         }) catch {};
     }
-    return .{ .authorized = true, .events = out.items };
+    return .{ .authorized = true, .configured = true, .events = out.items };
 }
 
 /// HTML de la sección de Google Calendar para la página de agenda.
@@ -133,4 +140,24 @@ pub fn sectionHtml(allocator: std.mem.Allocator, r: Resultado) ![]const u8 {
     }
     try buf.appendSlice("</tbody></table></div></section>");
     return buf.items;
+}
+
+test "sin client_id no se ofrece conectar Google" {
+    var db = try sqlite.Db.open(std.testing.allocator, ":memory:");
+    defer db.close();
+    const cfg = oauth.Config{ .client_id = "", .client_secret = "", .redirect_uri = "", .timeout_ms = 100 };
+    const r = try fetch(std.testing.allocator, &db, cfg, 1, 10);
+    try std.testing.expect(!r.configured);
+    try std.testing.expect(!r.authorized);
+}
+
+test "configurado sin token pide conectar en vez de fallar" {
+    var db = try sqlite.Db.open(std.testing.allocator, ":memory:");
+    defer db.close();
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const cfg = oauth.Config{ .client_id = "id", .client_secret = "secret", .redirect_uri = "http://127.0.0.1:3100/auth/google/callback", .timeout_ms = 100 };
+    const r = try fetch(arena.allocator(), &db, cfg, 1, 10);
+    try std.testing.expect(r.configured);
+    try std.testing.expect(!r.authorized);
 }

@@ -12,6 +12,7 @@ const google_calendar_mod = @import("google_calendar.zig");
 const google_workspace_mod = @import("google_workspace.zig");
 const busqueda_mod = @import("busqueda.zig");
 const oauth_google_mod = @import("oauth_google.zig");
+const flashcards = @import("flashcards.zig");
 
 pub fn handle(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, request: *const http.Request) !http.Response {
     if (!std.mem.eql(u8, request.path, "/mcp") and !std.mem.eql(u8, request.path, "/mcp/sse")) return jsonError(allocator, 404, "not_found");
@@ -113,6 +114,9 @@ fn toolDefinitions(allocator: std.mem.Allocator) !std.json.Value {
         .{ .name = "google_drive", .description = "List or search files in the user's Google Drive", .props = "max_results,query", .required = &.{} },
         .{ .name = "google_contacts", .description = "List contacts from the user's Google Contacts", .props = "max_results", .required = &.{} },
         .{ .name = "google_doc_read", .description = "Read the text of a Google Docs, Sheets or Slides file by file id", .props = "file_id", .required = &.{"file_id"} },
+        .{ .name = "flashcards_list", .description = "List study flashcards; due=true filters cards due today", .props = "due,subject", .required = &.{} },
+        .{ .name = "flashcard_create", .description = "Create a study flashcard with the SM-2 scheduler", .props = "front,back,subject", .required = &.{ "front", "back" } },
+        .{ .name = "flashcard_review", .description = "Review a flashcard; grade is again|hard|good|easy", .props = "id,grade", .required = &.{ "id", "grade" } },
     };
     var list = std.json.Array.init(allocator);
     for (definitions) |definition| {
@@ -331,6 +335,9 @@ fn callTool(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_
         };
         return googleDocTool(allocator, db, config, uid, file_id);
     }
+    if (std.mem.eql(u8, name, "flashcards_list")) return flashcardsList(allocator, db, args);
+    if (std.mem.eql(u8, name, "flashcard_create")) return flashcardCreate(allocator, db, args);
+    if (std.mem.eql(u8, name, "flashcard_review")) return flashcardReview(allocator, db, args);
     return error.MethodNotFound;
 }
 
@@ -570,6 +577,59 @@ fn calendarDelete(allocator: std.mem.Allocator, db: *sqlite.Db, id: i64) !std.js
         .{ .key = "deleted", .value = .{ .bool = true } },
         .{ .key = "id", .value = .{ .integer = id } },
     });
+}
+
+fn argI64(value: std.json.Value, key: []const u8) ?i64 {
+    const v = json.get(value, key) orelse return null;
+    return switch (v) {
+        .integer => |i| i,
+        .float => |f| @intFromFloat(f),
+        .string => |s| std.fmt.parseInt(i64, std.mem.trim(u8, s, " \t\r\n"), 10) catch null,
+        else => null,
+    };
+}
+
+fn flashcardsList(allocator: std.mem.Allocator, db: *sqlite.Db, args: std.json.Value) !std.json.Value {
+    const today = try todayKey(allocator);
+    var due_only = false;
+    if (json.get(args, "due")) |v| switch (v) {
+        .bool => |b| due_only = b,
+        .integer => |n| due_only = n != 0,
+        .string => |s| due_only = std.mem.eql(u8, s, "1") or std.ascii.eqlIgnoreCase(s, "true"),
+        else => {},
+    };
+    var subject: ?[]const u8 = null;
+    if (json.getString(args, "subject")) |s| {
+        if (s.len > 0) subject = s;
+    }
+    const cards = try flashcards.listCards(allocator, db, today, due_only, subject);
+    var arr = std.json.Array.init(allocator);
+    for (cards) |c| try arr.append(try flashcards.cardValue(allocator, c));
+    const s = try flashcards.stats(db, today);
+    return json.object(allocator, &.{
+        .{ .key = "count", .value = .{ .integer = @intCast(arr.items.len) } },
+        .{ .key = "total", .value = .{ .integer = s.total } },
+        .{ .key = "due", .value = .{ .integer = s.due } },
+        .{ .key = "cards", .value = .{ .array = arr } },
+    });
+}
+
+fn flashcardCreate(allocator: std.mem.Allocator, db: *sqlite.Db, args: std.json.Value) !std.json.Value {
+    const front = json.getString(args, "front") orelse return error.InvalidParams;
+    const back = json.getString(args, "back") orelse return error.InvalidParams;
+    const subject = json.getString(args, "subject") orelse "";
+    const today = try todayKey(allocator);
+    const id = try flashcards.createCard(allocator, db, front, back, subject, today);
+    const card = (try flashcards.getCard(allocator, db, id)) orelse return error.NotFound;
+    return flashcards.cardValue(allocator, card);
+}
+
+fn flashcardReview(allocator: std.mem.Allocator, db: *sqlite.Db, args: std.json.Value) !std.json.Value {
+    const id = argI64(args, "id") orelse return error.InvalidParams;
+    const grade = flashcards.parseGrade(args) orelse return error.InvalidParams;
+    const today = try todayKey(allocator);
+    const card = (try flashcards.reviewCard(allocator, db, id, grade, today)) orelse return error.NotFound;
+    return flashcards.cardValue(allocator, card);
 }
 
 /// Archivos de Drive o contactos de Contacts, con estado honesto.
@@ -949,10 +1009,10 @@ test "MCP exposes the protocol version and the full tool catalog" {
     defer arena.deinit();
     const allocator = arena.allocator();
     const tools = try toolDefinitions(allocator);
-    // 9 herramientas base + 6 de CyberHex + 14 de la plataforma (notas,
-    // Office, calendario, informe, Google Calendar y estado). Se comprueba
+    // 9 herramientas base + 6 de CyberHex + 17 de la plataforma (notas,
+    // Office, calendario, informe, Google y tarjetas de estudio). Se comprueba
     // que estén las familias para que un cambio no deje el catálogo a medias.
-    try std.testing.expectEqual(@as(usize, 33), tools.array.items.len);
+    try std.testing.expectEqual(@as(usize, 36), tools.array.items.len);
     var has_notes = false;
     var has_cyberhex = false;
     var has_office = false;
@@ -963,6 +1023,7 @@ test "MCP exposes the protocol version and the full tool catalog" {
     var has_contacts = false;
     var has_search_all = false;
     var has_doc_read = false;
+    var has_flashcards = false;
     for (tools.array.items) |tool| {
         const name = json.getString(tool, "name") orelse "";
         if (std.mem.eql(u8, name, "search_notes")) has_notes = true;
@@ -975,12 +1036,14 @@ test "MCP exposes the protocol version and the full tool catalog" {
         if (std.mem.eql(u8, name, "google_contacts")) has_contacts = true;
         if (std.mem.eql(u8, name, "search_all")) has_search_all = true;
         if (std.mem.eql(u8, name, "google_doc_read")) has_doc_read = true;
+        if (std.mem.eql(u8, name, "flashcard_create")) has_flashcards = true;
     }
     try std.testing.expect(has_notes);
     try std.testing.expect(has_cyberhex);
     try std.testing.expect(has_office);
     try std.testing.expect(has_calendar);
     try std.testing.expect(has_report);
+    try std.testing.expect(has_flashcards);
     const initialized = try dispatch(allocator, undefined, undefined, "initialize", try json.object(allocator, &.{}), null);
     try std.testing.expectEqualStrings("2025-03-26", json.getString(initialized, "protocolVersion").?);
 }

@@ -17,6 +17,9 @@ const google_calendar = @import("google_calendar.zig");
 const google_workspace = @import("google_workspace.zig");
 const panel = @import("panel.zig");
 const academico = @import("academico.zig");
+const calendar_view = @import("calendar_view.zig");
+const schedule_view = @import("schedule_view.zig");
+const flashcards = @import("flashcards.zig");
 const busqueda = @import("busqueda.zig");
 
 pub const App = struct {
@@ -100,16 +103,27 @@ pub const App = struct {
             return self.unifiedSearch(allocator, request, username, if (auth) |a| a.user_id else 0);
         }
         if (notes.handles(path)) return notes.handle(allocator, self.db, self.config, request, username);
+        if (flashcards.handles(path)) return flashcards.handle(allocator, self.db, request);
 
         if (std.mem.startsWith(u8, path, "/api/ai/") or std.mem.eql(u8, path, "/dashboard/material")) {
             return ai.handle(allocator, self.db, self.config, request, &self.active_streams);
         }
         if (std.mem.startsWith(u8, path, "/admin") or std.mem.startsWith(u8, path, "/api/admin/")) return self.admin(allocator, request, username);
         if (std.mem.startsWith(u8, path, "/office")) return self.office(allocator, request, username);
-        // El calendario mensual tiene vista propia: rejilla 7x6 con chips por
-        // dia, KPIs del mes y proximos eventos. No es un volcado JSON.
+        // Calendario completo: mes, semana y día con datos reales, anotaciones
+        // locales y Google Calendar en solo lectura.
         if (std.mem.eql(u8, path, "/dashboard/calendar") or std.mem.eql(u8, path, "/dashboard/calendar/")) {
-            return self.cleanPage(allocator, .calendar, path, username);
+            return self.calendarPage(allocator, request, path, username, .month, if (auth) |a| a.user_id else 0);
+        }
+        if (std.mem.eql(u8, path, "/dashboard/calendar/weekly") or std.mem.eql(u8, path, "/dashboard/calendar/week")) {
+            return self.calendarPage(allocator, request, path, username, .week, if (auth) |a| a.user_id else 0);
+        }
+        if (std.mem.eql(u8, path, "/dashboard/calendar/daily") or std.mem.eql(u8, path, "/dashboard/calendar/day")) {
+            return self.calendarPage(allocator, request, path, username, .day, if (auth) |a| a.user_id else 0);
+        }
+        // Tarjetas de estudio con repetición espaciada (solo local).
+        if (std.mem.eql(u8, path, "/dashboard/flashcards") or std.mem.startsWith(u8, path, "/dashboard/flashcards/")) {
+            return self.flashcardsPage(allocator, path, username);
         }
         if (std.mem.startsWith(u8, path, "/dashboard/")) return self.academic(allocator, request, username);
 
@@ -257,6 +271,19 @@ pub const App = struct {
             return redirect(allocator, "/login?google=failed", 302);
         };
 
+        // Con AUTH_DISABLED el espacio es siempre del usuario local 1. Si el
+        // token se guardara en otra cuenta, el calendario (que consulta como
+        // usuario 1) nunca vería los eventos de Google. Se vincula ahí y se
+        // conserva la sesión actual.
+        if (self.config.auth_disabled and self.userExists(1)) {
+            try self.saveGoogleToken(allocator, 1, identity);
+            const clear_admin = try oauth_google.clearStateCookie(allocator, requestSecure(request));
+            const headers = try allocator.alloc(http.Header, 2);
+            headers[0] = .{ .name = "Set-Cookie", .value = clear_admin };
+            headers[1] = .{ .name = "Location", .value = "/dashboard/calendar?google=linked" };
+            return .{ .status = 302, .content_type = "text/plain; charset=utf-8", .body = "", .headers = headers };
+        }
+
         const user_id = try self.upsertGoogleUser(allocator, identity);
         const token = try security.generateSessionToken(allocator);
         const hashed = try security.hashSessionToken(allocator, self.config.session_secret, token);
@@ -339,6 +366,15 @@ pub const App = struct {
         try stmt.bindText(2, identity.refresh_token);
         try stmt.bindText(3, identity.scope);
         _ = try stmt.next();
+    }
+
+    fn userExists(self: *App, id: i64) bool {
+        var stmt = self.db.prepare("SELECT 1 FROM users WHERE id=?1") catch return false;
+        defer stmt.deinit();
+        var buf: [32]u8 = undefined;
+        const text_id = std.fmt.bufPrint(&buf, "{d}", .{id}) catch return false;
+        stmt.bindText(1, text_id) catch return false;
+        return stmt.next() catch false;
     }
 
     /// access_token vigente del usuario: reutiliza el guardado o lo renueva.
@@ -604,10 +640,52 @@ pub const App = struct {
         return mcp_client.probeCached(allocator, mcp_client.slot_genoffice, self.config.genoffice_mcp_url, @min(self.config.mcp_timeout_ms, 800), false);
     }
 
+    fn calendarPage(self: *App, allocator: std.mem.Allocator, request: *const http.Request, path: []const u8, username: []const u8, view: calendar_view.View, user_id: i64) !http.Response {
+        const today = try panel.todayIso(allocator);
+        var cur = calendar_view.cursorFromIso(allocator, today);
+        if (try http.queryParam(allocator, request.query, "y")) |v| {
+            if (std.fmt.parseInt(i32, v, 10)) |y| cur.year = y else |_| {}
+        }
+        if (try http.queryParam(allocator, request.query, "m")) |v| {
+            if (std.fmt.parseInt(u32, v, 10)) |m| cur.month = m else |_| {}
+        }
+        if (try http.queryParam(allocator, request.query, "d")) |v| {
+            if (std.fmt.parseInt(u32, v, 10)) |day| cur.day = day else |_| {}
+        }
+        cur = calendar_view.clampCursor(cur);
+
+        const datos = panel.fetch(allocator, self.db, self.config.mikareno_mcp_url, self.config.mcp_timeout_ms) catch panel.Datos{};
+        const range = try calendar_view.rangeFor(allocator, view, cur);
+        const anots = calendar_view.loadAnnotations(allocator, self.db, range.from, range.to) catch &.{};
+        const gcfg = self.googleConfig() orelse oauth_google.Config{
+            .client_id = "",
+            .client_secret = "",
+            .redirect_uri = "",
+            .timeout_ms = self.config.oauth_timeout_ms,
+        };
+        const gres = google_calendar.fetch(allocator, self.db, gcfg, user_id, 100) catch google_calendar.Resultado{
+            .authorized = false,
+            .reason = "No se pudo consultar Google Calendar.",
+        };
+
+        const content = try calendar_view.render(allocator, datos, anots, gres, view, cur, today);
+        return .{ .status = 200, .content_type = "text/html; charset=utf-8", .body = try templates.renderShell(allocator, path, content, username, true, self.config.mikareno_mcp_url) };
+    }
+
+    fn flashcardsPage(self: *App, allocator: std.mem.Allocator, path: []const u8, username: []const u8) !http.Response {
+        const today = try panel.todayIso(allocator);
+        const content = try flashcards.renderPage(allocator, self.db, today);
+        return .{ .status = 200, .content_type = "text/html; charset=utf-8", .body = try templates.renderShell(allocator, path, content, username, true, self.config.mikareno_mcp_url) };
+    }
+
     fn calendarIcs(self: *App, allocator: std.mem.Allocator) !http.Response {
         const headers = try allocator.alloc(http.Header, 1);
         headers[0] = .{ .name = "Content-Disposition", .value = "attachment; filename=\"calendario.ics\"" };
-        return .{ .status = 200, .content_type = "text/calendar; charset=utf-8", .body = try notes.calendarIcs(allocator, self.db), .headers = headers };
+        const datos = panel.fetch(allocator, self.db, self.config.mikareno_mcp_url, self.config.mcp_timeout_ms) catch panel.Datos{};
+        const base = try notes.calendarIcs(allocator, self.db);
+        const extra = try calendar_view.academicEventsIcs(allocator, datos);
+        const body = try calendar_view.mergeIcs(allocator, base, extra);
+        return .{ .status = 200, .content_type = "text/calendar; charset=utf-8", .body = body, .headers = headers };
     }
 
     /// Vista académica real de una ruta, con su herramienta de Mikareno.
@@ -720,8 +798,30 @@ pub const App = struct {
             }));
         }
         if (std.mem.eql(u8, path, "/dashboard/subjects")) {
+            // "Actualizar datos" pide un refresco explícito: se marca la copia
+            // como vieja (sin borrarla) para forzar la llamada a Mikareno. Si
+            // esa llamada falla, la copia sigue sirviendo de respaldo.
+            if (try http.queryParam(allocator, request.query, "refresh")) |_| {
+                self.db.exec("UPDATE mikareno_cache SET fetched_at=0 WHERE id=1") catch {};
+            }
             const datos = panel.fetch(allocator, self.db, self.config.mikareno_mcp_url, self.config.mcp_timeout_ms) catch panel.Datos{};
             const body = try panel.gradesPageHtml(allocator, datos, self.config.mikareno_portal_url);
+            return .{ .status = 200, .content_type = "text/html; charset=utf-8", .body = try templates.renderShell(allocator, path, body, username, true, self.config.mikareno_mcp_url) };
+        }
+        // Horario: agenda de un día (clases + actividades, hora a hora).
+        // La rejilla semanal queda como vista alternativa (?view=week). Es una
+        // vista propia, separada del calendario; usa la misma caché que las notas.
+        if (std.mem.eql(u8, path, "/dashboard/horario")) {
+            const datos = panel.fetch(allocator, self.db, self.config.mikareno_mcp_url, self.config.mcp_timeout_ms) catch panel.Datos{};
+            const today = try panel.todayIso(allocator);
+            const view = try http.queryParam(allocator, request.query, "view");
+            const day_q = try http.queryParam(allocator, request.query, "d");
+            const iso = if (day_q) |v| (if (schedule_view.isValidDay(v)) v else today) else today;
+            const want_week = view != null and std.mem.eql(u8, view.?, "week");
+            const body = if (want_week)
+                try schedule_view.render(allocator, datos, today)
+            else
+                try schedule_view.renderAgenda(allocator, datos, iso, today);
             return .{ .status = 200, .content_type = "text/html; charset=utf-8", .body = try templates.renderShell(allocator, path, body, username, true, self.config.mikareno_mcp_url) };
         }
         // Google Calendar: eventos reales del usuario que entra con Google.

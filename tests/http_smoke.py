@@ -558,8 +558,14 @@ def run_external_integrations_smoke(binary: Path, workspace: Path, temp: Path):
         schedule = json.loads(body)
         assert status == 200 and schedule["connected"] is True
         assert schedule["schedule"]["horario"][0]["clase"] == "Matemáticas reales"
-        status, _, body = request(server.base, "/dashboard/horario", headers={"Accept": "text/html"})
+        status, _, body = request(server.base, "/dashboard/horario?view=week", headers={"Accept": "text/html"})
         assert status == 200 and "Matemáticas reales" in body.decode()
+        # Agenda del día: el mock trae una clase de lunes, así que se pide un lunes.
+        status, _, body = request(server.base, "/dashboard/horario?d=2026-11-23", headers={"Accept": "text/html"})
+        assert status == 200 and "Matemáticas reales" in body.decode()
+        # Un día sin datos lo dice, no inventa una agenda.
+        status, _, body = request(server.base, "/dashboard/horario?d=2026-11-25", headers={"Accept": "text/html"})
+        assert status == 200 and "Nada programado para este día" in body.decode()
 
         headers = {"X-API-Key": "smoke-mcp-key"}
         status, _, body = request(server.base, "/mcp", "POST", {

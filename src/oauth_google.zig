@@ -93,7 +93,7 @@ pub fn authorizationUrl(allocator: std.mem.Allocator, cfg: Config, state: []cons
     if (cfg.client_id.len == 0) return error.NotConfigured;
     return std.fmt.allocPrint(
         allocator,
-        "{s}?client_id={s}&redirect_uri={s}&response_type=code&scope={s}&state={s}&code_challenge={s}&code_challenge_method=S256&prompt=select_account",
+        "{s}?client_id={s}&redirect_uri={s}&response_type=code&scope={s}&state={s}&code_challenge={s}&code_challenge_method=S256&access_type=offline&prompt=consent",
         .{
             AUTH_ENDPOINT,
             try urlEncode(allocator, cfg.client_id),
@@ -396,6 +396,10 @@ test "la URL de Google lleva todo lo obligatorio" {
     try std.testing.expect(std.mem.startsWith(u8, url, "https://accounts.google.com/o/oauth2/v2/auth?"));
     try std.testing.expect(std.mem.indexOf(u8, url, "code_challenge_method=S256") != null);
     try std.testing.expect(std.mem.indexOf(u8, url, "scope=openid%20email%20profile") != null);
+    // Sin esto Google no entrega refresh_token y el calendario se quedaría
+    // sin actualizar en cuanto caduca el access_token.
+    try std.testing.expect(std.mem.indexOf(u8, url, "access_type=offline") != null);
+    try std.testing.expect(std.mem.indexOf(u8, url, "prompt=consent") != null);
     // El redirect_uri va escapado: los dos puntos y las barras no se dejan crudos.
     try std.testing.expect(std.mem.indexOf(u8, url, "http%3A%2F%2F127.0.0.1%3A8090") != null);
 }

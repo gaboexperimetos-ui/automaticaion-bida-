@@ -19,5 +19,8 @@ test {
     _ = @import("oauth_google.zig");
     _ = @import("google_calendar.zig");
     _ = @import("google_workspace.zig");
+    _ = @import("calendar_view.zig");
+    _ = @import("schedule_view.zig");
+    _ = @import("flashcards.zig");
     _ = @import("busqueda.zig");
 }

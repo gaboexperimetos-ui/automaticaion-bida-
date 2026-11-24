@@ -40,7 +40,9 @@ pub fn fillPage(allocator: std.mem.Allocator, page: TemplatePage, source: []cons
     // viene de una llamada real: si Mikareno fallo, no se finge conexion.
     const status_on = "<span class=\"nx-status-dot is-on\" aria-hidden=\"true\"></span>";
     const status_off = "<span class=\"nx-status-dot is-off\" aria-hidden=\"true\"></span>";
-    const mikareno_status_html = if (datos.connected)
+    const mikareno_status_html = if (datos.from_cache)
+        try std.fmt.allocPrint(allocator, "{s}Datos guardados", .{status_on})
+    else if (datos.connected)
         try std.fmt.allocPrint(allocator, "{s}Conectado", .{status_on})
     else
         try std.fmt.allocPrint(allocator, "{s}Sin conexión", .{status_off});
@@ -49,7 +51,7 @@ pub fn fillPage(allocator: std.mem.Allocator, page: TemplatePage, source: []cons
     else
         try std.fmt.allocPrint(allocator, "{s}Sin conexión", .{status_off});
     const servers_line = try std.fmt.allocPrint(allocator, "Mikareno: {s} · GenOffice: {s}", .{
-        if (datos.connected) "conectado" else "sin conexión",
+        if (datos.from_cache) "datos guardados" else if (datos.connected) "conectado" else "sin conexión",
         if (datos.genoffice_connected) "conectado" else "sin conexión",
     });
     var tools_buf = std.ArrayList(u8).init(allocator);
@@ -349,6 +351,7 @@ fn primaryPath(route: []const u8) []const u8 {
     if (std.mem.startsWith(u8, route, "/dashboard/ai") or std.mem.eql(u8, route, "/ai")) return "asistente-academico";
     if (std.mem.startsWith(u8, route, "/dashboard/material")) return "generador-de-material";
     if (std.mem.startsWith(u8, route, "/dashboard/notes") or std.mem.startsWith(u8, route, "/app/notes")) return "segundo-cerebro";
+    if (std.mem.startsWith(u8, route, "/dashboard/flashcards")) return "tarjetas";
     if (std.mem.startsWith(u8, route, "/dashboard/search")) return "busqueda-global";
     if (std.mem.startsWith(u8, route, "/office/docs")) return "documentos";
     if (std.mem.startsWith(u8, route, "/office/sheets")) return "hojas-de-calculo";
@@ -379,6 +382,7 @@ fn routeForPath(data_path: []const u8) []const u8 {
         .{ .key = "generador-de-material", .route = "/dashboard/material" },
         .{ .key = "mis-notas", .route = "/dashboard/notes" },
         .{ .key = "segundo-cerebro", .route = "/dashboard/notes" },
+        .{ .key = "tarjetas", .route = "/dashboard/flashcards" },
         .{ .key = "busqueda-global", .route = "/dashboard/search" },
         .{ .key = "documentos", .route = "/office/docs" },
         .{ .key = "hojas-de-calculo", .route = "/office/sheets" },

@@ -54,6 +54,13 @@ pub const Clase = struct { dia: []const u8, etiqueta: []const u8 };
 pub const Datos = struct {
     connected: bool = false,
     timeout: bool = false,
+    /// La respuesta académica viene de la copia guardada, no de una llamada
+    /// en vivo.
+    from_cache: bool = false,
+    /// La llamada en vivo falló: además de usar la copia, no hay conexión.
+    offline: bool = false,
+    cache_age_seconds: ?i64 = null,
+    cache_fetched_at: ?i64 = null,
     eventos: []Evento = &.{},
     tareas: []Tarea = &.{},
     notas: []Nota = &.{},
@@ -94,10 +101,18 @@ pub fn aiModel(allocator: std.mem.Allocator, db: anytype, fallback: []const u8) 
     return allocator.dupe(u8, fallback) catch "";
 }
 
-/// Lee Mikareno una vez (`get_student_full`) y los contadores locales.
+/// Cada cuánto se vuelve a consultar Mikareno. Entre medias se sirve la
+/// copia guardada, así que sin wifi las notas siguen apareciendo.
+pub const CACHE_TTL_SECONDS: i64 = 5 * 60 * 60;
+
+const CachedFull = struct { payload: []const u8, fetched_at: i64 };
+
+/// Lee Mikareno (`get_student_full`) y los contadores locales.
 ///
-/// Si la llamada falla o se agota el tiempo, devuelve `Datos` con
-/// `connected = false`: el llamador lo refleja en el aviso único.
+/// * Si hay copia guardada reciente (< 5 h), se usa sin llamar a Mikareno.
+/// * Si la llamada falla (sin wifi), se usa la última copia disponible y se
+///   marca `from_cache`: el llamador avisa, pero las notas no desaparecen.
+/// * Si Mikareno responde con datos, se guarda la copia.
 pub fn fetch(
     allocator: std.mem.Allocator,
     db: anytype,
@@ -114,6 +129,16 @@ pub fn fetch(
 
     if (mikareno_url.len == 0) return d;
 
+    const now = std.time.timestamp();
+    const cached = loadCache(allocator, db);
+
+    if (cached) |c| {
+        const age = now - c.fetched_at;
+        if (age >= 0 and age < CACHE_TTL_SECONDS) {
+            if (applyCached(allocator, &d, c, now)) return d;
+        }
+    }
+
     const full = mcp_client.callTool(
         allocator,
         mikareno_url,
@@ -122,10 +147,35 @@ pub fn fetch(
         try json.object(allocator, &.{.{ .key = "bg", .value = .{ .bool = true } }}),
         true,
     ) catch |err| {
+        if (cached) |c| {
+            if (applyCached(allocator, &d, c, now)) {
+                d.offline = true;
+                d.timeout = err == error.RemoteRpcError or err == error.ToolFailed;
+                return d;
+            }
+        }
+        d.offline = true;
         d.timeout = err == error.RemoteRpcError or err == error.ToolFailed;
         return d;
     };
 
+    applyFull(allocator, &d, full) catch {};
+    const useful = d.grades.len > 0 or d.horario.len > 0 or d.eventos.len > 0 or d.tareas.len > 0;
+    if (useful) {
+        saveCache(allocator, db, full, now);
+        return d;
+    }
+
+    // Mikareno respondió pero aún está refrescando (lista vacía): mejor la
+    // última copia que una pantalla vacía.
+    if (cached) |c| {
+        if (applyCached(allocator, &d, c, now)) return d;
+    }
+    return d;
+}
+
+/// Convierte el JSON de `get_student_full` en `Datos` académicos.
+fn applyFull(allocator: std.mem.Allocator, d: *Datos, full: json.Value) !void {
     d.connected = true;
     const tarea_stats = parseTareaStats(full);
     d.tasks_today = tarea_stats.hoy;
@@ -151,7 +201,44 @@ pub fn fetch(
     d.eventos = parseEventos(allocator, full);
     d.tareas = parseTareas(allocator, full);
     d.horario = parseHorario(allocator, full);
-    return d;
+}
+
+fn loadCache(allocator: std.mem.Allocator, db: anytype) ?CachedFull {
+    var stmt = db.prepare("SELECT payload,fetched_at FROM mikareno_cache WHERE id=1") catch return null;
+    defer stmt.deinit();
+    if (!(stmt.next() catch false)) return null;
+    const payload = allocator.dupe(u8, stmt.text(0)) catch return null;
+    return .{ .payload = payload, .fetched_at = stmt.int64(1) };
+}
+
+fn saveCache(allocator: std.mem.Allocator, db: anytype, full: json.Value, now: i64) void {
+    const payload = json.stringify(allocator, full) catch return;
+    if (payload.len == 0) return;
+    var stmt = db.prepare(
+        "INSERT INTO mikareno_cache(id,payload,fetched_at) VALUES(1,?1,?2) " ++
+            "ON CONFLICT(id) DO UPDATE SET payload=excluded.payload,fetched_at=excluded.fetched_at",
+    ) catch return;
+    defer stmt.deinit();
+    stmt.bindText(1, payload) catch return;
+    stmt.bindInt(2, now) catch return;
+    _ = stmt.next() catch return;
+}
+
+fn applyCached(allocator: std.mem.Allocator, d: *Datos, c: CachedFull, now: i64) bool {
+    const full = json.parse(allocator, c.payload) catch return false;
+    applyFull(allocator, d, full) catch return false;
+    d.from_cache = true;
+    d.cache_age_seconds = @max(0, now - c.fetched_at);
+    d.cache_fetched_at = c.fetched_at;
+    return true;
+}
+
+/// "hace 2 h", "hace 15 min" o "hace un momento".
+pub fn cacheAgeText(allocator: std.mem.Allocator, seconds: i64) ![]const u8 {
+    if (seconds < 60) return allocator.dupe(u8, "hace un momento");
+    if (seconds < 3600) return std.fmt.allocPrint(allocator, "hace {d} min", .{@divFloor(seconds, 60)});
+    if (seconds < 86400) return std.fmt.allocPrint(allocator, "hace {d} h", .{@divFloor(seconds, 3600)});
+    return std.fmt.allocPrint(allocator, "hace {d} días", .{@divFloor(seconds, 86400)});
 }
 
 /// Apuntes creados en cada una de las últimas 8 semanas (la última es la
@@ -251,10 +338,54 @@ fn parseTareaStats(full: json.Value) struct { hoy: u32, semana: u32 } {
 }
 
 /// `horario.periodMap` → clases planas por día de la semana.
+fn diaKey(allocator: std.mem.Allocator, raw: []const u8) ?[]const u8 {
+    var lower = allocator.alloc(u8, raw.len) catch return null;
+    for (raw, 0..) |ch, i| lower[i] = std.ascii.toLower(ch);
+    const pares = [_]struct { en: []const u8, es: []const u8 }{
+        .{ .en = "monday", .es = "lunes" },
+        .{ .en = "tuesday", .es = "martes" },
+        .{ .en = "wednesday", .es = "miercoles" },
+        .{ .en = "thursday", .es = "jueves" },
+        .{ .en = "friday", .es = "viernes" },
+        .{ .en = "saturday", .es = "sabado" },
+        .{ .en = "sunday", .es = "domingo" },
+    };
+    for (pares) |p| {
+        if (std.mem.eql(u8, lower, p.en)) return p.es;
+    }
+    return lower;
+}
+
+fn parseHorarioArray(allocator: std.mem.Allocator, horario: json.Value) []Clase {
+    if (horario != .array) return &.{};
+    var out = std.ArrayList(Clase).init(allocator);
+    for (horario.array.items) |slot| {
+        const clase = json.getString(slot, "clase") orelse continue;
+        if (clase.len == 0) continue;
+        const hora = json.getString(slot, "hora") orelse "";
+        const codigo = json.getString(slot, "codigo") orelse "";
+        const dia_raw = json.getString(slot, "dia") orelse continue;
+        const dia = diaKey(allocator, dia_raw) orelse continue;
+        const sufijo = if (codigo.len > 0)
+            std.fmt.allocPrint(allocator, " [{s}]", .{codigo}) catch ""
+        else
+            "";
+        // Sin hora se conserva la clase (se lista aparte); no se inventa una.
+        const etiqueta = if (hora.len > 0)
+            std.fmt.allocPrint(allocator, "{s} — {s}{s}", .{ hora, clase, sufijo }) catch continue
+        else
+            std.fmt.allocPrint(allocator, "{s}{s}", .{ clase, sufijo }) catch continue;
+        out.append(.{ .dia = dia, .etiqueta = etiqueta }) catch {};
+    }
+    return out.items;
+}
+
 fn parseHorario(allocator: std.mem.Allocator, full: json.Value) []Clase {
     const horario = json.get(full, "horario") orelse return &.{};
+    // Formato real de Mikareno: { periodMap: { MONDAY: [...] } }.
+    // Formato legado/tests: [{ dia, hora, clase, codigo }].
+    if (json.get(horario, "periodMap") == null) return parseHorarioArray(allocator, horario);
     const map = json.get(horario, "periodMap") orelse return &.{};
-    if (map != .object) return &.{};
     var out = std.ArrayList(Clase).init(allocator);
     const dias = [_]struct { key: []const u8, es: []const u8 }{
         .{ .key = "MONDAY", .es = "lunes" },
@@ -364,8 +495,17 @@ pub fn trimester(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
     return allocator.dupe(u8, "—");
 }
 
-/// Aviso único de conexión: solo aparece si Mikareno no responde.
+/// Aviso único de conexión: solo aparece si Mikareno no responde o si se
+/// están mostrando datos guardados.
 pub fn syncBanner(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
+    if (d.offline) {
+        const age = try cacheAgeText(allocator, d.cache_age_seconds orelse 0);
+        return std.fmt.allocPrint(
+            allocator,
+            "<div class=\"nx-sync-banner is-cached\" role=\"status\"><span class=\"material-symbols-outlined\">cloud_off</span><p>Sin conexión con Mikareno. Mostrando los últimos datos guardados {s}.</p><a href=\"/dashboard/mcp\">Revisar conexión<span class=\"material-symbols-outlined\">arrow_forward</span></a></div>",
+            .{age},
+        );
+    }
     if (d.connected and !d.timeout) return "";
     const msg = if (d.timeout)
         "Mikareno esta tardando en responder. Las tareas y notas pueden aparecer incompletas."
@@ -379,6 +519,10 @@ pub fn syncBanner(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
 }
 
 pub fn syncLabel(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
+    if (d.from_cache) {
+        const age = try cacheAgeText(allocator, d.cache_age_seconds orelse 0);
+        return std.fmt.allocPrint(allocator, "Mikareno: datos guardados {s}", .{age});
+    }
     if (d.connected) return allocator.dupe(u8, "Mikareno: sincronizado ahora");
     if (d.timeout) return allocator.dupe(u8, "Mikareno: no responde ahora");
     return allocator.dupe(u8, "Mikareno: sin conexion");
@@ -1725,7 +1869,7 @@ pub fn gradesPageHtml(allocator: std.mem.Allocator, d: Datos, portal_url: []cons
             "<header class=\"nx-page-header nova-page-head\"><div><p class=\"nx-eyebrow\">Aprendizaje · Notas</p><h1>Tu progreso,<br>materia por materia.</h1><p>{s}</p></div>" ++
             "<div class=\"nx-button-row\">" ++
             "{s}{s}" ++
-            "<a class=\"nx-button nx-button-secondary\" href=\"/dashboard/subjects\"><span class=\"material-symbols-outlined\">refresh</span>Actualizar datos</a>" ++
+            "<a class=\"nx-button nx-button-secondary\" href=\"/dashboard/subjects?refresh=1\"><span class=\"material-symbols-outlined\">refresh</span>Actualizar datos</a>" ++
             "</div></header>" ++
             "{s}{s}" ++
             "<section class=\"nx-collection nova-subjects-collection\"><div class=\"nx-section-head\"><div><p class=\"nx-eyebrow\">{s}</p><h2>Progreso por asignatura</h2></div><p class=\"nx-modo-note\" data-modo-note aria-live=\"polite\">Ordenado por la nota del colegio (lo pendiente y el examen sin subir cuentan como 0).</p></div>{s}</section>" ++
@@ -2617,4 +2761,57 @@ test "la vista de notas trae el interruptor de perspectiva" {
     try std.testing.expect(std.mem.indexOf(u8, html, "data-modo-toggle") != null);
     try std.testing.expect(std.mem.indexOf(u8, html, "Solo lo calificado") != null);
     try std.testing.expect(std.mem.indexOf(u8, html, "data-modo-note") != null);
+}
+
+test "la copia de Mikareno se guarda, se lee y marca la antigüedad" {
+    var db = try sqlite.Db.open(std.testing.allocator, ":memory:");
+    defer db.close();
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+
+    const payload = try json.parse(a, "{\"promedios\":{\"stats\":[{\"materia\":\"Matemática\",\"nota\":9.5,\"trimestre\":3}]}}");
+    saveCache(a, &db, payload, 1000);
+
+    const cached = loadCache(a, &db) orelse return error.TestUnexpectedResult;
+    try std.testing.expectEqual(@as(i64, 1000), cached.fetched_at);
+
+    var d = Datos{};
+    try std.testing.expect(applyCached(a, &d, cached, 1000 + 3600));
+    try std.testing.expect(d.from_cache);
+    try std.testing.expectEqual(@as(?i64, 3600), d.cache_age_seconds);
+    try std.testing.expectEqual(@as(usize, 1), d.notas.len);
+}
+
+test "la copia caduca a las 5 horas" {
+    try std.testing.expectEqual(@as(i64, 18000), CACHE_TTL_SECONDS);
+}
+
+test "cacheAgeText formatea minutos, horas y dias" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    try std.testing.expectEqualStrings("hace un momento", try cacheAgeText(a, 30));
+    try std.testing.expectEqualStrings("hace 15 min", try cacheAgeText(a, 900));
+    try std.testing.expectEqualStrings("hace 2 h", try cacheAgeText(a, 7200));
+    try std.testing.expectEqualStrings("hace 3 días", try cacheAgeText(a, 3 * 86400));
+}
+
+test "sin conexión devuelve la última copia guardada" {
+    var db = try sqlite.Db.open(std.testing.allocator, ":memory:");
+    defer db.close();
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+
+    const payload = try json.parse(a, "{\"promedios\":{\"stats\":[{\"materia\":\"Historia\",\"nota\":8.0,\"trimestre\":3}]}}");
+    const now = std.time.timestamp();
+    saveCache(a, &db, payload, now - CACHE_TTL_SECONDS - 10);
+
+    const d = try fetch(a, &db, "http://127.0.0.1:1", 300);
+    try std.testing.expect(d.from_cache);
+    try std.testing.expect(d.offline);
+    try std.testing.expect(d.connected);
+    try std.testing.expectEqual(@as(usize, 1), d.notas.len);
+    try std.testing.expect((d.cache_age_seconds orelse 0) >= CACHE_TTL_SECONDS);
 }
