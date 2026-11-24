@@ -342,6 +342,7 @@ fn primaryPath(route: []const u8) []const u8 {
     if (std.mem.startsWith(u8, route, "/dashboard/examenes")) return "examenes";
     if (std.mem.startsWith(u8, route, "/dashboard/vida-escolar")) return "vida-escolar";
     if (std.mem.startsWith(u8, route, "/dashboard/google-calendar")) return "google-calendar";
+    if (std.mem.startsWith(u8, route, "/dashboard/google")) return "google-workspace";
     if (std.mem.startsWith(u8, route, "/dashboard/mensajes")) return "mensajes";
     if (std.mem.startsWith(u8, route, "/dashboard/perfil") or std.mem.startsWith(u8, route, "/dashboard/profile")) return "perfil";
     if (std.mem.startsWith(u8, route, "/dashboard/horario")) return "horarios";
@@ -369,6 +370,7 @@ fn routeForPath(data_path: []const u8) []const u8 {
         .{ .key = "examenes", .route = "/dashboard/examenes" },
         .{ .key = "vida-escolar", .route = "/dashboard/vida-escolar" },
         .{ .key = "google-calendar", .route = "/dashboard/google-calendar" },
+        .{ .key = "google-workspace", .route = "/dashboard/google" },
         .{ .key = "mensajes", .route = "/dashboard/mensajes" },
         .{ .key = "perfil", .route = "/dashboard/perfil" },
         .{ .key = "horarios", .route = "/dashboard/horario" },

@@ -107,7 +107,10 @@ pub fn authorizationUrl(allocator: std.mem.Allocator, cfg: Config, state: []cons
 
 /// Scopes pedidos: identidad + lectura de Google Calendar.
 /// `access_type=offline` y `prompt=consent` fuerzan el refresh_token.
-pub const SCOPES = "openid email profile https://www.googleapis.com/auth/calendar.readonly";
+pub const SCOPES = "openid email profile " ++
+    "https://www.googleapis.com/auth/calendar.readonly " ++
+    "https://www.googleapis.com/auth/drive.readonly " ++
+    "https://www.googleapis.com/auth/contacts.readonly";
 
 fn postForm(allocator: std.mem.Allocator, url: []const u8, body: []const u8, timeout_ms: u64) Error![]const u8 {
     var client = std_http.Client{ .allocator = allocator };
@@ -136,6 +139,12 @@ fn postForm(allocator: std.mem.Allocator, url: []const u8, body: []const u8, tim
     request.reader().readAllArrayList(&out, 1024 * 1024) catch return error.BadResponse;
     if (status < 200 or status >= 300) return error.HttpError;
     return out.items;
+}
+
+/// GET autenticado con Bearer contra una API de Google. Pública para que
+/// otros módulos (Drive, Contacts) la reutilicen.
+pub fn getJsonPublic(allocator: std.mem.Allocator, url: []const u8, token: []const u8, timeout_ms: u64) Error!std.json.Value {
+    return getJson(allocator, url, token, timeout_ms);
 }
 
 fn getJson(allocator: std.mem.Allocator, url: []const u8, token: []const u8, timeout_ms: u64) Error!std.json.Value {

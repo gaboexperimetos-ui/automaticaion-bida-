@@ -14,6 +14,7 @@ const mcp_client = @import("mcp_client.zig");
 const office_mod = @import("office.zig");
 const oauth_google = @import("oauth_google.zig");
 const google_calendar = @import("google_calendar.zig");
+const google_workspace = @import("google_workspace.zig");
 const panel = @import("panel.zig");
 const academico = @import("academico.zig");
 
@@ -620,6 +621,31 @@ pub const App = struct {
         };
     }
 
+    /// Página de Google Workspace: archivos de Drive y contactos de Contacts.
+    fn googleWorkspacePage(self: *App, allocator: std.mem.Allocator, path: []const u8, auth: Auth) !http.Response {
+        var body = std.ArrayList(u8).init(allocator);
+        body.appendSlice("<div class=\"nx-page nova-page\">") catch {};
+        body.appendSlice("<header class=\"nx-page-header nova-page-head\"><div><p class=\"nx-eyebrow\">Google</p><h1>Tu Google</h1><p>Archivos de Drive y contactos, leídos con permiso de solo lectura.</p></div><div class=\"nx-button-row\"><a class=\"nx-button nx-button-secondary\" href=\"/dashboard/google-calendar\"><span class=\"material-symbols-outlined\">calendar_month</span>Calendario</a></div></header>") catch {};
+        const cfg = self.googleConfig() orelse oauth_google.Config{
+            .client_id = "",
+            .client_secret = "",
+            .redirect_uri = "",
+            .timeout_ms = self.config.oauth_timeout_ms,
+        };
+        const drive = google_workspace.driveFiles(allocator, self.db, cfg, auth.user_id, 50) catch google_workspace.DriveResult{
+            .authorized = false,
+            .reason = "No se pudo consultar Google Drive.",
+        };
+        const contacts = google_workspace.contacts(allocator, self.db, cfg, auth.user_id, 100) catch google_workspace.ContactsResult{
+            .authorized = false,
+            .reason = "No se pudo consultar Google Contacts.",
+        };
+        body.appendSlice(try google_workspace.driveSectionHtml(allocator, drive)) catch {};
+        body.appendSlice(try google_workspace.contactsSectionHtml(allocator, contacts)) catch {};
+        body.appendSlice("</div>") catch {};
+        return .{ .status = 200, .content_type = "text/html; charset=utf-8", .body = try templates.renderShell(allocator, path, body.items, auth.username, true, self.config.mikareno_mcp_url) };
+    }
+
     /// Página de Google Calendar: eventos reales del usuario, o estado vacío
     /// honesto si no ha autorizado el permiso de calendario.
     fn googleCalendarPage(self: *App, allocator: std.mem.Allocator, path: []const u8, auth: Auth) !http.Response {
@@ -666,6 +692,13 @@ pub const App = struct {
         if (std.mem.eql(u8, path, "/dashboard/google-calendar")) {
             if (try self.authFor(request, allocator)) |auth| {
                 return self.googleCalendarPage(allocator, path, auth);
+            }
+            return redirect(allocator, "/login", 302);
+        }
+        // Navegador de Google: Drive + Contacts, solo lectura.
+        if (std.mem.eql(u8, path, "/dashboard/google")) {
+            if (try self.authFor(request, allocator)) |auth| {
+                return self.googleWorkspacePage(allocator, path, auth);
             }
             return redirect(allocator, "/login", 302);
         }

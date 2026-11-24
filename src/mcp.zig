@@ -9,6 +9,7 @@ const mcp_client = @import("mcp_client.zig");
 const cyberhex_mod = @import("cyberhex.zig");
 const office_mod = @import("office.zig");
 const google_calendar_mod = @import("google_calendar.zig");
+const google_workspace_mod = @import("google_workspace.zig");
 const oauth_google_mod = @import("oauth_google.zig");
 
 pub fn handle(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, request: *const http.Request) !http.Response {
@@ -107,6 +108,8 @@ fn toolDefinitions(allocator: std.mem.Allocator) !std.json.Value {
         .{ .name = "app_status", .description = "Platform status and configuration summary", .props = "", .required = &.{} },
         .{ .name = "student_report", .description = "Build the student report (Markdown) from real Mikareno + local notes data", .props = "format", .required = &.{} },
         .{ .name = "google_calendar", .description = "List upcoming events from the user's Google Calendar", .props = "max_results", .required = &.{} },
+        .{ .name = "google_drive", .description = "List recent files from the user's Google Drive", .props = "max_results", .required = &.{} },
+        .{ .name = "google_contacts", .description = "List contacts from the user's Google Contacts", .props = "max_results", .required = &.{} },
     };
     var list = std.json.Array.init(allocator);
     for (definitions) |definition| {
@@ -278,6 +281,20 @@ fn callTool(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_
             break :blk 50;
         } else 50;
         return googleCalendarTool(allocator, db, config, uid, max_results);
+    }
+    if (std.mem.eql(u8, name, "google_drive") or std.mem.eql(u8, name, "google_contacts")) {
+        const uid: i64 = blk: {
+            var stmt = db.prepare("SELECT id FROM users ORDER BY id LIMIT 1") catch break :blk 0;
+            defer stmt.deinit();
+            if (try stmt.next()) break :blk stmt.int64(0);
+            break :blk 0;
+        };
+        const max_results: usize = if (json.get(args, "max_results")) |v| blk: {
+            if (v == .integer and v.integer > 0 and v.integer <= 250) break :blk @intCast(v.integer);
+            break :blk 50;
+        } else 50;
+        const is_drive = std.mem.eql(u8, name, "google_drive");
+        return googleWorkspaceTool(allocator, db, config, uid, max_results, is_drive);
     }
     return error.MethodNotFound;
 }
@@ -517,6 +534,62 @@ fn calendarDelete(allocator: std.mem.Allocator, db: *sqlite.Db, id: i64) !std.js
     return json.object(allocator, &.{
         .{ .key = "deleted", .value = .{ .bool = true } },
         .{ .key = "id", .value = .{ .integer = id } },
+    });
+}
+
+/// Archivos de Drive o contactos de Contacts, con estado honesto.
+fn googleWorkspaceTool(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, user_id: i64, max_results: usize, is_drive: bool) !std.json.Value {
+    const cfg = oauth_google_mod.Config{
+        .client_id = config.google_client_id,
+        .client_secret = config.google_client_secret,
+        .redirect_uri = config.google_redirect_uri,
+        .timeout_ms = config.oauth_timeout_ms,
+    };
+    if (is_drive) {
+        const result = google_workspace_mod.driveFiles(allocator, db, cfg, user_id, max_results) catch {
+            return json.object(allocator, &.{
+                .{ .key = "authorized", .value = .{ .bool = false } },
+                .{ .key = "files", .value = try json.array(allocator, &.{}) },
+                .{ .key = "reason", .value = .{ .string = "No se pudo consultar Google Drive." } },
+            });
+        };
+        var list = std.json.Array.init(allocator);
+        for (result.files) |f| {
+            try list.append(try json.object(allocator, &.{
+                .{ .key = "id", .value = .{ .string = f.id } },
+                .{ .key = "name", .value = .{ .string = f.name } },
+                .{ .key = "mime", .value = .{ .string = f.mime } },
+                .{ .key = "modified", .value = .{ .string = f.modified } },
+                .{ .key = "link", .value = .{ .string = f.link } },
+            }));
+        }
+        return json.object(allocator, &.{
+            .{ .key = "authorized", .value = .{ .bool = result.authorized } },
+            .{ .key = "count", .value = .{ .integer = @intCast(list.items.len) } },
+            .{ .key = "files", .value = .{ .array = list } },
+            .{ .key = "reason", .value = .{ .string = result.reason } },
+        });
+    }
+    const result = google_workspace_mod.contacts(allocator, db, cfg, user_id, max_results) catch {
+        return json.object(allocator, &.{
+            .{ .key = "authorized", .value = .{ .bool = false } },
+            .{ .key = "contacts", .value = try json.array(allocator, &.{}) },
+            .{ .key = "reason", .value = .{ .string = "No se pudo consultar Google Contacts." } },
+        });
+    };
+    var list = std.json.Array.init(allocator);
+    for (result.contacts) |c| {
+        try list.append(try json.object(allocator, &.{
+            .{ .key = "name", .value = .{ .string = c.name } },
+            .{ .key = "email", .value = .{ .string = c.email } },
+            .{ .key = "phone", .value = .{ .string = c.phone } },
+        }));
+    }
+    return json.object(allocator, &.{
+        .{ .key = "authorized", .value = .{ .bool = result.authorized } },
+        .{ .key = "count", .value = .{ .integer = @intCast(list.items.len) } },
+        .{ .key = "contacts", .value = .{ .array = list } },
+        .{ .key = "reason", .value = .{ .string = result.reason } },
     });
 }
 
@@ -803,13 +876,15 @@ test "MCP exposes the protocol version and the full tool catalog" {
     // 9 herramientas base + 6 de CyberHex + 14 de la plataforma (notas,
     // Office, calendario, informe, Google Calendar y estado). Se comprueba
     // que estén las familias para que un cambio no deje el catálogo a medias.
-    try std.testing.expectEqual(@as(usize, 29), tools.array.items.len);
+    try std.testing.expectEqual(@as(usize, 31), tools.array.items.len);
     var has_notes = false;
     var has_cyberhex = false;
     var has_office = false;
     var has_calendar = false;
     var has_report = false;
     var has_gcal = false;
+    var has_drive = false;
+    var has_contacts = false;
     for (tools.array.items) |tool| {
         const name = json.getString(tool, "name") orelse "";
         if (std.mem.eql(u8, name, "search_notes")) has_notes = true;
@@ -818,6 +893,8 @@ test "MCP exposes the protocol version and the full tool catalog" {
         if (std.mem.eql(u8, name, "calendar_add")) has_calendar = true;
         if (std.mem.eql(u8, name, "student_report")) has_report = true;
         if (std.mem.eql(u8, name, "google_calendar")) has_gcal = true;
+        if (std.mem.eql(u8, name, "google_drive")) has_drive = true;
+        if (std.mem.eql(u8, name, "google_contacts")) has_contacts = true;
     }
     try std.testing.expect(has_notes);
     try std.testing.expect(has_cyberhex);

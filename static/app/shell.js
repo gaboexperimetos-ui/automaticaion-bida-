@@ -2356,11 +2356,6 @@
    *  TEMAS: selector persistente (paletas portadas de Cortex)
    * ================================================================= */
   var THEMES = [
-    { id: "cyberhex-neon", label: "CyberHex Neon", bg: "#0F0F23", accent: "#22C55E" },
-    { id: "cyberhex-amoled", label: "CyberHex AMOLED", bg: "#000000", accent: "#22C55E" },
-    { id: "cyberhex-light", label: "CyberHex Claro", bg: "#F7F7FB", accent: "#0E9F6E" },
-    { id: "cyberhex-materialYou", label: "CyberHex Material You", bg: "#14121A", accent: "#D0BCFF" },
-    { id: "cyberhex-cyberpunk", label: "CyberHex Cyberpunk", bg: "#0B0713", accent: "#F472B6" },
     { id: "nebula", label: "Nébula", bg: "#14101C", accent: "#A88AF5" },
     { id: "osaka-jade", label: "Osaka Jade", bg: "#0E1813", accent: "#2DD5B7" },
     { id: "tokyo-night", label: "Tokyo Night", bg: "#1A1B26", accent: "#7AA2F7" },
@@ -2461,7 +2456,7 @@
     head.appendChild(ic);
     head.appendChild(titles);
     card.appendChild(head);
-    card.appendChild(el("p", "nx-settings-status", "Cambia la paleta del dashboard. Se guarda en este navegador; 5 temas CyberHex + 10 paletas Cortex + Nébula."));
+    card.appendChild(el("p", "nx-settings-status", "Cambia la paleta del dashboard. Se guarda en este navegador; 10 paletas Cortex + Nébula."));
     var grid = el("div", "nova-theme-grid");
     for (var i = 0; i < THEMES.length; i++) { grid.appendChild(themeSwatch(THEMES[i], false)); }
     card.appendChild(grid);
