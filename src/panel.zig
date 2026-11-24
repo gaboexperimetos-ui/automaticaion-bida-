@@ -506,6 +506,14 @@ pub fn syncBanner(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
             .{age},
         );
     }
+    if (d.from_cache) {
+        const age = try cacheAgeText(allocator, d.cache_age_seconds orelse 0);
+        return std.fmt.allocPrint(
+            allocator,
+            "<div class=\"nx-sync-banner is-cached\" role=\"status\"><span class=\"material-symbols-outlined\">cloud_download</span><p>Datos guardados {s} (caché).</p><a href=\"/dashboard/subjects?refresh=1\">Actualizar datos<span class=\"material-symbols-outlined\">arrow_forward</span></a></div>",
+            .{age},
+        );
+    }
     if (d.connected and !d.timeout) return "";
     const msg = if (d.timeout)
         "Mikareno esta tardando en responder. Las tareas y notas pueden aparecer incompletas."
