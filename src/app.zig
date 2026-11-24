@@ -17,6 +17,7 @@ const google_calendar = @import("google_calendar.zig");
 const google_workspace = @import("google_workspace.zig");
 const panel = @import("panel.zig");
 const academico = @import("academico.zig");
+const busqueda = @import("busqueda.zig");
 
 pub const App = struct {
     allocator: std.mem.Allocator,
@@ -93,6 +94,11 @@ pub const App = struct {
         if (std.mem.eql(u8, path, "/api/settings/ai")) return self.settingsAi(allocator, request, username);
 
         if (std.mem.eql(u8, path, "/api/calendar.ics") or std.mem.eql(u8, path, "/dashboard/calendar.ics")) return self.calendarIcs(allocator);
+        // Búsqueda global: notas + Mikareno + Google. Sustituye a la búsqueda
+        // que antes solo miraba las notas, sin tocar `/api/search`.
+        if (std.mem.eql(u8, path, "/dashboard/search")) {
+            return self.unifiedSearch(allocator, request, username, if (auth) |a| a.user_id else 0);
+        }
         if (notes.handles(path)) return notes.handle(allocator, self.db, self.config, request, username);
 
         if (std.mem.startsWith(u8, path, "/api/ai/") or std.mem.eql(u8, path, "/dashboard/material")) {
@@ -619,6 +625,17 @@ pub const App = struct {
             .perfil => academico.perfilHtml(allocator, result),
             .mensajes => academico.mensajesHtml(allocator, result),
         };
+    }
+
+    /// Búsqueda global (notas, Mikareno y Google) en una sola página.
+    fn unifiedSearch(self: *App, allocator: std.mem.Allocator, request: *const http.Request, username: []const u8, user_id: i64) !http.Response {
+        const q = (try http.queryParam(allocator, request.query, "q")) orelse "";
+        if (q.len > 200) {
+            const content = "<div class=\"nx-page nova-page\"><p>La consulta es demasiado larga.</p></div>";
+            return .{ .status = 400, .content_type = "text/html; charset=utf-8", .body = try templates.renderShell(allocator, "/dashboard/search", content, username, true, self.config.mikareno_mcp_url) };
+        }
+        const content = busqueda.page(allocator, self.db, self.config, user_id, q) catch "<div class=\"nx-page nova-page\"><p>No se pudo ejecutar la búsqueda.</p></div>";
+        return .{ .status = 200, .content_type = "text/html; charset=utf-8", .body = try templates.renderShell(allocator, "/dashboard/search", content, username, true, self.config.mikareno_mcp_url) };
     }
 
     /// Página de Google Workspace: archivos de Drive y contactos de Contacts.

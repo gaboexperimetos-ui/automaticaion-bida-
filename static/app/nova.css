@@ -3475,3 +3475,10 @@ body:has(#chat-messages-container) #chat-messages-container img {
 .nova-google .material-symbols-outlined { font-size: 18px; }
 .nova-or { margin: .9rem 0 .1rem; border: 0; border-top: 1px solid #2c3a56; }
 .nova-oauth-error { margin: .8rem 0 0; padding: .6rem .7rem; color: #fecaca; background: rgba(248,113,113,.1); border: 1px solid rgba(248,113,113,.35); border-radius: .5rem; font-size: .85rem; line-height: 1.45; }
+
+/* Búsqueda global: resultados de notas, Mikareno y Google. */
+.nx-search-results { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.nx-search-results li { padding: 12px 14px; background: var(--nx-surface-2); border: 1px solid var(--nx-line); border-radius: 10px; }
+.nx-search-results li p { margin: 4px 0 0; }
+.nx-search-results .nx-text-link { font-size: 13px; font-weight: 650; }
+.nx-search-kind { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 4px; background: var(--nx-surface-3); color: var(--nx-muted); font-size: 8.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; vertical-align: middle; }

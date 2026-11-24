@@ -10,6 +10,7 @@ const cyberhex_mod = @import("cyberhex.zig");
 const office_mod = @import("office.zig");
 const google_calendar_mod = @import("google_calendar.zig");
 const google_workspace_mod = @import("google_workspace.zig");
+const busqueda_mod = @import("busqueda.zig");
 const oauth_google_mod = @import("oauth_google.zig");
 
 pub fn handle(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, request: *const http.Request) !http.Response {
@@ -80,6 +81,7 @@ fn dispatch(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_
 fn toolDefinitions(allocator: std.mem.Allocator) !std.json.Value {
     const definitions = [_]struct { name: []const u8, description: []const u8, props: []const u8, required: []const []const u8 }{
         .{ .name = "search_notes", .description = "Search local notes", .props = "query", .required = &.{"query"} },
+        .{ .name = "search_all", .description = "Search across local notes, Mikareno academic data and Google (Calendar, Drive, Contacts)", .props = "query", .required = &.{"query"} },
         .{ .name = "get_note", .description = "Get a note by slug", .props = "slug", .required = &.{"slug"} },
         .{ .name = "create_note", .description = "Create a local Markdown note", .props = "title,content,tags", .required = &.{ "title", "content" } },
         .{ .name = "get_academic_context", .description = "Get available academic context", .props = "", .required = &.{} },
@@ -133,6 +135,27 @@ fn callTool(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_
         const query = json.getString(args, "query") orelse return error.InvalidParams;
         const results = try searchNotes(allocator, db, query, 10);
         return json.object(allocator, &.{.{ .key = "results", .value = results }});
+    }
+    if (std.mem.eql(u8, name, "search_all")) {
+        const query = json.getString(args, "query") orelse return error.InvalidParams;
+        if (query.len > 200) return error.InvalidParams;
+        const uid: i64 = blk: {
+            var stmt = db.prepare("SELECT id FROM users ORDER BY id LIMIT 1") catch break :blk 0;
+            defer stmt.deinit();
+            if (try stmt.next()) break :blk stmt.int64(0);
+            break :blk 0;
+        };
+        const r = try busqueda_mod.search(allocator, db, config, uid, query);
+        return json.object(allocator, &.{
+            .{ .key = "query", .value = .{ .string = query } },
+            .{ .key = "notes", .value = try itemsToJson(allocator, r.notes.items) },
+            .{ .key = "mikareno", .value = try itemsToJson(allocator, r.mikareno.items) },
+            .{ .key = "google", .value = try itemsToJson(allocator, r.google.items) },
+            .{ .key = "mikareno_connected", .value = .{ .bool = r.mikareno_connected } },
+            .{ .key = "mikareno_error", .value = .{ .string = r.mikareno_error } },
+            .{ .key = "google_authorized", .value = .{ .bool = r.google_authorized } },
+            .{ .key = "google_reason", .value = .{ .string = r.google_reason } },
+        });
     }
     if (std.mem.eql(u8, name, "get_note")) {
         const slug = json.getString(args, "slug") orelse return error.InvalidParams;
@@ -720,6 +743,19 @@ fn tagsAsString(allocator: std.mem.Allocator, tags: ?std.json.Value) ![]const u8
     return output.toOwnedSlice();
 }
 
+fn itemsToJson(allocator: std.mem.Allocator, items: []const busqueda_mod.Item) !std.json.Value {
+    var arr = std.json.Array.init(allocator);
+    for (items) |item| {
+        try arr.append(try json.object(allocator, &.{
+            .{ .key = "kind", .value = .{ .string = item.kind } },
+            .{ .key = "title", .value = .{ .string = item.title } },
+            .{ .key = "subtitle", .value = .{ .string = item.subtitle } },
+            .{ .key = "url", .value = .{ .string = item.url } },
+        }));
+    }
+    return .{ .array = arr };
+}
+
 fn searchNotes(allocator: std.mem.Allocator, db: *sqlite.Db, query: []const u8, limit: usize) !std.json.Value {
     var items = std.json.Array.init(allocator);
     const pattern = try std.fmt.allocPrint(allocator, "%{s}%", .{query});
@@ -876,7 +912,7 @@ test "MCP exposes the protocol version and the full tool catalog" {
     // 9 herramientas base + 6 de CyberHex + 14 de la plataforma (notas,
     // Office, calendario, informe, Google Calendar y estado). Se comprueba
     // que estén las familias para que un cambio no deje el catálogo a medias.
-    try std.testing.expectEqual(@as(usize, 31), tools.array.items.len);
+    try std.testing.expectEqual(@as(usize, 32), tools.array.items.len);
     var has_notes = false;
     var has_cyberhex = false;
     var has_office = false;
@@ -885,6 +921,7 @@ test "MCP exposes the protocol version and the full tool catalog" {
     var has_gcal = false;
     var has_drive = false;
     var has_contacts = false;
+    var has_search_all = false;
     for (tools.array.items) |tool| {
         const name = json.getString(tool, "name") orelse "";
         if (std.mem.eql(u8, name, "search_notes")) has_notes = true;
@@ -895,6 +932,7 @@ test "MCP exposes the protocol version and the full tool catalog" {
         if (std.mem.eql(u8, name, "google_calendar")) has_gcal = true;
         if (std.mem.eql(u8, name, "google_drive")) has_drive = true;
         if (std.mem.eql(u8, name, "google_contacts")) has_contacts = true;
+        if (std.mem.eql(u8, name, "search_all")) has_search_all = true;
     }
     try std.testing.expect(has_notes);
     try std.testing.expect(has_cyberhex);
