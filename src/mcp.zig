@@ -114,6 +114,22 @@ fn toolDefinitions(allocator: std.mem.Allocator) !std.json.Value {
         .{ .name = "google_drive", .description = "List or search files in the user's Google Drive", .props = "max_results,query", .required = &.{} },
         .{ .name = "google_contacts", .description = "List contacts from the user's Google Contacts", .props = "max_results", .required = &.{} },
         .{ .name = "google_doc_read", .description = "Read the text of a Google Docs, Sheets or Slides file by file id", .props = "file_id", .required = &.{"file_id"} },
+        // GenOffice tools (proxied to local GenOffice MCP). Los nombres de
+        // argumentos coinciden con los schemas reales de GenOffice.
+        .{ .name = "genoffice_create_docx", .description = "Create a DOCX document from markdown", .props = "markdown,title,out", .required = &.{"markdown"} },
+        .{ .name = "genoffice_create_xlsx", .description = "Create an XLSX spreadsheet from a 2D array (rows) or CSV string", .props = "data,title,out", .required = &.{"data"} },
+        .{ .name = "genoffice_create_pptx", .description = "Create a PPTX from a deck spec {pages:[{elements:[...]}]}, outline or ops (GenOffice guide format)", .props = "spec,outline,ops,out", .required = &.{} },
+        .{ .name = "genoffice_create_pdf", .description = "Print an existing document to PDF (needs a display on the GenOffice host)", .props = "from,out", .required = &.{"from"} },
+        .{ .name = "genoffice_convert", .description = "Convert a document to another format (docx↔pdf, xlsx↔csv, md↔docx). PDF targets need a display on the host", .props = "file,to,out", .required = &.{ "file", "to" } },
+        .{ .name = "genoffice_info", .description = "Get metadata/summary of a document (pages, sheets, size)", .props = "file", .required = &.{"file"} },
+        .{ .name = "genoffice_docs_read", .description = "Read a DOCX file blocks as markdown", .props = "file", .required = &.{"file"} },
+        .{ .name = "genoffice_docs_apply", .description = "Apply edit ops to a DOCX file", .props = "file,ops", .required = &.{ "file", "ops" } },
+        .{ .name = "genoffice_sheet_read", .description = "Read an XLSX/CSV file rows as JSON", .props = "file", .required = &.{"file"} },
+        .{ .name = "genoffice_sheet_apply", .description = "Apply edit ops to an XLSX/CSV file", .props = "file,ops", .required = &.{ "file", "ops" } },
+        .{ .name = "genoffice_slides_read", .description = "Read a PPTX file structure", .props = "file", .required = &.{"file"} },
+        .{ .name = "genoffice_slides_render", .description = "Render slides to images (needs a display on the host)", .props = "file,out", .required = &.{"file"} },
+        .{ .name = "genoffice_slides_apply", .description = "Apply edit ops to a PPTX file", .props = "file,ops", .required = &.{ "file", "ops" } },
+        .{ .name = "genoffice_render", .description = "Render/convert a document to PDF (needs a display on the host)", .props = "file,to", .required = &.{ "file", "to" } },
         .{ .name = "flashcards_list", .description = "List study flashcards; due=true filters cards due today", .props = "due,subject", .required = &.{} },
         .{ .name = "flashcard_create", .description = "Create a study flashcard with the SM-2 scheduler", .props = "front,back,subject", .required = &.{ "front", "back" } },
         .{ .name = "flashcard_review", .description = "Review a flashcard; grade is again|hard|good|easy", .props = "id,grade", .required = &.{ "id", "grade" } },
@@ -135,7 +151,52 @@ fn toolDefinitions(allocator: std.mem.Allocator) !std.json.Value {
     return .{ .array = list };
 }
 
+/// Proxy a GenOffice tool call via MCP
+fn genofficeTool(allocator: std.mem.Allocator, _: *sqlite.Db, config: *const config_mod.Config, name: []const u8, args: std.json.Value) !std.json.Value {
+    const url = std.mem.trim(u8, config.genoffice_mcp_url, " \t\r\n");
+    if (url.len == 0) return error.NotConfigured;
+
+    // Zig no permite switch sobre []const u8 en tiempo de ejecución; usamos if/else
+    const go_name = if (std.mem.eql(u8, name, "genoffice_create_docx")) "create_docx" else if (std.mem.eql(u8, name, "genoffice_create_xlsx")) "create_xlsx" else if (std.mem.eql(u8, name, "genoffice_create_pptx")) "create_pptx" else if (std.mem.eql(u8, name, "genoffice_create_pdf")) "create_pdf" else if (std.mem.eql(u8, name, "genoffice_convert")) "convert" else if (std.mem.eql(u8, name, "genoffice_info")) "info" else if (std.mem.eql(u8, name, "genoffice_docs_read")) "docs_read" else if (std.mem.eql(u8, name, "genoffice_docs_apply")) "docs_apply" else if (std.mem.eql(u8, name, "genoffice_sheet_read")) "sheet_read" else if (std.mem.eql(u8, name, "genoffice_sheet_apply")) "sheet_apply" else if (std.mem.eql(u8, name, "genoffice_slides_read")) "slides_read" else if (std.mem.eql(u8, name, "genoffice_slides_render")) "slides_render" else if (std.mem.eql(u8, name, "genoffice_slides_apply")) "slides_apply" else if (std.mem.eql(u8, name, "genoffice_render")) "render" else return error.InvalidParams;
+
+    const go_args = args;
+    // Se usa callToolAllowError: si GenOffice rechaza (por ejemplo, conversión
+    // a PDF sin display), el mensaje real llega al agente en vez de un
+    // "Internal error" genérico.
+    const result = mcp_client.callToolAllowError(allocator, url, config.genoffice_timeout_ms, go_name, go_args, true) catch |err| {
+        return json.object(allocator, &.{
+            .{ .key = "ok", .value = .{ .bool = false } },
+            .{ .key = "error", .value = .{ .string = @errorName(err) } },
+            .{ .key = "tool", .value = .{ .string = go_name } },
+        });
+    };
+    return json.object(allocator, &.{
+        .{ .key = "ok", .value = .{ .bool = true } },
+        .{ .key = "tool", .value = .{ .string = go_name } },
+        .{ .key = "result", .value = result },
+    });
+}
+
 fn callTool(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, name: []const u8, args: std.json.Value) !std.json.Value {
+    // GenOffice proxied tools
+    if (std.mem.eql(u8, name, "genoffice_create_docx") or
+        std.mem.eql(u8, name, "genoffice_create_xlsx") or
+        std.mem.eql(u8, name, "genoffice_create_pptx") or
+        std.mem.eql(u8, name, "genoffice_create_pdf") or
+        std.mem.eql(u8, name, "genoffice_convert") or
+        std.mem.eql(u8, name, "genoffice_info") or
+        std.mem.eql(u8, name, "genoffice_docs_read") or
+        std.mem.eql(u8, name, "genoffice_docs_apply") or
+        std.mem.eql(u8, name, "genoffice_sheet_read") or
+        std.mem.eql(u8, name, "genoffice_sheet_apply") or
+        std.mem.eql(u8, name, "genoffice_slides_read") or
+        std.mem.eql(u8, name, "genoffice_slides_render") or
+        std.mem.eql(u8, name, "genoffice_slides_apply") or
+        std.mem.eql(u8, name, "genoffice_render"))
+    {
+        return genofficeTool(allocator, db, config, name, args);
+    }
+
     if (std.mem.eql(u8, name, "search_notes")) {
         const query = json.getString(args, "query") orelse return error.InvalidParams;
         const results = try searchNotes(allocator, db, query, 10);
@@ -1010,9 +1071,11 @@ test "MCP exposes the protocol version and the full tool catalog" {
     const allocator = arena.allocator();
     const tools = try toolDefinitions(allocator);
     // 9 herramientas base + 6 de CyberHex + 17 de la plataforma (notas,
-    // Office, calendario, informe, Google y tarjetas de estudio). Se comprueba
-    // que estén las familias para que un cambio no deje el catálogo a medias.
-    try std.testing.expectEqual(@as(usize, 36), tools.array.items.len);
+    // Office, calendario, informe, Google y tarjetas de estudio) + 14 de
+    // GenOffice (crear/leer/editar docx, xlsx, pptx, pdf, convertir). Se
+    // comprueba que estén las familias para que un cambio no deje el catálogo
+    // a medias.
+    try std.testing.expectEqual(@as(usize, 50), tools.array.items.len);
     var has_notes = false;
     var has_cyberhex = false;
     var has_office = false;
@@ -1024,6 +1087,7 @@ test "MCP exposes the protocol version and the full tool catalog" {
     var has_search_all = false;
     var has_doc_read = false;
     var has_flashcards = false;
+    var has_genoffice = false;
     for (tools.array.items) |tool| {
         const name = json.getString(tool, "name") orelse "";
         if (std.mem.eql(u8, name, "search_notes")) has_notes = true;
@@ -1037,6 +1101,7 @@ test "MCP exposes the protocol version and the full tool catalog" {
         if (std.mem.eql(u8, name, "search_all")) has_search_all = true;
         if (std.mem.eql(u8, name, "google_doc_read")) has_doc_read = true;
         if (std.mem.eql(u8, name, "flashcard_create")) has_flashcards = true;
+        if (std.mem.eql(u8, name, "genoffice_create_docx")) has_genoffice = true;
     }
     try std.testing.expect(has_notes);
     try std.testing.expect(has_cyberhex);
@@ -1044,6 +1109,7 @@ test "MCP exposes the protocol version and the full tool catalog" {
     try std.testing.expect(has_calendar);
     try std.testing.expect(has_report);
     try std.testing.expect(has_flashcards);
+    try std.testing.expect(has_genoffice);
     const initialized = try dispatch(allocator, undefined, undefined, "initialize", try json.object(allocator, &.{}), null);
     try std.testing.expectEqualStrings("2025-03-26", json.getString(initialized, "protocolVersion").?);
 }
@@ -1056,6 +1122,16 @@ test "las herramientas de CyberHex avisan sin configurar" {
     const payload = try callTool(a, undefined, &config, "cyberhex_status", try json.object(a, &.{}));
     try std.testing.expectEqual(@as(bool, false), json.getBool(payload, "connected").?);
     try std.testing.expectEqual(@as(bool, false), json.getBool(payload, "configured").?);
+}
+
+test "GenOffice sin URL configurada no finge disponibilidad" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var config = testConfig(a);
+    config.genoffice_mcp_url = "";
+    const args = try json.object(a, &.{.{ .key = "markdown", .value = .{ .string = "x" } }});
+    try std.testing.expectError(error.NotConfigured, callTool(a, undefined, &config, "genoffice_create_docx", args));
 }
 
 fn testConfig(a: std.mem.Allocator) config_mod.Config {
