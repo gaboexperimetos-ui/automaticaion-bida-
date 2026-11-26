@@ -4438,3 +4438,31 @@ body:has(#chat-messages-container) #chat-messages-container img {
   .nx-inbox-due { justify-self: start; }
   .nx-inbox-open { grid-row: 2 / span 2; grid-column: 2; }
 }
+
+/* ── Audio (/dashboard/audio) ─────────────────────────────────────── */
+.nx-audio-panel { margin-bottom: 16px; }
+.nx-audio-controls { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.nx-audio-timer {
+  font-variant-numeric: tabular-nums; color: var(--nx-text-2);
+  font: 600 15px/1 ui-monospace, monospace;
+}
+.nx-audio-status { margin: 10px 0 0; color: var(--nx-muted); font-size: 12.5px; line-height: 1.5; }
+.nx-audio-file {
+  display: block; margin-bottom: 8px; color: var(--nx-text-2);
+  font-size: 12.5px; font-weight: 600;
+}
+.nx-audio-panel input[type=file] {
+  color: var(--nx-text-2); font-size: 12.5px;
+}
+.nx-audio-panel input[type=file]::file-selector-button {
+  margin-right: 10px; padding: 7px 13px; cursor: pointer;
+  color: var(--nx-text); background: var(--nx-surface-2);
+  border: 1px solid var(--nx-line); border-radius: 9px; font: inherit;
+}
+.nx-audio-text {
+  margin: 0; padding: 14px 16px; white-space: pre-wrap; overflow-wrap: anywhere;
+  color: var(--nx-text); background: var(--nx-bg);
+  border: 1px solid var(--nx-line); border-radius: 12px;
+  font: 13.5px/1.6 ui-sans-serif, system-ui, sans-serif; min-height: 60px;
+}
+.nx-audio-panel audio { width: 100%; margin-top: 12px; }

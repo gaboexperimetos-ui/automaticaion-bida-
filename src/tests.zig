@@ -26,4 +26,5 @@ test {
     _ = @import("flashcards.zig");
     _ = @import("busqueda.zig");
     _ = @import("tasks.zig");
+    _ = @import("audio.zig");
 }

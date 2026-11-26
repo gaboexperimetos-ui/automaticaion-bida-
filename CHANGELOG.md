@@ -11,6 +11,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/).
   título y fecha, filtro por origen y caché de Classroom de 10 minutos.
 - Los avisos de WhatsApp se muestran con remitente y fecha; se descartan los
   mensajes sin contenido académico y las notas índice del vault.
+- MCP propio: herramientas `task_create`, `task_complete` y `task_list` para
+  crear, cerrar y listar tareas desde Jarvis; `serverInfo` ahora 1.1.0.
+- Audio `/dashboard/audio`: grabar o subir audio, convertir con ffmpeg y
+  transcribir con la API de Groq (Whisper); el texto se guarda como nota.
+  El tope de cuerpo sube a 25 MB sólo para la ruta de audio.
 
 ## [1.0.0] - 2026-11-26 — NOVA 1.0
 

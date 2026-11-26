@@ -29,6 +29,9 @@ pub const Config = struct {
     registration_token: ?[]const u8,
     db_max_connections: u32,
     mcp_timeout_ms: u64,
+    groq_api_key: ?[]const u8,
+    audio_work_dir: []const u8,
+    audio_timeout_ms: u64,
 
     pub fn load(allocator: std.mem.Allocator) !Config {
         var vars = std.StringHashMap([]const u8).init(allocator);
@@ -67,6 +70,12 @@ pub const Config = struct {
         const register_token = try optionalValue(allocator, &vars, "REGISTRATION_TOKEN");
         const connections = @max(1, try parseInt(u32, allocator, &vars, "DB_MAX_CONNECTIONS", "4"));
         const mcp_timeout = try parseInt(u64, allocator, &vars, "MCP_TIMEOUT_MS", "5000");
+        // Audio: transcripción con la API de Groq (Whisper). Sin clave, la
+        // página de audio lo dice y no llama a ningún servicio. El directorio
+        // de trabajo guarda los originales y los WAV convertidos por ffmpeg.
+        const groq_key = try optionalValue(allocator, &vars, "GROQ_API_KEY");
+        const audio_dir = try value(allocator, &vars, "AUDIO_WORK_DIR", "./data/audio");
+        const audio_timeout = try parseInt(u64, allocator, &vars, "AUDIO_TIMEOUT_MS", "120000");
 
         return .{
             .allocator = allocator,
@@ -97,6 +106,9 @@ pub const Config = struct {
             .registration_token = register_token,
             .db_max_connections = connections,
             .mcp_timeout_ms = mcp_timeout,
+            .groq_api_key = groq_key,
+            .audio_work_dir = audio_dir,
+            .audio_timeout_ms = audio_timeout,
         };
     }
 };

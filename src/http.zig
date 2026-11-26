@@ -38,38 +38,56 @@ pub const Response = struct {
 pub const Form = std.StringHashMap([]const u8);
 
 pub fn readRequest(allocator: std.mem.Allocator, fd: c_int, peer_ip: []const u8) !Request {
-    const max_request_bytes = 1_100_000;
-    const buf = try allocator.alloc(u8, max_request_bytes);
+    // El tope de cuerpo depende de la ruta: la subida de audio admite
+    // archivos grandes (25 MB); el resto sigue limitado a 1 MB. Se leen
+    // primero las cabeceras (máx. 64 KB) para conocer ruta y content-length,
+    // y luego se hace crecer el buffer hasta el cuerpo real.
+    const max_header_bytes = 64 * 1024;
+    const default_body_cap: usize = 1_000_000;
+    const audio_body_cap: usize = 25_000_000;
+
+    var buf = try allocator.alloc(u8, max_header_bytes);
     var used: usize = 0;
     var header_end: ?usize = null;
-    var content_length: usize = 0;
-    while (used < max_request_bytes) {
-        const n = c.recv(fd, buf.ptr + used, max_request_bytes - used, 0);
+    while (header_end == null and used < max_header_bytes) {
+        const n = c.recv(fd, buf.ptr + used, max_header_bytes - used, 0);
         if (n <= 0) return error.ConnectionClosed;
         used += @intCast(n);
-        if (header_end == null) {
-            header_end = findHeaderEnd(buf[0..used]);
-            if (header_end) |end| {
-                const header_bytes = buf[0..end];
-                var lines = std.mem.splitSequence(u8, header_bytes, "\r\n");
-                _ = lines.next() orelse return error.BadRequest;
-                while (lines.next()) |line| {
-                    const colon = std.mem.indexOfScalar(u8, line, ':') orelse continue;
-                    const name = std.mem.trim(u8, line[0..colon], " \t");
-                    if (std.ascii.eqlIgnoreCase(name, "content-length")) {
-                        content_length = std.fmt.parseInt(usize, std.mem.trim(u8, line[colon + 1 ..], " \t"), 10) catch return error.BadRequest;
-                        if (content_length > 1_000_000) return error.PayloadTooLarge;
-                    }
-                    if (std.ascii.eqlIgnoreCase(name, "transfer-encoding") and std.ascii.indexOfIgnoreCase(line[colon + 1 ..], "chunked") != null) return error.BadRequest;
-                }
-                if (used >= end + 4 + content_length) break;
-            }
-        } else if (used >= header_end.? + 4 + content_length) {
-            break;
-        }
+        header_end = findHeaderEnd(buf[0..used]);
     }
     const end = header_end orelse return error.BadRequest;
-    if (used < end + 4 + content_length) return error.BadRequest;
+
+    // Request line + cabeceras: de aquí salen la ruta (para el tope) y el
+    // content-length. El cuerpo se lee después.
+    var content_length: usize = 0;
+    var path_for_cap: []const u8 = "";
+    {
+        var head_lines = std.mem.splitSequence(u8, buf[0..end], "\r\n");
+        const request_line = head_lines.next() orelse return error.BadRequest;
+        var hp = std.mem.tokenizeScalar(u8, request_line, ' ');
+        _ = hp.next() orelse return error.BadRequest;
+        const target_raw = hp.next() orelse return error.BadRequest;
+        path_for_cap = if (std.mem.indexOfScalar(u8, target_raw, '?')) |q| target_raw[0..q] else target_raw;
+        while (head_lines.next()) |line| {
+            const colon = std.mem.indexOfScalar(u8, line, ':') orelse continue;
+            const name = std.mem.trim(u8, line[0..colon], " \t");
+            if (std.ascii.eqlIgnoreCase(name, "content-length")) {
+                content_length = std.fmt.parseInt(usize, std.mem.trim(u8, line[colon + 1 ..], " \t"), 10) catch return error.BadRequest;
+            }
+            if (std.ascii.eqlIgnoreCase(name, "transfer-encoding") and std.ascii.indexOfIgnoreCase(line[colon + 1 ..], "chunked") != null) return error.BadRequest;
+        }
+    }
+    const is_audio = std.mem.eql(u8, path_for_cap, "/dashboard/audio/upload") or std.mem.eql(u8, path_for_cap, "/api/audio/transcribe");
+    const body_cap = if (is_audio) audio_body_cap else default_body_cap;
+    if (content_length > body_cap) return error.PayloadTooLarge;
+
+    const total = end + 4 + content_length;
+    if (total > buf.len) buf = try allocator.realloc(buf, total);
+    while (used < total) {
+        const n = c.recv(fd, buf.ptr + used, total - used, 0);
+        if (n <= 0) return error.ConnectionClosed;
+        used += @intCast(n);
+    }
     const head = buf[0..end];
     var lines = std.mem.splitSequence(u8, head, "\r\n");
     const request_line = lines.next() orelse return error.BadRequest;

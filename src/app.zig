@@ -24,6 +24,7 @@ const schedule_view = @import("schedule_view.zig");
 const flashcards = @import("flashcards.zig");
 const busqueda = @import("busqueda.zig");
 const tasks = @import("tasks.zig");
+const audio = @import("audio.zig");
 
 pub const App = struct {
     allocator: std.mem.Allocator,
@@ -138,6 +139,13 @@ pub const App = struct {
         if (std.mem.eql(u8, path, "/dashboard/flashcards") or std.mem.startsWith(u8, path, "/dashboard/flashcards/")) {
             return self.flashcardsPage(allocator, path, username);
         }
+        // Audio: página de grabación/subida y transcripción con Groq Whisper.
+        if (std.mem.eql(u8, path, "/dashboard/audio")) {
+            return self.audioPage(allocator, path, username);
+        }
+        if (std.mem.eql(u8, path, "/api/audio/transcribe")) {
+            return self.audioTranscribe(allocator, request, username, if (auth) |a| a.user_id else 0);
+        }
         if (std.mem.startsWith(u8, path, "/dashboard/")) return self.academic(allocator, request, username, if (auth) |a| a.user_id else 0);
 
         if (std.mem.eql(u8, path, "/api/notes")) return jsonError(allocator, 404, "not_found");
@@ -154,7 +162,7 @@ pub const App = struct {
             "/favicon.svg", "/favicon.ico",     "/nova.css",       "/polish.css",
             "/themes.css",  "/music.css",       "/shell.js",       "/styles.css",
             "/app.js",      "/calendar-ics.js", "/office-html.js", "/office-sheets.js",
-            "/charts.js",
+            "/charts.js",   "/audio.js",
         };
         for (exact) |asset| if (std.mem.eql(u8, path, asset)) return true;
         return false;
@@ -902,6 +910,78 @@ pub const App = struct {
         const items = try tasks.collect(allocator, datos.tareas, classroom_items, note_rows);
         const body = try tasks.pageHtml(allocator, items, filter, std.mem.trim(u8, notices.items, " "));
         return .{ .status = 200, .content_type = "text/html; charset=utf-8", .body = try templates.renderShell(allocator, path, body, username, true, self.config.mikareno_mcp_url) };
+    }
+
+    /// Página de audio: graba o sube un archivo y lo transcribe con Groq.
+    /// Si no hay GROQ_API_KEY, lo dice y deshabilita el botón (estado honesto).
+    fn audioPage(self: *App, allocator: std.mem.Allocator, path: []const u8, username: []const u8) !http.Response {
+        const configured = self.config.groq_api_key != null and self.config.groq_api_key.?.len > 0;
+        var body = std.ArrayList(u8).init(allocator);
+        try body.appendSlice("<div class=\"nx-page nova-page nx-audio-page\">");
+        try body.appendSlice("<header class=\"nx-page-header nova-page-head\"><div><p class=\"nx-eyebrow\">Audio</p><h1>De la voz al<br>apunte.</h1><p>Graba una explicación o sube un audio y obtén la transcripción para guardarla como nota.</p></div></header>");
+        if (!configured) {
+            try body.appendSlice("<div class=\"nx-panel nx-academic-empty\"><span class=\"material-symbols-outlined\">key_off</span><p><strong>Transcripción no configurada</strong><br>Falta <code>GROQ_API_KEY</code> en el servidor. La grabación funciona, pero no se envía a ningún servicio.</p></div>");
+        } else {
+            try body.appendSlice(
+                "<section class=\"nx-panel nx-audio-panel\">" ++
+                    "<div class=\"nx-panel-head\"><div><p class=\"nx-eyebrow\">Grabar</p><h2>Nota de voz</h2></div></div>" ++
+                    "<div class=\"nx-audio-controls\">" ++
+                    "<button type=\"button\" id=\"audio-record\" class=\"nx-button nx-button-primary\"><span class=\"material-symbols-outlined\">mic</span>Grabar</button>" ++
+                    "<button type=\"button\" id=\"audio-stop\" class=\"nx-button nx-button-secondary\" disabled><span class=\"material-symbols-outlined\">stop</span>Detener</button>" ++
+                    "<span id=\"audio-timer\" class=\"nx-audio-timer\">0:00</span>" ++
+                    "</div>" ++
+                    "<audio id=\"audio-preview\" controls hidden></audio>" ++
+                    "<p id=\"audio-status\" role=\"status\" aria-live=\"polite\" class=\"nx-audio-status\">Pulsa Grabar y explica; al detener se transcribe.</p>" ++
+                    "</section>" ++
+                    "<section class=\"nx-panel nx-audio-panel\">" ++
+                    "<div class=\"nx-panel-head\"><div><p class=\"nx-eyebrow\">Subir archivo</p><h2>Audio existente</h2></div></div>" ++
+                    "<label for=\"audio-file\" class=\"nx-audio-file\">Archivo de audio (webm, ogg, mp3, m4a, wav)</label>" ++
+                    "<input id=\"audio-file\" type=\"file\" accept=\"audio/*,.webm,.ogg,.m4a,.mp3,.wav\">" ++
+                    "<p id=\"audio-upload-status\" role=\"status\" aria-live=\"polite\" class=\"nx-audio-status\"></p>" ++
+                    "</section>" ++
+                    "<section class=\"nx-panel nx-audio-panel\">" ++
+                    "<div class=\"nx-panel-head\"><div><p class=\"nx-eyebrow\">Resultado</p><h2>Transcripción</h2></div><a class=\"nx-button nx-button-secondary\" id=\"audio-save-note\" href=\"#\" hidden><span class=\"material-symbols-outlined\">save</span>Guardar como nota</a></div>" ++
+                    "<pre id=\"audio-text\" class=\"nx-audio-text\">Aquí aparecerá el texto.</pre>" ++
+                    "</section>",
+            );
+        }
+        try body.appendSlice("</div>");
+        try body.appendSlice("<script src=\"/audio.js\"></script>");
+        return .{ .status = 200, .content_type = "text/html; charset=utf-8", .body = try templates.renderShell(allocator, path, body.items, username, true, self.config.mikareno_mcp_url) };
+    }
+
+    /// Recibe el audio crudo en el cuerpo (máx. 25 MB), lo convierte a WAV con
+    /// ffmpeg, lo transcribe con Groq y guarda la transcripción como nota
+    /// etiquetada `audio`. Devuelve JSON; nunca inventa texto.
+    fn audioTranscribe(self: *App, allocator: std.mem.Allocator, request: *const http.Request, username: []const u8, user_id: i64) !http.Response {
+        _ = username;
+        _ = user_id;
+        const api_key = self.config.groq_api_key orelse return jsonError(allocator, 503, "Transcripción no configurada (falta GROQ_API_KEY)");
+        if (api_key.len == 0) return jsonError(allocator, 503, "Transcripción no configurada (falta GROQ_API_KEY)");
+        if (request.body.len == 0) return jsonError(allocator, 400, "Cuerpo de audio vacío");
+        const ext = request.header("x-audio-ext") orelse "webm";
+        const saved = audio.saveUpload(allocator, self.config.audio_work_dir, ext, request.body) catch {
+            return jsonError(allocator, 500, "No se pudo guardar el audio");
+        };
+        const wav = audio.toWav(allocator, saved) catch |err| switch (err) {
+            error.FfmpegMissing => return jsonError(allocator, 503, "Falta ffmpeg en el servidor"),
+            error.EmptyAudio => return jsonError(allocator, 400, "El audio está vacío"),
+            else => return jsonError(allocator, 500, "No se pudo convertir el audio"),
+        };
+        const lang = http.queryParam(allocator, request.query, "lang") catch null;
+        const result = audio.transcribeWav(allocator, api_key, wav, lang orelse "", self.config.audio_timeout_ms) catch |err| switch (err) {
+            error.ProviderError => return jsonError(allocator, 502, "Groq rechazó la transcripción"),
+            error.BadResponse => return jsonError(allocator, 502, "Respuesta inesperada de Groq"),
+            else => return jsonError(allocator, 500, "Fallo al transcribir"),
+        };
+        // Se guarda como nota para que quede en el segundo cerebro.
+        const title = try std.fmt.allocPrint(allocator, "Transcripción de audio {d}", .{std.time.timestamp()});
+        const slug = notes.createNoteForMcp(allocator, self.db, self.config, title, result.text, "audio,transcripcion") catch "";
+        return jsonResponse(allocator, 200, try json.object(allocator, &.{
+            .{ .key = "text", .value = .{ .string = result.text } },
+            .{ .key = "duration_seconds", .value = json.float(result.duration_seconds) },
+            .{ .key = "note", .value = .{ .string = slug } },
+        }));
     }
 
     fn academic(self: *App, allocator: std.mem.Allocator, request: *const http.Request, username: []const u8, user_id: i64) !http.Response {

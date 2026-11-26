@@ -1263,5 +1263,8 @@ fn testConfig(a: std.mem.Allocator) config_mod.Config {
         .registration_token = null,
         .db_max_connections = 4,
         .mcp_timeout_ms = 5000,
+        .groq_api_key = null,
+        .audio_work_dir = "./data/audio",
+        .audio_timeout_ms = 120000,
     };
 }
