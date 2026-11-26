@@ -8,6 +8,7 @@ Aplicación web personal con frontend server-rendered **Stitch v2/NOVA** (HTML, 
 - No reintroducir `.rs`, `.c`, `Cargo.toml`, Makefiles del backend ni wrappers que oculten una implementación no Zig. Las migraciones SQL y el frontend son recursos, no implementaciones de backend.
 - No declarar paridad total sin probar rutas y comportamientos. `docs/ARCHITECTURE.md` enumera explícitamente las funciones todavía parciales (cliente Mikareno/GenOffice, áreas académicas/oficina y streaming en vivo).
 - No usar datos académicos ficticios: cuando una integración no está implementada o no responde, mostrar un estado vacío honesto.
+- La app de escritorio (`desktop/main.zig`, `zig build desktop`) debe abrirse en ventana propia GTK3 + WebKit2GTK, sin abrir ni depender del navegador del sistema (Chrome, Zen) ni de pestañas. El motor WebKit va embebido en el binario; el servidor local sigue sirviendo la misma UI. Una UI 100 % nativa sin motor web sería un rediseño aparte y requiere decisión explícita.
 - No borrar datos de usuario. Usa `DB_PATH` y `NOTES_DIR` temporales para tests; no trabajes contra una base local/prod por accidente.
 - No desplegar ni ejecutar SSH/SCP/systemctl/crontab sobre la máquina de producción sin autorización explícita en la conversación actual.
 

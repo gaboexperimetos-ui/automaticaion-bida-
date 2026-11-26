@@ -40,7 +40,7 @@ No quedan fuentes de implementación Rust o C en el repositorio. Zig enlaza con 
 ## Build, tests y ejecución local
 
 ```bash
-zig fmt --check build.zig main.zig test_root.zig src/*.zig
+zig fmt --check build.zig main.zig test_root.zig src/*.zig desktop/main.zig
 zig build
 zig build test --summary all
 python3 tests/http_smoke.py --binary zig-out/bin/study-platform
@@ -48,6 +48,25 @@ python3 tests/http_smoke.py --binary zig-out/bin/study-platform
 # Perfil optimizado para un binario de release:
 zig build -Doptimize=ReleaseFast
 ```
+
+### App de escritorio (opcional)
+
+La misma interfaz server-rendered puede abrirse en una ventana nativa con GTK3 + WebKit2GTK, sin Electron ni un segundo backend:
+
+```bash
+zig build desktop
+./desktop/install.sh   # copia el binario y crea el lanzador en el menú
+```
+
+`desktop/install.sh` instala `~/.local/bin/nova-desktop`, el icono y `~/.local/share/applications/nova.desktop`. Para compilar hacen falta las bibliotecas de desarrollo `gtk+-3.0` y `webkit2gtk-4.1`; el resto del servidor no las necesita.
+
+El lanzador abre `http://127.0.0.1:3100/dashboard` por defecto (el puerto del servicio local). Para otro destino:
+
+```bash
+STUDY_URL=http://127.0.0.1:8090/dashboard zig-out/bin/nova-desktop
+```
+
+La app no arranca el servidor por su cuenta: si `study-platform` no está activo, WebKit muestra su página de error. Atajos: F5 o Ctrl+R recargar, Ctrl+H inicio, F12 herramientas de desarrollo, Ctrl+Q cerrar.
 
 Crea `.env` a partir de `.env.example`, genera un `SESSION_SECRET` aleatorio de al menos 32 caracteres y arranca:
 

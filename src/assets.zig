@@ -16,6 +16,7 @@ pub const files = [_]Asset{
     .{ .path = "/static/app/nova.css", .mime = "text/css; charset=utf-8", .bytes = @embedFile("../static/app/nova.css") },
     .{ .path = "/static/app/polish.css", .mime = "text/css; charset=utf-8", .bytes = @embedFile("../static/app/polish.css") },
     .{ .path = "/static/app/shell.js", .mime = "application/javascript; charset=utf-8", .bytes = @embedFile("../static/app/shell.js") },
+    .{ .path = "/static/app/charts.js", .mime = "application/javascript; charset=utf-8", .bytes = @embedFile("../static/app/charts.js") },
     .{ .path = "/static/stitch-v2/shell/head.html", .mime = "text/html; charset=utf-8", .bytes = head },
     .{ .path = "/static/stitch-v2/shell/aside.html", .mime = "text/html; charset=utf-8", .bytes = aside },
     .{ .path = "/static/stitch-v2/shell/topbar.html", .mime = "text/html; charset=utf-8", .bytes = topbar },
@@ -49,6 +50,7 @@ pub fn find(path: []const u8) ?Asset {
     if (std.mem.eql(u8, path, "/nova.css")) return files[1];
     if (std.mem.eql(u8, path, "/polish.css")) return files[2];
     if (std.mem.eql(u8, path, "/shell.js")) return files[3];
+    if (std.mem.eql(u8, path, "/charts.js")) return assetByPath("/static/app/charts.js");
     if (std.mem.eql(u8, path, "/themes.css")) return assetByPath("/static/app/themes.css");
     if (std.mem.eql(u8, path, "/music.css")) return assetByPath("/static/app/music.css");
     if (std.mem.eql(u8, path, "/styles.css")) return assetByPath("/static/study-platform-ui/styles.css");

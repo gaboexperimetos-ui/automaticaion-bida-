@@ -6,6 +6,9 @@ const json = @import("jsonutil.zig");
 const security = @import("security.zig");
 const templates = @import("templates.zig");
 const mcp_client = @import("mcp_client.zig");
+const importer = @import("importer.zig");
+const oauth = @import("oauth_google.zig");
+const gws = @import("google_workspace.zig");
 
 const MAX_TITLE = 200;
 const MAX_CONTENT = 500_000;
@@ -17,7 +20,7 @@ const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingm
 const MAX_LIBRARY_FILE = 32 * 1024 * 1024;
 const Slide = struct { title: []const u8, content: []const u8 };
 
-pub fn handle(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, request: *const http.Request, username: []const u8) !http.Response {
+pub fn handle(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, request: *const http.Request, username: []const u8, user_id: i64) !http.Response {
     const root = try officeRoot(allocator, config);
     for ([_][]const u8{ "docs", "sheets", "presentations", "html", "library", "reports" }) |subdir| {
         const dir = try std.fs.path.join(allocator, &.{ root, subdir });
@@ -39,7 +42,7 @@ pub fn handle(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const confi
     if (std.mem.eql(u8, path, "/office/html")) return htmlPages(allocator, config, request, username, root);
     if (std.mem.startsWith(u8, path, "/office/html/")) return htmlPageRoute(allocator, config, request, username, root);
     if (std.mem.eql(u8, path, "/office/library")) return library(allocator, config, request, username, root);
-    if (std.mem.startsWith(u8, path, "/office/library/")) return libraryRoute(allocator, config, request, username, root);
+    if (std.mem.startsWith(u8, path, "/office/library/")) return libraryRoute(allocator, db, config, request, username, user_id, root);
     return page(allocator, config, request.path, username, "No encontrado", "<p>Esta función de NOVA Office no existe.</p>", 404);
 }
 
@@ -50,11 +53,11 @@ fn home(allocator: std.mem.Allocator, config: *const config_mod.Config, request:
     const html_count = try countFiles(allocator, root, "html", ".html");
     var recent = std.ArrayList(u8).init(allocator);
     var recent_count: usize = 0;
-    for ([_]struct { kind: []const u8, ext: []const u8, icon: []const u8 }{
-        .{ .kind = "docs", .ext = ".md", .icon = "description" },
-        .{ .kind = "sheets", .ext = ".csv", .icon = "table_chart" },
-        .{ .kind = "presentations", .ext = ".json", .icon = "present_to_all" },
-        .{ .kind = "html", .ext = ".html", .icon = "code" },
+    for ([_]struct { kind: []const u8, ext: []const u8, icon: []const u8, label: []const u8 }{
+        .{ .kind = "docs", .ext = ".md", .icon = "description", .label = "Documentos" },
+        .{ .kind = "sheets", .ext = ".csv", .icon = "table_chart", .label = "Hojas" },
+        .{ .kind = "presentations", .ext = ".json", .icon = "present_to_all", .label = "Presentaciones" },
+        .{ .kind = "html", .ext = ".html", .icon = "code", .label = "HTML" },
     }) |item| {
         if (recent_count >= 6) break;
         const dir = try officeDir(allocator, root, item.kind);
@@ -66,7 +69,7 @@ fn home(allocator: std.mem.Allocator, config: *const config_mod.Config, request:
             if (entry.kind != .file or !std.mem.endsWith(u8, entry.name, item.ext)) continue;
             const slug = entry.name[0 .. entry.name.len - item.ext.len];
             const escaped = try security.htmlEscape(allocator, slug);
-            try recent.writer().print("<article class=\"gen-office-file-card {s}\"><a class=\"gen-office-file-preview\" href=\"/office/{s}/{s}\"><span class=\"material-symbols-outlined\">{s}</span><small>{s}</small></a><div class=\"gen-office-file-copy\"><a href=\"/office/{s}/{s}\">{s}</a><span>Archivo local</span></div><a class=\"gen-office-file-arrow\" href=\"/office/{s}/{s}\" aria-label=\"Abrir {s}\">↗</a></article>", .{ item.kind, item.kind, escaped, item.icon, item.ext[1..], item.kind, escaped, escaped, item.kind, escaped, escaped });
+            try recent.writer().print("<article class=\"gen-office-file-card {s}\"><a class=\"gen-office-file-preview\" href=\"/office/{s}/{s}\"><span class=\"material-symbols-outlined\">{s}</span><small>{s}</small></a><div class=\"gen-office-file-copy\"><a href=\"/office/{s}/{s}\">{s}</a><span>Archivo local · <a class=\"gen-office-file-section\" href=\"/office/{s}\">{s}</a></span></div><a class=\"gen-office-file-arrow\" href=\"/office/{s}/{s}\" aria-label=\"Abrir {s}\">↗</a></article>", .{ item.kind, item.kind, escaped, item.icon, item.ext[1..], item.kind, escaped, escaped, item.kind, item.label, item.kind, escaped, escaped });
             recent_count += 1;
         }
     }
@@ -383,8 +386,16 @@ fn library(allocator: std.mem.Allocator, config: *const config_mod.Config, reque
     return libraryPage(allocator, config, request, username, root, "");
 }
 
-fn libraryRoute(allocator: std.mem.Allocator, config: *const config_mod.Config, request: *const http.Request, username: []const u8, root: []const u8) !http.Response {
+fn libraryRoute(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, request: *const http.Request, username: []const u8, user_id: i64, root: []const u8) !http.Response {
     const rest = request.path["/office/library/".len..];
+    if (std.mem.eql(u8, rest, "import-local")) {
+        if (!std.mem.eql(u8, request.method, "POST")) return methodNotAllowed(allocator);
+        return importLocalRoute(allocator, config, request, username, root);
+    }
+    if (std.mem.eql(u8, rest, "import-drive")) {
+        if (!std.mem.eql(u8, request.method, "POST")) return methodNotAllowed(allocator);
+        return importDriveRoute(allocator, db, config, request, username, user_id, root);
+    }
     if (std.mem.startsWith(u8, rest, "import/")) {
         if (!std.mem.eql(u8, request.method, "POST")) return methodNotAllowed(allocator);
         const kind = rest["import/".len..];
@@ -455,16 +466,399 @@ fn libraryPage(allocator: std.mem.Allocator, config: *const config_mod.Config, r
             const download_url = try std.fmt.allocPrint(allocator, "/office/library/{s}/{s}/download", .{ item.kind, escaped });
             const delete_url = try std.fmt.allocPrint(allocator, "/office/library/{s}/{s}/delete", .{ item.kind, escaped });
             const delete_form = try std.fmt.allocPrint(allocator, "<form hx-post=\"{s}\" hx-confirm=\"¿Borrar este archivo?\" hx-swap=\"none\"><button type=\"submit\" class=\"gen-office-icon-button danger\" aria-label=\"Borrar {s}\">⌫</button></form>", .{ delete_url, escaped });
-            try rows.writer().print("<tr><td data-label=\"Archivo\"><a class=\"gen-office-library-file {s}\" href=\"{s}\"><span class=\"material-symbols-outlined\">{s}</span><span>{s}</span></a></td><td data-label=\"Tipo\"><span class=\"gen-office-file-kind\">{s}</span></td><td data-label=\"Tamaño\">{s}</td><td><div class=\"gen-office-library-actions\"><a class=\"gen-office-icon-button\" href=\"{s}\" aria-label=\"Abrir {s}\">↗</a><a class=\"gen-office-icon-button\" href=\"{s}\" aria-label=\"Descargar {s}\">↓</a>{s}</div></td></tr>", .{ item.kind, open_url, item.icon, escaped, item.label, humanSizeFromPath(allocator, root, item.kind, entry.name) catch "—", open_url, escaped, download_url, escaped, delete_form });
+            try rows.writer().print("<tr><td data-label=\"Archivo\"><a class=\"gen-office-library-file {s}\" href=\"{s}\"><span class=\"material-symbols-outlined\">{s}</span><span>{s}</span></a></td><td data-label=\"Tipo\"><span class=\"gen-office-file-kind\">{s}</span></td><td data-label=\"Sección\"><a class=\"gen-office-file-section\" href=\"/office/{s}\">{s}</a></td><td data-label=\"Tamaño\">{s}</td><td><div class=\"gen-office-library-actions\"><a class=\"gen-office-icon-button\" href=\"{s}\" aria-label=\"Abrir {s}\">↗</a><a class=\"gen-office-icon-button\" href=\"{s}\" aria-label=\"Descargar {s}\">↓</a>{s}</div></td></tr>", .{ item.kind, open_url, item.icon, escaped, item.label, item.kind, item.label, humanSizeFromPath(allocator, root, item.kind, entry.name) catch "—", open_url, escaped, download_url, escaped, delete_form });
             count += 1;
         }
     }
-    const table_rows = if (count == 0) "<tr><td colspan=\"4\"><div class=\"gen-office-empty compact\"><span class=\"material-symbols-outlined\">search_off</span><p>No se encontraron archivos.</p></div></td></tr>" else rows.items;
+    const table_rows = if (count == 0) "<tr><td colspan=\"5\"><div class=\"gen-office-empty compact\"><span class=\"material-symbols-outlined\">search_off</span><p>No se encontraron archivos.</p></div></td></tr>" else rows.items;
     const escaped_query = try security.htmlEscape(allocator, query);
     const tabs = try officeTabs(allocator, "library");
     const nav = try officeNav(allocator, "library");
-    const body = try std.fmt.allocPrint(allocator, "<div class=\"nova-page gen-office-page gen-office-manager-page gen-office-library-page\">{s}<header class=\"gen-office-manager-head\"><div><span>BIBLIOTECA · ARCHIVOS LOCALES</span><h1>Todo tu trabajo.</h1><p>{d} archivo(s) visibles. Abre, descarga o importa desde un solo lugar.</p></div><a href=\"#library-import\" class=\"gen-office-primary-button\">Importar archivo</a></header>{s}<form method=\"get\" action=\"/office/library/search\" class=\"gen-office-library-search\"><span class=\"material-symbols-outlined\">search</span><label class=\"sr-only\" for=\"library-query\">Buscar archivos</label><input id=\"library-query\" type=\"search\" name=\"q\" value=\"{s}\" placeholder=\"Buscar por nombre…\"><button type=\"submit\" class=\"gen-office-secondary-button\">Buscar</button></form><div class=\"gen-office-library-layout\"><section class=\"gen-office-library-browser\"><header><div><span>ARCHIVOS</span><strong>{d} resultado(s)</strong></div><span class=\"material-symbols-outlined\">folder_open</span></header><div class=\"gen-office-table-scroll\"><table class=\"gen-office-library-table\"><thead><tr><th>Archivo</th><th>Tipo</th><th>Tamaño</th><th aria-label=\"Acciones\"></th></tr></thead><tbody>{s}</tbody></table></div></section><aside class=\"gen-office-library-import\" id=\"library-import\"><header><span class=\"gen-office-launcher-icon library\">↑</span><div><span>IMPORTAR</span><h2>Nuevo archivo</h2></div></header><p>Crea un archivo directamente en tu biblioteca local.</p><form id=\"library-import-form\" hx-post=\"/office/library/import/docs\" hx-swap=\"none\"><label for=\"library-import-name\">Nombre</label><input id=\"library-import-name\" type=\"text\" name=\"name\" maxlength=\"200\" placeholder=\"mi-archivo\" required><label for=\"library-import-kind\">Tipo de archivo</label><select id=\"library-import-kind\" name=\"kind\" onchange=\"this.form.setAttribute('hx-post','/office/library/import/'+this.value);htmx.process(this.form)\"><option value=\"docs\">Documento Markdown</option><option value=\"sheets\">Hoja CSV</option><option value=\"presentations\">Presentación</option><option value=\"html\">Página HTML</option></select><label for=\"library-import-content\">Contenido</label><textarea id=\"library-import-content\" name=\"content\" rows=\"8\" required></textarea><p class=\"gen-office-import-help\">Para presentaciones, pega texto Markdown para crear una escena o JSON válido.</p><button type=\"submit\" class=\"gen-office-primary-button\">Importar archivo</button></form></aside></div><footer class=\"gen-office-home-footer\"><span>Archivos locales · Markdown · CSV · JSON</span><span>NOVA Office</span></footer></div>", .{ tabs, count, nav, escaped_query, count, table_rows });
+    const body = try std.fmt.allocPrint(allocator, "<div class=\"nova-page gen-office-page gen-office-manager-page gen-office-library-page\">{s}<header class=\"gen-office-manager-head\"><div><span>BIBLIOTECA · ARCHIVOS LOCALES</span><h1>Todo tu trabajo.</h1><p>{d} archivo(s) visibles. Abre, descarga o importa desde un solo lugar.</p></div><a href=\"#library-import\" class=\"gen-office-primary-button\">Importar archivo</a></header>{s}<form method=\"get\" action=\"/office/library/search\" class=\"gen-office-library-search\"><span class=\"material-symbols-outlined\">search</span><label class=\"sr-only\" for=\"library-query\">Buscar archivos</label><input id=\"library-query\" type=\"search\" name=\"q\" value=\"{s}\" placeholder=\"Buscar por nombre…\"><button type=\"submit\" class=\"gen-office-secondary-button\">Buscar</button></form><div class=\"gen-office-library-layout\"><section class=\"gen-office-library-browser\"><header><div><span>ARCHIVOS</span><strong>{d} resultado(s)</strong></div><span class=\"material-symbols-outlined\">folder_open</span></header><div class=\"gen-office-table-scroll\"><table class=\"gen-office-library-table\"><thead><tr><th>Archivo</th><th>Tipo</th><th>Sección</th><th>Tamaño</th><th aria-label=\"Acciones\"></th></tr></thead><tbody>{s}</tbody></table></div></section><aside class=\"gen-office-library-import\" id=\"library-import\"><header><span class=\"gen-office-launcher-icon library\">↑</span><div><span>IMPORTAR</span><h2>Nuevo archivo</h2></div></header><p>Crea un archivo directamente en tu biblioteca local.</p><form id=\"library-import-form\" hx-post=\"/office/library/import/docs\" hx-swap=\"none\"><label for=\"library-import-name\">Nombre</label><input id=\"library-import-name\" type=\"text\" name=\"name\" maxlength=\"200\" placeholder=\"mi-archivo\" required><label for=\"library-import-kind\">Tipo de archivo</label><select id=\"library-import-kind\" name=\"kind\" onchange=\"this.form.setAttribute('hx-post','/office/library/import/'+this.value);htmx.process(this.form)\"><option value=\"docs\">Documento Markdown</option><option value=\"sheets\">Hoja CSV</option><option value=\"presentations\">Presentación</option><option value=\"html\">Página HTML</option></select><label for=\"library-import-content\">Contenido</label><textarea id=\"library-import-content\" name=\"content\" rows=\"8\" required></textarea><p class=\"gen-office-import-help\">Para presentaciones, pega texto Markdown para crear una escena o JSON válido.</p><button type=\"submit\" class=\"gen-office-primary-button\">Importar archivo</button></form><div class=\"gen-office-import-local\"><header><span class=\"material-symbols-outlined\">folder_open</span><div><span>CARPETA LOCAL</span><h2>Importar documentos</h2></div></header><p>Convierte DOCX, PDF, XLSX, PPTX, ODT, ODS, ODP, MD, TXT, CSV y HTML de <code>~/Documentos</code> a tu biblioteca. No sobrescribe archivos existentes.</p><form method=\"post\" action=\"/office/library/import-local\"><label for=\"library-import-dir\">Carpeta dentro de ~/Documentos</label><input id=\"library-import-dir\" type=\"text\" name=\"dir\" value=\"~/Documentos\" maxlength=\"500\" required><button type=\"submit\" class=\"gen-office-primary-button\">Importar carpeta</button></form><p class=\"gen-office-import-help\">Solo se leen documentos; imágenes, código y configuraciones se omiten.</p></div></aside></div><footer class=\"gen-office-home-footer\"><span>Archivos locales · Markdown · CSV · JSON</span><span>NOVA Office</span></footer></div>", .{ tabs, count, nav, escaped_query, count, table_rows });
     return page(allocator, config, request.path, username, "Biblioteca", body, 200);
+}
+
+const MAX_IMPORT_FILES = 1000;
+const MAX_IMPORT_TEXT = 8 * 1024 * 1024;
+
+const ImportStatus = enum {
+    imported,
+    exists,
+    empty,
+    failed,
+
+    fn label(self: ImportStatus) []const u8 {
+        return switch (self) {
+            .imported => "Importado",
+            .exists => "Ya existía",
+            .empty => "Vacío",
+            .failed => "Falló",
+        };
+    }
+};
+
+const ImportEntry = struct {
+    name: []const u8,
+    status: ImportStatus,
+    detail: []const u8,
+    kind: []const u8,
+};
+
+const ImportSummary = struct {
+    imported: usize = 0,
+    exists: usize = 0,
+    empty: usize = 0,
+    failed: usize = 0,
+    ignored: usize = 0,
+    truncated: bool = false,
+    entries: std.ArrayList(ImportEntry),
+
+    fn record(self: *ImportSummary, status: ImportStatus) void {
+        switch (status) {
+            .imported => self.imported += 1,
+            .exists => self.exists += 1,
+            .empty => self.empty += 1,
+            .failed => self.failed += 1,
+        }
+    }
+};
+
+fn importLocalRoute(allocator: std.mem.Allocator, config: *const config_mod.Config, request: *const http.Request, username: []const u8, root: []const u8) !http.Response {
+    const raw_dir = (try formField(allocator, request, "dir")) orelse "~/Documentos";
+    const source = resolveImportDir(allocator, raw_dir) catch |err| {
+        const message = switch (err) {
+            error.EmptyPath => "Indica una carpeta dentro de ~/Documentos.",
+            error.OutsideDocuments => "Solo se pueden importar carpetas dentro de ~/Documentos.",
+            error.FileNotFound => "La carpeta indicada no existe.",
+            error.AccessDenied => "No hay permisos para leer esa carpeta.",
+            else => "No se pudo abrir la carpeta indicada.",
+        };
+        return errorPage(allocator, config, request.path, username, 400, message);
+    };
+    const summary = importDirectory(allocator, source, root) catch |err| {
+        const message = if (err == error.FileNotFound) "La carpeta indicada no existe." else "No se pudo leer la carpeta indicada.";
+        return errorPage(allocator, config, request.path, username, 400, message);
+    };
+    return importResultPage(allocator, config, request, username, source, &summary);
+}
+
+const DRIVE_TMP_DIR = "/tmp/opencode/nova-drive-import";
+
+fn validDriveId(id: []const u8) bool {
+    if (id.len == 0 or id.len > 200) return false;
+    for (id) |c| {
+        const ok = (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or (c >= '0' and c <= '9') or c == '-' or c == '_';
+        if (!ok) return false;
+    }
+    return true;
+}
+
+/// Extensión (con punto) derivada del nombre de un archivo de Drive.
+fn driveExtension(name: []const u8) ?[]const u8 {
+    const base = std.fs.path.basename(name);
+    const dot = std.mem.lastIndexOfScalar(u8, base, '.') orelse return null;
+    const ext = base[dot..];
+    if (ext.len < 2 or ext.len > 12) return null;
+    for (ext[1..]) |c| {
+        if (!std.ascii.isAlphanumeric(c)) return null;
+    }
+    return ext;
+}
+
+/// Importa un archivo de Google Drive bajo demanda.
+///
+/// - Docs/Sheets/Slides nativos se exportan a DOCX/CSV/PPTX y pasan por el
+///   mismo conversor que los archivos locales.
+/// - El resto se descarga y se convierte según su extensión.
+/// El archivo temporal se borra siempre; nada se guarda fuera de la biblioteca.
+fn importDriveRoute(
+    allocator: std.mem.Allocator,
+    db: *sqlite.Db,
+    config: *const config_mod.Config,
+    request: *const http.Request,
+    username: []const u8,
+    user_id: i64,
+    root: []const u8,
+) !http.Response {
+    const file_id = (try formField(allocator, request, "file")) orelse "";
+    const name = (try formField(allocator, request, "name")) orelse "";
+    const mime = (try formField(allocator, request, "mime")) orelse "";
+    if (!validDriveId(file_id)) return errorPage(allocator, config, request.path, username, 400, "Identificador de archivo no válido.");
+    const display_name = std.mem.trim(u8, name, " \t\r\n");
+    if (display_name.len == 0 or display_name.len > 300) return errorPage(allocator, config, request.path, username, 400, "Nombre de archivo no válido.");
+
+    if (config.google_client_id.len == 0 or config.google_client_secret.len == 0) {
+        return errorPage(allocator, config, request.path, username, 400, "Google OAuth no está configurado en el servidor.");
+    }
+    const cfg = oauth.Config{
+        .client_id = config.google_client_id,
+        .client_secret = config.google_client_secret,
+        .redirect_uri = config.google_redirect_uri,
+        .timeout_ms = config.oauth_timeout_ms,
+    };
+
+    const max_bytes: usize = 64 * 1024 * 1024;
+    var data: ?[]const u8 = null;
+    var ext: []const u8 = "";
+    if (std.mem.eql(u8, mime, "application/vnd.google-apps.document")) {
+        // Markdown conserva el formato y evita el límite de exportación de DOCX.
+        data = gws.exportFile(allocator, db, cfg, user_id, file_id, "text/markdown", max_bytes) catch null;
+        ext = ".md";
+        if (data == null) data = gws.exportFile(allocator, db, cfg, user_id, file_id, "text/plain", max_bytes) catch null;
+    } else if (std.mem.eql(u8, mime, "application/vnd.google-apps.spreadsheet")) {
+        data = gws.exportFile(allocator, db, cfg, user_id, file_id, "text/csv", max_bytes) catch null;
+        ext = ".csv";
+    } else if (std.mem.eql(u8, mime, "application/vnd.google-apps.presentation")) {
+        data = gws.exportFile(allocator, db, cfg, user_id, file_id, "application/vnd.openxmlformats-officedocument.presentationml.presentation", max_bytes) catch null;
+        ext = ".pptx";
+        if (data == null) {
+            data = gws.exportFile(allocator, db, cfg, user_id, file_id, "text/plain", max_bytes) catch null;
+            ext = ".md";
+        }
+    } else if (gws.isGoogleNative(mime)) {
+        return errorPage(allocator, config, request.path, username, 400, "Ese tipo de archivo de Google (dibujo, formulario, carpeta…) no se puede convertir a un documento de la biblioteca.");
+    } else {
+        ext = driveExtension(display_name) orelse return errorPage(allocator, config, request.path, username, 400, "El archivo no tiene una extensión reconocible.");
+        if (importer.kindFor(display_name) == null) {
+            return errorPage(allocator, config, request.path, username, 400, "Ese formato no se puede importar a la biblioteca.");
+        }
+        data = gws.downloadFile(allocator, db, cfg, user_id, file_id, max_bytes) catch null;
+    }
+    const payload = data orelse return errorPage(allocator, config, request.path, username, 502, "No se pudo descargar el archivo de Google Drive. Revisa la conexión en /dashboard/google.");
+
+    std.fs.cwd().makePath(DRIVE_TMP_DIR) catch {};
+    const tmp_path = try std.fmt.allocPrint(allocator, "{s}/{x}{s}", .{ DRIVE_TMP_DIR, std.crypto.random.int(u64), ext });
+    defer std.fs.cwd().deleteFile(tmp_path) catch {};
+    {
+        const file = std.fs.cwd().createFile(tmp_path, .{ .exclusive = true }) catch {
+            return errorPage(allocator, config, request.path, username, 500, "No se pudo preparar el archivo temporal de importación.");
+        };
+        defer file.close();
+        file.writeAll(payload) catch {
+            return errorPage(allocator, config, request.path, username, 500, "No se pudo escribir el archivo temporal de importación.");
+        };
+    }
+
+    const stem = fileNameStem(display_name);
+    var summary = ImportSummary{ .entries = std.ArrayList(ImportEntry).init(allocator) };
+    const converted = importer.convert(allocator, tmp_path, stem) catch |err| {
+        const status: ImportStatus = if (err == error.EmptyDocument) .empty else .failed;
+        summary.record(status);
+        const detail = if (err == error.EmptyDocument) "Sin texto extraíble" else importErrorLabel(err);
+        try summary.entries.append(.{ .name = display_name, .status = status, .detail = detail, .kind = "Google Drive" });
+        return importResultPage(allocator, config, request, username, "Google Drive", &summary);
+    };
+    const stored = try storeConverted(allocator, root, stem, converted.kind, converted.text);
+    summary.record(stored.status);
+    try summary.entries.append(.{ .name = display_name, .status = stored.status, .detail = stored.detail, .kind = kindLabel(converted.kind) });
+    const source = try std.fmt.allocPrint(allocator, "Google Drive · {s}", .{display_name});
+    return importResultPage(allocator, config, request, username, source, &summary);
+}
+
+fn resolveImportDir(allocator: std.mem.Allocator, raw: []const u8) ![]const u8 {
+    const trimmed = std.mem.trim(u8, raw, " \t\r\n");
+    if (trimmed.len == 0) return error.EmptyPath;
+    const home_dir = std.process.getEnvVarOwned(allocator, "HOME") catch return error.NoHome;
+    const expanded = if (std.mem.eql(u8, trimmed, "~"))
+        home_dir
+    else if (std.mem.startsWith(u8, trimmed, "~/"))
+        try std.fs.path.join(allocator, &.{ home_dir, trimmed[2..] })
+    else if (trimmed[0] == '/')
+        try allocator.dupe(u8, trimmed)
+    else
+        try std.fs.path.join(allocator, &.{ home_dir, trimmed });
+
+    const allowed = try std.fs.path.join(allocator, &.{ home_dir, "Documentos" });
+    const allowed_real = std.fs.cwd().realpathAlloc(allocator, allowed) catch |err| switch (err) {
+        error.FileNotFound => return error.FileNotFound,
+        else => return error.AccessDenied,
+    };
+    const source_real = std.fs.cwd().realpathAlloc(allocator, expanded) catch |err| switch (err) {
+        error.FileNotFound => return error.FileNotFound,
+        else => return error.AccessDenied,
+    };
+    if (!pathInside(allowed_real, source_real)) return error.OutsideDocuments;
+    return source_real;
+}
+
+fn pathInside(parent: []const u8, child: []const u8) bool {
+    if (std.mem.eql(u8, parent, child)) return true;
+    if (!std.mem.startsWith(u8, child, parent)) return false;
+    return child.len > parent.len and child[parent.len] == '/';
+}
+
+fn importDirectory(allocator: std.mem.Allocator, source: []const u8, root: []const u8) !ImportSummary {
+    var summary = ImportSummary{ .entries = std.ArrayList(ImportEntry).init(allocator) };
+    var dir = std.fs.cwd().openDir(source, .{ .iterate = true }) catch |err| return err;
+    defer dir.close();
+    var walker = try dir.walk(allocator);
+    defer walker.deinit();
+
+    var processed: usize = 0;
+    while (try walker.next()) |entry| {
+        if (entry.kind != .file) continue;
+        if (shouldSkipImport(entry.path)) continue;
+        const kind_hint = importer.kindFor(entry.path) orelse {
+            summary.ignored += 1;
+            continue;
+        };
+        if (processed >= MAX_IMPORT_FILES) {
+            summary.truncated = true;
+            break;
+        }
+        processed += 1;
+
+        const relative = try allocator.dupe(u8, entry.path);
+        const stem = fileNameStem(entry.basename);
+        const full = try std.fs.path.join(allocator, &.{ source, entry.path });
+
+        {
+            var file_arena = std.heap.ArenaAllocator.init(allocator);
+            defer file_arena.deinit();
+            const scratch = file_arena.allocator();
+            const converted = importer.convert(scratch, full, stem) catch |err| {
+                switch (err) {
+                    error.EmptyDocument => {
+                        summary.empty += 1;
+                        try summary.entries.append(.{ .name = relative, .status = .empty, .detail = "Sin texto extraíble", .kind = kindLabel(kind_hint) });
+                    },
+                    else => {
+                        summary.failed += 1;
+                        try summary.entries.append(.{ .name = relative, .status = .failed, .detail = importErrorLabel(err), .kind = kindLabel(kind_hint) });
+                    },
+                }
+                continue;
+            };
+            const stored = try storeConverted(allocator, root, stem, converted.kind, converted.text);
+            summary.record(stored.status);
+            try summary.entries.append(.{ .name = relative, .status = stored.status, .detail = stored.detail, .kind = kindLabel(converted.kind) });
+        }
+    }
+    return summary;
+}
+
+fn shouldSkipImport(relative: []const u8) bool {
+    var parts = std.mem.splitScalar(u8, relative, '/');
+    while (parts.next()) |part| {
+        if (part.len == 0) continue;
+        if (part[0] == '.') return true;
+        if (std.mem.startsWith(u8, part, "~$")) return true;
+        if (std.mem.eql(u8, part, "__MACOSX")) return true;
+    }
+    return false;
+}
+
+fn fileNameStem(path: []const u8) []const u8 {
+    const base = std.fs.path.basename(path);
+    const dot = std.mem.lastIndexOfScalar(u8, base, '.') orelse return base;
+    return if (dot == 0) base else base[0..dot];
+}
+
+fn kindLabel(kind: importer.Kind) []const u8 {
+    return switch (kind) {
+        .docs => "Documento",
+        .sheets => "Hoja",
+        .presentations => "Presentación",
+        .html => "HTML",
+    };
+}
+
+const Stored = struct {
+    status: ImportStatus,
+    detail: []const u8,
+};
+
+/// Guarda un texto ya convertido en la carpeta nativa de la biblioteca.
+/// Deduplica por contenido: si el archivo con el mismo slug ya existe y su
+/// contenido coincide, no lo vuelve a escribir.
+fn storeConverted(
+    allocator: std.mem.Allocator,
+    root: []const u8,
+    stem: []const u8,
+    kind: importer.Kind,
+    text: []const u8,
+) !Stored {
+    if (text.len > MAX_IMPORT_TEXT) {
+        return .{ .status = .failed, .detail = "El texto convertido supera 8 MB" };
+    }
+    const target_dir = try officeDir(allocator, root, @tagName(kind));
+    const base_slug = try slugify(allocator, stem);
+    const safe_base = if (safeSlug(base_slug)) base_slug else "documento";
+
+    const direct = try std.fmt.allocPrint(allocator, "{s}/{s}{s}", .{ target_dir, safe_base, kind.ext() });
+    if (try fileExists(direct)) {
+        const existing = readFile(allocator, direct, MAX_LIBRARY_FILE) catch "";
+        if (std.mem.eql(u8, existing, text)) {
+            return .{ .status = .exists, .detail = safe_base };
+        }
+    }
+
+    const slug = (try uniqueSlug(allocator, target_dir, safe_base, kind.ext())) orelse {
+        return .{ .status = .failed, .detail = "No se pudo asignar un nombre único" };
+    };
+    const target = try std.fmt.allocPrint(allocator, "{s}/{s}{s}", .{ target_dir, slug, kind.ext() });
+    const owned = try allocator.dupe(u8, text);
+    writeNew(target, owned) catch |err| {
+        return .{ .status = .failed, .detail = importErrorLabel(err) };
+    };
+    return .{ .status = .imported, .detail = slug };
+}
+
+fn uniqueSlug(allocator: std.mem.Allocator, dir: []const u8, base: []const u8, ext: []const u8) !?[]const u8 {
+    var attempt: usize = 0;
+    while (attempt < 500) : (attempt += 1) {
+        const candidate = if (attempt == 0)
+            try allocator.dupe(u8, base)
+        else
+            try std.fmt.allocPrint(allocator, "{s}-{d}", .{ base, attempt + 1 });
+        const full = try std.fmt.allocPrint(allocator, "{s}/{s}{s}", .{ dir, candidate, ext });
+        if (!(try fileExists(full))) return candidate;
+    }
+    return null;
+}
+
+fn importErrorLabel(err: anyerror) []const u8 {
+    return switch (err) {
+        error.UnsupportedFormat => "Formato no admitido",
+        error.EmptyDocument => "Sin texto extraíble",
+        error.FileTooLarge => "Archivo demasiado grande",
+        error.InvalidArchive => "Archivo dañado, cifrado o no válido",
+        error.PdfToolMissing => "pdftotext no está instalado",
+        error.PdfFailed => "PDF ilegible o sin texto",
+        error.AccessDenied => "Sin permisos",
+        error.FileNotFound => "Archivo no encontrado",
+        error.OutOfMemory => "Sin memoria",
+        else => "No se pudo convertir",
+    };
+}
+
+fn importResultPage(allocator: std.mem.Allocator, config: *const config_mod.Config, request: *const http.Request, username: []const u8, source: []const u8, summary: *const ImportSummary) !http.Response {
+    var rows = std.ArrayList(u8).init(allocator);
+    var shown: usize = 0;
+    for (summary.entries.items) |entry| {
+        if (shown >= 400) break;
+        shown += 1;
+        const name = try security.htmlEscape(allocator, entry.name);
+        const detail = try security.htmlEscape(allocator, entry.detail);
+        const css = switch (entry.status) {
+            .imported => "ok",
+            .exists => "exists",
+            .empty => "empty",
+            .failed => "failed",
+        };
+        try rows.writer().print("<tr><td data-label=\"Archivo\">{s}</td><td data-label=\"Tipo\">{s}</td><td data-label=\"Resultado\"><span class=\"gen-office-import-status {s}\">{s}</span></td><td data-label=\"Detalle\">{s}</td></tr>", .{ name, entry.kind, css, entry.status.label(), detail });
+    }
+    const table = if (summary.entries.items.len == 0)
+        "<div class=\"gen-office-empty compact\"><span class=\"material-symbols-outlined\">search_off</span><p>No se encontró ningún documento convertible en esa carpeta.</p></div>"
+    else
+        try std.fmt.allocPrint(allocator, "<div class=\"gen-office-table-scroll\"><table class=\"gen-office-library-table\"><thead><tr><th>Archivo</th><th>Tipo</th><th>Resultado</th><th>Detalle</th></tr></thead><tbody>{s}</tbody></table></div>", .{rows.items});
+    const truncated = if (summary.truncated) "<p role=\"alert\">Se alcanzó el límite de 1000 documentos por importación. Vuelve a ejecutarla para continuar.</p>" else "";
+    const extra = if (summary.entries.items.len > shown) try std.fmt.allocPrint(allocator, "<p>Se muestran los primeros {d} resultados de {d}.</p>", .{ shown, summary.entries.items.len }) else "";
+    const escaped_source = try security.htmlEscape(allocator, source);
+    const tabs = try officeTabs(allocator, "library");
+    const nav = try officeNav(allocator, "library");
+    const body = try std.fmt.allocPrint(allocator, "<div class=\"nova-page gen-office-page gen-office-manager-page gen-office-library-page\">{s}<header class=\"gen-office-manager-head\"><div><span>IMPORTACIÓN LOCAL</span><h1>Documentos convertidos.</h1><p>{d} importado(s) · {d} ya existían · {d} vacío(s) · {d} con error · {d} ignorado(s) por no ser documentos.</p></div><a href=\"/office/library\" class=\"gen-office-primary-button\">Volver a la biblioteca</a></header>{s}{s}<section class=\"gen-office-library-browser\"><header><div><span>RESULTADOS</span><strong>{d} archivo(s)</strong></div><span class=\"material-symbols-outlined\">fact_check</span></header>{s}{s}</section><footer class=\"gen-office-home-footer\"><span>Origen: {s}</span><span>NOVA Office</span></footer></div>", .{ tabs, summary.imported, summary.exists, summary.empty, summary.failed, summary.ignored, nav, truncated, summary.entries.items.len, table, extra, escaped_source });
+    return page(allocator, config, request.path, username, "Importación local", body, 200);
 }
 
 fn humanSizeFromPath(allocator: std.mem.Allocator, root: []const u8, kind: []const u8, name: []const u8) ![]const u8 {
@@ -949,6 +1343,7 @@ fn presentPage(allocator: std.mem.Allocator, config: *const config_mod.Config, r
 fn listPage(allocator: std.mem.Allocator, config: *const config_mod.Config, route: []const u8, username: []const u8, title: []const u8, dir: []const u8, ext: []const u8, action_title: []const u8, action_url: []const u8) !http.Response {
     const kind = if (std.mem.eql(u8, ext, ".md")) "docs" else if (std.mem.eql(u8, ext, ".csv")) "sheets" else if (std.mem.eql(u8, ext, ".html")) "html" else "presentations";
     const icon = if (std.mem.eql(u8, kind, "docs")) "description" else if (std.mem.eql(u8, kind, "sheets")) "table_chart" else if (std.mem.eql(u8, kind, "html")) "code" else "present_to_all";
+    const section = if (std.mem.eql(u8, kind, "docs")) "Documentos" else if (std.mem.eql(u8, kind, "sheets")) "Hojas" else if (std.mem.eql(u8, kind, "html")) "HTML" else "Presentaciones";
     const tabs = try officeTabs(allocator, kind);
     const nav = try officeNav(allocator, kind);
     var cards = std.ArrayList(u8).init(allocator);
@@ -970,7 +1365,7 @@ fn listPage(allocator: std.mem.Allocator, config: *const config_mod.Config, rout
             try std.fmt.allocPrint(allocator, "<form hx-delete=\"{s}\" hx-confirm=\"¿Eliminar este archivo?\" hx-swap=\"none\"><button class=\"gen-office-icon-button danger\" aria-label=\"Eliminar {s}\">⌫</button></form>", .{ editor_url, escaped });
         const size = std.fs.cwd().statFile(try std.fmt.allocPrint(allocator, "{s}/{s}", .{ dir, entry.name })) catch null;
         const size_text = if (size) |stat| try formatHumanSize(allocator, stat.size) else "—";
-        try cards.writer().print("<article class=\"gen-office-file-card {s}\"><a class=\"gen-office-file-preview\" href=\"{s}\"><span class=\"material-symbols-outlined\">{s}</span><small>{s}</small></a><div class=\"gen-office-file-copy\"><a href=\"{s}\">{s}</a><span>Archivo local · {s}</span></div><footer><a href=\"{s}\">{s}</a><a href=\"{s}\">Descargar</a>{s}</footer></article>", .{ kind, editor_url, icon, ext[1..], editor_url, escaped, size_text, export_url, if (std.mem.eql(u8, kind, "docs")) "Exportar" else if (std.mem.eql(u8, kind, "sheets")) "Exportar CSV" else if (std.mem.eql(u8, kind, "html")) "Exportar HTML" else "Abrir JSON", download_url, delete_form });
+        try cards.writer().print("<article class=\"gen-office-file-card {s}\"><a class=\"gen-office-file-preview\" href=\"{s}\"><span class=\"material-symbols-outlined\">{s}</span><small>{s}</small></a><div class=\"gen-office-file-copy\"><a href=\"{s}\">{s}</a><span>Archivo local · {s} · <a class=\"gen-office-file-section\" href=\"/office/{s}\">{s}</a></span></div><footer><a href=\"{s}\">{s}</a><a href=\"{s}\">Descargar</a>{s}</footer></article>", .{ kind, editor_url, icon, ext[1..], editor_url, escaped, size_text, kind, section, export_url, if (std.mem.eql(u8, kind, "docs")) "Exportar" else if (std.mem.eql(u8, kind, "sheets")) "Exportar CSV" else if (std.mem.eql(u8, kind, "html")) "Exportar HTML" else "Abrir JSON", download_url, delete_form });
         count += 1;
     }
     const content = if (count == 0)

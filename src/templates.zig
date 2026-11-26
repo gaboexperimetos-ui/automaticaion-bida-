@@ -65,8 +65,16 @@ pub fn fillPage(allocator: std.mem.Allocator, page: TemplatePage, source: []cons
         .{ .slot = "AI_MODEL", .value = safe_model },
         .{ .slot = "AI_RESUME", .value = "<p class=\"text-sm text-on-surface-variant\">Pregunta a NOVA AI para empezar una sesión de estudio.</p>" },
         .{ .slot = "CHART_NOTES", .value = try panel.chartNotes(allocator, datos) },
+        .{ .slot = "CHART_AVG", .value = try panel.chartAvg(allocator, datos) },
+        .{ .slot = "CHART_DIST", .value = try panel.chartGradeDist(allocator, datos) },
+        .{ .slot = "CHART_HEALTH", .value = try panel.chartHealth(allocator, datos) },
+        .{ .slot = "CHART_LOAD", .value = try panel.chartLoad14(allocator, datos) },
         .{ .slot = "CHART_SUBJECTS", .value = try panel.chartSubjects(allocator, datos) },
         .{ .slot = "CHART_WEEK", .value = try panel.chartWeek(allocator, datos) },
+        .{ .slot = "CHART_WEIGHTS", .value = try panel.chartWeights(allocator) },
+        .{ .slot = "CHART_RADAR", .value = try panel.chartAxesRadar(allocator, datos) },
+        .{ .slot = "CHART_STACKED", .value = try panel.chartStackedSubjects(allocator, datos) },
+        .{ .slot = "CHART_HEATMAP", .value = try panel.chartHeatmap(allocator, datos) },
         .{ .slot = "CLASSCOUNT", .value = try panel.syncClasscount(allocator, datos) },
         .{ .slot = "CLASSES", .value = classes_html },
         .{ .slot = "EXAM", .value = exam_html },
@@ -80,6 +88,7 @@ pub fn fillPage(allocator: std.mem.Allocator, page: TemplatePage, source: []cons
         .{ .slot = "KPI_TASKS_WEEK", .value = try panel.kpiTasks(allocator, datos, .week, "activas") },
         .{ .slot = "NEXT_EVENT", .value = next_event_html },
         .{ .slot = "NOTES", .value = notes_html },
+        .{ .slot = "OPENCODE", .value = try panel.opencodeCard(allocator, datos.opencode) },
         .{ .slot = "SUBJECT_BARS", .value = try panel.subjectBars(allocator, datos) },
         .{ .slot = "SUBJECT_OPTIONS", .value = subject_options_html },
         .{ .slot = "SYNC", .value = try panel.syncLabel(allocator, datos) },
@@ -213,6 +222,7 @@ pub fn fillPage(allocator: std.mem.Allocator, page: TemplatePage, source: []cons
         .{ .slot = "AI_MODEL", .value = safe_ai_model },
         .{ .slot = "AI_STATUS", .value = ai_status },
         .{ .slot = "AUTH_MODE", .value = auth_mode },
+        .{ .slot = "CONNECTIONS", .value = try panel.connections(allocator, datos, db) },
         .{ .slot = "MCP_DOT", .value = if (datos.connected) status_on else status_off },
         .{ .slot = "MCP_STATUS", .value = mcp_status },
         .{ .slot = "MCP_URL", .value = safe_mcp_url },
@@ -285,11 +295,14 @@ pub fn renderShell(allocator: std.mem.Allocator, active_route: []const u8, conte
     const safe_mcp_url = try security.htmlEscape(allocator, mcp_url);
     _ = safe_mcp_url; // La URL no se inserta en el shell ni se expone en HTML.
 
-    const css = "<style>html,body{margin:0;background:var(--nx-bg,#080b14);color:var(--nx-text,#f3f6ff)}.app-rail{position:fixed;inset:0 auto 0 0;width:250px;overflow:auto;z-index:50}.app-rail-content{margin-left:250px}.app-topbar{position:sticky;top:0;z-index:40}.skip-link{position:absolute;left:-9999px;top:0;background:#a78bfa;color:#140d26;padding:.75rem;z-index:100}.skip-link:focus{left:1rem}.app-main{min-height:100vh;padding-top:4rem}@media(max-width:900px){.app-rail{transform:translateX(-100%)}.app-rail-content{margin-left:0}.app-topbar{left:0!important}}</style>";
+    // La geometría del rail vive en nova.css (.nx-sidebar). Aquí solo queda
+    // el respaldo para un rail legado sin la clase nx; si no se acota, este
+    // <style> posterior a los <link> pisa el rail flotante.
+    const css = "<style>html,body{margin:0;background:var(--nx-bg,#080b14);color:var(--nx-text,#f3f6ff)}.app-rail:not(.nx-sidebar){position:fixed;inset:0 auto 0 0;width:250px;overflow:auto;z-index:50}.app-rail-content{margin-left:250px}.app-topbar{position:sticky;top:0;z-index:40}.skip-link{position:absolute;left:-9999px;top:0;background:#a78bfa;color:#140d26;padding:.75rem;z-index:100}.skip-link:focus{left:1rem}.app-main{min-height:100vh;padding-top:4rem}@media(max-width:900px){.app-rail{transform:translateX(-100%)}.app-rail-content{margin-left:0}.app-topbar{left:0!important}}</style>";
     const head = try std.fmt.allocPrint(allocator, "<head>{s}{s}<script>window.__STITCH_V2_AUTH__={{\"authenticated\":{s}}}</script></head>", .{ assets.head, css, if (authenticated) "true" else "false" });
     return std.fmt.allocPrint(
         allocator,
-        "<!DOCTYPE html>\n<html class=\"dark\" lang=\"es\">{s}<body class=\"bg-background font-body-md text-body-md text-on-surface antialiased\"><a class=\"skip-link\" href=\"#contenido\">Saltar al contenido</a>{s}<div id=\"app-rail-content\" class=\"app-rail-content\">{s}<main id=\"contenido\" class=\"app-main relative w-full bg-background\">{s}</main></div><script src=\"/calendar-ics.js\" defer></script><script src=\"/shell.js\" defer></script></body></html>",
+        "<!DOCTYPE html>\n<html class=\"dark\" lang=\"es\">{s}<body class=\"bg-background font-body-md text-body-md text-on-surface antialiased\"><a class=\"skip-link\" href=\"#contenido\">Saltar al contenido</a>{s}<div id=\"app-rail-content\" class=\"app-rail-content\">{s}<main id=\"contenido\" class=\"app-main relative w-full bg-background\">{s}</main></div><script src=\"/calendar-ics.js\" defer></script><script src=\"/shell.js\" defer></script><script src=\"/charts.js\" defer></script></body></html>",
         .{ head, aside_html, topbar_html, content },
     );
 }
@@ -344,6 +357,7 @@ fn primaryPath(route: []const u8) []const u8 {
     if (std.mem.startsWith(u8, route, "/dashboard/examenes")) return "examenes";
     if (std.mem.startsWith(u8, route, "/dashboard/vida-escolar")) return "vida-escolar";
     if (std.mem.startsWith(u8, route, "/dashboard/google-calendar")) return "google-calendar";
+    if (std.mem.startsWith(u8, route, "/dashboard/classroom")) return "google-classroom";
     if (std.mem.startsWith(u8, route, "/dashboard/google")) return "google-workspace";
     if (std.mem.startsWith(u8, route, "/dashboard/mensajes")) return "mensajes";
     if (std.mem.startsWith(u8, route, "/dashboard/perfil") or std.mem.startsWith(u8, route, "/dashboard/profile")) return "perfil";
@@ -373,6 +387,7 @@ fn routeForPath(data_path: []const u8) []const u8 {
         .{ .key = "examenes", .route = "/dashboard/examenes" },
         .{ .key = "vida-escolar", .route = "/dashboard/vida-escolar" },
         .{ .key = "google-calendar", .route = "/dashboard/google-calendar" },
+        .{ .key = "google-classroom", .route = "/dashboard/classroom" },
         .{ .key = "google-workspace", .route = "/dashboard/google" },
         .{ .key = "mensajes", .route = "/dashboard/mensajes" },
         .{ .key = "perfil", .route = "/dashboard/perfil" },

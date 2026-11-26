@@ -74,7 +74,7 @@ fn pageHead(allocator: std.mem.Allocator, eyebrow: []const u8, titulo: []const u
 }
 
 fn refreshButton() []const u8 {
-    return "<a class=\"nx-button nx-button-secondary\" href=\"#\" data-recargar><span class=\"material-symbols-outlined\">refresh</span>Actualizar</a>";
+    return "<a class=\"nx-button nx-button-secondary\" href=\"?refresh=1\" data-recargar><span class=\"material-symbols-outlined\">refresh</span>Actualizar</a>";
 }
 
 /// Tarjeta compacta de una métrica.

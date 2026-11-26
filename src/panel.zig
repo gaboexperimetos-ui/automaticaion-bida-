@@ -15,6 +15,7 @@ const sqlite = @import("sqlite.zig");
 const json = @import("jsonutil.zig");
 const security = @import("security.zig");
 const mcp_client = @import("mcp_client.zig");
+const charts = @import("charts.zig");
 
 pub const Evento = struct { fecha: []const u8, titulo: []const u8, tipo: []const u8 };
 pub const Tarea = struct { titulo: []const u8, vencimiento: []const u8 };
@@ -89,6 +90,17 @@ pub const Datos = struct {
     auth_disabled: bool = false,
     /// Ruta del vault de Obsidian mostrada en el panel de notas.
     vault_path: []const u8 = "",
+    /// Estado del servicio local de OpenCode (una sola instancia).
+    opencode: OpenCode = .{},
+};
+
+/// Servicio de OpenCode que usa la terminal pequeña del panel.
+pub const OpenCode = struct {
+    running: bool = false,
+    url: []const u8 = "",
+    pid: u32 = 0,
+    version: []const u8 = "",
+    port: []const u8 = "",
 };
 
 /// Modelo de IA efectivo: el elegido en la app (`app_config`) o el de `.env`.
@@ -615,6 +627,45 @@ pub fn chartEmpty(allocator: std.mem.Allocator, title: []const u8, body: []const
     );
 }
 
+/// Medidor circular con la media general del trimestre.
+pub fn chartAvg(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
+    if (d.notas.len == 0) return chartEmpty(
+        allocator,
+        "Sin promedio todavía",
+        "Cuando Mikareno publique notas, aquí verás tu media de un vistazo.",
+        "/dashboard/subjects",
+        "Ver asignaturas",
+    );
+    var total: f64 = 0;
+    var best = d.notas[0].nota;
+    var worst = d.notas[0].nota;
+    var passing: usize = 0;
+    for (d.notas) |n| {
+        total += n.nota;
+        best = @max(best, n.nota);
+        worst = @min(worst, n.nota);
+        if (n.nota >= 7.0) passing += 1;
+    }
+    const count = d.notas.len;
+    const avg = total / @as(f64, @floatFromInt(count));
+    const frac = @max(0.0, @min(1.0, avg / 10.0));
+    const radius: f64 = 54.0;
+    const circ = 2.0 * std.math.pi * radius;
+    const dash = circ * frac;
+    const color = if (avg < 4.0) "var(--nx-danger)" else if (avg < 7.0) "var(--nx-orange)" else "url(#nx-avg-grad)";
+    return std.fmt.allocPrint(
+        allocator,
+        "<div class=\"nx-gauge\"><svg class=\"nx-chart nx-chart-gauge\" viewBox=\"0 0 140 140\" role=\"img\" aria-label=\"Media general {d:.2} sobre 10\">" ++
+            "<defs><linearGradient id=\"nx-avg-grad\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\"><stop offset=\"0\" stop-color=\"#a78bfa\"/><stop offset=\"1\" stop-color=\"#67e8f9\"/></linearGradient></defs>" ++
+            "<circle class=\"nx-chart-donut-track\" cx=\"70\" cy=\"70\" r=\"54\"/>" ++
+            "<circle cx=\"70\" cy=\"70\" r=\"54\" fill=\"none\" stroke=\"{s}\" stroke-width=\"11\" stroke-linecap=\"round\" stroke-dasharray=\"{d:.1} {d:.1}\" transform=\"rotate(-90 70 70)\"/>" ++
+            "<text class=\"nx-gauge-value\" x=\"70\" y=\"69\" text-anchor=\"middle\">{d:.2}</text>" ++
+            "<text class=\"nx-gauge-label\" x=\"70\" y=\"86\" text-anchor=\"middle\">MEDIA / 10</text></svg>" ++
+            "<div class=\"nx-gauge-facts\"><span><b>{d:.1}</b>mejor</span><span><b>{d:.1}</b>menor</span><span><b>{d}</b>sobre 7</span></div></div>",
+        .{ avg, color, dash, circ - dash, avg, best, worst, passing },
+    );
+}
+
 /// SVG de barras horizontales con la media por asignatura (0–10).
 pub fn chartSubjects(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
     if (d.notas.len == 0) return chartEmpty(
@@ -646,17 +697,17 @@ pub fn chartSubjects(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
         const y = top + @as(i32, @intCast(k)) * row;
         const frac = @max(0.0, @min(1.0, n.nota / 10.0));
         const bw: i32 = @intFromFloat(@round(@as(f64, @floatFromInt(bar_w)) * frac));
-        const fill = if (n.nota < 4.0) "var(--nx-danger)" else if (n.nota < 7.0) "var(--nx-orange)" else "var(--nx-accent)";
+        const fill = if (n.nota < 4.0) "url(#nx-g-bad)" else if (n.nota < 7.0) "url(#nx-g-mid)" else "url(#nx-g-good)";
         const name = try esc(allocator, n.materia);
         out.appendSlice(try std.fmt.allocPrint(
             allocator,
-            "<g><title>{s}: {d:.2}</title><text class=\"nx-chart-t\" x=\"0\" y=\"{d}\" dominant-baseline=\"middle\">{s}</text><rect x=\"{d}\" y=\"{d}\" width=\"{d}\" height=\"7\" rx=\"3.5\" fill=\"var(--nx-surface-3)\"/><rect x=\"{d}\" y=\"{d}\" width=\"{d}\" height=\"7\" rx=\"3.5\" fill=\"{s}\"/><text class=\"nx-chart-v\" x=\"{d}\" y=\"{d}\" dominant-baseline=\"middle\">{d:.2}</text></g>",
+            "<g><title>{s}: {d:.2}</title><text class=\"nx-chart-t\" x=\"0\" y=\"{d}\" dominant-baseline=\"middle\">{s}</text><rect x=\"{d}\" y=\"{d}\" width=\"{d}\" height=\"8\" rx=\"4\" fill=\"var(--nx-surface-3)\"/><rect x=\"{d}\" y=\"{d}\" width=\"{d}\" height=\"8\" rx=\"4\" fill=\"{s}\"/><text class=\"nx-chart-v\" x=\"{d}\" y=\"{d}\" dominant-baseline=\"middle\">{d:.2}</text></g>",
             .{ name, n.nota, y + row / 2, name, bar_x, y + (row - 8) / 2, bar_w, bar_x, y + (row - 8) / 2, bw, fill, bar_x + bar_w + 8, y + row / 2, n.nota },
         )) catch {};
     }
     return std.fmt.allocPrint(
         allocator,
-        "<svg class=\"nx-chart\" viewBox=\"0 0 {d} {d}\" role=\"img\" aria-label=\"Media por asignatura\">{s}</svg>",
+        "<svg class=\"nx-chart\" viewBox=\"0 0 {d} {d}\" role=\"img\" aria-label=\"Media por asignatura\"><defs><linearGradient id=\"nx-g-good\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"0\"><stop offset=\"0\" stop-color=\"#8b5cf6\"/><stop offset=\"1\" stop-color=\"#67e8f9\"/></linearGradient><linearGradient id=\"nx-g-mid\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"0\"><stop offset=\"0\" stop-color=\"#f59e0b\"/><stop offset=\"1\" stop-color=\"#ffbd7a\"/></linearGradient><linearGradient id=\"nx-g-bad\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"0\"><stop offset=\"0\" stop-color=\"#dc2626\"/><stop offset=\"1\" stop-color=\"#ffb4ab\"/></linearGradient></defs>{s}</svg>",
         .{ width, height, out.items },
     );
 }
@@ -704,47 +755,62 @@ pub fn chartWeek(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
         "Abrir planificador",
     );
 
-    const width: i32 = 340;
-    const height: i32 = 148;
-    const left: i32 = 26;
-    const bottom: i32 = 20;
-    const top: i32 = 12;
+    const width: i32 = 360;
+    const height: i32 = 170;
+    const left: i32 = 30;
+    const bottom: i32 = 26;
+    const top: i32 = 18;
     const plot_h = height - top - bottom;
-    const plot_w = width - left - 8;
+    const plot_w = width - left - 10;
     const slot = @divTrunc(plot_w, 7);
-    const bar_w: i32 = 9;
-    const group_w = bar_w * 2 + 3;
+    const bar_w: i32 = 10;
+    const gap: i32 = 4;
+    const group_w = bar_w * 2 + gap;
+    const hoy = todayWeekday();
+    const fmax = @as(f64, @floatFromInt(max));
 
     var out = std.ArrayList(u8).init(allocator);
+    out.appendSlice(
+        "<defs><linearGradient id=\"nx-g-class\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0\" stop-color=\"#d8ccfe\"/><stop offset=\"1\" stop-color=\"#7c3aed\"/></linearGradient><linearGradient id=\"nx-g-task\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0\" stop-color=\"#ffe0b8\"/><stop offset=\"1\" stop-color=\"#f59e0b\"/></linearGradient></defs>",
+    ) catch {};
     for ([_]f64{ 0.0, 0.5, 1.0 }) |frac| {
+        if (frac == 0.5 and max < 2) continue;
         const y = top + @as(i32, @intFromFloat(@floor(@as(f64, @floatFromInt(plot_h)) * frac)));
-        const val: i32 = @intFromFloat(@round(@as(f64, @floatFromInt(max)) * frac));
+        const val: i32 = @intFromFloat(@round(fmax * (1.0 - frac)));
         out.appendSlice(try std.fmt.allocPrint(
             allocator,
-            "<line x1=\"{d}\" y1=\"{d}\" x2=\"{d}\" y2=\"{d}\" stroke=\"var(--nx-line)\" stroke-width=\"1\"/><text class=\"nx-chart-axis\" x=\"{d}\" y=\"{d}\">{d}</text>",
-            .{ left, y, width - 8, y, left - 6, y + 3, val },
+            "<line x1=\"{d}\" y1=\"{d}\" x2=\"{d}\" y2=\"{d}\" stroke=\"var(--nx-line)\" stroke-width=\"1\" stroke-dasharray=\"2 4\"/><text class=\"nx-chart-axis\" x=\"{d}\" y=\"{d}\" text-anchor=\"end\">{d}</text>",
+            .{ left, y, width - 10, y, left - 7, y + 3, val },
         )) catch {};
     }
     for (dias, 0..) |dia, i| {
         const cx = left + slot * @as(i32, @intCast(i)) + @divTrunc(slot, 2);
         const gx = cx - @divTrunc(group_w, 2);
+        if (std.mem.eql(u8, dia.es, hoy)) {
+            out.appendSlice(try std.fmt.allocPrint(
+                allocator,
+                "<rect x=\"{d}\" y=\"{d}\" width=\"{d}\" height=\"{d}\" rx=\"5\" fill=\"var(--nx-accent-soft)\"/>",
+                .{ cx - @divTrunc(slot, 2) + 2, top - 6, slot - 4, plot_h + 22 },
+            )) catch {};
+        }
         out.appendSlice(try std.fmt.allocPrint(
             allocator,
             "<text class=\"nx-chart-axis\" x=\"{d}\" y=\"{d}\" text-anchor=\"middle\">{s}</text>",
-            .{ cx, top + plot_h + 13, dia.label },
+            .{ cx, top + plot_h + 15, dia.label },
         )) catch {};
-        const values = [_]struct { v: i32, color: []const u8 }{
-            .{ .v = clases[i], .color = "var(--nx-accent)" },
-            .{ .v = tareas[i], .color = "var(--nx-orange)" },
+        const values = [_]struct { v: i32, fill: []const u8 }{
+            .{ .v = clases[i], .fill = "url(#nx-g-class)" },
+            .{ .v = tareas[i], .fill = "url(#nx-g-task)" },
         };
         for (values, 0..) |bar, j| {
             if (bar.v <= 0) continue;
-            const h: i32 = @intFromFloat(@round(@as(f64, @floatFromInt(plot_h)) * (@as(f64, @floatFromInt(bar.v)) / @as(f64, @floatFromInt(max)))));
-            const x = gx + @as(i32, @intCast(j)) * (bar_w + 3);
+            const h: i32 = @max(3, @as(i32, @intFromFloat(@round(@as(f64, @floatFromInt(plot_h)) * (@as(f64, @floatFromInt(bar.v)) / fmax)))));
+            const x = gx + @as(i32, @intCast(j)) * (bar_w + gap);
+            const by = top + plot_h - h;
             out.appendSlice(try std.fmt.allocPrint(
                 allocator,
-                "<rect x=\"{d}\" y=\"{d}\" width=\"{d}\" height=\"{d}\" rx=\"2\" fill=\"{s}\"><title>{d}</title></rect>",
-                .{ x, top + plot_h - h, bar_w, h, bar.color, bar.v },
+                "<rect x=\"{d}\" y=\"{d}\" width=\"{d}\" height=\"{d}\" rx=\"3\" fill=\"{s}\"><title>{s}: {d}</title></rect><text class=\"nx-chart-v\" x=\"{d}\" y=\"{d}\" text-anchor=\"middle\">{d}</text>",
+                .{ x, by, bar_w, h, bar.fill, if (j == 0) "Clases" else "Entregas", bar.v, x + @divTrunc(bar_w, 2), by - 4, bar.v },
             )) catch {};
         }
     }
@@ -767,44 +833,625 @@ pub fn chartNotes(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
         "Escribir una nota",
     );
 
-    const width: i32 = 340;
-    const height: i32 = 148;
-    const left: i32 = 26;
-    const bottom: i32 = 20;
-    const top: i32 = 12;
+    const width: i32 = 360;
+    const height: i32 = 170;
+    const left: i32 = 18;
+    const bottom: i32 = 26;
+    const top: i32 = 18;
+    const plot_h = height - top - bottom;
+    const plot_w = width - left - 16;
+    const slot = @divTrunc(plot_w, 7);
+    const base = top + plot_h;
+    const fany = @as(f64, @floatFromInt(any));
+
+    var xs: [8]i32 = undefined;
+    var ys: [8]i32 = undefined;
+    var pts = std.ArrayList(u8).init(allocator);
+    var area = std.ArrayList(u8).init(allocator);
+    area.appendSlice(try std.fmt.allocPrint(allocator, "M {d} {d}", .{ left, base })) catch {};
+    for (d.notes_activity, 0..) |value, i| {
+        const cx = left + slot * @as(i32, @intCast(i));
+        const h: i32 = @intFromFloat(@round(@as(f64, @floatFromInt(plot_h)) * (@as(f64, @floatFromInt(value)) / fany)));
+        const y = base - h;
+        xs[i] = cx;
+        ys[i] = y;
+        if (i > 0) pts.appendSlice(" ") catch {};
+        pts.appendSlice(try std.fmt.allocPrint(allocator, "{d},{d}", .{ cx, y })) catch {};
+        area.appendSlice(try std.fmt.allocPrint(allocator, " L {d} {d}", .{ cx, y })) catch {};
+    }
+    area.appendSlice(try std.fmt.allocPrint(allocator, " L {d} {d} Z", .{ xs[7], base })) catch {};
+
+    var dots = std.ArrayList(u8).init(allocator);
+    for (d.notes_activity, 0..) |value, i| {
+        const last = i == 7;
+        const r: i32 = if (last) 4 else 3;
+        dots.appendSlice(try std.fmt.allocPrint(
+            allocator,
+            "<circle cx=\"{d}\" cy=\"{d}\" r=\"{d}\" fill=\"var(--nx-bg)\" stroke=\"var(--nx-blue)\" stroke-width=\"2\"><title>Semana {d}: {d} apuntes</title></circle>",
+            .{ xs[i], ys[i], r, i + 1, value },
+        )) catch {};
+    }
+
+    return std.fmt.allocPrint(
+        allocator,
+        "<svg class=\"nx-chart\" viewBox=\"0 0 {d} {d}\" role=\"img\" aria-label=\"Apuntes por semana\"><defs><linearGradient id=\"nx-g-notes\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0\" stop-color=\"#67e8f9\" stop-opacity=\".42\"/><stop offset=\"1\" stop-color=\"#67e8f9\" stop-opacity=\"0\"/></linearGradient></defs><line x1=\"{d}\" y1=\"{d}\" x2=\"{d}\" y2=\"{d}\" stroke=\"var(--nx-line)\" stroke-width=\"1\" stroke-dasharray=\"2 4\"/><path d=\"{s}\" fill=\"url(#nx-g-notes)\"/><polyline points=\"{s}\" fill=\"none\" stroke=\"var(--nx-blue)\" stroke-width=\"2.4\" stroke-linejoin=\"round\" stroke-linecap=\"round\"/>{s}<text class=\"nx-chart-axis\" x=\"{d}\" y=\"{d}\">hace 8 sem</text><text class=\"nx-chart-axis\" x=\"{d}\" y=\"{d}\" text-anchor=\"end\">hoy</text></svg>",
+        .{ width, height, left, top, width - 16, top, area.items, pts.items, dots.items, left, base + 16, xs[7], base + 16 },
+    );
+}
+
+/// Fecha ISO (`YYYY-MM-DD` o con hora) a dias desde el epoch.
+fn isoDayNumber(fecha: []const u8) ?i64 {
+    if (fecha.len < 10) return null;
+    const year = std.fmt.parseInt(i32, fecha[0..4], 10) catch return null;
+    const month = std.fmt.parseInt(u32, fecha[5..7], 10) catch return null;
+    const day = std.fmt.parseInt(u32, fecha[8..10], 10) catch return null;
+    if (month < 1 or month > 12 or day < 1 or day > 31) return null;
+    return daysFromCivil(year, month, day);
+}
+
+/// Histograma de notas por rango: cuantas materias caen en cada tramo.
+pub fn chartGradeDist(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
+    if (d.notas.len == 0) return chartEmpty(
+        allocator,
+        "Sin notas que repartir",
+        "Cuando lleguen calificaciones, aqui veras donde se concentran.",
+        "/dashboard/subjects",
+        "Ver asignaturas",
+    );
+    var counts = [_]u32{0} ** 5;
+    for (d.notas) |n| {
+        const slot: usize = if (n.nota < 4.0) 0 else if (n.nota < 6.0) 1 else if (n.nota < 7.0) 2 else if (n.nota < 9.0) 3 else 4;
+        counts[slot] += 1;
+    }
+    var max: u32 = 0;
+    for (counts) |v| max = @max(max, v);
+    if (max == 0) return chartEmpty(allocator, "Sin notas que repartir", "Aun no hay datos para este grafico.", "/dashboard/subjects", "Ver asignaturas");
+
+    const width: i32 = 360;
+    const height: i32 = 170;
+    const left: i32 = 28;
+    const top: i32 = 18;
+    const bottom: i32 = 26;
     const plot_h = height - top - bottom;
     const plot_w = width - left - 8;
-    const slot = @divTrunc(plot_w, 8);
-    const bar_w = @max(6, slot - 6);
+    const slot = @divTrunc(plot_w, 5);
+    const bar_w: i32 = 28;
+    const labels = [_][]const u8{ "<4", "4-6", "6-7", "7-9", "9-10" };
+    const fills = [_][]const u8{ "url(#nx-gd-bad)", "url(#nx-gd-mid)", "url(#nx-gd-mid)", "url(#nx-gd-ok)", "url(#nx-gd-good)" };
+    const fmax = @as(f64, @floatFromInt(max));
 
     var out = std.ArrayList(u8).init(allocator);
-    for ([_]f64{ 0.0, 1.0 }) |frac| {
+    out.appendSlice("<defs><linearGradient id=\"nx-gd-good\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0\" stop-color=\"#d8ccfe\"/><stop offset=\"1\" stop-color=\"#8b5cf6\"/></linearGradient><linearGradient id=\"nx-gd-ok\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0\" stop-color=\"#a5f3fc\"/><stop offset=\"1\" stop-color=\"#0891b2\"/></linearGradient><linearGradient id=\"nx-gd-mid\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0\" stop-color=\"#ffe0b8\"/><stop offset=\"1\" stop-color=\"#f59e0b\"/></linearGradient><linearGradient id=\"nx-gd-bad\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0\" stop-color=\"#ffb4ab\"/><stop offset=\"1\" stop-color=\"#dc2626\"/></linearGradient></defs>") catch {};
+    for ([_]f64{ 0.0, 0.5, 1.0 }) |frac| {
+        if (frac == 0.5 and max < 2) continue;
         const y = top + @as(i32, @intFromFloat(@floor(@as(f64, @floatFromInt(plot_h)) * frac)));
-        const val: u32 = @intFromFloat(@round(@as(f64, @floatFromInt(any)) * frac));
+        const val: i32 = @intFromFloat(@round(fmax * (1.0 - frac)));
         out.appendSlice(try std.fmt.allocPrint(
             allocator,
-            "<line x1=\"{d}\" y1=\"{d}\" x2=\"{d}\" y2=\"{d}\" stroke=\"var(--nx-line)\" stroke-width=\"1\"/><text class=\"nx-chart-axis\" x=\"{d}\" y=\"{d}\">{d}</text>",
+            "<line x1=\"{d}\" y1=\"{d}\" x2=\"{d}\" y2=\"{d}\" stroke=\"var(--nx-line)\" stroke-width=\"1\" stroke-dasharray=\"2 4\"/><text class=\"nx-chart-axis\" x=\"{d}\" y=\"{d}\" text-anchor=\"end\">{d}</text>",
             .{ left, y, width - 8, y, left - 6, y + 3, val },
         )) catch {};
     }
-    for (d.notes_activity, 0..) |value, i| {
-        if (value == 0) continue;
-        const h: i32 = @intFromFloat(@round(@as(f64, @floatFromInt(plot_h)) * (@as(f64, @floatFromInt(value)) / @as(f64, @floatFromInt(any)))));
-        const x = left + slot * @as(i32, @intCast(i)) + @divTrunc(slot - bar_w, 2);
+    for (counts, 0..) |value, i| {
+        const cx = left + slot * @as(i32, @intCast(i)) + @divTrunc(slot, 2);
         out.appendSlice(try std.fmt.allocPrint(
             allocator,
-            "<rect x=\"{d}\" y=\"{d}\" width=\"{d}\" height=\"{d}\" rx=\"2\" fill=\"var(--nx-accent)\"><title>{d} apuntes</title></rect>",
-            .{ x, top + plot_h - h, bar_w, h, value },
+            "<text class=\"nx-chart-axis\" x=\"{d}\" y=\"{d}\" text-anchor=\"middle\">{s}</text>",
+            .{ cx, top + plot_h + 15, labels[i] },
         )) catch {};
+        if (value == 0) continue;
+        const h: i32 = @max(3, @as(i32, @intFromFloat(@round(@as(f64, @floatFromInt(plot_h)) * (@as(f64, @floatFromInt(value)) / fmax)))));
+        const x = cx - @divTrunc(bar_w, 2);
+        const y = top + plot_h - h;
+        out.appendSlice(try std.fmt.allocPrint(
+            allocator,
+            "<rect x=\"{d}\" y=\"{d}\" width=\"{d}\" height=\"{d}\" rx=\"5\" fill=\"{s}\"><title>{s}: {d} materia(s)</title></rect><text class=\"nx-chart-v\" x=\"{d}\" y=\"{d}\" text-anchor=\"middle\">{d}</text>",
+            .{ x, y, bar_w, h, fills[i], labels[i], value, cx, y - 4, value },
+        )) catch {};
+    }
+    return std.fmt.allocPrint(
+        allocator,
+        "<svg class=\"nx-chart\" viewBox=\"0 0 {d} {d}\" role=\"img\" aria-label=\"Distribucion de notas por rango\">{s}</svg>",
+        .{ width, height, out.items },
+    );
+}
+
+/// Donut de salud academica: aprobadas, en riesgo y reprobadas.
+pub fn chartHealth(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
+    if (d.notas.len == 0) return chartEmpty(
+        allocator,
+        "Sin diagnostico todavia",
+        "En cuanto haya notas veras cuantas materias van bien.",
+        "/dashboard/subjects",
+        "Ver asignaturas",
+    );
+    var high: u32 = 0;
+    var mid: u32 = 0;
+    var low: u32 = 0;
+    for (d.notas) |n| {
+        if (n.nota >= 7.0) {
+            high += 1;
+        } else if (n.nota >= 4.0) {
+            mid += 1;
+        } else {
+            low += 1;
+        }
+    }
+    const total = high + mid + low;
+    if (total == 0) return chartEmpty(allocator, "Sin diagnostico todavia", "Aun no hay datos para este grafico.", "/dashboard/subjects", "Ver asignaturas");
+    const pct = @as(f64, @floatFromInt(high)) / @as(f64, @floatFromInt(total)) * 100.0;
+    const radius: f64 = 50.0;
+    const circ = 2.0 * std.math.pi * radius;
+    const items = [_]struct { count: u32, color: []const u8, label: []const u8 }{
+        .{ .count = high, .color = "#a78bfa", .label = "Aprobadas" },
+        .{ .count = mid, .color = "#f59e0b", .label = "En riesgo" },
+        .{ .count = low, .color = "#f87171", .label = "Reprobadas" },
+    };
+    var out = std.ArrayList(u8).init(allocator);
+    out.appendSlice("<circle cx=\"76\" cy=\"85\" r=\"50\" fill=\"none\" stroke=\"var(--nx-surface-3)\" stroke-width=\"18\"/>") catch {};
+    var offset: f64 = 0;
+    for (items) |item| {
+        if (item.count == 0) continue;
+        const seg = circ * (@as(f64, @floatFromInt(item.count)) / @as(f64, @floatFromInt(total)));
+        out.appendSlice(try std.fmt.allocPrint(
+            allocator,
+            "<circle cx=\"76\" cy=\"85\" r=\"50\" fill=\"none\" stroke=\"{s}\" stroke-width=\"18\" stroke-dasharray=\"{d:.2} {d:.2}\" stroke-dashoffset=\"{d:.2}\" transform=\"rotate(-90 76 85)\"/>",
+            .{ item.color, seg, circ - seg, -offset },
+        )) catch {};
+        offset += seg;
+    }
+    for (items, 0..) |item, i| {
+        const y: i32 = 50 + @as(i32, @intCast(i)) * 34;
+        out.appendSlice(try std.fmt.allocPrint(
+            allocator,
+            "<rect x=\"150\" y=\"{d}\" width=\"10\" height=\"10\" rx=\"3\" fill=\"{s}\"/><text class=\"nx-chart-t\" x=\"168\" y=\"{d}\" dominant-baseline=\"middle\">{s}</text><text class=\"nx-chart-v\" x=\"326\" y=\"{d}\" text-anchor=\"end\" dominant-baseline=\"middle\">{d}</text>",
+            .{ y - 5, item.color, y, item.label, y, item.count },
+        )) catch {};
+    }
+    return std.fmt.allocPrint(
+        allocator,
+        "<svg class=\"nx-chart\" viewBox=\"0 0 340 170\" role=\"img\" aria-label=\"Salud academica: {d} aprobadas, {d} en riesgo, {d} reprobadas\"><text class=\"nx-chart-big\" x=\"76\" y=\"82\" text-anchor=\"middle\">{d:.0}%</text><text class=\"nx-chart-axis\" x=\"76\" y=\"99\" text-anchor=\"middle\">APROBADAS</text>{s}</svg>",
+        .{ high, mid, low, pct, out.items },
+    );
+}
+
+/// Entregas y eventos en los proximos 14 dias, dia a dia.
+pub fn chartLoad14(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
+    var counts = [_]u32{0} ** 14;
+    const today = @divFloor(std.time.timestamp(), 86400);
+    for (d.tareas) |t| {
+        const day = isoDayNumber(t.vencimiento) orelse continue;
+        const delta = day - today;
+        if (delta < 0 or delta >= 14) continue;
+        counts[@intCast(delta)] += 1;
+    }
+    for (d.eventos) |e| {
+        const day = isoDayNumber(e.fecha) orelse continue;
+        const delta = day - today;
+        if (delta < 0 or delta >= 14) continue;
+        counts[@intCast(delta)] += 1;
+    }
+    var total: u32 = 0;
+    var max: u32 = 0;
+    for (counts) |v| {
+        total += v;
+        max = @max(max, v);
+    }
+    if (total == 0) return chartEmpty(
+        allocator,
+        "Quince dias despejados",
+        "No hay entregas ni eventos proximos; cuando aparezcan, se veran aqui.",
+        "/dashboard/planner",
+        "Abrir planificador",
+    );
+
+    const width: i32 = 360;
+    const height: i32 = 170;
+    const left: i32 = 26;
+    const top: i32 = 18;
+    const bottom: i32 = 26;
+    const plot_h = height - top - bottom;
+    const plot_w = width - left - 10;
+    const slot = @divTrunc(plot_w, 14);
+    const bar_w: i32 = 12;
+    const fmax = @as(f64, @floatFromInt(max));
+
+    var out = std.ArrayList(u8).init(allocator);
+    out.appendSlice("<defs><linearGradient id=\"nx-g-load\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0\" stop-color=\"#a5f3fc\"/><stop offset=\"1\" stop-color=\"#7c3aed\"/></linearGradient></defs>") catch {};
+    for ([_]f64{ 0.0, 0.5, 1.0 }) |frac| {
+        if (frac == 0.5 and max < 2) continue;
+        const y = top + @as(i32, @intFromFloat(@floor(@as(f64, @floatFromInt(plot_h)) * frac)));
+        const val: i32 = @intFromFloat(@round(fmax * (1.0 - frac)));
+        out.appendSlice(try std.fmt.allocPrint(
+            allocator,
+            "<line x1=\"{d}\" y1=\"{d}\" x2=\"{d}\" y2=\"{d}\" stroke=\"var(--nx-line)\" stroke-width=\"1\" stroke-dasharray=\"2 4\"/><text class=\"nx-chart-axis\" x=\"{d}\" y=\"{d}\" text-anchor=\"end\">{d}</text>",
+            .{ left, y, width - 10, y, left - 6, y + 3, val },
+        )) catch {};
+    }
+    for (counts, 0..) |value, i| {
+        const cx = left + slot * @as(i32, @intCast(i)) + @divTrunc(slot, 2);
+        if (i % 2 == 0) {
+            const date = civilFromDays(today + @as(i64, @intCast(i)));
+            out.appendSlice(try std.fmt.allocPrint(
+                allocator,
+                "<text class=\"nx-chart-axis\" x=\"{d}\" y=\"{d}\" text-anchor=\"middle\">{d}</text>",
+                .{ cx, top + plot_h + 15, date.day },
+            )) catch {};
+        }
+        if (value == 0) continue;
+        const h: i32 = @max(4, @as(i32, @intFromFloat(@round(@as(f64, @floatFromInt(plot_h)) * (@as(f64, @floatFromInt(value)) / fmax)))));
+        const x = cx - @divTrunc(bar_w, 2);
+        const y = top + plot_h - h;
+        const rx: i32 = if (i == 0) 100 else 4;
+        const fill = if (i == 0) "var(--nx-accent)" else "url(#nx-g-load)";
+        out.appendSlice(try std.fmt.allocPrint(
+            allocator,
+            "<rect x=\"{d}\" y=\"{d}\" width=\"{d}\" height=\"{d}\" rx=\"{d}\" fill=\"{s}\"><title>Dia {d}: {d} entrega(s) y evento(s)</title></rect><text class=\"nx-chart-v\" x=\"{d}\" y=\"{d}\" text-anchor=\"middle\">{d}</text>",
+            .{ x, y, bar_w, h, rx, fill, i + 1, value, cx, y - 4, value },
+        )) catch {};
+    }
+    return std.fmt.allocPrint(
+        allocator,
+        "<svg class=\"nx-chart\" viewBox=\"0 0 {d} {d}\" role=\"img\" aria-label=\"Entregas y eventos en los proximos 14 dias\">{s}<text class=\"nx-chart-axis\" x=\"{d}\" y=\"{d}\">hoy</text></svg>",
+        .{ width, height, out.items, left, top + plot_h + 24 },
+    );
+}
+
+/// Pesos reales del parcial, siempre disponibles aunque no haya notas.
+pub fn chartWeights(allocator: std.mem.Allocator) ![]const u8 {
+    const items = [_]struct { label: []const u8, value: f64, color: []const u8 }{
+        .{ .label = "Trabajos", .value = weight_trabajos * 100.0, .color = "#8b5cf6" },
+        .{ .label = "Examen", .value = weight_examen * 100.0, .color = "#f472b6" },
+        .{ .label = "Tareas", .value = weight_tareas * 100.0, .color = "#f59e0b" },
+        .{ .label = "Evaluaciones", .value = weight_evaluaciones * 100.0, .color = "#67e8f9" },
+    };
+    const radius: f64 = 50.0;
+    const circ = 2.0 * std.math.pi * radius;
+    var out = std.ArrayList(u8).init(allocator);
+    out.appendSlice("<circle cx=\"76\" cy=\"85\" r=\"50\" fill=\"none\" stroke=\"var(--nx-surface-3)\" stroke-width=\"18\"/>") catch {};
+    var offset: f64 = 0;
+    for (items) |item| {
+        const seg = circ * (item.value / 100.0);
+        out.appendSlice(try std.fmt.allocPrint(
+            allocator,
+            "<circle cx=\"76\" cy=\"85\" r=\"50\" fill=\"none\" stroke=\"{s}\" stroke-width=\"18\" stroke-dasharray=\"{d:.2} {d:.2}\" stroke-dashoffset=\"{d:.2}\" transform=\"rotate(-90 76 85)\"/>",
+            .{ item.color, seg, circ - seg, -offset },
+        )) catch {};
+        offset += seg;
+    }
+    for (items, 0..) |item, i| {
+        const y: i32 = 46 + @as(i32, @intCast(i)) * 31;
+        out.appendSlice(try std.fmt.allocPrint(
+            allocator,
+            "<rect x=\"150\" y=\"{d}\" width=\"10\" height=\"10\" rx=\"3\" fill=\"{s}\"/><text class=\"nx-chart-t\" x=\"168\" y=\"{d}\" dominant-baseline=\"middle\">{s}</text><text class=\"nx-chart-v\" x=\"326\" y=\"{d}\" text-anchor=\"end\" dominant-baseline=\"middle\">{d:.0}%</text>",
+            .{ y - 5, item.color, y, item.label, y, item.value },
+        )) catch {};
+    }
+    return std.fmt.allocPrint(
+        allocator,
+        "<svg class=\"nx-chart\" viewBox=\"0 0 340 170\" role=\"img\" aria-label=\"Pesos de evaluacion del trimestre\"><text class=\"nx-chart-big\" x=\"76\" y=\"82\" text-anchor=\"middle\">100%</text><text class=\"nx-chart-axis\" x=\"76\" y=\"99\" text-anchor=\"middle\">DE LA NOTA</text>{s}</svg>",
+        .{out.items},
+    );
+}
+
+/// Categorías canónicas de evaluación. El orden manda en los gráficos y en
+/// la leyenda; los colores coinciden con `chartWeights`.
+const axis_cats = [_]struct { key: []const u8, label: []const u8, color: []const u8 }{
+    .{ .key = "TAREA", .label = "Tareas", .color = "#f59e0b" },
+    .{ .key = "TRABAJO", .label = "Trabajos", .color = "#8b5cf6" },
+    .{ .key = "EVALUAC", .label = "Evaluaciones", .color = "#67e8f9" },
+    .{ .key = "EXAMEN", .label = "Examen", .color = "#f472b6" },
+};
+
+fn axisCat(name: []const u8) ?usize {
+    for (axis_cats, 0..) |cat, i| {
+        if (containsIgnoreCase(name, cat.key)) return i;
+    }
+    return null;
+}
+
+/// Recorta un nombre por puntos de código (no por bytes) para que las
+/// etiquetas largas no rompan el SVG ni corten un acento por la mitad.
+fn clipUtf8(allocator: std.mem.Allocator, s: []const u8, max_chars: usize) ![]const u8 {
+    var count: usize = 0;
+    var i: usize = 0;
+    while (i < s.len) {
+        const n: usize = @intCast(std.unicode.utf8ByteSequenceLength(s[i]) catch 1);
+        i = @min(s.len, i + n);
+        count += 1;
+        if (count == max_chars and i < s.len) {
+            return std.fmt.allocPrint(allocator, "{s}…", .{s[0..i]});
+        }
+    }
+    return s;
+}
+
+/// Radar del rendimiento por tipo de evaluación: promedio de lo ya
+/// calificado en cada eje (0–10), agregado sobre todas las materias.
+pub fn chartAxesRadar(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
+    var suma = [_]f64{0} ** 4;
+    var cal = [_]usize{0} ** 4;
+    for (d.grades) |g| {
+        for (g.axes) |a| {
+            const ci = axisCat(a.nombre) orelse continue;
+            suma[ci] += a.suma;
+            cal[ci] += a.calificadas;
+        }
+    }
+    var present: [4]usize = undefined;
+    var n: usize = 0;
+    for (0..4) |i| {
+        if (cal[i] > 0) {
+            present[n] = i;
+            n += 1;
+        }
+    }
+    if (n < 3) return chartEmpty(
+        allocator,
+        "Perfil aún incompleto",
+        "Hacen falta al menos tres tipos de evaluación con notas para dibujar el radar.",
+        "/dashboard/subjects",
+        "Ver asignaturas",
+    );
+
+    const cx: f64 = 170.0;
+    const cy: f64 = 92.0;
+    const r: f64 = 56.0;
+    const nf = @as(f64, @floatFromInt(n));
+    var out = std.ArrayList(u8).init(allocator);
+
+    // Anillos concéntricos y radios.
+    for ([_]f64{ 2.5, 5.0, 7.5, 10.0 }) |level| {
+        var pts = std.ArrayList(u8).init(allocator);
+        for (0..n) |k| {
+            const ang = -std.math.pi / 2.0 + 2.0 * std.math.pi * @as(f64, @floatFromInt(k)) / nf;
+            const x = cx + r * (level / 10.0) * @cos(ang);
+            const y = cy + r * (level / 10.0) * @sin(ang);
+            try pts.writer().print("{s}{d:.1},{d:.1}", .{ if (k == 0) "" else " ", x, y });
+        }
+        out.appendSlice(try std.fmt.allocPrint(
+            allocator,
+            "<polygon points=\"{s}\" fill=\"none\" stroke=\"var(--nx-line)\" stroke-width=\"1\"/>",
+            .{pts.items},
+        )) catch {};
+    }
+    for (0..n) |k| {
+        const ang = -std.math.pi / 2.0 + 2.0 * std.math.pi * @as(f64, @floatFromInt(k)) / nf;
+        out.appendSlice(try std.fmt.allocPrint(
+            allocator,
+            "<line x1=\"{d:.1}\" y1=\"{d:.1}\" x2=\"{d:.1}\" y2=\"{d:.1}\" stroke=\"var(--nx-line)\" stroke-width=\"1\"/>",
+            .{ cx, cy, cx + r * @cos(ang), cy + r * @sin(ang) },
+        )) catch {};
+    }
+
+    // Polígono de datos.
+    var poly = std.ArrayList(u8).init(allocator);
+    for (0..n) |k| {
+        const ci = present[k];
+        const avg = suma[ci] / @as(f64, @floatFromInt(cal[ci]));
+        const v = @max(0.0, @min(10.0, avg));
+        const ang = -std.math.pi / 2.0 + 2.0 * std.math.pi * @as(f64, @floatFromInt(k)) / nf;
+        const x = cx + r * (v / 10.0) * @cos(ang);
+        const y = cy + r * (v / 10.0) * @sin(ang);
+        try poly.writer().print("{s}{d:.1},{d:.1}", .{ if (k == 0) "" else " ", x, y });
     }
     out.appendSlice(try std.fmt.allocPrint(
         allocator,
-        "<text class=\"nx-chart-axis\" x=\"{d}\" y=\"{d}\">hace 8 sem</text><text class=\"nx-chart-axis\" x=\"{d}\" y=\"{d}\" text-anchor=\"end\">hoy</text>",
-        .{ left, top + plot_h + 13, width - 8, top + plot_h + 13 },
+        "<polygon points=\"{s}\" fill=\"url(#nx-radar-fill)\" stroke=\"#a78bfa\" stroke-width=\"1.6\"/>",
+        .{poly.items},
     )) catch {};
+
+    // Vértices y etiquetas.
+    for (0..n) |k| {
+        const ci = present[k];
+        const avg = suma[ci] / @as(f64, @floatFromInt(cal[ci]));
+        const v = @max(0.0, @min(10.0, avg));
+        const ang = -std.math.pi / 2.0 + 2.0 * std.math.pi * @as(f64, @floatFromInt(k)) / nf;
+        const co = @cos(ang);
+        const si = @sin(ang);
+        const x = cx + r * (v / 10.0) * co;
+        const y = cy + r * (v / 10.0) * si;
+        const lx = cx + (r + 16.0) * co;
+        const ly = cy + (r + 16.0) * si;
+        const anchor = if (co > 0.35) "start" else if (co < -0.35) "end" else "middle";
+        out.appendSlice(try std.fmt.allocPrint(
+            allocator,
+            "<circle cx=\"{d:.1}\" cy=\"{d:.1}\" r=\"3.2\" fill=\"{s}\"><title>{s}: {d:.2} / 10 ({d} calificadas)</title></circle>" ++
+                "<text class=\"nx-chart-t\" x=\"{d:.1}\" y=\"{d:.1}\" text-anchor=\"{s}\">{s}</text>" ++
+                "<text class=\"nx-chart-v\" x=\"{d:.1}\" y=\"{d:.1}\" text-anchor=\"{s}\">{d:.1}</text>",
+            .{ x, y, axis_cats[ci].color, axis_cats[ci].label, avg, cal[ci], lx, ly, anchor, axis_cats[ci].label, lx, ly + 10.0, anchor, avg },
+        )) catch {};
+    }
     return std.fmt.allocPrint(
         allocator,
-        "<svg class=\"nx-chart\" viewBox=\"0 0 {d} {d}\" role=\"img\" aria-label=\"Apuntes por semana\">{s}</svg>",
+        "<svg class=\"nx-chart\" viewBox=\"0 0 340 190\" role=\"img\" aria-label=\"Perfil por tipo de evaluacion\"><defs><linearGradient id=\"nx-radar-fill\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"1\"><stop offset=\"0\" stop-color=\"#8b5cf6\" stop-opacity=\".55\"/><stop offset=\"1\" stop-color=\"#67e8f9\" stop-opacity=\".26\"/></linearGradient></defs>{s}</svg>",
+        .{out.items},
+    );
+}
+
+/// Barras apiladas por materia: cuánto aporta cada tipo de evaluación al
+/// promedio oficial (0–10). La suma de segmentos es la nota del parcial.
+pub fn chartStackedSubjects(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
+    const Bar = struct { name: []const u8, seg: [4]f64, total: f64 };
+    var bars = std.ArrayList(Bar).init(allocator);
+    for (d.grades) |g| {
+        if (g.axes.len == 0) continue;
+        var seg = [_]f64{0} ** 4;
+        var total: f64 = 0;
+        for (0..4) |ci| {
+            var best_cal: usize = 0;
+            var best_avg: f64 = 0;
+            var best_peso: f64 = 0;
+            for (g.axes) |a| {
+                const ac = axisCat(a.nombre) orelse continue;
+                if (ac != ci or a.calificadas == 0) continue;
+                if (a.calificadas < best_cal) continue;
+                best_cal = a.calificadas;
+                best_avg = a.suma / @as(f64, @floatFromInt(a.calificadas));
+                best_peso = a.peso;
+            }
+            if (best_cal == 0) continue;
+            seg[ci] = best_avg * best_peso;
+            total += seg[ci];
+        }
+        if (total > 0.001) bars.append(.{ .name = g.materia, .seg = seg, .total = total }) catch {};
+    }
+    if (bars.items.len == 0) return chartEmpty(
+        allocator,
+        "Sin aportes todavía",
+        "Cuando haya actividades calificadas verás cómo se forma cada promedio.",
+        "/dashboard/subjects",
+        "Ver asignaturas",
+    );
+    std.mem.sort(Bar, bars.items, {}, struct {
+        fn lt(_: void, a: Bar, b: Bar) bool {
+            return a.total > b.total;
+        }
+    }.lt);
+
+    const shown = @min(bars.items.len, 6);
+    const row: i32 = 27;
+    const top: i32 = 8;
+    const left: i32 = 104;
+    const bar_w: i32 = 188;
+    const height = top * 2 + row * @as(i32, @intCast(shown)) + 24;
+    var out = std.ArrayList(u8).init(allocator);
+    for (bars.items[0..shown], 0..) |b, k| {
+        const y = top + @as(i32, @intCast(k)) * row;
+        const name = try esc(allocator, try clipUtf8(allocator, b.name, 16));
+        out.appendSlice(try std.fmt.allocPrint(
+            allocator,
+            "<text class=\"nx-chart-t\" x=\"0\" y=\"{d}\" dominant-baseline=\"middle\">{s}</text>" ++
+                "<rect x=\"{d}\" y=\"{d}\" width=\"{d}\" height=\"10\" rx=\"5\" fill=\"var(--nx-surface-3)\"/>",
+            .{ y + 9, name, left, y + 3, bar_w },
+        )) catch {};
+        var x = left;
+        for (0..4) |ci| {
+            const c = b.seg[ci];
+            if (c <= 0) continue;
+            const w: i32 = @intFromFloat(@round(@as(f64, @floatFromInt(bar_w)) * (c / 10.0)));
+            if (w <= 0) continue;
+            out.appendSlice(try std.fmt.allocPrint(
+                allocator,
+                "<rect data-series=\"{d}\" x=\"{d}\" y=\"{d}\" width=\"{d}\" height=\"10\" fill=\"{s}\"><title>{s}: {d:.2}</title></rect>",
+                .{ ci, x, y + 3, w, axis_cats[ci].color, axis_cats[ci].label, c },
+            )) catch {};
+            x += w;
+        }
+        out.appendSlice(try std.fmt.allocPrint(
+            allocator,
+            "<text class=\"nx-chart-v\" x=\"{d}\" y=\"{d}\" dominant-baseline=\"middle\">{d:.2}</text>",
+            .{ left + bar_w + 8, y + 9, b.total },
+        )) catch {};
+    }
+    const legend_y = top + @as(i32, @intCast(shown)) * row + 10;
+    const legend_x = [_]i32{ 0, 70, 146, 250 };
+    for (0..4) |ci| {
+        out.appendSlice(try std.fmt.allocPrint(
+            allocator,
+            "<rect x=\"{d}\" y=\"{d}\" width=\"8\" height=\"8\" rx=\"2\" fill=\"{s}\"/><text class=\"nx-chart-axis\" x=\"{d}\" y=\"{d}\" dominant-baseline=\"middle\">{s}</text>",
+            .{ legend_x[ci], legend_y - 4, axis_cats[ci].color, legend_x[ci] + 12, legend_y, axis_cats[ci].label },
+        )) catch {};
+    }
+    return std.fmt.allocPrint(
+        allocator,
+        "<svg class=\"nx-chart\" viewBox=\"0 0 340 {d}\" role=\"img\" aria-label=\"Aporte de cada tipo de evaluacion por materia\">{s}</svg>",
+        .{ height, out.items },
+    );
+}
+
+fn dayIndex(dia: []const u8) ?usize {
+    const names = [_][]const u8{ "lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo" };
+    for (names, 0..) |n, i| {
+        if (std.mem.eql(u8, dia, n)) return i;
+    }
+    return null;
+}
+
+fn leadingHour(s: []const u8) ?u32 {
+    var i: usize = 0;
+    var val: u32 = 0;
+    while (i < s.len and s[i] >= '0' and s[i] <= '9') : (i += 1) {
+        val = val * 10 + (s[i] - '0');
+    }
+    if (i == 0 or i >= s.len or s[i] != ':') return null;
+    return val;
+}
+
+/// Mapa de calor día × bloque horario a partir del horario real.
+pub fn chartHeatmap(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
+    if (d.horario.len == 0) return chartEmpty(
+        allocator,
+        "Sin horario todavía",
+        "Cuando Mikareno publique tu horario verás aquí la carga de la semana.",
+        "/dashboard/schedule",
+        "Ver horario",
+    );
+    const days = [_][]const u8{ "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom" };
+    const blocks = [_][]const u8{ "6–8", "8–10", "10–12", "12–14", "14–16", "16–18" };
+    var counts: [7][6]u32 = std.mem.zeroes([7][6]u32);
+    var max: u32 = 0;
+    for (d.horario) |c| {
+        const di = dayIndex(c.dia) orelse continue;
+        const h = leadingHour(c.etiqueta) orelse continue;
+        const bi: usize = if (h < 8) 0 else if (h < 10) 1 else if (h < 12) 2 else if (h < 14) 3 else if (h < 16) 4 else 5;
+        counts[di][bi] += 1;
+        max = @max(max, counts[di][bi]);
+    }
+    if (max == 0) return chartEmpty(
+        allocator,
+        "Sin bloques que contar",
+        "El horario llegó sin horas legibles; revisa la sincronización con Mikareno.",
+        "/dashboard/schedule",
+        "Ver horario",
+    );
+    const left: i32 = 34;
+    const top: i32 = 16;
+    const cell_w: i32 = 46;
+    const cell_h: i32 = 20;
+    const width = left + cell_w * 6 + 6;
+    const height = top + cell_h * 7 + 6;
+    const fmax = @as(f64, @floatFromInt(max));
+    var out = std.ArrayList(u8).init(allocator);
+    for (blocks, 0..) |label, i| {
+        out.appendSlice(try std.fmt.allocPrint(
+            allocator,
+            "<text class=\"nx-chart-axis\" x=\"{d}\" y=\"10\" text-anchor=\"middle\">{s}</text>",
+            .{ left + cell_w * @as(i32, @intCast(i)) + @divTrunc(cell_w, 2), label },
+        )) catch {};
+    }
+    for (days, 0..) |label, i| {
+        out.appendSlice(try std.fmt.allocPrint(
+            allocator,
+            "<text class=\"nx-chart-axis\" x=\"{d}\" y=\"{d}\" text-anchor=\"end\" dominant-baseline=\"middle\">{s}</text>",
+            .{ left - 6, top + cell_h * @as(i32, @intCast(i)) + @divTrunc(cell_h, 2), label },
+        )) catch {};
+    }
+    for (0..7) |di| {
+        for (0..6) |bi| {
+            const v = counts[di][bi];
+            const x = left + cell_w * @as(i32, @intCast(bi));
+            const y = top + cell_h * @as(i32, @intCast(di));
+            if (v == 0) {
+                out.appendSlice(try std.fmt.allocPrint(
+                    allocator,
+                    "<rect x=\"{d}\" y=\"{d}\" width=\"{d}\" height=\"{d}\" rx=\"4\" fill=\"var(--nx-surface-3)\" fill-opacity=\".45\"/>",
+                    .{ x + 1, y + 1, cell_w - 3, cell_h - 3 },
+                )) catch {};
+                continue;
+            }
+            const alpha = 0.18 + 0.82 * (@as(f64, @floatFromInt(v)) / fmax);
+            out.appendSlice(try std.fmt.allocPrint(
+                allocator,
+                "<rect x=\"{d}\" y=\"{d}\" width=\"{d}\" height=\"{d}\" rx=\"4\" fill=\"#8b5cf6\" fill-opacity=\"{d:.2}\"><title>{s} {s}: {d} clase(s)</title></rect>" ++
+                    "<text class=\"nx-chart-v\" x=\"{d}\" y=\"{d}\" text-anchor=\"middle\" dominant-baseline=\"middle\">{d}</text>",
+                .{ x + 1, y + 1, cell_w - 3, cell_h - 3, alpha, days[di], blocks[bi], v, x + @divTrunc(cell_w, 2), y + @divTrunc(cell_h, 2), v },
+            )) catch {};
+        }
+    }
+    return std.fmt.allocPrint(
+        allocator,
+        "<svg class=\"nx-chart\" viewBox=\"0 0 {d} {d}\" role=\"img\" aria-label=\"Mapa de calor de clases por dia y bloque horario\">{s}</svg>",
         .{ width, height, out.items },
     );
 }
@@ -1266,6 +1913,362 @@ pub fn calGrid(allocator: std.mem.Allocator, d: Datos) ![]const u8 {
 
     out.appendSlice("</div>") catch {};
     return out.items;
+}
+
+// ---------------------------------------------------------------------------
+// Conexiones del equipo (página de Ajustes)
+//
+// Cada tarjeta dice lo que de verdad hay: servicio activo, herramienta
+// instalada o nada. No se muestran claves ni rutas de credenciales.
+
+const ConnState = enum { on, soft, off };
+
+fn envValue(allocator: std.mem.Allocator, name: []const u8) []const u8 {
+    return std.process.getEnvVarOwned(allocator, name) catch "";
+}
+
+fn absExists(path: []const u8) bool {
+    if (path.len == 0) return false;
+    std.fs.cwd().access(path, .{}) catch return false;
+    return true;
+}
+
+fn homePathExists(allocator: std.mem.Allocator, home: []const u8, rel: []const u8) bool {
+    const path = std.fmt.allocPrint(allocator, "{s}/{s}", .{ home, rel }) catch return false;
+    defer allocator.free(path);
+    return absExists(path);
+}
+
+/// Busca `needle` en el cmdline de los procesos vivos (sin lanzar `ps`).
+fn processRunning(allocator: std.mem.Allocator, needle: []const u8) bool {
+    var dir = std.fs.openDirAbsolute("/proc", .{ .iterate = true }) catch return false;
+    defer dir.close();
+    var it = dir.iterate();
+    while (it.next() catch null) |entry| {
+        if (entry.kind != .directory) continue;
+        if (entry.name.len == 0 or entry.name[0] < '0' or entry.name[0] > '9') continue;
+        var buf: [64]u8 = undefined;
+        const path = std.fmt.bufPrint(&buf, "/proc/{s}/cmdline", .{entry.name}) catch continue;
+        const data = std.fs.cwd().readFileAlloc(allocator, path, 32 * 1024) catch continue;
+        const hit = std.mem.indexOf(u8, data, needle) != null;
+        allocator.free(data);
+        if (hit) return true;
+    }
+    return false;
+}
+
+fn pidAlive(allocator: std.mem.Allocator, pid: u32) bool {
+    _ = allocator;
+    if (pid == 0) return false;
+    var buf: [32]u8 = undefined;
+    const path = std.fmt.bufPrint(&buf, "/proc/{d}", .{pid}) catch return false;
+    std.fs.cwd().access(path, .{}) catch return false;
+    return true;
+}
+
+fn portFromUrl(url: []const u8) []const u8 {
+    const colon = std.mem.lastIndexOfScalar(u8, url, ':') orelse return "";
+    var end = colon + 1;
+    while (end < url.len and url[end] >= '0' and url[end] <= '9') : (end += 1) {}
+    if (end == colon + 1) return "";
+    return url[colon + 1 .. end];
+}
+
+/// Lee `~/.local/state/opencode/service.json` y comprueba que el PID siga vivo.
+/// No lanza procesos ni asume que el servicio esté arriba.
+pub fn opencodeInfo(allocator: std.mem.Allocator) OpenCode {
+    const home = envValue(allocator, "HOME");
+    if (home.len == 0) return .{};
+    const path = std.fmt.allocPrint(allocator, "{s}/.local/state/opencode/service.json", .{home}) catch return .{};
+    const data = std.fs.cwd().readFileAlloc(allocator, path, 64 * 1024) catch return .{};
+    var info = OpenCode{};
+    const parsed = std.json.parseFromSlice(std.json.Value, allocator, data, .{}) catch return info;
+    defer parsed.deinit();
+    if (parsed.value != .object) return info;
+    if (parsed.value.object.get("url")) |v| {
+        if (v == .string) info.url = allocator.dupe(u8, v.string) catch "";
+    }
+    if (parsed.value.object.get("version")) |v| {
+        if (v == .string) info.version = allocator.dupe(u8, v.string) catch "";
+    }
+    if (parsed.value.object.get("pid")) |v| {
+        if (v == .integer and v.integer > 0) info.pid = @intCast(@min(v.integer, std.math.maxInt(u32)));
+    }
+    info.running = pidAlive(allocator, info.pid);
+    info.port = portFromUrl(info.url);
+    return info;
+}
+
+fn opencodeBin(allocator: std.mem.Allocator) []const u8 {
+    if (std.process.getEnvVarOwned(allocator, "OPENCODE_BIN")) |value| {
+        if (value.len > 0) return value;
+    } else |_| {}
+    const home = envValue(allocator, "HOME");
+    if (home.len > 0) {
+        const path = std.fmt.allocPrint(allocator, "{s}/.npm-global/bin/opencode", .{home}) catch return "opencode";
+        if (absExists(path)) return path;
+    }
+    return "opencode";
+}
+
+fn opencodeRun(allocator: std.mem.Allocator, argv: []const []const u8) ?std.process.Child.RunResult {
+    return std.process.Child.run(.{
+        .allocator = allocator,
+        .argv = argv,
+        .max_output_bytes = 64 * 1024,
+    }) catch null;
+}
+
+/// Pide al servicio de OpenCode un enlace de emparejamiento de un solo uso.
+/// Si el servicio está parado, intenta arrancarlo antes. Devuelve "" si falla.
+pub fn opencodePairLink(allocator: std.mem.Allocator) ![]const u8 {
+    const bin = opencodeBin(allocator);
+    if (bin.len == 0) return "";
+    if (!opencodeInfo(allocator).running) {
+        // `timeout` evita que una petición HTTP se quede esperando al servicio.
+        if (opencodeRun(allocator, &.{ "timeout", "12", bin, "service", "start" })) |result| {
+            allocator.free(result.stdout);
+            allocator.free(result.stderr);
+        }
+    }
+    const result = opencodeRun(allocator, &.{ "timeout", "15", bin, "pair" }) orelse return "";
+    defer {
+        allocator.free(result.stdout);
+        allocator.free(result.stderr);
+    }
+    const exited_ok = switch (result.term) {
+        .Exited => |code| code == 0,
+        else => false,
+    };
+    if (!exited_ok) return "";
+    const out = result.stdout;
+    const needle = "/auth/connect/";
+    const idx = std.mem.indexOf(u8, out, needle) orelse return "";
+    var start = idx;
+    while (start > 0) : (start -= 1) {
+        const ch = out[start - 1];
+        if (ch == ' ' or ch == '\n' or ch == '\r' or ch == '\t' or ch == '"' or ch == '\'' or ch == '>' or ch == '<') break;
+    }
+    var end = idx;
+    while (end < out.len) : (end += 1) {
+        const ch = out[end];
+        if (ch == ' ' or ch == '\n' or ch == '\r' or ch == '\t' or ch == '"' or ch == '\'' or ch == '>' or ch == '<') break;
+    }
+    const link = out[start..end];
+    if (!std.mem.startsWith(u8, link, "http")) return "";
+    return allocator.dupe(u8, link);
+}
+
+/// Tarjeta compacta tipo terminal. El botón abre OpenCode en esta misma
+/// ventana: el backend pide un enlace de emparejamiento y redirige allí.
+pub fn opencodeCard(allocator: std.mem.Allocator, info: OpenCode) ![]const u8 {
+    const state_class = if (info.running) "is-on" else "is-off";
+    const state_text = if (info.running) "Activo" else "Detenido";
+    const version = if (info.version.len > 0) info.version else "sin servicio";
+    const port = if (info.port.len > 0) info.port else "—";
+    const hint = if (info.running)
+        try std.fmt.allocPrint(allocator, "Un solo proceso · puerto {s} · PID {d}. Se abre en esta ventana; vuelve con Atrás.", .{ port, info.pid })
+    else
+        "El servicio está parado. Al abrir, NOVA lo inicia y te conecta a la única instancia.";
+    return std.fmt.allocPrint(
+        allocator,
+        "<section class=\"nx-card nx-oc\" aria-labelledby=\"oc-title\"><header class=\"nx-card-head\"><div><p class=\"nx-eyebrow\">Terminal</p><h2 id=\"oc-title\">OpenCode</h2></div><span class=\"nx-oc-state\"><i class=\"nx-status-dot {s}\" aria-hidden=\"true\"></i>{s}</span></header><div class=\"nx-oc-screen\"><div class=\"nx-oc-bar\"><i></i><i></i><i></i><span>opencode</span></div><pre class=\"nx-oc-log\"><span class=\"nx-oc-prompt\">$</span> opencode --version\n{s}\n<span class=\"nx-oc-prompt\">$</span> opencode serve\n{s}</pre></div><a class=\"nx-oc-open\" href=\"/dashboard/opencode/abrir\">Abrir OpenCode<span class=\"material-symbols-outlined\">arrow_forward</span></a><p class=\"nx-oc-hint\">{s}</p></section>",
+        .{ state_class, state_text, version, if (info.running) try std.fmt.allocPrint(allocator, "escuchando en 127.0.0.1:{s}", .{port}) else "servicio detenido", hint },
+    );
+}
+
+fn connCard(
+    allocator: std.mem.Allocator,
+    icon: []const u8,
+    name: []const u8,
+    kind: []const u8,
+    desc: []const u8,
+    state: ConnState,
+    status: []const u8,
+    detail: []const u8,
+    href: ?[]const u8,
+) ![]const u8 {
+    const dot = switch (state) {
+        .on => "is-on",
+        .soft => "is-soft",
+        .off => "is-off",
+    };
+    const safe_name = try esc(allocator, name);
+    const safe_kind = try esc(allocator, kind);
+    const safe_desc = try esc(allocator, desc);
+    const safe_status = try esc(allocator, status);
+    const safe_detail = try esc(allocator, detail);
+    const action = if (href) |h|
+        try std.fmt.allocPrint(allocator, "<a href=\"{s}\">Abrir<span class=\"material-symbols-outlined\">arrow_forward</span></a>", .{h})
+    else
+        "";
+    return std.fmt.allocPrint(
+        allocator,
+        "<article class=\"nx-conn\"><header><span class=\"nx-conn-icon material-symbols-outlined\">{s}</span><div><h3>{s}</h3><p>{s}</p></div><span class=\"nx-conn-state\"><i class=\"nx-status-dot {s}\" aria-hidden=\"true\"></i>{s}</span></header><p class=\"nx-conn-desc\">{s}</p><footer><code>{s}</code>{s}</footer></article>",
+        .{ icon, safe_name, safe_kind, dot, safe_status, safe_desc, safe_detail, action },
+    );
+}
+
+pub fn connections(allocator: std.mem.Allocator, d: Datos, db: anytype) ![]const u8 {
+    const home = envValue(allocator, "HOME");
+    var out = std.ArrayList(u8).init(allocator);
+
+    // Mikareno: datos académicos (solo lectura).
+    const mikareno_state: ConnState = if (d.from_cache) .soft else if (d.connected) .on else .off;
+    const mikareno_status = if (d.from_cache) "Caché" else if (d.connected) "Conectado" else "Sin conexión";
+    try out.appendSlice(try connCard(
+        allocator,
+        "school",
+        "Mikareno",
+        "Académico · MCP",
+        "Notas, horario, tareas y calendario del colegio, sólo lectura.",
+        mikareno_state,
+        mikareno_status,
+        if (d.mikareno_mcp_url.len > 0) d.mikareno_mcp_url else "http://127.0.0.1:8080/mcp",
+        "/dashboard/mcp",
+    ));
+
+    // GenOffice: documentos, hojas y presentaciones.
+    const genoffice_url = envValue(allocator, "GENOFFICE_MCP_URL");
+    try out.appendSlice(try connCard(
+        allocator,
+        "description",
+        "GenOffice",
+        "Oficina · MCP",
+        "Crea y edita Word, Excel y PowerPoint con el GenOffice del equipo.",
+        if (d.genoffice_connected) .on else .off,
+        if (d.genoffice_connected) "Conectado" else "Sin conexión",
+        if (genoffice_url.len > 0) genoffice_url else "http://127.0.0.1:8453/mcp",
+        "/dashboard/mcp",
+    ));
+
+    // Google: OAuth de calendario, correo y classroom (solo lectura).
+    const google_client = envValue(allocator, "GOOGLE_CLIENT_ID");
+    const google_token = (db.scalarInt("SELECT COUNT(*) FROM google_oauth_tokens") catch 0) > 0;
+    const google_state: ConnState = if (google_token) .on else if (google_client.len > 0) .soft else .off;
+    const google_status = if (google_token) "Vinculado" else if (google_client.len > 0) "Cliente listo" else "Sin configurar";
+    try out.appendSlice(try connCard(
+        allocator,
+        "calendar_month",
+        "Google",
+        "Cuenta · OAuth",
+        "Calendario, Gmail y Classroom en modo lectura.",
+        google_state,
+        google_status,
+        "Calendar · Gmail · Classroom",
+        "/dashboard/calendar",
+    ));
+
+    // IA de la app.
+    try out.appendSlice(try connCard(
+        allocator,
+        "auto_awesome",
+        "NOVA AI",
+        "Inteligencia artificial",
+        "Chat con contexto, resúmenes y planes de estudio.",
+        if (d.ai_configured) .on else .off,
+        if (d.ai_configured) "Configurada" else "Sin clave",
+        if (d.ai_model.len > 0) d.ai_model else "modelo sin configurar",
+        "/dashboard/ai",
+    ));
+
+    // Hermes: agente personal (gateway + CLI).
+    const hermes_installed = homePathExists(allocator, home, ".hermes") and homePathExists(allocator, home, ".local/bin/hermes");
+    const hermes_running = processRunning(allocator, "/.hermes/hermes-agent") or processRunning(allocator, "hermes-gateway");
+    const hermes_state: ConnState = if (hermes_running) .on else if (hermes_installed) .soft else .off;
+    const hermes_status = if (hermes_running) "En ejecución" else if (hermes_installed) "Instalado" else "No encontrado";
+    try out.appendSlice(try connCard(
+        allocator,
+        "smart_toy",
+        "Hermes Agent",
+        "Agente personal",
+        "Gateway, CLI y automatizaciones del asistente de tu equipo.",
+        hermes_state,
+        hermes_status,
+        "~/.hermes · gateway + CLI",
+        null,
+    ));
+
+    // Puente de WhatsApp de Hermes.
+    const wa_installed = homePathExists(allocator, home, ".hermes/whatsapp");
+    const wa_running = processRunning(allocator, "whatsapp-bridge/bridge.js");
+    const wa_state: ConnState = if (wa_running) .on else if (wa_installed) .soft else .off;
+    try out.appendSlice(try connCard(
+        allocator,
+        "chat",
+        "Hermes WhatsApp",
+        "Mensajería",
+        "Puente de mensajes de Hermes para leer y responder por WhatsApp.",
+        wa_state,
+        if (wa_running) "Conectado" else if (wa_installed) "Instalado" else "No encontrado",
+        "127.0.0.1:3000 · sesión local",
+        null,
+    ));
+
+    // CyberHex: CLI y proyecto local.
+    const hex_installed = homePathExists(allocator, home, ".local/bin/hex");
+    const hex_project = homePathExists(allocator, home, "proyectos/CyberHex");
+    const hex_state: ConnState = if (hex_installed) .on else if (hex_project) .soft else .off;
+    try out.appendSlice(try connCard(
+        allocator,
+        "terminal",
+        "CyberHex",
+        "Herramienta CLI",
+        "Laboratorio y utilidades de seguridad desde la terminal.",
+        hex_state,
+        if (hex_installed) "CLI instalada" else if (hex_project) "Proyecto local" else "No encontrado",
+        if (hex_installed) "~/.local/bin/hex · ~/proyectos/CyberHex" else "~/proyectos/CyberHex",
+        null,
+    ));
+
+    // MCP propio de NOVA.
+    const mcp_key = envValue(allocator, "CUSTOM_MCP_API_KEY");
+    try out.appendSlice(try connCard(
+        allocator,
+        "hub",
+        "MCP de NOVA",
+        "Integración · MCP",
+        "Expone notas, calendario y herramientas a OpenCode y agentes.",
+        if (mcp_key.len > 0) .on else .off,
+        if (mcp_key.len > 0) "Activo" else "Sin clave",
+        "http://127.0.0.1:3100/mcp",
+        "/dashboard/mcp",
+    ));
+
+    // OpenCode: agente de código en una sola instancia.
+    try out.appendSlice(try connCard(
+        allocator,
+        "terminal",
+        "OpenCode",
+        "Agente · Terminal",
+        "Una sola instancia con su propio puerto, lista para abrir desde el inicio.",
+        if (d.opencode.running) .on else .soft,
+        if (d.opencode.running) "Activo" else "Detenido",
+        if (d.opencode.url.len > 0) d.opencode.url else "~/.local/state/opencode",
+        "/dashboard/opencode/abrir",
+    ));
+
+    // Vault de Obsidian.
+    const vault_ok = absExists(d.vault_path);
+    try out.appendSlice(try connCard(
+        allocator,
+        "folder_open",
+        "Segundo cerebro",
+        "Vault · Obsidian",
+        "Notas Markdown locales que la app lee y sincroniza.",
+        if (vault_ok) .on else .soft,
+        if (vault_ok) "Sincronizado" else "Sin carpeta",
+        if (d.vault_path.len > 0) d.vault_path else "VAULT_DIR sin configurar",
+        "/dashboard/notes",
+    ));
+
+    return out.items;
+}
+
+test "portFromUrl extrae el puerto del servicio de OpenCode" {
+    try std.testing.expectEqualStrings("49374", portFromUrl("http://127.0.0.1:49374"));
+    try std.testing.expectEqualStrings("", portFromUrl("http://127.0.0.1"));
+    try std.testing.expectEqualStrings("", portFromUrl(""));
 }
 
 test "weekdayOf mapea fechas ISO conocidas" {
@@ -2441,6 +3444,67 @@ pub fn planHtml(allocator: std.mem.Allocator, d: SubjectDetail) ![]const u8 {
     );
 }
 
+/// Radiografía de la materia con datos reales: anillo del promedio, barras
+/// por bloque ponderado y reparto de actividades calificadas/pendientes.
+/// Si no hay nada que dibujar devuelve cadena vacía; nunca inventa ceros.
+pub fn subjectChartsHtml(allocator: std.mem.Allocator, d: SubjectDetail) ![]const u8 {
+    const max = if (d.maximo > 0) d.maximo else 10.0;
+    var cards = std.ArrayList(u8).init(allocator);
+
+    const shown: ?f64 = if (d.real) |r| r else if (d.tiene_nota) d.nota else null;
+    if (shown) |value| {
+        const pct = @max(0.0, @min(100.0, value / max * 100.0));
+        const value_txt = try std.fmt.allocPrint(allocator, "{d:.2}", .{value});
+        const official = if (d.tiene_nota) try std.fmt.allocPrint(allocator, "{d:.2}", .{d.nota}) else "—";
+        const foot = try std.fmt.allocPrint(allocator, "sobre {d:.0} · oficial {s}", .{ max, official });
+        const label = if (d.real != null) "Solo calificado" else "Promedio";
+        try cards.appendSlice("<div class=\"nx-subject-chart-card\">");
+        try cards.appendSlice(try charts.donut(allocator, pct, charts.gradeColor(value), value_txt, label, foot));
+        try cards.appendSlice("</div>");
+    }
+
+    var bars = std.ArrayList(charts.Bar).init(allocator);
+    for (d.submenus) |sm| {
+        const sub = sm.subtotal orelse continue;
+        if (sm.total == 0) continue;
+        const label = if (submenuWeight(sm.nombre)) |w|
+            try std.fmt.allocPrint(allocator, "{s} · {d:.0}%", .{ sm.nombre, w * 100.0 })
+        else
+            try allocator.dupe(u8, sm.nombre);
+        const txt = try std.fmt.allocPrint(allocator, "{d:.2}", .{sub});
+        try bars.append(.{ .etiqueta = label, .valor = sub, .texto = txt, .color = charts.gradeColor(sub) });
+    }
+    if (bars.items.len > 0) {
+        try cards.appendSlice("<div class=\"nx-subject-chart-card\">");
+        try cards.appendSlice(try charts.barras(allocator, bars.items, max, "Subtotal de cada bloque, sobre la nota máxima."));
+        try cards.appendSlice("</div>");
+    }
+
+    var graded: usize = 0;
+    var pending: usize = 0;
+    for (d.submenus) |sm| {
+        const cal = @min(sm.calificadas, sm.total);
+        graded += cal;
+        pending += sm.total - cal;
+    }
+    if (graded + pending > 0) {
+        const segs = [_]charts.Segmento{
+            .{ .etiqueta = "Calificadas", .cantidad = graded, .color = charts.Palette.good },
+            .{ .etiqueta = "Pendientes", .cantidad = pending, .color = charts.Palette.muted },
+        };
+        try cards.appendSlice("<div class=\"nx-subject-chart-card\">");
+        try cards.appendSlice(try charts.apilada(allocator, &segs, graded + pending));
+        try cards.appendSlice("</div>");
+    }
+
+    if (cards.items.len == 0) return "";
+    return std.fmt.allocPrint(
+        allocator,
+        "<section class=\"nx-subject-charts nova-subject-charts\"><div class=\"nx-section-head\"><div><p class=\"nx-eyebrow\">Radiografía</p><h2>Cómo va la materia</h2></div><span>Datos de Mikareno, sin estimaciones</span></div><div class=\"nx-subject-charts-grid\">{s}</div></section>",
+        .{cards.items},
+    );
+}
+
 pub fn subjectDetailHtml(allocator: std.mem.Allocator, d: SubjectDetail) ![]const u8 {
     const name = try esc(allocator, d.materia);
     const code = try esc(allocator, d.codigo);
@@ -2465,6 +3529,7 @@ pub fn subjectDetailHtml(allocator: std.mem.Allocator, d: SubjectDetail) ![]cons
         for (d.submenus) |sm| try acts.appendSlice(try submenuSection(allocator, sm));
     }
     const plan = try planHtml(allocator, d);
+    const charts_section = try subjectChartsHtml(allocator, d);
 
     return std.fmt.allocPrint(
         allocator,
@@ -2474,8 +3539,8 @@ pub fn subjectDetailHtml(allocator: std.mem.Allocator, d: SubjectDetail) ![]cons
             "<div class=\"nx-subject-note\">{s}<span class=\"nx-grade-chip\" style=\"color:{s}\">{s}</span></div></header>" ++
             "<section class=\"nx-subject-summary nova-subject-summary\"><div class=\"nx-subject-summary-grade\"><span>Promedio actual</span><strong style=\"color:{s}\" data-modo-oficial=\"{s}\" data-modo-real=\"{s}\" data-color-oficial=\"{s}\" data-color-real=\"{s}\">{s}</strong><p>sobre {s}</p><div class=\"nx-subject-progress\"><div style=\"height:100%;width:{d}%;background:{s};border-radius:inherit\" data-bar-oficial=\"{d}\" data-bar-real=\"{d}\" data-bar-color-oficial=\"{s}\" data-bar-color-real=\"{s}\"></div></div></div>" ++
             "<div class=\"nx-subject-summary-facts\"><div><span>Calificación</span><strong>{s}</strong></div><div><span>Solo calificado</span><strong style=\"color:{s}\">{s}</strong></div><div><span>Código</span><strong>{s}</strong></div><div><span>Máximo</span><strong>{s}</strong></div><div><span>Bloqueada</span><strong>{s}</strong></div><div><span>Tipo</span><strong>{s}</strong></div></div></section>" ++
-            "{s}{s}{s}{s}</div>",
-        .{ banner, name, code, trim_txt, modoToggleHtml(), tone.color, tone.label, tone.color, nota_txt, real_txt, tone.color, real_tone.color, nota_txt, max_txt, tone.pct, tone.color, tone.pct, real_tone.pct, tone.color, real_tone.color, tone.label, real_tone.color, real_txt, code, max_txt, bloqueada, tipo, plan, obs, acts.items, modo_script },
+            "{s}{s}{s}{s}{s}</div>",
+        .{ banner, name, code, trim_txt, modoToggleHtml(), tone.color, tone.label, tone.color, nota_txt, real_txt, tone.color, real_tone.color, nota_txt, max_txt, tone.pct, tone.color, tone.pct, real_tone.pct, tone.color, real_tone.color, tone.label, real_tone.color, real_txt, code, max_txt, bloqueada, tipo, plan, charts_section, obs, acts.items, modo_script },
     );
 }
 
@@ -2591,6 +3656,33 @@ test "sin pendientes ni examen se omite el simulador" {
     const d = SubjectDetail{ .tiene_nota = true, .nota = 8.1, .maximo = 10, .submenus = &subs };
     const html = try planHtml(a, d);
     try std.testing.expect(std.mem.indexOf(u8, html, "nx-subject-sim") == null);
+}
+
+test "la ficha dibuja los tres gráficos con datos reales" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    var subs = [_]DetailSubmenu{
+        .{ .nombre = "TAREAS", .total = 9, .calificadas = 4, .suma = 34, .subtotal = 8.5, .actividades = &.{} },
+        .{ .nombre = "TRABAJOS", .total = 3, .calificadas = 2, .suma = 16, .subtotal = 8.0, .actividades = &.{} },
+        .{ .nombre = "EXAMEN TRIMESTRAL", .total = 1, .calificadas = 0, .suma = 0, .subtotal = null, .actividades = &.{} },
+    };
+    const d = SubjectDetail{ .tiene_nota = true, .nota = 6.13, .real = 6.5, .maximo = 10, .submenus = &subs };
+    const html = try subjectChartsHtml(a, d);
+    try std.testing.expect(std.mem.indexOf(u8, html, "nx-chart-donut") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "nx-chart-bars") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "nx-chart-stack") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "Solo calificado") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "TAREAS · 20%") != null);
+    try std.testing.expect(std.mem.indexOf(u8, html, "Pendientes") != null);
+}
+
+test "sin datos no se inventan gráficos" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    const d = SubjectDetail{ .tiene_nota = false, .maximo = 10 };
+    try std.testing.expectEqualStrings("", try subjectChartsHtml(a, d));
 }
 
 test "sin promedio no se inventa plan ni simulador" {

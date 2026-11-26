@@ -10,6 +10,7 @@ const sqlite = @import("sqlite.zig");
 const json = @import("jsonutil.zig");
 const oauth = @import("oauth_google.zig");
 const security = @import("security.zig");
+const importer = @import("importer.zig");
 
 pub const DriveFile = struct {
     id: []const u8,
@@ -88,7 +89,7 @@ pub fn driveFiles(
     };
     const url = try std.fmt.allocPrint(
         allocator,
-        "{s}?pageSize={d}&orderBy=modifiedTime desc&fields=files(id,name,mimeType,modifiedTime,webViewLink)",
+        "{s}?pageSize={d}&orderBy=modifiedTime%20desc&fields=files(id,name,mimeType,modifiedTime,webViewLink)",
         .{ DRIVE_URL, max_results },
     );
     const payload = oauth.getJsonPublic(allocator, url, token, cfg.timeout_ms) catch {
@@ -149,7 +150,7 @@ pub fn driveSearch(
     const clause = try std.fmt.allocPrint(allocator, "name contains '{s}'", .{quotes});
     const url = try std.fmt.allocPrint(
         allocator,
-        "{s}?pageSize={d}&orderBy=modifiedTime desc&q={s}&fields=files(id,name,mimeType,modifiedTime,webViewLink)",
+        "{s}?pageSize={d}&orderBy=modifiedTime%20desc&q={s}&fields=files(id,name,mimeType,modifiedTime,webViewLink)",
         .{ DRIVE_URL, max_results, try oauth.urlEncode(allocator, clause) },
     );
     const payload = oauth.getJsonPublic(allocator, url, token, cfg.timeout_ms) catch {
@@ -203,6 +204,56 @@ pub fn readDocument(
         .mime = try allocator.dupe(u8, mime),
         .text = try allocator.dupe(u8, body),
     };
+}
+
+fn validFileId(file_id: []const u8) bool {
+    if (file_id.len == 0 or file_id.len > 200) return false;
+    for (file_id) |c| {
+        const ok = (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or (c >= '0' and c <= '9') or c == '-' or c == '_';
+        if (!ok) return false;
+    }
+    return true;
+}
+
+/// Exporta un archivo nativo de Google (Docs/Sheets/Slides) al MIME pedido.
+pub fn exportFile(
+    allocator: std.mem.Allocator,
+    db: *sqlite.Db,
+    cfg: oauth.Config,
+    user_id: i64,
+    file_id: []const u8,
+    export_mime: []const u8,
+    max_bytes: usize,
+) !?[]const u8 {
+    if (!validFileId(file_id)) return null;
+    if (cfg.client_id.len == 0 or cfg.client_secret.len == 0) return null;
+    const token = (try accessTokenFor(allocator, db, cfg, user_id)) orelse return null;
+    const url = try std.fmt.allocPrint(
+        allocator,
+        "https://www.googleapis.com/drive/v3/files/{s}/export?mimeType={s}",
+        .{ file_id, try oauth.urlEncode(allocator, export_mime) },
+    );
+    return oauth.getTextPublic(allocator, url, token, cfg.timeout_ms, max_bytes) catch null;
+}
+
+/// Descarga el contenido binario de un archivo de Drive no nativo.
+pub fn downloadFile(
+    allocator: std.mem.Allocator,
+    db: *sqlite.Db,
+    cfg: oauth.Config,
+    user_id: i64,
+    file_id: []const u8,
+    max_bytes: usize,
+) !?[]const u8 {
+    if (!validFileId(file_id)) return null;
+    if (cfg.client_id.len == 0 or cfg.client_secret.len == 0) return null;
+    const token = (try accessTokenFor(allocator, db, cfg, user_id)) orelse return null;
+    const url = try std.fmt.allocPrint(
+        allocator,
+        "{s}/{s}?alt=media&supportsAllDrives=true",
+        .{ DRIVE_URL, file_id },
+    );
+    return oauth.getTextPublic(allocator, url, token, cfg.timeout_ms, max_bytes) catch null;
 }
 
 /// Lista contactos de Google Contacts (People API).
@@ -279,7 +330,7 @@ pub fn driveSectionHtml(allocator: std.mem.Allocator, r: DriveResult) ![]const u
         try buf.appendSlice("<p class=\"nx-academic-muted\">No hay archivos en Google Drive.</p></section>");
         return buf.items;
     }
-    try buf.appendSlice("<div class=\"nx-table-wrap\"><table class=\"nx-table\"><thead><tr><th>Nombre</th><th>Tipo</th><th>Modificado</th></tr></thead><tbody>");
+    try buf.appendSlice("<div class=\"nx-table-wrap\"><table class=\"nx-table\"><thead><tr><th>Nombre</th><th>Tipo</th><th>Modificado</th><th>Acción</th></tr></thead><tbody>");
     for (r.files) |f| {
         const safe_name = try security.htmlEscape(allocator, f.name);
         try buf.appendSlice("<tr><td>");
@@ -302,6 +353,25 @@ pub fn driveSectionHtml(allocator: std.mem.Allocator, r: DriveResult) ![]const u
         try buf.appendSlice(try security.htmlEscape(allocator, docKindLabel(f.mime)));
         try buf.appendSlice("</td><td>");
         try buf.appendSlice(try security.htmlEscape(allocator, if (f.modified.len == 0) "—" else f.modified));
+        try buf.appendSlice("</td><td>");
+        const native_convertible = std.mem.eql(u8, f.mime, "application/vnd.google-apps.document") or
+            std.mem.eql(u8, f.mime, "application/vnd.google-apps.spreadsheet") or
+            std.mem.eql(u8, f.mime, "application/vnd.google-apps.presentation");
+        const importable = f.id.len > 0 and if (isGoogleNative(f.mime))
+            native_convertible
+        else
+            importer.kindFor(f.name) != null;
+        if (importable) {
+            try buf.appendSlice("<form method=\"post\" action=\"/office/library/import-drive\"><input type=\"hidden\" name=\"file\" value=\"");
+            try buf.appendSlice(try security.htmlEscape(allocator, f.id));
+            try buf.appendSlice("\"><input type=\"hidden\" name=\"name\" value=\"");
+            try buf.appendSlice(safe_name);
+            try buf.appendSlice("\"><input type=\"hidden\" name=\"mime\" value=\"");
+            try buf.appendSlice(try security.htmlEscape(allocator, f.mime));
+            try buf.appendSlice("\"><button type=\"submit\" class=\"nx-button nx-button-secondary\">Importar</button></form>");
+        } else {
+            try buf.appendSlice("—");
+        }
         try buf.appendSlice("</td></tr>");
     }
     try buf.appendSlice("</tbody></table></div></section>");

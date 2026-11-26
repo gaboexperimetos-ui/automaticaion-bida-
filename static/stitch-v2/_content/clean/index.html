@@ -31,6 +31,23 @@
     <a class="nx-kpi" href="/dashboard/ai"><span class="nx-kpi-label">Conversaciones</span><span class="nx-kpi-body"><!--SLOT:KPI_CONV--></span></a>
   </section>
 
+  <section class="nx-home-charts" aria-labelledby="charts-title">
+    <header class="nx-card-head"><div><p class="nx-eyebrow">Analítica</p><h2 id="charts-title">Tus datos, en gráficos</h2></div><span class="nx-home-all-hint">Trimestre actual · últimas 8 semanas</span></header>
+    <div class="nx-chart-grid">
+      <article class="nx-card nx-chart-card nx-chart-card-gauge"><header class="nx-chart-head"><h3>Media general</h3><span>0–10</span></header><!--SLOT:CHART_AVG--></article>
+      <article class="nx-card nx-chart-card"><header class="nx-chart-head"><h3>Media por asignatura</h3><span>0–10</span></header><!--SLOT:CHART_SUBJECTS--></article>
+      <article class="nx-card nx-chart-card"><header class="nx-chart-head"><h3>Clases y entregas</h3><span>Semana actual</span></header><!--SLOT:CHART_WEEK--></article>
+      <article class="nx-card nx-chart-card"><header class="nx-chart-head"><h3>Ritmo de apuntes</h3><span>8 semanas</span></header><!--SLOT:CHART_NOTES--></article>
+      <article class="nx-card nx-chart-card"><header class="nx-chart-head"><h3>Distribución de notas</h3><span>Por rango</span></header><!--SLOT:CHART_DIST--></article>
+      <article class="nx-card nx-chart-card"><header class="nx-chart-head"><h3>Salud académica</h3><span>Aprobadas · riesgo</span></header><!--SLOT:CHART_HEALTH--></article>
+      <article class="nx-card nx-chart-card"><header class="nx-chart-head"><h3>Carga próximos 14 días</h3><span>Entregas + eventos</span></header><!--SLOT:CHART_LOAD--></article>
+      <article class="nx-card nx-chart-card"><header class="nx-chart-head"><h3>Pesos de evaluación</h3><span>Cómo se calcula</span></header><!--SLOT:CHART_WEIGHTS--></article>
+      <article class="nx-card nx-chart-card"><header class="nx-chart-head"><h3>Perfil por tipo</h3><span>Radar 0–10</span></header><!--SLOT:CHART_RADAR--></article>
+      <article class="nx-card nx-chart-card"><header class="nx-chart-head"><h3>Aporte por materia</h3><span>Apilado 0–10</span></header><!--SLOT:CHART_STACKED--></article>
+      <article class="nx-card nx-chart-card"><header class="nx-chart-head"><h3>Mapa de clases</h3><span>Día × bloque</span></header><!--SLOT:CHART_HEATMAP--></article>
+    </div>
+  </section>
+
   <div class="nx-home-grid">
     <div class="nx-home-main">
       <section class="nx-card nx-card-today" aria-labelledby="today-card-title">
@@ -74,6 +91,8 @@
         </div>
       </section>
 
+      <!--SLOT:OPENCODE-->
+
       <section class="nx-card nx-card-ai" aria-labelledby="ai-card-title">
         <header class="nx-card-head"><div><p class="nx-eyebrow">NOVA AI</p><h2 id="ai-card-title">Aprende con contexto</h2></div><span class="nx-ai-orb material-symbols-outlined">auto_awesome</span></header>
         <!--SLOT:AI_RESUME-->
@@ -83,15 +102,6 @@
       <!--SLOT:EXAM-->
     </aside>
   </div>
-
-  <section class="nx-home-charts" aria-labelledby="charts-title">
-    <header class="nx-card-head"><div><p class="nx-eyebrow">Analítica</p><h2 id="charts-title">Tus datos, en gráficos</h2></div><span class="nx-home-all-hint">Trimestre actual · últimas 8 semanas</span></header>
-    <div class="nx-chart-grid">
-      <article class="nx-card nx-chart-card"><header class="nx-chart-head"><h3>Media por asignatura</h3><span>0–10</span></header><!--SLOT:CHART_SUBJECTS--></article>
-      <article class="nx-card nx-chart-card"><header class="nx-chart-head"><h3>Clases y entregas</h3><span>Semana actual</span></header><!--SLOT:CHART_WEEK--></article>
-      <article class="nx-card nx-chart-card"><header class="nx-chart-head"><h3>Ritmo de apuntes</h3><span>8 semanas</span></header><!--SLOT:CHART_NOTES--></article>
-    </div>
-  </section>
 
   <section class="nx-home-all" aria-labelledby="all-title">
     <header class="nx-card-head"><div><p class="nx-eyebrow">Mapa completo</p><h2 id="all-title">Todo tu espacio</h2></div><span class="nx-home-all-hint">Sin menús escondidos</span></header>

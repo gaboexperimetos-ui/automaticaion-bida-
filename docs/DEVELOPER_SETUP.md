@@ -89,6 +89,17 @@ curl -s http://127.0.0.1:8090/health
 - En **asus-tuf** el puerto libre es el **8090**.
 - En la **Dell** el 8090 está ocupado por otro servicio: usa siempre el **8091**.
 
+### App de escritorio
+
+La interfaz también se abre en una ventana nativa GTK3 + WebKit2GTK (sin Electron y sin segundo backend). Sólo se compila cuando se pide:
+
+```bash
+zig build desktop          # binario en zig-out/bin/nova-desktop
+./desktop/install.sh       # instala binario, icono y lanzador de menú
+```
+
+Dependencias de compilación: `gtk+-3.0` y `webkit2gtk-4.1` (el servidor no las necesita). El lanzador usa `STUDY_URL` o, por defecto, `http://127.0.0.1:3100/dashboard`. No inicia el servidor: si `study-platform` no está activo, WebKit muestra su error de carga. Atajos: F5/Ctrl+R recargar, Ctrl+H inicio, F12 devtools, Ctrl+Q cerrar.
+
 ---
 
 ## 4. Tests

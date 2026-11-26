@@ -30,6 +30,22 @@ pub fn build(b: *std.Build) void {
     const run_tests = b.addRunArtifact(unit_tests);
     const test_step = b.step("test", "Ejecuta pruebas unitarias Zig");
     test_step.dependOn(&run_tests.step);
+
+    // Lanzador de escritorio nativo (GTK3 + WebKit2GTK). No entra en el build
+    // por defecto para que un servidor sin librerías gráficas siga compilando:
+    //   zig build desktop
+    const desktop_exe = b.addExecutable(.{
+        .name = "nova-desktop",
+        .root_source_file = b.path("desktop/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    desktop_exe.linkLibC();
+    desktop_exe.linkSystemLibrary("gtk+-3.0");
+    desktop_exe.linkSystemLibrary("webkit2gtk-4.1");
+    const desktop_install = b.addInstallArtifact(desktop_exe, .{});
+    const desktop_step = b.step("desktop", "Compila el lanzador de escritorio (WebKitGTK)");
+    desktop_step.dependOn(&desktop_install.step);
 }
 
 fn linkSqlite(artifact: *std.Build.Step.Compile) void {

@@ -11,6 +11,7 @@ test {
     _ = @import("system_metrics.zig");
     _ = @import("mcp_client.zig");
     _ = @import("office.zig");
+    _ = @import("importer.zig");
     _ = @import("panel.zig");
     _ = @import("app.zig");
     _ = @import("academico.zig");
@@ -19,6 +20,7 @@ test {
     _ = @import("oauth_google.zig");
     _ = @import("google_calendar.zig");
     _ = @import("google_workspace.zig");
+    _ = @import("classroom.zig");
     _ = @import("calendar_view.zig");
     _ = @import("schedule_view.zig");
     _ = @import("flashcards.zig");

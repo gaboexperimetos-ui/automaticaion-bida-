@@ -15,6 +15,7 @@ const office_mod = @import("office.zig");
 const oauth_google = @import("oauth_google.zig");
 const google_calendar = @import("google_calendar.zig");
 const google_workspace = @import("google_workspace.zig");
+const classroom = @import("classroom.zig");
 const panel = @import("panel.zig");
 const academico = @import("academico.zig");
 const calendar_view = @import("calendar_view.zig");
@@ -92,6 +93,16 @@ pub const App = struct {
         if (std.mem.eql(u8, path, "/dashboard/notes")) return self.cleanPage(allocator, .notes, "/dashboard/notes", username);
         if (std.mem.eql(u8, path, "/dashboard/mcp")) return self.cleanPage(allocator, .mcp, "/dashboard/mcp", username);
         if (std.mem.eql(u8, path, "/dashboard/material") and std.mem.eql(u8, request.method, "GET")) return self.cleanPage(allocator, .material, path, username);
+        // Terminal pequeña: reutiliza (o inicia) el único OpenCode y pide un
+        // enlace de emparejamiento de un solo uso para abrirlo en esta ventana.
+        if (std.mem.eql(u8, path, "/dashboard/opencode/abrir")) {
+            const link = try panel.opencodePairLink(allocator);
+            if (link.len == 0) {
+                const body = try templates.simplePage(allocator, "OpenCode no respondió", "<p>No pude iniciar el servicio ni obtener un enlace de emparejamiento.</p><p>Arranca la instancia única desde una terminal y vuelve a intentarlo:</p><pre><code>opencode service start</code></pre><p>Después, pulsa otra vez <strong>Abrir OpenCode</strong> en el inicio.</p><a href=\"/dashboard\">Volver al inicio</a>");
+                return .{ .status = 502, .content_type = "text/html; charset=utf-8", .body = try templates.renderShell(allocator, "/dashboard", body, username, true, self.config.mikareno_mcp_url) };
+            }
+            return redirect(allocator, link, 302);
+        }
         if (std.mem.eql(u8, path, "/settings")) return self.cleanPage(allocator, .settings, path, username);
         if (std.mem.eql(u8, path, "/settings/password")) return self.password(allocator, request, auth.?);
         if (std.mem.eql(u8, path, "/api/settings/ai")) return self.settingsAi(allocator, request, username);
@@ -109,7 +120,7 @@ pub const App = struct {
             return ai.handle(allocator, self.db, self.config, request, &self.active_streams);
         }
         if (std.mem.startsWith(u8, path, "/admin") or std.mem.startsWith(u8, path, "/api/admin/")) return self.admin(allocator, request, username);
-        if (std.mem.startsWith(u8, path, "/office")) return self.office(allocator, request, username);
+        if (std.mem.startsWith(u8, path, "/office")) return self.office(allocator, request, username, if (auth) |a| a.user_id else 0);
         // Calendario completo: mes, semana y día con datos reales, anotaciones
         // locales y Google Calendar en solo lectura.
         if (std.mem.eql(u8, path, "/dashboard/calendar") or std.mem.eql(u8, path, "/dashboard/calendar/")) {
@@ -125,7 +136,7 @@ pub const App = struct {
         if (std.mem.eql(u8, path, "/dashboard/flashcards") or std.mem.startsWith(u8, path, "/dashboard/flashcards/")) {
             return self.flashcardsPage(allocator, path, username);
         }
-        if (std.mem.startsWith(u8, path, "/dashboard/")) return self.academic(allocator, request, username);
+        if (std.mem.startsWith(u8, path, "/dashboard/")) return self.academic(allocator, request, username, if (auth) |a| a.user_id else 0);
 
         if (std.mem.eql(u8, path, "/api/notes")) return jsonError(allocator, 404, "not_found");
         if (std.mem.startsWith(u8, path, "/api/") or std.mem.startsWith(u8, path, "/mcp")) return jsonError(allocator, 404, "not_found");
@@ -141,6 +152,7 @@ pub const App = struct {
             "/favicon.svg", "/favicon.ico",     "/nova.css",       "/polish.css",
             "/themes.css",  "/music.css",       "/shell.js",       "/styles.css",
             "/app.js",      "/calendar-ics.js", "/office-html.js", "/office-sheets.js",
+            "/charts.js",
         };
         for (exact) |asset| if (std.mem.eql(u8, path, asset)) return true;
         return false;
@@ -560,6 +572,7 @@ pub const App = struct {
         datos.mikareno_mcp_url = self.config.mikareno_mcp_url;
         datos.auth_disabled = self.config.auth_disabled;
         datos.vault_path = self.config.vault_dir;
+        datos.opencode = panel.opencodeInfo(allocator);
         if (page == .mcp) {
             datos.mcp_tools = mcp_client.listTools(allocator, self.config.mikareno_mcp_url, self.config.mcp_timeout_ms, true) catch &.{};
         }
@@ -689,20 +702,52 @@ pub const App = struct {
     }
 
     /// Vista académica real de una ruta, con su herramienta de Mikareno.
-    fn renderAcademicView(self: *App, allocator: std.mem.Allocator, view: AcademicView) ![]const u8 {
+    fn renderAcademicView(self: *App, allocator: std.mem.Allocator, view: AcademicView, user_id: i64) ![]const u8 {
         var args = try json.object(allocator, &.{});
         if (view == .evaluaciones) args = try json.object(allocator, &.{.{ .key = "trimestre", .value = .{ .integer = 1 } }});
         const result = mcp_client.callTool(allocator, self.config.mikareno_mcp_url, view.timeoutMs(self.config.mcp_timeout_ms), view.tool(), args, true) catch {
-            return templates.simplePage(allocator, view.title(), "<div class=\"nx-panel nx-academic-empty\"><span class=\"material-symbols-outlined\">cloud_off</span><p><strong>Mikareno no responde</strong><br>No se muestran datos académicos inventados. Reintenta en un momento.</p><a class=\"nx-button nx-button-secondary\" href=\"/dashboard/mcp\"><span class=\"material-symbols-outlined\">refresh</span>Revisar conexión</a></div>");
+            const fallback = try templates.simplePage(allocator, view.title(), "<div class=\"nx-panel nx-academic-empty\"><span class=\"material-symbols-outlined\">cloud_off</span><p><strong>Mikareno no responde</strong><br>No se muestran datos académicos inventados. Reintenta en un momento.</p><a class=\"nx-button nx-button-secondary\" href=\"/dashboard/mcp\"><span class=\"material-symbols-outlined\">refresh</span>Revisar conexión</a></div>");
+            return if (view == .tareas) self.appendClassroom(allocator, fallback, user_id) else fallback;
         };
-        return switch (view) {
-            .horario => academico.horarioHtml(allocator, result),
-            .tareas => academico.tareasHtml(allocator, result),
-            .evaluaciones => academico.examenesHtml(allocator, result),
-            .asistencia => academico.asistenciaHtml(allocator, result),
-            .perfil => academico.perfilHtml(allocator, result),
-            .mensajes => academico.mensajesHtml(allocator, result),
+        const base = switch (view) {
+            .horario => try academico.horarioHtml(allocator, result),
+            .tareas => try academico.tareasHtml(allocator, result),
+            .evaluaciones => try academico.examenesHtml(allocator, result),
+            .asistencia => try academico.asistenciaHtml(allocator, result),
+            .perfil => try academico.perfilHtml(allocator, result),
+            .mensajes => try academico.mensajesHtml(allocator, result),
         };
+        return if (view == .tareas) self.appendClassroom(allocator, base, user_id) else base;
+    }
+
+    /// Añade al planificador un hueco que carga las entregas de Classroom
+    /// aparte (HTMX), para que la página no espere 8 s a Google. El
+    /// fragmento se cachea 10 minutos.
+    fn appendClassroom(self: *App, allocator: std.mem.Allocator, base: []const u8, user_id: i64) ![]const u8 {
+        _ = user_id;
+        if (self.googleConfig() == null) return base;
+        const placeholder = "<div class=\"nx-classroom-lazy\" hx-get=\"/dashboard/classroom/upcoming\" hx-trigger=\"load\" hx-swap=\"outerHTML\"><section class=\"nx-panel nx-classroom-upcoming\"><div class=\"nx-panel-head\"><div><p class=\"nx-eyebrow\">Google Classroom</p><h2>Entregas próximas</h2></div></div><p class=\"nx-academic-muted\">Cargando entregas de Classroom…</p></section></div>";
+        return std.fmt.allocPrint(allocator, "{s}{s}", .{ base, placeholder });
+    }
+
+    /// Fragmento HTML con las entregas de Classroom, o vacío si no hay
+    /// token, no hay cursos o Google no responde.
+    fn classroomUpcomingFragment(self: *App, allocator: std.mem.Allocator, auth: Auth) !http.Response {
+        const cfg = self.googleConfig() orelse return text(allocator, 200, "text/html; charset=utf-8", "");
+        const cache_path = classroomCachePath(allocator, self.config.db_path) catch null;
+        const section = blk: {
+            if (cache_path) |p| {
+                if (readClassroomCache(allocator, p, auth.user_id)) |cached| break :blk cached;
+            }
+            const today = try panel.todayIso(allocator);
+            const items = classroom.upcomingWork(allocator, self.db, cfg, auth.user_id, today, 10, 30) catch break :blk "";
+            const html = try classroom.upcomingHtml(allocator, items);
+            if (html.len > 0) {
+                if (cache_path) |p| writeClassroomCache(allocator, p, auth.user_id, html) catch {};
+            }
+            break :blk html;
+        };
+        return text(allocator, 200, "text/html; charset=utf-8", section);
     }
 
     /// Búsqueda global (notas, Mikareno y Google) en una sola página.
@@ -736,7 +781,7 @@ pub const App = struct {
             body.appendSlice("</div>") catch {};
             return .{ .status = 200, .content_type = "text/html; charset=utf-8", .body = try templates.renderShell(allocator, "/dashboard/google", body.items, auth.username, true, self.config.mikareno_mcp_url) };
         }
-        body.appendSlice("<header class=\"nx-page-header nova-page-head\"><div><p class=\"nx-eyebrow\">Google</p><h1>Tu Google</h1><p>Busca en Drive y abre Docs, Sheets y Slides; tus contactos, con permiso de solo lectura.</p></div><div class=\"nx-button-row\"><a class=\"nx-button nx-button-secondary\" href=\"/dashboard/google-calendar\"><span class=\"material-symbols-outlined\">calendar_month</span>Calendario</a></div></header>") catch {};
+        body.appendSlice("<header class=\"nx-page-header nova-page-head\"><div><p class=\"nx-eyebrow\">Google</p><h1>Tu Google</h1><p>Busca en Drive y abre Docs, Sheets y Slides; tus contactos, con permiso de solo lectura.</p></div><div class=\"nx-button-row\"><a class=\"nx-button nx-button-secondary\" href=\"/dashboard/classroom\"><span class=\"material-symbols-outlined\">school</span>Classroom</a><a class=\"nx-button nx-button-secondary\" href=\"/dashboard/google-calendar\"><span class=\"material-symbols-outlined\">calendar_month</span>Calendario</a></div></header>") catch {};
         body.appendSlice("<form method=\"get\" action=\"/dashboard/google\" class=\"nx-search-form\"><span class=\"material-symbols-outlined\" aria-hidden=\"true\">search</span><input type=\"search\" name=\"q\" value=\"") catch {};
         body.appendSlice(try security.htmlEscape(allocator, q)) catch {};
         body.appendSlice("\" placeholder=\"Buscar en Google Drive…\" aria-label=\"Buscar en Google Drive\"><button type=\"submit\" class=\"nx-button\">Buscar</button></form>") catch {};
@@ -765,7 +810,7 @@ pub const App = struct {
     fn googleCalendarPage(self: *App, allocator: std.mem.Allocator, path: []const u8, auth: Auth) !http.Response {
         var body = std.ArrayList(u8).init(allocator);
         body.appendSlice("<div class=\"nx-page nova-page\">") catch {};
-        body.appendSlice("<header class=\"nx-page-header nova-page-head\"><div><p class=\"nx-eyebrow\">Agenda</p><h1>Google Calendar</h1><p>Tus próximos eventos, leídos de Google con permiso de solo lectura.</p></div></header>") catch {};
+        body.appendSlice("<header class=\"nx-page-header nova-page-head\"><div><p class=\"nx-eyebrow\">Agenda</p><h1>Google Calendar</h1><p>Tus próximos eventos, leídos de Google con permiso de solo lectura.</p></div><div class=\"nx-button-row\"><a class=\"nx-button nx-button-secondary\" href=\"/dashboard/classroom\"><span class=\"material-symbols-outlined\">school</span>Classroom</a><a class=\"nx-button nx-button-secondary\" href=\"/dashboard/google\"><span class=\"material-symbols-outlined\">folder</span>Drive</a></div></header>") catch {};
         const cfg = self.googleConfig() orelse oauth_google.Config{
             .client_id = "",
             .client_secret = "",
@@ -782,8 +827,43 @@ pub const App = struct {
         return .{ .status = 200, .content_type = "text/html; charset=utf-8", .body = try templates.renderShell(allocator, path, body.items, auth.username, true, self.config.mikareno_mcp_url) };
     }
 
-    fn academic(self: *App, allocator: std.mem.Allocator, request: *const http.Request, username: []const u8) !http.Response {
+    /// Google Classroom: cursos, trabajos y anuncios, solo lectura.
+    fn classroomPage(self: *App, allocator: std.mem.Allocator, request: *const http.Request, path: []const u8, auth: Auth) !http.Response {
+        const course_id = (try http.queryParam(allocator, request.query, "course")) orelse "";
+        const cfg = self.googleConfig() orelse oauth_google.Config{
+            .client_id = "",
+            .client_secret = "",
+            .redirect_uri = "",
+            .timeout_ms = self.config.oauth_timeout_ms,
+        };
+        var body = std.ArrayList(u8).init(allocator);
+        try body.appendSlice("<div class=\"nx-page nova-page\">");
+        try body.appendSlice("<header class=\"nx-page-header nova-page-head\"><div><p class=\"nx-eyebrow\">Google</p><h1>Google Classroom</h1><p>Tus cursos, trabajos y anuncios, leídos con permiso de solo lectura.</p></div><div class=\"nx-button-row\"><a class=\"nx-button nx-button-secondary\" href=\"/dashboard/google\"><span class=\"material-symbols-outlined\">folder</span>Drive</a><a class=\"nx-button nx-button-secondary\" href=\"/dashboard/google-calendar\"><span class=\"material-symbols-outlined\">calendar_month</span>Calendario</a></div></header>");
+        if (std.mem.trim(u8, course_id, " \t\r\n").len > 0) {
+            const detail = classroom.fetchDetail(allocator, self.db, cfg, auth.user_id, course_id) catch classroom.Detail{
+                .configured = true,
+                .reason = "No se pudo consultar el curso.",
+            };
+            try body.appendSlice(try classroom.detailHtml(allocator, detail));
+        } else {
+            const courses = classroom.fetchCourses(allocator, self.db, cfg, auth.user_id, 50) catch classroom.CoursesResult{
+                .configured = true,
+                .reason = "No se pudo consultar Classroom.",
+            };
+            try body.appendSlice(try classroom.coursesHtml(allocator, courses));
+        }
+        try body.appendSlice("</div>");
+        return .{ .status = 200, .content_type = "text/html; charset=utf-8", .body = try templates.renderShell(allocator, path, body.items, auth.username, true, self.config.mikareno_mcp_url) };
+    }
+
+    fn academic(self: *App, allocator: std.mem.Allocator, request: *const http.Request, username: []const u8, user_id: i64) !http.Response {
         const path = request.path;
+        // "Actualizar" (?refresh=1) invalida también la caché de Classroom.
+        if (try http.queryParam(allocator, request.query, "refresh")) |_| {
+            if (classroomCachePath(allocator, self.config.db_path) catch null) |cache_path| {
+                std.fs.cwd().deleteFile(cache_path) catch {};
+            }
+        }
         if (std.mem.eql(u8, path, "/dashboard/schedule")) {
             const result = mcp_client.callTool(allocator, self.config.mikareno_mcp_url, self.config.mcp_timeout_ms, "get_horario", try json.object(allocator, &.{}), true) catch {
                 return jsonResponse(allocator, 200, try json.object(allocator, &.{
@@ -838,10 +918,24 @@ pub const App = struct {
             }
             return redirect(allocator, "/login", 302);
         }
+        // Google Classroom: cursos, trabajos y anuncios, solo lectura.
+        if (std.mem.eql(u8, path, "/dashboard/classroom")) {
+            if (try self.authFor(request, allocator)) |auth| {
+                return self.classroomPage(allocator, request, path, auth);
+            }
+            return redirect(allocator, "/login", 302);
+        }
+        // Fragmento para el planificador: entregas de Classroom en diferido.
+        if (std.mem.eql(u8, path, "/dashboard/classroom/upcoming")) {
+            if (try self.authFor(request, allocator)) |auth| {
+                return self.classroomUpcomingFragment(allocator, auth);
+            }
+            return text(allocator, 401, "text/plain; charset=utf-8", "");
+        }
         // Vistas académicas reales: cada ruta pide su herramienta y la
         // convierte en HTML. Si Mikareno no responde, la vista lo dice.
         if (academicView(path)) |view| {
-            const body = try self.renderAcademicView(allocator, view);
+            const body = try self.renderAcademicView(allocator, view, user_id);
             return .{ .status = 200, .content_type = "text/html; charset=utf-8", .body = try templates.renderShell(allocator, path, body, username, true, self.config.mikareno_mcp_url) };
         }
         if (std.mem.startsWith(u8, path, "/dashboard/subjects/")) {
@@ -873,8 +967,8 @@ pub const App = struct {
         return .{ .status = 200, .content_type = "text/html; charset=utf-8", .body = try templates.renderShell(allocator, path, body, username, true, self.config.mikareno_mcp_url) };
     }
 
-    fn office(self: *App, allocator: std.mem.Allocator, request: *const http.Request, username: []const u8) !http.Response {
-        return office_mod.handle(allocator, self.db, self.config, request, username);
+    fn office(self: *App, allocator: std.mem.Allocator, request: *const http.Request, username: []const u8, user_id: i64) !http.Response {
+        return office_mod.handle(allocator, self.db, self.config, request, username, user_id);
     }
 
     fn admin(self: *App, allocator: std.mem.Allocator, request: *const http.Request, username: []const u8) !http.Response {
@@ -1261,6 +1355,38 @@ fn timestampForFile(allocator: std.mem.Allocator) ![]const u8 {
     for (iso) |ch| if (std.ascii.isDigit(ch)) try buf.append(allocator, ch);
     if (buf.items.len < 14) return allocator.dupe(u8, "19700101-000000");
     return std.fmt.allocPrint(allocator, "{s}-{s}", .{ buf.items[0..8], buf.items[8..14] });
+}
+
+const classroom_cache_ttl: i64 = 600;
+
+fn classroomCachePath(allocator: std.mem.Allocator, db_path: []const u8) ![]const u8 {
+    const dir = std.fs.path.dirname(db_path) orelse ".";
+    return std.fs.path.join(allocator, &.{ dir, "classroom-upcoming.cache" });
+}
+
+/// Formato: `<user_id>\n<epoch>\n<html>`. Devuelve el HTML si es del mismo
+/// usuario y tiene menos de 10 minutos; `null` si toca refrescar.
+fn readClassroomCache(allocator: std.mem.Allocator, path: []const u8, user_id: i64) ?[]const u8 {
+    const file = std.fs.cwd().openFile(path, .{}) catch return null;
+    defer file.close();
+    const content = file.readToEndAlloc(allocator, 2 * 1024 * 1024) catch return null;
+    const first_nl = std.mem.indexOfScalar(u8, content, '\n') orelse return null;
+    const second_nl = std.mem.indexOfScalarPos(u8, content, first_nl + 1, '\n') orelse return null;
+    const uid = std.fmt.parseInt(i64, content[0..first_nl], 10) catch return null;
+    if (uid != user_id) return null;
+    const stamp = std.fmt.parseInt(i64, content[first_nl + 1 .. second_nl], 10) catch return null;
+    const now = std.time.timestamp();
+    if (stamp > now or now - stamp > classroom_cache_ttl) return null;
+    return content[second_nl + 1 ..];
+}
+
+fn writeClassroomCache(allocator: std.mem.Allocator, path: []const u8, user_id: i64, html: []const u8) !void {
+    if (std.fs.path.dirname(path)) |dir| std.fs.cwd().makePath(dir) catch {};
+    const tmp = try std.fmt.allocPrint(allocator, "{s}.tmp", .{path});
+    var file = try std.fs.cwd().createFile(tmp, .{ .truncate = true });
+    defer file.close();
+    try file.writer().print("{d}\n{d}\n{s}", .{ user_id, std.time.timestamp(), html });
+    try std.fs.cwd().rename(tmp, path);
 }
 
 fn fileSize(allocator: std.mem.Allocator, path: []const u8) !i64 {

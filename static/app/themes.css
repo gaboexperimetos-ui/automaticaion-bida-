@@ -440,7 +440,7 @@ html[data-theme="nord"] {
   --nx-line-soft: #3b4252;
   --nx-text: #eceff4;
   --nx-text-2: #d8dee9;
-  --nx-muted: #8893a8;
+  --nx-muted: #aab4c8;
   --nx-faint: #616e88;
   --nx-accent: #88c0d0;
   --nx-accent-1: #88c0d0;
@@ -758,7 +758,7 @@ html[data-theme="everforest"] {
   --nx-line-soft: #3d484d;
   --nx-text: #e6e2cc;
   --nx-text-2: #d3c6aa;
-  --nx-muted: #9da9a0;
+  --nx-muted: #a7b3a9;
   --nx-faint: #7a8478;
   --nx-accent: #a7c080;
   --nx-accent-1: #a7c080;
@@ -864,7 +864,7 @@ html[data-theme="solarized"] {
   --nx-line-soft: #0a4250;
   --nx-text: #93a1a1;
   --nx-text-2: #839496;
-  --nx-muted: #657b83;
+  --nx-muted: #8fa0a0;
   --nx-faint: #586e75;
   --nx-accent: #268bd2;
   --nx-accent-1: #268bd2;
@@ -1076,7 +1076,7 @@ html[data-theme="nebula"] {
   --nx-line-soft: rgba(196, 181, 253, .08);
   --nx-text: #f0ecfa;
   --nx-text-2: #b8b0cc;
-  --nx-muted: #8f88a3;
+  --nx-muted: #a49db9;
   --nx-faint: #7d7590;
   --nx-accent: #a88af5;
   --nx-accent-1: #d6c6ff;
@@ -1111,7 +1111,7 @@ html[data-theme="nebula"] {
   --sp-border-soft: rgba(196, 181, 253, .14);
   --sp-text: #f0ecfa;
   --sp-text-secondary: #b8b0cc;
-  --sp-text-muted: #8f88a3;
+  --sp-text-muted: #a49db9;
   --sp-teal: #a88af5;
   --sp-teal-soft: rgba(168, 138, 245, .13);
   --sp-lime: #7cb8e8;
@@ -1197,10 +1197,12 @@ html[data-theme]:not([data-theme="nebula"]) ::-webkit-scrollbar-thumb:hover { ba
 
 /* Sidebar */
 html[data-theme]:not([data-theme="nebula"]) .nx-sidebar {
-  background: var(--nx-sidebar);
-  border: 1px solid var(--nx-line);
-  border-radius: 12px;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, .34);
+  background: color-mix(in srgb, var(--nx-sidebar) 38%, transparent);
+  border: 1px solid color-mix(in srgb, var(--nx-line) 70%, transparent);
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .42), inset 0 1px 0 rgba(255, 255, 255, .18);
+  backdrop-filter: blur(40px) saturate(190%) brightness(1.06);
+  -webkit-backdrop-filter: blur(40px) saturate(190%) brightness(1.06);
 }
 html[data-theme]:not([data-theme="nebula"]) .nx-sidebar::before { display: none; }
 html[data-theme]:not([data-theme="nebula"]) .nx-brand-mark {
@@ -1564,4 +1566,180 @@ html[data-theme]:not([data-theme="nebula"]) [tabindex]:focus-visible {
 @media (max-width: 640px) {
   .nova-theme-pop { width: min(280px, calc(100vw - 20px)); }
   .nova-theme-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* ============================================================
+   VIDRIO ESMERILADO — un solo sistema para todas las paletas.
+
+   Reglas del sistema:
+   * El desenfoque necesita algo detrás: cada tema pinta un fondo
+     ambiental teñido con su propio acento, no con violeta fijo.
+   * El texto vive sobre capas de al menos ~63 % de opacidad; el
+     cristal se lee como material, no como un filtro que lava el
+     contenido.
+   * Un solo borde translúcido, un brillo interior de 1 px y una
+     sombra con desplazamiento. Nada de halos sin offset.
+   * Respaldo opaco cuando no hay `backdrop-filter`, con
+     `prefers-contrast: more` y en pantallas pequeñas (menos GPU).
+   ============================================================ */
+html[data-theme] {
+  --nx-glass-blur: 26px;
+  --nx-glass-sat: 152%;
+  --nx-glass-card: color-mix(in srgb, var(--nx-surface) 63%, transparent);
+  --nx-glass-strong: color-mix(in srgb, var(--nx-surface) 78%, transparent);
+  --nx-glass-rail: color-mix(in srgb, var(--nx-sidebar) 56%, transparent);
+  --nx-glass-border: color-mix(in srgb, var(--nx-line) 74%, transparent);
+  --nx-glass-edge: rgba(255, 255, 255, .10);
+  --nx-glass-shadow: 0 20px 46px rgba(0, 0, 0, .30);
+  --nx-glass-tint: rgba(var(--nx-accent-rgb), .06);
+  --nx-glass-sheen: linear-gradient(158deg, rgba(255, 255, 255, .055), rgba(255, 255, 255, .008) 44%, transparent 76%);
+}
+html[data-theme="nebula"] {
+  --nx-glass-rail: color-mix(in srgb, var(--nx-sidebar) 46%, transparent);
+  --nx-glass-tint: rgba(196, 181, 253, .07);
+}
+
+/* Fondo ambiental por tema: da materia al desenfoque. */
+html[data-theme]:not([data-theme="nebula"]) body {
+  background:
+    radial-gradient(820px 560px at 84% -10%, rgba(var(--nx-accent-rgb), .17), transparent 70%),
+    radial-gradient(700px 540px at -12% 40%, rgba(var(--nx-blue-rgb), .11), transparent 70%),
+    radial-gradient(620px 480px at 54% 108%, rgba(var(--nx-accent-rgb), .09), transparent 72%),
+    var(--nx-bg);
+  background-attachment: fixed;
+}
+html[data-theme]:not([data-theme="nebula"]) body::after {
+  background:
+    radial-gradient(closest-side at 30% 22%, rgba(var(--nx-accent-rgb), .36), transparent 70%),
+    radial-gradient(closest-side at 66% 58%, rgba(var(--nx-blue-rgb), .24), transparent 70%),
+    radial-gradient(closest-side at 36% 86%, rgba(var(--nx-accent-rgb), .16), transparent 72%);
+  filter: blur(40px);
+  opacity: .85;
+}
+
+/* Superficies de contenido y paneles. */
+html[data-theme]:not([data-theme="nebula"]) :is(.nx-panel, .nx-collection, .nx-settings-card, .nx-settings-summary, .nx-subject-card, .nx-daily-panel, .nx-card, .nx-kpi, .nx-week-strip, .nx-vault, .nx-create-menu, .nx-material-brief, .nx-material-result, .nx-router, .nx-playground, .nx-telemetry, .nx-month-panel, .nx-upcoming, .nx-planner-week, .nx-exams-board, .nx-schedule-board, .nx-subject-summary, .nx-profile-hero, .nx-backup-status, .nx-page-status, .nx-version-badge) {
+  background:
+    var(--nx-glass-sheen),
+    radial-gradient(120% 100% at 100% 0%, var(--nx-glass-tint), transparent 58%),
+    var(--nx-glass-card);
+  border-color: var(--nx-glass-border);
+  box-shadow: var(--nx-glass-shadow), inset 0 1px 0 var(--nx-glass-edge);
+  backdrop-filter: blur(var(--nx-glass-blur)) saturate(var(--nx-glass-sat));
+  -webkit-backdrop-filter: blur(var(--nx-glass-blur)) saturate(var(--nx-glass-sat));
+}
+
+/* Cabeceras: mismo material, un punto más de desenfoque. */
+html[data-theme]:not([data-theme="nebula"]) :is(.nx-dashboard-hero, .nx-page-header, .agenda-header) {
+  background:
+    var(--nx-glass-sheen),
+    radial-gradient(130% 120% at 100% 0%, var(--nx-glass-tint), transparent 60%),
+    var(--nx-glass-card);
+  border: 1px solid var(--nx-glass-border);
+  box-shadow: var(--nx-glass-shadow), inset 0 1px 0 var(--nx-glass-edge);
+  backdrop-filter: blur(30px) saturate(var(--nx-glass-sat));
+  -webkit-backdrop-filter: blur(30px) saturate(var(--nx-glass-sat));
+}
+
+/* Barra superior y barra lateral. */
+html[data-theme]:not([data-theme="nebula"]) .nx-topbar {
+  background: var(--nx-glass-sheen), var(--nx-glass-strong);
+  border-color: var(--nx-glass-border);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, .28), inset 0 1px 0 var(--nx-glass-edge);
+  backdrop-filter: blur(30px) saturate(160%);
+  -webkit-backdrop-filter: blur(30px) saturate(160%);
+}
+html[data-theme]:not([data-theme="nebula"]) .nx-sidebar {
+  background:
+    var(--nx-glass-sheen),
+    radial-gradient(130% 90% at 0% 0%, var(--nx-glass-tint), transparent 62%),
+    var(--nx-glass-rail);
+  border: 1px solid var(--nx-glass-border);
+  border-radius: 18px;
+  box-shadow: var(--nx-glass-shadow), inset 0 1px 0 var(--nx-glass-edge);
+  backdrop-filter: blur(32px) saturate(170%) brightness(1.04);
+  -webkit-backdrop-filter: blur(32px) saturate(170%) brightness(1.04);
+}
+
+/* Chat, formularios y diálogos: más opacos donde se escribe. */
+html[data-theme]:not([data-theme="nebula"]) :is(.nx-chat-history, .nx-chat-main, .nx-chat-sources, .nova-chat-sources, .nx-conversation) {
+  background: var(--nx-glass-sheen), var(--nx-glass-strong);
+  border-color: var(--nx-glass-border);
+  box-shadow: var(--nx-glass-shadow), inset 0 1px 0 var(--nx-glass-edge);
+  backdrop-filter: blur(24px) saturate(145%);
+  -webkit-backdrop-filter: blur(24px) saturate(145%);
+}
+html[data-theme]:not([data-theme="nebula"]) :is(.nx-composer, .nx-composer-box, .nx-conversation-head, .nx-chat-history-head) {
+  background: color-mix(in srgb, var(--nx-bg-deep) 80%, transparent);
+  border-color: var(--nx-glass-border);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+}
+html[data-theme]:not([data-theme="nebula"]) :is(.nx-field input, .nx-field select, .nx-field textarea, .nx-global-search input, .nx-chat-search input) {
+  background: color-mix(in srgb, var(--nx-bg-deep) 86%, transparent);
+  border-color: var(--nx-glass-border);
+  backdrop-filter: blur(12px) saturate(130%);
+  -webkit-backdrop-filter: blur(12px) saturate(130%);
+}
+html[data-theme]:not([data-theme="nebula"]) :is(.nx-task-dialog, #user-menu) {
+  background: var(--nx-glass-sheen), var(--nx-glass-strong);
+  border-color: var(--nx-glass-border);
+  box-shadow: var(--nx-glass-shadow), inset 0 1px 0 var(--nx-glass-edge);
+  backdrop-filter: blur(34px) saturate(165%);
+  -webkit-backdrop-filter: blur(34px) saturate(165%);
+}
+
+/* Nébula conserva su tinte violeta, pero entra en el mismo material. */
+html[data-theme="nebula"] :is(.nx-panel, .nx-collection, .nx-settings-card, .nx-settings-summary, .nx-subject-card, .nx-daily-panel, .nx-card, .nx-kpi, .nx-week-strip, .nx-vault, .nx-create-menu, .nx-material-brief, .nx-material-result, .nx-router, .nx-playground, .nx-telemetry, .nx-month-panel, .nx-upcoming, .nx-planner-week, .nx-exams-board, .nx-schedule-board, .nx-subject-summary, .nx-profile-hero, .nx-backup-status, .nx-page-status, .nx-version-badge) {
+  background:
+    var(--nx-glass-sheen),
+    radial-gradient(120% 100% at 100% 0%, var(--nx-glass-tint), transparent 58%),
+    var(--nx-glass-card);
+  border-color: var(--nx-glass-border);
+  box-shadow: var(--nx-glass-shadow), inset 0 1px 0 var(--nx-glass-edge);
+  backdrop-filter: blur(var(--nx-glass-blur)) saturate(var(--nx-glass-sat));
+  -webkit-backdrop-filter: blur(var(--nx-glass-blur)) saturate(var(--nx-glass-sat));
+}
+html[data-theme="nebula"] :is(.nx-dashboard-hero, .nx-page-header, .agenda-header) {
+  background:
+    var(--nx-glass-sheen),
+    radial-gradient(130% 120% at 100% 0%, var(--nx-glass-tint), transparent 60%),
+    var(--nx-glass-card);
+  border: 1px solid var(--nx-glass-border);
+  box-shadow: var(--nx-glass-shadow), inset 0 1px 0 var(--nx-glass-edge);
+  backdrop-filter: blur(30px) saturate(var(--nx-glass-sat));
+  -webkit-backdrop-filter: blur(30px) saturate(var(--nx-glass-sat));
+}
+
+/* Superficies del navegador: foco y selección con el acento del tema. */
+html[data-theme] :focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--nx-accent) 80%, transparent);
+  outline-offset: 2px;
+}
+html[data-theme] ::selection {
+  background: rgba(var(--nx-accent-rgb), .32);
+  color: var(--nx-text);
+}
+
+/* Menos GPU en pantallas pequeñas: más opaco y menos desenfoque. */
+@media (max-width: 860px) {
+  html[data-theme] {
+    --nx-glass-blur: 16px;
+    --nx-glass-card: color-mix(in srgb, var(--nx-surface) 80%, transparent);
+    --nx-glass-rail: color-mix(in srgb, var(--nx-sidebar) 82%, transparent);
+  }
+}
+
+/* Sin desenfoque o con contraste alto: superficie sólida legible. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  html[data-theme] :is(.nx-panel, .nx-collection, .nx-settings-card, .nx-settings-summary, .nx-subject-card, .nx-daily-panel, .nx-card, .nx-kpi, .nx-week-strip, .nx-vault, .nx-create-menu, .nx-material-brief, .nx-material-result, .nx-router, .nx-playground, .nx-telemetry, .nx-month-panel, .nx-upcoming, .nx-planner-week, .nx-exams-board, .nx-schedule-board, .nx-subject-summary, .nx-profile-hero, .nx-backup-status, .nx-dashboard-hero, .nx-page-header, .agenda-header, .nx-topbar, .nx-sidebar) {
+    background: var(--nx-surface);
+  }
+}
+@media (prefers-contrast: more) {
+  html[data-theme] :is(.nx-panel, .nx-collection, .nx-settings-card, .nx-settings-summary, .nx-subject-card, .nx-daily-panel, .nx-card, .nx-kpi, .nx-week-strip, .nx-vault, .nx-create-menu, .nx-material-brief, .nx-material-result, .nx-router, .nx-playground, .nx-telemetry, .nx-month-panel, .nx-upcoming, .nx-planner-week, .nx-exams-board, .nx-schedule-board, .nx-subject-summary, .nx-profile-hero, .nx-backup-status, .nx-dashboard-hero, .nx-page-header, .agenda-header, .nx-topbar, .nx-sidebar) {
+    background: var(--nx-surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }

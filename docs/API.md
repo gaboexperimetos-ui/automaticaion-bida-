@@ -239,6 +239,11 @@ Todas requieren sesión (`route_layer` de `require_auth_state`).
 | GET | `/dashboard/subjects/{code}` | Sí | — | `200` HTML (detalle de asignatura). |
 | GET | `/dashboard/examenes` | Sí | — | `200` HTML (exámenes). |
 | GET | `/dashboard/vida-escolar` | Sí | — | `200` HTML (vida escolar). |
+| GET | `/dashboard/google` | Sí | Query `q`, `doc` | `200` HTML con Drive y contactos en solo lectura. |
+| GET | `/dashboard/google-calendar` | Sí | — | `200` HTML con los próximos eventos de Google Calendar. |
+| GET | `/dashboard/classroom` | Sí | Query `course` | `200` HTML con los cursos de Classroom; con `course` muestra trabajos y anuncios. |
+| GET | `/dashboard/classroom/upcoming` | Sí | — | `200` fragmento HTML con entregas próximas para el planificador (caché de 10 min; vacío si no hay token). |
+| GET | `/dashboard/search` | Sí | Query `q` (≤ 200 chars) | `200` HTML con resultados de notas, Mikareno y Google. |
 
 ## Office suite
 
@@ -275,6 +280,8 @@ descarga, no una página).
 | GET | `/office/library` | Sí | — | `200` HTML (biblioteca de archivos). |
 | GET | `/office/library/search` | Sí | Query `q` (≤ 200 chars) | `200` HTML con los resultados; `400` "query too long". |
 | POST | `/office/library/import/{type}` | Sí | archivo a importar | Importa un archivo a la biblioteca. |
+| POST | `/office/library/import-local` | Sí | — | Escanea `~/Documentos` en el servidor y convierte DOCX/ODT/PDF/XLSX/ODS/PPTX/ODP/HTML/MD/TXT/CSV a la biblioteca. Devuelve el resumen por archivo. |
+| POST | `/office/library/import-drive` | Sí | `file_id`, `name` | Descarga un archivo de Google Drive y lo convierte; deduplica por contenido. |
 | GET | `/office/library/{type}/{name}/download` | Sí | — | `200` archivo descargado. |
 | POST | `/office/library/{type}/{name}/delete` | Sí | — | Borra el archivo de la biblioteca. |
 

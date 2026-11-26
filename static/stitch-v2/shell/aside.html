@@ -31,6 +31,7 @@
           <a class="app-nav-link nx-nav-link" data-path="tareas-y-actividades" href="#"><span class="material-symbols-outlined">task_alt</span><span>Tareas</span></a>
           <a class="app-nav-link nx-nav-link" data-path="examenes" href="#"><span class="material-symbols-outlined">quiz</span><span>Evaluaciones</span></a>
           <a class="app-nav-link nx-nav-link" data-path="vida-escolar" href="#"><span class="material-symbols-outlined">diversity_1</span><span>Vida escolar</span></a>
+          <a class="app-nav-link nx-nav-link" data-path="google-classroom" href="#"><span class="material-symbols-outlined">school</span><span>Google Classroom</span></a>
           <a class="app-nav-link nx-nav-link" data-path="google-calendar" href="#"><span class="material-symbols-outlined">calendar_month</span><span>Google Calendar</span></a>
           <a class="app-nav-link nx-nav-link" data-path="google-workspace" href="#"><span class="material-symbols-outlined">cloud</span><span>Google Drive</span></a>
           <a class="app-nav-link nx-nav-link" data-path="mensajes" href="#"><span class="material-symbols-outlined">mark_email_unread</span><span>Mensajes</span><i class="nx-live-dot" aria-hidden="true"></i></a>
@@ -59,4 +60,79 @@
 </aside>
 <script>
 (function(){var m=document.querySelector(".nx-nav-more");var sel="[aria-current=\"page\"]";if(m&&m.querySelector(sel))m.open=true;})();
+</script>
+<script>
+/* Barra lateral auto-oculta: se esconde fuera de pantalla, asoma al acercar
+ * el puntero al borde izquierdo y se fija al pulsar la lengüeta. Solo en
+ * pantallas anchas con puntero fino; en tactil y movil queda como estaba. */
+(function () {
+  var rail = document.getElementById("app-rail");
+  if (!rail) { return; }
+  var mq = window.matchMedia("(min-width: 1100px) and (hover: hover) and (pointer: fine)");
+  if (!mq.matches) { return; }
+  var key = "nova.railPinned";
+  var pinned = false;
+  try { pinned = localStorage.getItem(key) === "1"; } catch (e) {}
+  var peek = document.createElement("button");
+  peek.id = "rail-peek";
+  peek.type = "button";
+  peek.setAttribute("aria-label", "Mostrar navegación");
+  peek.setAttribute("aria-controls", "app-rail");
+  peek.setAttribute("aria-expanded", pinned ? "true" : "false");
+  peek.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">chevron_right</span>';
+  document.body.appendChild(peek);
+  var hideTimer = null;
+  function sync() {
+    rail.classList.toggle("is-pinned", pinned);
+    document.body.classList.toggle("nx-rail-pinned", pinned);
+    if (pinned) { rail.classList.add("is-peek"); }
+  }
+  function open() {
+    if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+    rail.classList.add("is-peek");
+    document.body.classList.add("nx-rail-open");
+    peek.setAttribute("aria-expanded", "true");
+  }
+  function scheduleClose() {
+    if (pinned) { return; }
+    if (hideTimer) { clearTimeout(hideTimer); }
+    hideTimer = setTimeout(function () {
+      if (pinned || rail.matches(":hover") || rail.contains(document.activeElement)) { return; }
+      rail.classList.remove("is-peek");
+      document.body.classList.remove("nx-rail-open");
+      peek.setAttribute("aria-expanded", "false");
+    }, 260);
+  }
+  peek.addEventListener("mouseenter", open);
+  peek.addEventListener("focus", open);
+  peek.addEventListener("click", function () {
+    pinned = true;
+    try { localStorage.setItem(key, "1"); } catch (e) {}
+    sync();
+    open();
+  });
+  rail.addEventListener("mouseenter", open);
+  rail.addEventListener("mouseleave", scheduleClose);
+  rail.addEventListener("focusin", open);
+  rail.addEventListener("focusout", scheduleClose);
+  var closer = rail.querySelector(".nx-brand-tools button");
+  if (closer) {
+    closer.addEventListener("click", function (ev) {
+      ev.preventDefault();
+      pinned = false;
+      try { localStorage.setItem(key, "0"); } catch (e) {}
+      sync();
+      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+      rail.classList.remove("is-peek");
+      document.body.classList.remove("nx-rail-open");
+    });
+  }
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key === "Escape" && !pinned) {
+      rail.classList.remove("is-peek");
+      document.body.classList.remove("nx-rail-open");
+    }
+  });
+  sync();
+})();
 </script>
