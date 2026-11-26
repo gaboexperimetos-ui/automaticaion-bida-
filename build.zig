@@ -9,7 +9,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("main.zig"),
         .target = target,
         .optimize = optimize,
-        .version = .{ .major = 0, .minor = 2, .patch = 0 },
+        .version = .{ .major = 1, .minor = 0, .patch = 0 },
     });
     exe.linkLibC();
     linkSqlite(exe);

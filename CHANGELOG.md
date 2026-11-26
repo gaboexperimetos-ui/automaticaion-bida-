@@ -3,8 +3,29 @@
 All notable changes to this project are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 
-## [No publicado] — Consolidación de ramas
+## [1.0.0] - 2026-11-26 — NOVA 1.0
 
+Primera versión estable de la aplicación académica autoalojada.
+
+### Added
+- Importadores en Zig para DOCX, ODT, PDF, XLSX, ODS, PPTX, ODP, HTML, MD,
+  TXT y CSV hacia la biblioteca Office.
+- Importación local de `~/Documentos` y bajo demanda desde Google Drive, con
+  deduplicación por contenido.
+- Google Classroom: cursos, trabajos y anuncios en solo lectura, y entregas
+  próximas en el planificador mediante HTMX con caché de 10 minutos.
+- Gráficos de la ficha de materia (anillo del promedio, barras por bloque
+  ponderado y reparto calificadas/pendientes) en SVG/CSS puro.
+- App de escritorio GTK3 + WebKit2GTK con ventana RGBA y vidrio esmerilado
+  (`zig build desktop`).
+- Google Drive, Google Calendar y Classroom enlazados desde la navegación y
+  los ajustes.
+
+### Changed
+- Interfaz NOVA con sidebar de vidrio, temas y navegación revisada.
+- El planificador ya no bloquea la carga esperando a Google.
+
+### Notas
 - Se incorpora al historial la rama antigua `ui/polish-study-platform`. Sus
   cambios de interfaz y traducción preceden al rediseño NOVA 3.0 actual, por lo
   que la fusión conserva los archivos de `main` para evitar recuperar una UI
