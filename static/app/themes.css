@@ -1175,7 +1175,7 @@ html[data-theme="nebula"] {
 
 
 
-rafía mono, superficies planas, densidad
+/* Estilo común: tipografía mono, superficies planas, densidad
    Se aplica a todas las paletas de Cortex; Nébula conserva su look.
    ============================================================ */
 html[data-theme]:not([data-theme="nebula"]) {
@@ -1742,4 +1742,305 @@ html[data-theme] ::selection {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
+}
+
+/* CyberHex · Neon (sincronizado con la app Flutter) */
+html[data-theme="cyberhex-neon"] {
+  --nx-bg: #0F0F23; --nx-bg-deep: #0A0A18; --nx-sidebar: #0F0F23;
+  --nx-surface: #1B1B30; --nx-surface-2: #27273B; --nx-surface-3: #323248;
+  --nx-line: #312E81; --nx-line-rgb: 49, 46, 129; --nx-line-soft: #312E81;
+  --nx-text: #F8FAFC; --nx-text-2: #E2E8F0; --nx-muted: #94A3B8; --nx-faint: #64748B;
+  --nx-accent: #22C55E; --nx-accent-1: #22C55E; --nx-accent-2: #22C55E; --nx-accent-3: #16A34A;
+  --nx-accent-rgb: 34, 197, 94; --nx-accent-strong: #22C55E; --nx-accent-strong-rgb: 34, 197, 94;
+  --nx-accent-soft: rgba(34, 197, 94, .13);
+  --nx-on-accent: #06210F; --nx-on-accent-rgb: 6, 33, 15;
+  --nx-blue: #4338CA; --nx-blue-rgb: 67, 56, 202;
+  --nx-orange: #F59E0B; --nx-orange-rgb: 245, 158, 11;
+  --nx-danger: #EF4444; --nx-danger-rgb: 239, 68, 68;
+  --nx-success: #22C55E; --nx-success-rgb: 34, 197, 94;
+  --nx-shadow-rgb: 0, 0, 0; --nx-plum-rgb: 22, 163, 74;
+  --nx-gradient: linear-gradient(105deg, #22C55E, #16A34A);
+  --nx-panel-gradient: linear-gradient(160deg, rgba(34, 197, 94, .05), rgba(34, 197, 94, .012) 55%), #1B1B30;
+  --nx-shadow-nebula: 0 18px 44px rgba(0, 0, 0, .42);
+  --sp-bg: #0F0F23; --sp-bg-deep: #0A0A18; --sp-surface: #1B1B30;
+  --sp-surface-raised: #27273B; --sp-surface-high: #323248; --sp-surface-highest: #323248;
+  --sp-border: #312E81; --sp-border-soft: rgba(49, 46, 129, .55);
+  --sp-text: #F8FAFC; --sp-text-secondary: #E2E8F0; --sp-text-muted: #94A3B8;
+  --sp-teal: #22C55E; --sp-teal-soft: rgba(34, 197, 94, .13);
+  --sp-lime: #4338CA; --sp-lime-soft: rgba(67, 56, 202, .12);
+  --sp-violet: #F59E0B; --sp-violet-soft: rgba(245, 158, 11, .12);
+  --sp-error: #EF4444;
+  --c-background: 15, 15, 35; --c-on-background: 248, 250, 252;
+  --c-surface: 27, 27, 48; --c-surface-dim: 10, 10, 24;
+  --c-surface-bright: 50, 50, 72; --c-surface-lowest: 10, 10, 24;
+  --c-surface-low: 15, 15, 35; --c-surface-container: 39, 39, 59;
+  --c-surface-high: 50, 50, 72; --c-surface-highest: 50, 50, 72;
+  --c-surface-variant: 39, 39, 59;
+  --c-on-surface: 248, 250, 252; --c-on-surface-variant: 226, 232, 240;
+  --c-inverse-surface: 248, 250, 252; --c-inverse-on-surface: 15, 15, 35;
+  --c-outline: 148, 163, 184; --c-outline-variant: 49, 46, 129;
+  --c-surface-tint: 34, 197, 94;
+  --c-primary: 34, 197, 94; --c-on-primary: 6, 33, 15;
+  --c-primary-container: 34, 197, 94; --c-on-primary-container: 6, 33, 15;
+  --c-inverse-primary: 22, 163, 74;
+  --c-error: 239, 68, 68; --c-on-error: 15, 15, 35;
+  --c-error-container: 39, 39, 59; --c-on-error-container: 239, 68, 68;
+}
+
+/* CyberHex · Amoled (sincronizado con la app Flutter) */
+html[data-theme="cyberhex-amoled"] {
+  --nx-bg: #000000; --nx-bg-deep: #000000; --nx-sidebar: #000000;
+  --nx-surface: #0A0A0C; --nx-surface-2: #16161A; --nx-surface-3: #202028;
+  --nx-line: #232329; --nx-line-rgb: 35, 35, 41; --nx-line-soft: #232329;
+  --nx-text: #F4F6FA; --nx-text-2: #D1D5DB; --nx-muted: #8C93A6; --nx-faint: #5B6172;
+  --nx-accent: #22C55E; --nx-accent-1: #22C55E; --nx-accent-2: #22C55E; --nx-accent-3: #16A34A;
+  --nx-accent-rgb: 34, 197, 94; --nx-accent-strong: #22C55E; --nx-accent-strong-rgb: 34, 197, 94;
+  --nx-accent-soft: rgba(34, 197, 94, .13);
+  --nx-on-accent: #04170C; --nx-on-accent-rgb: 4, 23, 12;
+  --nx-blue: #1F2937; --nx-blue-rgb: 31, 41, 55;
+  --nx-orange: #F59E0B; --nx-orange-rgb: 245, 158, 11;
+  --nx-danger: #FF5566; --nx-danger-rgb: 255, 85, 102;
+  --nx-success: #22C55E; --nx-success-rgb: 34, 197, 94;
+  --nx-shadow-rgb: 0, 0, 0; --nx-plum-rgb: 22, 163, 74;
+  --nx-gradient: linear-gradient(105deg, #22C55E, #16A34A);
+  --nx-panel-gradient: linear-gradient(160deg, rgba(34, 197, 94, .05), rgba(34, 197, 94, .012) 55%), #0A0A0C;
+  --nx-shadow-nebula: 0 18px 44px rgba(0, 0, 0, .42);
+  --sp-bg: #000000; --sp-bg-deep: #000000; --sp-surface: #0A0A0C;
+  --sp-surface-raised: #16161A; --sp-surface-high: #202028; --sp-surface-highest: #202028;
+  --sp-border: #232329; --sp-border-soft: rgba(35, 35, 41, .55);
+  --sp-text: #F4F6FA; --sp-text-secondary: #D1D5DB; --sp-text-muted: #8C93A6;
+  --sp-teal: #22C55E; --sp-teal-soft: rgba(34, 197, 94, .13);
+  --sp-lime: #1F2937; --sp-lime-soft: rgba(31, 41, 55, .12);
+  --sp-violet: #F59E0B; --sp-violet-soft: rgba(245, 158, 11, .12);
+  --sp-error: #FF5566;
+  --c-background: 0, 0, 0; --c-on-background: 244, 246, 250;
+  --c-surface: 10, 10, 12; --c-surface-dim: 0, 0, 0;
+  --c-surface-bright: 32, 32, 40; --c-surface-lowest: 0, 0, 0;
+  --c-surface-low: 0, 0, 0; --c-surface-container: 22, 22, 26;
+  --c-surface-high: 32, 32, 40; --c-surface-highest: 32, 32, 40;
+  --c-surface-variant: 22, 22, 26;
+  --c-on-surface: 244, 246, 250; --c-on-surface-variant: 209, 213, 219;
+  --c-inverse-surface: 244, 246, 250; --c-inverse-on-surface: 0, 0, 0;
+  --c-outline: 140, 147, 166; --c-outline-variant: 35, 35, 41;
+  --c-surface-tint: 34, 197, 94;
+  --c-primary: 34, 197, 94; --c-on-primary: 4, 23, 12;
+  --c-primary-container: 34, 197, 94; --c-on-primary-container: 4, 23, 12;
+  --c-inverse-primary: 22, 163, 74;
+  --c-error: 255, 85, 102; --c-on-error: 0, 0, 0;
+  --c-error-container: 22, 22, 26; --c-on-error-container: 255, 85, 102;
+}
+
+/* CyberHex · Light (sincronizado con la app Flutter) */
+html[data-theme="cyberhex-light"] {
+  --nx-bg: #F7F7FB; --nx-bg-deep: #EFEFF6; --nx-sidebar: #F7F7FB;
+  --nx-surface: #FFFFFF; --nx-surface-2: #EDEDF4; --nx-surface-3: #E2E2EE;
+  --nx-line: #D7D7E5; --nx-line-rgb: 215, 215, 229; --nx-line-soft: #D7D7E5;
+  --nx-text: #14142B; --nx-text-2: #2A2A45; --nx-muted: #5A5A75; --nx-faint: #8A8AA5;
+  --nx-accent: #0E9F6E; --nx-accent-1: #0E9F6E; --nx-accent-2: #0E9F6E; --nx-accent-3: #0B7F58;
+  --nx-accent-rgb: 14, 159, 110; --nx-accent-strong: #0E9F6E; --nx-accent-strong-rgb: 14, 159, 110;
+  --nx-accent-soft: rgba(14, 159, 110, .13);
+  --nx-on-accent: #FFFFFF; --nx-on-accent-rgb: 255, 255, 255;
+  --nx-blue: #4338CA; --nx-blue-rgb: 67, 56, 202;
+  --nx-orange: #B45309; --nx-orange-rgb: 180, 83, 9;
+  --nx-danger: #D93025; --nx-danger-rgb: 217, 48, 37;
+  --nx-success: #0E9F6E; --nx-success-rgb: 14, 159, 110;
+  --nx-shadow-rgb: 0, 0, 0; --nx-plum-rgb: 11, 127, 88;
+  --nx-gradient: linear-gradient(105deg, #0E9F6E, #0B7F58);
+  --nx-panel-gradient: linear-gradient(160deg, rgba(14, 159, 110, .05), rgba(14, 159, 110, .012) 55%), #FFFFFF;
+  --nx-shadow-nebula: 0 18px 44px rgba(0, 0, 0, .42);
+  --sp-bg: #F7F7FB; --sp-bg-deep: #EFEFF6; --sp-surface: #FFFFFF;
+  --sp-surface-raised: #EDEDF4; --sp-surface-high: #E2E2EE; --sp-surface-highest: #E2E2EE;
+  --sp-border: #D7D7E5; --sp-border-soft: rgba(215, 215, 229, .55);
+  --sp-text: #14142B; --sp-text-secondary: #2A2A45; --sp-text-muted: #5A5A75;
+  --sp-teal: #0E9F6E; --sp-teal-soft: rgba(14, 159, 110, .13);
+  --sp-lime: #4338CA; --sp-lime-soft: rgba(67, 56, 202, .12);
+  --sp-violet: #B45309; --sp-violet-soft: rgba(180, 83, 9, .12);
+  --sp-error: #D93025;
+  --c-background: 247, 247, 251; --c-on-background: 20, 20, 43;
+  --c-surface: 255, 255, 255; --c-surface-dim: 239, 239, 246;
+  --c-surface-bright: 226, 226, 238; --c-surface-lowest: 239, 239, 246;
+  --c-surface-low: 247, 247, 251; --c-surface-container: 237, 237, 244;
+  --c-surface-high: 226, 226, 238; --c-surface-highest: 226, 226, 238;
+  --c-surface-variant: 237, 237, 244;
+  --c-on-surface: 20, 20, 43; --c-on-surface-variant: 42, 42, 69;
+  --c-inverse-surface: 20, 20, 43; --c-inverse-on-surface: 247, 247, 251;
+  --c-outline: 90, 90, 117; --c-outline-variant: 215, 215, 229;
+  --c-surface-tint: 14, 159, 110;
+  --c-primary: 14, 159, 110; --c-on-primary: 255, 255, 255;
+  --c-primary-container: 14, 159, 110; --c-on-primary-container: 255, 255, 255;
+  --c-inverse-primary: 11, 127, 88;
+  --c-error: 217, 48, 37; --c-on-error: 247, 247, 251;
+  --c-error-container: 237, 237, 244; --c-on-error-container: 217, 48, 37;
+}
+
+/* CyberHex · Material (sincronizado con la app Flutter) */
+html[data-theme="cyberhex-material"] {
+  --nx-bg: #14121A; --nx-bg-deep: #0F0D14; --nx-sidebar: #14121A;
+  --nx-surface: #1E1A26; --nx-surface-2: #2A2434; --nx-surface-3: #352D42;
+  --nx-line: #3B3450; --nx-line-rgb: 59, 52, 80; --nx-line-soft: #3B3450;
+  --nx-text: #E7E0EC; --nx-text-2: #CFC6DA; --nx-muted: #A9A2B8; --nx-faint: #7A7390;
+  --nx-accent: #D0BCFF; --nx-accent-1: #D0BCFF; --nx-accent-2: #D0BCFF; --nx-accent-3: #B69DFB;
+  --nx-accent-rgb: 208, 188, 255; --nx-accent-strong: #D0BCFF; --nx-accent-strong-rgb: 208, 188, 255;
+  --nx-accent-soft: rgba(208, 188, 255, .13);
+  --nx-on-accent: #1C1B1F; --nx-on-accent-rgb: 28, 27, 31;
+  --nx-blue: #7D5260; --nx-blue-rgb: 125, 82, 96;
+  --nx-orange: #F2B8B5; --nx-orange-rgb: 242, 184, 181;
+  --nx-danger: #F2B8B5; --nx-danger-rgb: 242, 184, 181;
+  --nx-success: #A7C080; --nx-success-rgb: 167, 192, 128;
+  --nx-shadow-rgb: 0, 0, 0; --nx-plum-rgb: 182, 157, 251;
+  --nx-gradient: linear-gradient(105deg, #D0BCFF, #B69DFB);
+  --nx-panel-gradient: linear-gradient(160deg, rgba(208, 188, 255, .05), rgba(208, 188, 255, .012) 55%), #1E1A26;
+  --nx-shadow-nebula: 0 18px 44px rgba(0, 0, 0, .42);
+  --sp-bg: #14121A; --sp-bg-deep: #0F0D14; --sp-surface: #1E1A26;
+  --sp-surface-raised: #2A2434; --sp-surface-high: #352D42; --sp-surface-highest: #352D42;
+  --sp-border: #3B3450; --sp-border-soft: rgba(59, 52, 80, .55);
+  --sp-text: #E7E0EC; --sp-text-secondary: #CFC6DA; --sp-text-muted: #A9A2B8;
+  --sp-teal: #D0BCFF; --sp-teal-soft: rgba(208, 188, 255, .13);
+  --sp-lime: #7D5260; --sp-lime-soft: rgba(125, 82, 96, .12);
+  --sp-violet: #F2B8B5; --sp-violet-soft: rgba(242, 184, 181, .12);
+  --sp-error: #F2B8B5;
+  --c-background: 20, 18, 26; --c-on-background: 231, 224, 236;
+  --c-surface: 30, 26, 38; --c-surface-dim: 15, 13, 20;
+  --c-surface-bright: 53, 45, 66; --c-surface-lowest: 15, 13, 20;
+  --c-surface-low: 20, 18, 26; --c-surface-container: 42, 36, 52;
+  --c-surface-high: 53, 45, 66; --c-surface-highest: 53, 45, 66;
+  --c-surface-variant: 42, 36, 52;
+  --c-on-surface: 231, 224, 236; --c-on-surface-variant: 207, 198, 218;
+  --c-inverse-surface: 231, 224, 236; --c-inverse-on-surface: 20, 18, 26;
+  --c-outline: 169, 162, 184; --c-outline-variant: 59, 52, 80;
+  --c-surface-tint: 208, 188, 255;
+  --c-primary: 208, 188, 255; --c-on-primary: 28, 27, 31;
+  --c-primary-container: 208, 188, 255; --c-on-primary-container: 28, 27, 31;
+  --c-inverse-primary: 182, 157, 251;
+  --c-error: 242, 184, 181; --c-on-error: 20, 18, 26;
+  --c-error-container: 42, 36, 52; --c-on-error-container: 242, 184, 181;
+}
+
+/* CyberHex · Cyberpunk (sincronizado con la app Flutter) */
+html[data-theme="cyberhex-cyberpunk"] {
+  --nx-bg: #0B0713; --nx-bg-deep: #07040D; --nx-sidebar: #0B0713;
+  --nx-surface: #171024; --nx-surface-2: #241735; --nx-surface-3: #2F1D45;
+  --nx-line: #3B2456; --nx-line-rgb: 59, 36, 86; --nx-line-soft: #3B2456;
+  --nx-text: #F5F0FA; --nx-text-2: #D8CFE6; --nx-muted: #A99BBE; --nx-faint: #6E5E85;
+  --nx-accent: #F472B6; --nx-accent-1: #F472B6; --nx-accent-2: #F472B6; --nx-accent-3: #DB2777;
+  --nx-accent-rgb: 244, 114, 182; --nx-accent-strong: #F472B6; --nx-accent-strong-rgb: 244, 114, 182;
+  --nx-accent-soft: rgba(244, 114, 182, .13);
+  --nx-on-accent: #2A0717; --nx-on-accent-rgb: 42, 7, 23;
+  --nx-blue: #0EA5E9; --nx-blue-rgb: 14, 165, 233;
+  --nx-orange: #F59E0B; --nx-orange-rgb: 245, 158, 11;
+  --nx-danger: #FF6B81; --nx-danger-rgb: 255, 107, 129;
+  --nx-success: #34D399; --nx-success-rgb: 52, 211, 153;
+  --nx-shadow-rgb: 0, 0, 0; --nx-plum-rgb: 219, 39, 119;
+  --nx-gradient: linear-gradient(105deg, #F472B6, #DB2777);
+  --nx-panel-gradient: linear-gradient(160deg, rgba(244, 114, 182, .05), rgba(244, 114, 182, .012) 55%), #171024;
+  --nx-shadow-nebula: 0 18px 44px rgba(0, 0, 0, .42);
+  --sp-bg: #0B0713; --sp-bg-deep: #07040D; --sp-surface: #171024;
+  --sp-surface-raised: #241735; --sp-surface-high: #2F1D45; --sp-surface-highest: #2F1D45;
+  --sp-border: #3B2456; --sp-border-soft: rgba(59, 36, 86, .55);
+  --sp-text: #F5F0FA; --sp-text-secondary: #D8CFE6; --sp-text-muted: #A99BBE;
+  --sp-teal: #F472B6; --sp-teal-soft: rgba(244, 114, 182, .13);
+  --sp-lime: #0EA5E9; --sp-lime-soft: rgba(14, 165, 233, .12);
+  --sp-violet: #F59E0B; --sp-violet-soft: rgba(245, 158, 11, .12);
+  --sp-error: #FF6B81;
+  --c-background: 11, 7, 19; --c-on-background: 245, 240, 250;
+  --c-surface: 23, 16, 36; --c-surface-dim: 7, 4, 13;
+  --c-surface-bright: 47, 29, 69; --c-surface-lowest: 7, 4, 13;
+  --c-surface-low: 11, 7, 19; --c-surface-container: 36, 23, 53;
+  --c-surface-high: 47, 29, 69; --c-surface-highest: 47, 29, 69;
+  --c-surface-variant: 36, 23, 53;
+  --c-on-surface: 245, 240, 250; --c-on-surface-variant: 216, 207, 230;
+  --c-inverse-surface: 245, 240, 250; --c-inverse-on-surface: 11, 7, 19;
+  --c-outline: 169, 155, 190; --c-outline-variant: 59, 36, 86;
+  --c-surface-tint: 244, 114, 182;
+  --c-primary: 244, 114, 182; --c-on-primary: 42, 7, 23;
+  --c-primary-container: 244, 114, 182; --c-on-primary-container: 42, 7, 23;
+  --c-inverse-primary: 219, 39, 119;
+  --c-error: 255, 107, 129; --c-on-error: 11, 7, 19;
+  --c-error-container: 36, 23, 53; --c-on-error-container: 255, 107, 129;
+}
+
+/* CyberHex · Aurora (sincronizado con la app Flutter) */
+html[data-theme="cyberhex-aurora"] {
+  --nx-bg: #140B2B; --nx-bg-deep: #0E0720; --nx-sidebar: #140B2B;
+  --nx-surface: #1E1440; --nx-surface-2: #2A1B5E; --nx-surface-3: #352377;
+  --nx-line: #3A2A6B; --nx-line-rgb: 58, 42, 107; --nx-line-soft: #3A2A6B;
+  --nx-text: #FFFFFF; --nx-text-2: #E9E1FF; --nx-muted: #C9B8E8; --nx-faint: #8E7BB8;
+  --nx-accent: #22D3EE; --nx-accent-1: #22D3EE; --nx-accent-2: #22D3EE; --nx-accent-3: #06B6D4;
+  --nx-accent-rgb: 34, 211, 238; --nx-accent-strong: #22D3EE; --nx-accent-strong-rgb: 34, 211, 238;
+  --nx-accent-soft: rgba(34, 211, 238, .13);
+  --nx-on-accent: #06212B; --nx-on-accent-rgb: 6, 33, 43;
+  --nx-blue: #7C3AED; --nx-blue-rgb: 124, 58, 237;
+  --nx-orange: #EC4899; --nx-orange-rgb: 236, 72, 153;
+  --nx-danger: #FF6B81; --nx-danger-rgb: 255, 107, 129;
+  --nx-success: #34D399; --nx-success-rgb: 52, 211, 153;
+  --nx-shadow-rgb: 0, 0, 0; --nx-plum-rgb: 6, 182, 212;
+  --nx-gradient: linear-gradient(105deg, #22D3EE, #06B6D4);
+  --nx-panel-gradient: linear-gradient(160deg, rgba(34, 211, 238, .05), rgba(34, 211, 238, .012) 55%), #1E1440;
+  --nx-shadow-nebula: 0 18px 44px rgba(0, 0, 0, .42);
+  --sp-bg: #140B2B; --sp-bg-deep: #0E0720; --sp-surface: #1E1440;
+  --sp-surface-raised: #2A1B5E; --sp-surface-high: #352377; --sp-surface-highest: #352377;
+  --sp-border: #3A2A6B; --sp-border-soft: rgba(58, 42, 107, .55);
+  --sp-text: #FFFFFF; --sp-text-secondary: #E9E1FF; --sp-text-muted: #C9B8E8;
+  --sp-teal: #22D3EE; --sp-teal-soft: rgba(34, 211, 238, .13);
+  --sp-lime: #7C3AED; --sp-lime-soft: rgba(124, 58, 237, .12);
+  --sp-violet: #EC4899; --sp-violet-soft: rgba(236, 72, 153, .12);
+  --sp-error: #FF6B81;
+  --c-background: 20, 11, 43; --c-on-background: 255, 255, 255;
+  --c-surface: 30, 20, 64; --c-surface-dim: 14, 7, 32;
+  --c-surface-bright: 53, 35, 119; --c-surface-lowest: 14, 7, 32;
+  --c-surface-low: 20, 11, 43; --c-surface-container: 42, 27, 94;
+  --c-surface-high: 53, 35, 119; --c-surface-highest: 53, 35, 119;
+  --c-surface-variant: 42, 27, 94;
+  --c-on-surface: 255, 255, 255; --c-on-surface-variant: 233, 225, 255;
+  --c-inverse-surface: 255, 255, 255; --c-inverse-on-surface: 20, 11, 43;
+  --c-outline: 201, 184, 232; --c-outline-variant: 58, 42, 107;
+  --c-surface-tint: 34, 211, 238;
+  --c-primary: 34, 211, 238; --c-on-primary: 6, 33, 43;
+  --c-primary-container: 34, 211, 238; --c-on-primary-container: 6, 33, 43;
+  --c-inverse-primary: 6, 182, 212;
+  --c-error: 255, 107, 129; --c-on-error: 20, 11, 43;
+  --c-error-container: 42, 27, 94; --c-on-error-container: 255, 107, 129;
+}
+
+/* CyberHex · Soft (sincronizado con la app Flutter) */
+html[data-theme="cyberhex-soft"] {
+  --nx-bg: #F6F2FA; --nx-bg-deep: #EFE9F7; --nx-sidebar: #F6F2FA;
+  --nx-surface: #FFFFFF; --nx-surface-2: #EDE7F6; --nx-surface-3: #E3DAF3;
+  --nx-line: #E0D6F0; --nx-line-rgb: 224, 214, 240; --nx-line-soft: #E0D6F0;
+  --nx-text: #1B1B21; --nx-text-2: #2E2A3A; --nx-muted: #7A6F8C; --nx-faint: #A79DB8;
+  --nx-accent: #6750A4; --nx-accent-1: #6750A4; --nx-accent-2: #6750A4; --nx-accent-3: #5A458F;
+  --nx-accent-rgb: 103, 80, 164; --nx-accent-strong: #6750A4; --nx-accent-strong-rgb: 103, 80, 164;
+  --nx-accent-soft: rgba(103, 80, 164, .13);
+  --nx-on-accent: #FFFFFF; --nx-on-accent-rgb: 255, 255, 255;
+  --nx-blue: #B69DFB; --nx-blue-rgb: 182, 157, 251;
+  --nx-orange: #D97706; --nx-orange-rgb: 217, 119, 6;
+  --nx-danger: #D93025; --nx-danger-rgb: 217, 48, 37;
+  --nx-success: #0E9F6E; --nx-success-rgb: 14, 159, 110;
+  --nx-shadow-rgb: 0, 0, 0; --nx-plum-rgb: 90, 69, 143;
+  --nx-gradient: linear-gradient(105deg, #6750A4, #5A458F);
+  --nx-panel-gradient: linear-gradient(160deg, rgba(103, 80, 164, .05), rgba(103, 80, 164, .012) 55%), #FFFFFF;
+  --nx-shadow-nebula: 0 18px 44px rgba(0, 0, 0, .42);
+  --sp-bg: #F6F2FA; --sp-bg-deep: #EFE9F7; --sp-surface: #FFFFFF;
+  --sp-surface-raised: #EDE7F6; --sp-surface-high: #E3DAF3; --sp-surface-highest: #E3DAF3;
+  --sp-border: #E0D6F0; --sp-border-soft: rgba(224, 214, 240, .55);
+  --sp-text: #1B1B21; --sp-text-secondary: #2E2A3A; --sp-text-muted: #7A6F8C;
+  --sp-teal: #6750A4; --sp-teal-soft: rgba(103, 80, 164, .13);
+  --sp-lime: #B69DFB; --sp-lime-soft: rgba(182, 157, 251, .12);
+  --sp-violet: #D97706; --sp-violet-soft: rgba(217, 119, 6, .12);
+  --sp-error: #D93025;
+  --c-background: 246, 242, 250; --c-on-background: 27, 27, 33;
+  --c-surface: 255, 255, 255; --c-surface-dim: 239, 233, 247;
+  --c-surface-bright: 227, 218, 243; --c-surface-lowest: 239, 233, 247;
+  --c-surface-low: 246, 242, 250; --c-surface-container: 237, 231, 246;
+  --c-surface-high: 227, 218, 243; --c-surface-highest: 227, 218, 243;
+  --c-surface-variant: 237, 231, 246;
+  --c-on-surface: 27, 27, 33; --c-on-surface-variant: 46, 42, 58;
+  --c-inverse-surface: 27, 27, 33; --c-inverse-on-surface: 246, 242, 250;
+  --c-outline: 122, 111, 140; --c-outline-variant: 224, 214, 240;
+  --c-surface-tint: 103, 80, 164;
+  --c-primary: 103, 80, 164; --c-on-primary: 255, 255, 255;
+  --c-primary-container: 103, 80, 164; --c-on-primary-container: 255, 255, 255;
+  --c-inverse-primary: 90, 69, 143;
+  --c-error: 217, 48, 37; --c-on-error: 246, 242, 250;
+  --c-error-container: 237, 231, 246; --c-on-error-container: 217, 48, 37;
 }
