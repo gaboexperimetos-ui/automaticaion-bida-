@@ -362,6 +362,7 @@ fn primaryPath(route: []const u8) []const u8 {
     if (std.mem.startsWith(u8, route, "/dashboard/mensajes")) return "mensajes";
     if (std.mem.startsWith(u8, route, "/dashboard/perfil") or std.mem.startsWith(u8, route, "/dashboard/profile")) return "perfil";
     if (std.mem.startsWith(u8, route, "/dashboard/horario")) return "horarios";
+    if (std.mem.startsWith(u8, route, "/dashboard/tasks")) return "tareas-y-actividades";
     if (std.mem.startsWith(u8, route, "/dashboard/ai") or std.mem.eql(u8, route, "/ai")) return "asistente-academico";
     if (std.mem.startsWith(u8, route, "/dashboard/material")) return "generador-de-material";
     if (std.mem.startsWith(u8, route, "/dashboard/notes") or std.mem.startsWith(u8, route, "/app/notes")) return "segundo-cerebro";
@@ -383,7 +384,7 @@ fn routeForPath(data_path: []const u8) []const u8 {
         .{ .key = "mi-agenda", .route = "/dashboard/calendar" },
         .{ .key = "planificacion", .route = "/dashboard/planner" },
         .{ .key = "asignaturas", .route = "/dashboard/subjects" },
-        .{ .key = "tareas-y-actividades", .route = "/dashboard/planner" },
+        .{ .key = "tareas-y-actividades", .route = "/dashboard/tasks" },
         .{ .key = "examenes", .route = "/dashboard/examenes" },
         .{ .key = "vida-escolar", .route = "/dashboard/vida-escolar" },
         .{ .key = "google-calendar", .route = "/dashboard/google-calendar" },

@@ -234,6 +234,7 @@ Todas requieren sesión (`route_layer` de `require_auth_state`).
 | GET | `/dashboard/calendar/daily` | Sí | — | `200` HTML (calendario diario). |
 | GET | `/dashboard/horario` | Sí | — | `200` HTML (horario semanal). |
 | GET | `/dashboard/planner` | Sí | — | `200` HTML (planificador semanal). |
+| GET | `/dashboard/tasks` | Sí | Query `source`, `refresh` | `200` HTML con la bandeja unificada: Mikareno, Classroom, notas propias y avisos de WhatsApp. `source` filtra por origen (`mikareno`, `classroom`, `whatsapp`, `note`); `refresh=1` invalida las cachés de Classroom. |
 | GET | `/dashboard/profile` | Sí | — | `200` HTML (perfil del estudiante). |
 | GET | `/dashboard/subjects` | Sí | — | `200` HTML (asignaturas). |
 | GET | `/dashboard/subjects/{code}` | Sí | — | `200` HTML (detalle de asignatura). |

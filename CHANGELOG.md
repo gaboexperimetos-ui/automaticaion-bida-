@@ -3,6 +3,15 @@
 All notable changes to this project are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased] — NOVA 1.1
+
+### Added
+- Bandeja unificada `/dashboard/tasks`: Mikareno, Google Classroom, notas
+  propias y avisos de WhatsApp en una sola lista, con deduplicación por
+  título y fecha, filtro por origen y caché de Classroom de 10 minutos.
+- Los avisos de WhatsApp se muestran con remitente y fecha; se descartan los
+  mensajes sin contenido académico y las notas índice del vault.
+
 ## [1.0.0] - 2026-11-26 — NOVA 1.0
 
 Primera versión estable de la aplicación académica autoalojada.

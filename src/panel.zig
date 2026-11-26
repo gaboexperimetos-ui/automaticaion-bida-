@@ -18,7 +18,7 @@ const mcp_client = @import("mcp_client.zig");
 const charts = @import("charts.zig");
 
 pub const Evento = struct { fecha: []const u8, titulo: []const u8, tipo: []const u8 };
-pub const Tarea = struct { titulo: []const u8, vencimiento: []const u8 };
+pub const Tarea = struct { titulo: []const u8, vencimiento: []const u8, materia: []const u8 = "" };
 pub const Nota = struct { materia: []const u8, nota: f64, trimestre: u8 };
 
 /// Una asignatura del parcial en curso con todo lo que la vista de notas
@@ -299,7 +299,8 @@ fn parseTareas(allocator: std.mem.Allocator, full: json.Value) []Tarea {
         const titulo = json.getString(item, "titulo") orelse continue;
         if (titulo.len == 0) continue;
         const vencimiento = json.getString(item, "vencimiento") orelse "";
-        out.append(.{ .titulo = titulo, .vencimiento = vencimiento }) catch {};
+        const materia = json.getString(item, "materia") orelse json.getString(item, "courseName") orelse "";
+        out.append(.{ .titulo = titulo, .vencimiento = vencimiento, .materia = materia }) catch {};
     }
     return out.items;
 }

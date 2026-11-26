@@ -25,4 +25,5 @@ test {
     _ = @import("schedule_view.zig");
     _ = @import("flashcards.zig");
     _ = @import("busqueda.zig");
+    _ = @import("tasks.zig");
 }

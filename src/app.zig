@@ -23,6 +23,7 @@ const calendar_view = @import("calendar_view.zig");
 const schedule_view = @import("schedule_view.zig");
 const flashcards = @import("flashcards.zig");
 const busqueda = @import("busqueda.zig");
+const tasks = @import("tasks.zig");
 
 pub const App = struct {
     allocator: std.mem.Allocator,
@@ -857,11 +858,60 @@ pub const App = struct {
         return .{ .status = 200, .content_type = "text/html; charset=utf-8", .body = try templates.renderShell(allocator, path, body.items, auth.username, true, self.config.mikareno_mcp_url) };
     }
 
+    /// Bandeja unificada: Mikareno, Classroom, notas propias y WhatsApp.
+    /// Classroom se lee de caché (10 min); si no hay, se pide a Google una
+    /// sola vez. Nunca se inventa una fila: cada fuente vacía se explica.
+    fn tasksPage(self: *App, allocator: std.mem.Allocator, request: *const http.Request, path: []const u8, username: []const u8) !http.Response {
+        const filter = blk: {
+            const raw = try http.queryParam(allocator, request.query, "source");
+            break :blk if (raw) |r| tasks.parseSource(r) else null;
+        };
+        const datos = panel.fetch(allocator, self.db, self.config.mikareno_mcp_url, self.config.mcp_timeout_ms) catch panel.Datos{};
+
+        var notices = std.ArrayList(u8).init(allocator);
+        if (datos.offline) {
+            try notices.appendSlice("Mikareno no responde ahora: las actividades del colegio vienen de la última copia guardada. ");
+        } else if (!datos.connected) {
+            try notices.appendSlice("Mikareno no responde: la lista del colegio puede estar incompleta. ");
+        }
+
+        var classroom_items: []const classroom.Upcoming = &.{};
+        if (try self.authFor(request, allocator)) |auth| {
+            if (self.googleConfig()) |cfg| {
+                const cache_path = tasks.cachePath(allocator, self.config.db_path) catch null;
+                const cached = if (cache_path) |p| tasks.loadClassroom(allocator, p, auth.user_id, tasks.classroom_cache_ttl) else null;
+                if (cached) |items| {
+                    classroom_items = items;
+                } else {
+                    const today = try panel.todayIso(allocator);
+                    if (classroom.upcomingWork(allocator, self.db, cfg, auth.user_id, today, 10, 30)) |items| {
+                        classroom_items = items;
+                        if (cache_path) |p| tasks.saveClassroom(allocator, p, auth.user_id, items) catch {};
+                    } else |_| {
+                        try notices.appendSlice("No se pudo consultar Classroom en este momento. ");
+                    }
+                }
+            } else {
+                try notices.appendSlice("Google no está configurado en este servidor, así que Classroom no aparece. ");
+            }
+        } else {
+            try notices.appendSlice("Entra con Google para sumar tus trabajos de Classroom. ");
+        }
+
+        const note_rows = try tasks.fetchNotes(allocator, self.db);
+        const items = try tasks.collect(allocator, datos.tareas, classroom_items, note_rows);
+        const body = try tasks.pageHtml(allocator, items, filter, std.mem.trim(u8, notices.items, " "));
+        return .{ .status = 200, .content_type = "text/html; charset=utf-8", .body = try templates.renderShell(allocator, path, body, username, true, self.config.mikareno_mcp_url) };
+    }
+
     fn academic(self: *App, allocator: std.mem.Allocator, request: *const http.Request, username: []const u8, user_id: i64) !http.Response {
         const path = request.path;
-        // "Actualizar" (?refresh=1) invalida también la caché de Classroom.
+        // "Actualizar" (?refresh=1) invalida también las cachés de Classroom.
         if (try http.queryParam(allocator, request.query, "refresh")) |_| {
             if (classroomCachePath(allocator, self.config.db_path) catch null) |cache_path| {
+                std.fs.cwd().deleteFile(cache_path) catch {};
+            }
+            if (tasks.cachePath(allocator, self.config.db_path) catch null) |cache_path| {
                 std.fs.cwd().deleteFile(cache_path) catch {};
             }
         }
@@ -932,6 +982,10 @@ pub const App = struct {
                 return self.classroomUpcomingFragment(allocator, auth);
             }
             return text(allocator, 401, "text/plain; charset=utf-8", "");
+        }
+        // Bandeja unificada: Mikareno + Classroom + notas + WhatsApp.
+        if (std.mem.eql(u8, path, "/dashboard/tasks")) {
+            return self.tasksPage(allocator, request, path, username);
         }
         // Vistas académicas reales: cada ruta pide su herramienta y la
         // convierte en HTML. Si Mikareno no responde, la vista lo dice.
