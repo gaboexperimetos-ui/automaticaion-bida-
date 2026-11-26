@@ -1,4 +1,5 @@
 const std = @import("std");
+const build_options = @import("build_options");
 const http = @import("http.zig");
 const config_mod = @import("config.zig");
 const sqlite = @import("sqlite.zig");
@@ -42,7 +43,7 @@ pub fn main() !void {
         return;
     }
     if (command == .version) {
-        std.debug.print("study-platform 0.2.0 (Zig {s})\n", .{builtinVersion()});
+        std.debug.print("study-platform {s} (Zig {s})\n", .{ build_options.version, builtinVersion() });
         return;
     }
 

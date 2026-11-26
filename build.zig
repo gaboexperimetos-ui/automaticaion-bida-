@@ -13,6 +13,11 @@ pub fn build(b: *std.Build) void {
     });
     exe.linkLibC();
     linkSqlite(exe);
+    // La version vive en un solo sitio: build.zig. `--version` la lee de aqui
+    // para que no vuelva a quedarse fija en el codigo.
+    const options = b.addOptions();
+    options.addOption([]const u8, "version", "1.0.0");
+    exe.root_module.addOptions("build_options", options);
     b.installArtifact(exe);
 
     const run_cmd = b.addRunArtifact(exe);
