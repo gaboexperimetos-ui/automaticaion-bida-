@@ -104,7 +104,13 @@ fn label(text: []const u8, big: bool) *c.GtkWidget {
         const ctx = c.gtk_widget_get_style_context(w);
         c.gtk_style_context_add_class(ctx, "nova-h1");
     } else {
-        c.gtk_widget_set_opacity(w, 0.92);
+        // Cada línea es una tarjeta ligera.
+        const ctx = c.gtk_widget_get_style_context(w);
+        c.gtk_style_context_add_class(ctx, "nova-row");
+        c.gtk_widget_set_margin_start(w, 14);
+        c.gtk_widget_set_margin_end(w, 14);
+        c.gtk_widget_set_margin_top(w, 4);
+        c.gtk_widget_set_margin_bottom(w, 4);
     }
     return w;
 }
@@ -136,6 +142,10 @@ fn newPage(name: []const u8) struct { root: *c.GtkWidget, box: *c.GtkWidget } {
     const sw = c.gtk_scrolled_window_new(null, null);
     c.gtk_scrolled_window_set_policy(@ptrCast(sw), c.GTK_POLICY_NEVER, c.GTK_POLICY_AUTOMATIC);
     const vbox = c.gtk_box_new(c.GTK_ORIENTATION_VERTICAL, 2);
+    c.gtk_widget_set_margin_start(vbox, 22);
+    c.gtk_widget_set_margin_end(vbox, 22);
+    c.gtk_widget_set_margin_top(vbox, 10);
+    c.gtk_widget_set_margin_bottom(vbox, 16);
     c.gtk_scrolled_window_add_with_viewport(@ptrCast(sw), vbox);
     const zname = allocator.dupeZ(u8, name) catch name;
     c.gtk_stack_add_named(@ptrCast(g_stack), sw, zname.ptr);
@@ -354,11 +364,22 @@ pub fn main() !void {
     // Aparición de GTK: tema oscuro simple embebido (sin CSS externo).
     const provider = c.gtk_css_provider_new();
     const css =
-        "window { background-color: #15131f; color: #e8e6f0; }" ++
-        "button { background: #211d33; color: #e8e6f0; border: none; padding: 8px 14px; margin: 2px 6px; }" ++
-        "button:hover { background: #2c2745; }" ++
-        ".nova-h1 { font-size: 20px; font-weight: bold; color: #b9a7ff; }" ++
-        ".nova-h2 { font-size: 15px; font-weight: bold; color: #8fe3c2; }";
+        // Fondo aurora degradado y texto base.
+        "window { background: linear-gradient(135deg, #241a3a 0%, #15131f 55%, #1c1633 100%); color: #ece9f6; }" ++
+        // Tarjeta por línea.
+        ".nova-row { background: rgba(42,36,66,0.55); border: 1px solid rgba(185,167,255,0.10);" ++
+        "  border-radius: 12px; padding: 8px 14px; font-size: 13.5px; }" ++
+        // Títulos.
+        ".nova-h1 { font-size: 26px; font-weight: 800; color: #c9b8ff; padding-top: 6px; }" ++
+        ".nova-h2 { font-size: 16px; font-weight: 700; color: #8fe3c2; margin-top: 10px; }" ++
+        // Barra lateral tipo cristal oscuro.
+        "list, #sidebar { background: rgba(18,15,30,0.6); }" ++
+        // Botones.
+        "button { background: rgba(42,36,66,0.5); color: #ece9f6; border: 1px solid rgba(185,167,255,0.08);" ++
+        "  border-radius: 11px; padding: 9px 16px; margin: 3px 8px; transition: all 120ms ease; }" ++
+        "button:hover { background: #2c2745; border-color: rgba(185,167,255,0.35); }" ++
+        // Barra de estado.
+        ".nova-status { color: #9b93b8; font-size: 12px; }";
     const zcss = allocator.dupeZ(u8, css) catch css;
     _ = c.gtk_css_provider_load_from_data(provider, zcss.ptr, -1, null);
     c.gtk_style_context_add_provider_for_screen(c.gtk_widget_get_screen(g_window), @ptrCast(provider), c.GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
@@ -381,7 +402,8 @@ pub fn main() !void {
     c.gtk_box_pack_start(@ptrCast(root), revealer, 0, 0, 0);
 
     const sidebar = c.gtk_box_new(c.GTK_ORIENTATION_VERTICAL, 2);
-    c.gtk_widget_set_size_request(sidebar, 190, -1);
+    c.gtk_widget_set_name(sidebar, "sidebar");
+    c.gtk_widget_set_size_request(sidebar, 200, -1);
     c.gtk_container_add(@ptrCast(revealer), sidebar);
     c.gtk_widget_add_events(sidebar, c.GDK_LEAVE_NOTIFY_MASK);
     sigConnect(sidebar, "leave-notify-event", onSidebarLeave, null);
@@ -407,6 +429,9 @@ pub fn main() !void {
     c.gtk_box_pack_start(@ptrCast(content), g_stack, 1, 1, 0);
 
     g_status = c.gtk_label_new(null);
+    c.gtk_widget_set_name(g_status, "nova-status");
+    const sctx = c.gtk_widget_get_style_context(g_status);
+    c.gtk_style_context_add_class(sctx, "nova-status");
     c.gtk_widget_set_margin_start(g_status, 12);
     c.gtk_widget_set_margin_top(g_status, 4);
     c.gtk_widget_set_margin_bottom(g_status, 4);
