@@ -1,4 +1,5 @@
 const std = @import("std");
+const build_options = @import("build_options");
 const http = @import("http.zig");
 const sqlite = @import("sqlite.zig");
 const config_mod = @import("config.zig");
@@ -609,7 +610,7 @@ pub const App = struct {
         var obj = std.json.ObjectMap.init(allocator);
         try obj.put("status", .{ .string = if (db_ok) "healthy" else "degraded" });
         try obj.put("timestamp", .{ .string = time_text });
-        try obj.put("version", .{ .string = "0.2.0" });
+        try obj.put("version", .{ .string = build_options.version });
         try obj.put("uptime_secs", .{ .integer = uptime });
         try obj.put("database", .{ .bool = db_ok });
         try obj.put("mikareno_mcp", .{ .bool = mikareno_ok });
@@ -623,7 +624,7 @@ pub const App = struct {
         try obj.put("status", .{ .string = if (self.db.check()) "ok" else "degraded" });
         try obj.put("database", .{ .bool = self.db.check() });
         try obj.put("notes_count", .{ .integer = note_count });
-        try obj.put("version", .{ .string = "0.2.0" });
+        try obj.put("version", .{ .string = build_options.version });
         return jsonResponse(allocator, 200, .{ .object = obj });
     }
 
@@ -633,7 +634,7 @@ pub const App = struct {
         try obj.put("openrouter_model", .{ .string = self.config.openrouter_model });
         try obj.put("mikareno_mcp_url", .{ .string = self.config.mikareno_mcp_url });
         try obj.put("genoffice_mcp_url", .{ .string = self.config.genoffice_mcp_url });
-        try obj.put("version", .{ .string = "0.2.0" });
+        try obj.put("version", .{ .string = build_options.version });
         try obj.put("is_localhost", .{ .bool = std.mem.eql(u8, self.config.host, "127.0.0.1") });
         return jsonResponse(allocator, 200, .{ .object = obj });
     }
@@ -976,7 +977,7 @@ pub const App = struct {
         if (std.mem.eql(u8, path, "/api/admin/metrics") or std.mem.eql(u8, path, "/admin/openrouter/budget")) {
             const spent = self.spentThisMonth() catch 0;
             var obj = std.json.ObjectMap.init(allocator);
-            try obj.put("version", .{ .string = "0.2.0" });
+            try obj.put("version", .{ .string = build_options.version });
             try obj.put("uptime_secs", .{ .integer = @max(0, std.time.timestamp() - self.started_at) });
             try obj.put("notes_count", .{ .integer = self.db.scalarInt("SELECT COUNT(*) FROM notes") catch 0 });
             try obj.put("chats_count", .{ .integer = self.db.scalarInt("SELECT COUNT(*) FROM chat_history") catch 0 });

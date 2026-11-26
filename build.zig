@@ -32,6 +32,7 @@ pub fn build(b: *std.Build) void {
     });
     unit_tests.linkLibC();
     linkSqlite(unit_tests);
+    unit_tests.root_module.addOptions("build_options", options);
     const run_tests = b.addRunArtifact(unit_tests);
     const test_step = b.step("test", "Ejecuta pruebas unitarias Zig");
     test_step.dependOn(&run_tests.step);
