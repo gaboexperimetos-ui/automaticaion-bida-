@@ -169,6 +169,12 @@ fn academicText(text: []const u8) bool {
     return false;
 }
 
+/// Versión pública de `academicText` para que el MCP filtre igual que la
+/// bandeja al listar avisos de WhatsApp.
+pub fn isAcademicSummary(text: []const u8) bool {
+    return academicText(text);
+}
+
 /// Resume el encabezado que escribe el triage (`De:`, `Chat:`, `Fecha:`) en
 /// una línea corta. Si el formato no coincide, devuelve el texto tal cual.
 fn whatsappDetail(allocator: std.mem.Allocator, summary: []const u8) ![]const u8 {
@@ -251,25 +257,41 @@ pub fn count(items: []const Item) Counts {
     return c;
 }
 
+/// Comprueba si `tags` (lista separada por comas) contiene exactamente el
+/// token `want`. Evita que "area" descarte "tarea" por substring.
+fn hasTagToken(tags: []const u8, want: []const u8) bool {
+    var parts = std.mem.splitScalar(u8, tags, ',');
+    while (parts.next()) |raw| {
+        const t = std.mem.trim(u8, raw, " \t");
+        // Los tags con valor (`deber:2026-12-01`) cuentan por su clave.
+        const key = if (std.mem.indexOfScalar(u8, t, ':')) |i| t[0..i] else t;
+        if (std.mem.eql(u8, key, want)) return true;
+    }
+    return false;
+}
+
 /// Notas locales que funcionan como tareas: las crea el triage de WhatsApp o
 /// las etiqueta la persona con tarea/pendiente/deber. Se excluyen las notas
-/// índice del vault (`area`, `estudio`), que no son pendientes.
+/// índice del vault (`area`, `estudio`) y las ya hechas.
 pub fn fetchNotes(allocator: std.mem.Allocator, db: anytype) ![]NoteRow {
     var stmt = db.prepare(
         "SELECT slug,title,tags,COALESCE(summary,'') FROM notes " ++
-            "WHERE tags NOT LIKE '%area%' AND tags NOT LIKE '%estudio%' AND (" ++
-            "(tags LIKE '%whatsapp%' AND tags LIKE '%importante%') OR (" ++
-            "(tags LIKE '%tarea%' OR tags LIKE '%pendiente%' OR tags LIKE '%deber%') " ++
-            "AND tags NOT LIKE '%whatsapp%')) " ++
-            "ORDER BY updated_at DESC LIMIT 60",
+            "WHERE tags LIKE '%whatsapp%' OR tags LIKE '%tarea%' OR tags LIKE '%pendiente%' OR tags LIKE '%deber%' " ++
+            "ORDER BY updated_at DESC LIMIT 120",
     ) catch return &.{};
     defer stmt.deinit();
     var out = std.ArrayList(NoteRow).init(allocator);
     while (stmt.next() catch false) {
+        const tags = stmt.text(2);
+        if (hasTagToken(tags, "area") or hasTagToken(tags, "estudio")) continue;
+        if (hasTagToken(tags, "hecha")) continue;
+        const is_wa = hasTagToken(tags, "whatsapp");
+        if (is_wa and !hasTagToken(tags, "importante")) continue;
+        if (!is_wa and !hasTagToken(tags, "tarea") and !hasTagToken(tags, "pendiente") and !hasTagToken(tags, "deber")) continue;
         out.append(.{
             .slug = try allocator.dupe(u8, stmt.text(0)),
             .title = try allocator.dupe(u8, stmt.text(1)),
-            .tags = try allocator.dupe(u8, stmt.text(2)),
+            .tags = try allocator.dupe(u8, tags),
             .summary = try allocator.dupe(u8, stmt.text(3)),
         }) catch {};
     }
@@ -436,6 +458,14 @@ pub fn pageHtml(allocator: std.mem.Allocator, items: []const Item, filter: ?Sour
 }
 
 // ──────────────────────────── Pruebas ────────────────────────────
+
+test "hasTagToken distingue area de tarea y lee tags con valor" {
+    try std.testing.expect(hasTagToken("tarea,pendiente", "tarea"));
+    try std.testing.expect(!hasTagToken("tarea,pendiente", "area"));
+    try std.testing.expect(hasTagToken("estudio, tareas", "tareas"));
+    try std.testing.expect(hasTagToken("tarea,deber:2026-12-01", "deber"));
+    try std.testing.expect(!hasTagToken("whatsapp, importante", "tarea"));
+}
 
 test "parseSource acepta las cuatro fuentes" {
     try std.testing.expectEqual(Source.mikareno, parseSource("mikareno").?);

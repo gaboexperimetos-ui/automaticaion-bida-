@@ -13,6 +13,7 @@ const google_workspace_mod = @import("google_workspace.zig");
 const busqueda_mod = @import("busqueda.zig");
 const oauth_google_mod = @import("oauth_google.zig");
 const flashcards = @import("flashcards.zig");
+const tasks_mod = @import("tasks.zig");
 
 pub fn handle(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, request: *const http.Request) !http.Response {
     if (!std.mem.eql(u8, request.path, "/mcp") and !std.mem.eql(u8, request.path, "/mcp/sse")) return jsonError(allocator, 404, "not_found");
@@ -55,7 +56,7 @@ fn dispatch(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_
         return json.object(allocator, &.{
             .{ .key = "protocolVersion", .value = .{ .string = "2025-03-26" } },
             .{ .key = "capabilities", .value = try json.object(allocator, &.{ .{ .key = "tools", .value = try json.object(allocator, &.{}) }, .{ .key = "prompts", .value = try json.object(allocator, &.{}) } }) },
-            .{ .key = "serverInfo", .value = try json.object(allocator, &.{ .{ .key = "name", .value = .{ .string = "study-platform-mcp" } }, .{ .key = "version", .value = .{ .string = "0.2.0" } } }) },
+            .{ .key = "serverInfo", .value = try json.object(allocator, &.{ .{ .key = "name", .value = .{ .string = "study-platform-mcp" } }, .{ .key = "version", .value = .{ .string = "1.1.0" } } }) },
         });
     }
     if (std.mem.eql(u8, method, "notifications/initialized")) return json.object(allocator, &.{});
@@ -85,6 +86,9 @@ fn toolDefinitions(allocator: std.mem.Allocator) !std.json.Value {
         .{ .name = "search_all", .description = "Search across local notes, Mikareno academic data and Google (Calendar, Drive, Contacts)", .props = "query", .required = &.{"query"} },
         .{ .name = "get_note", .description = "Get a note by slug", .props = "slug", .required = &.{"slug"} },
         .{ .name = "create_note", .description = "Create a local Markdown note", .props = "title,content,tags", .required = &.{ "title", "content" } },
+        .{ .name = "task_create", .description = "Create a task in the unified inbox (note tagged tarea/pendiente)", .props = "title,detail,due", .required = &.{"title"} },
+        .{ .name = "task_complete", .description = "Mark a task note as done (removes it from the pending inbox)", .props = "slug", .required = &.{"slug"} },
+        .{ .name = "task_list", .description = "List pending tasks from the unified inbox (Mikareno, Classroom, notes, WhatsApp)", .props = "source", .required = &.{} },
         .{ .name = "get_academic_context", .description = "Get available academic context", .props = "", .required = &.{} },
         .{ .name = "get_subject_notes", .description = "Get notes tagged with a subject", .props = "subject", .required = &.{"subject"} },
         .{ .name = "get_study_sheets", .description = "List local study sheets", .props = "subject", .required = &.{} },
@@ -240,6 +244,20 @@ fn callTool(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_
         const tags = tagsAsString(allocator, json.get(args, "tags")) catch return error.InvalidParams;
         const slug = try createNoteMcp(allocator, db, config, title, content, tags);
         return json.object(allocator, &.{ .{ .key = "success", .value = .{ .bool = true } }, .{ .key = "slug", .value = .{ .string = slug } } });
+    }
+    if (std.mem.eql(u8, name, "task_create")) {
+        const title = json.getString(args, "title") orelse return error.InvalidParams;
+        const detail = json.getString(args, "detail") orelse "";
+        const due = json.getString(args, "due") orelse "";
+        return taskCreate(allocator, db, config, title, detail, due);
+    }
+    if (std.mem.eql(u8, name, "task_complete")) {
+        const slug = json.getString(args, "slug") orelse return error.InvalidParams;
+        return taskComplete(allocator, db, config, slug);
+    }
+    if (std.mem.eql(u8, name, "task_list")) {
+        const source = json.getString(args, "source") orelse "";
+        return taskList(allocator, db, source);
     }
     if (std.mem.eql(u8, name, "get_academic_context")) {
         const data = mcp_client.callTool(allocator, config.mikareno_mcp_url, config.mcp_timeout_ms, "get_student_full", try json.object(allocator, &.{.{ .key = "bg", .value = .{ .bool = true } }}), true) catch {
@@ -928,6 +946,84 @@ fn searchNotes(allocator: std.mem.Allocator, db: *sqlite.Db, query: []const u8, 
     return .{ .array = items };
 }
 
+/// Crea una tarea en la bandeja unificada. Es una nota con tags
+/// `tarea,pendiente` (más `deber:<fecha>` si llega fecha), de modo que
+/// aparece en `/dashboard/tasks` sin tocar Mikareno ni Classroom.
+fn taskCreate(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, title: []const u8, detail: []const u8, due: []const u8) !std.json.Value {
+    var tags = std.ArrayList(u8).init(allocator);
+    try tags.appendSlice("tarea,pendiente");
+    if (due.len > 0) {
+        try tags.appendSlice(",deber:");
+        try tags.appendSlice(due);
+    }
+    var body = std.ArrayList(u8).init(allocator);
+    if (detail.len > 0) try body.appendSlice(detail);
+    if (due.len > 0) {
+        if (body.items.len > 0) try body.appendSlice("\n\n");
+        try body.appendSlice("Entrega: ");
+        try body.appendSlice(due);
+    }
+    const slug = try createNoteMcp(allocator, db, config, title, body.items, tags.items);
+    return json.object(allocator, &.{
+        .{ .key = "created", .value = .{ .bool = true } },
+        .{ .key = "slug", .value = .{ .string = slug } },
+        .{ .key = "url", .value = .{ .string = try std.fmt.allocPrint(allocator, "/dashboard/tasks", .{}) } },
+    });
+}
+
+/// Marca una tarea como hecha: añade el tag `hecha` y quita `pendiente`.
+/// La bandeja deja de mostrarla; la nota sigue en el vault.
+fn taskComplete(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, slug: []const u8) !std.json.Value {
+    var stmt = db.prepare("SELECT tags FROM notes WHERE slug=?1") catch return error.NotFound;
+    defer stmt.deinit();
+    try stmt.bindText(1, slug);
+    if (!(stmt.next() catch false)) return error.NotFound;
+    const current = stmt.text(0);
+    var tags = std.ArrayList(u8).init(allocator);
+    var parts = std.mem.splitScalar(u8, current, ',');
+    var has_hecha = false;
+    while (parts.next()) |raw| {
+        const t = std.mem.trim(u8, raw, " \t");
+        if (t.len == 0) continue;
+        if (std.mem.eql(u8, t, "pendiente")) continue;
+        if (std.mem.eql(u8, t, "hecha")) has_hecha = true;
+        if (tags.items.len > 0) try tags.append(',');
+        try tags.appendSlice(t);
+    }
+    if (!has_hecha) {
+        if (tags.items.len > 0) try tags.append(',');
+        try tags.appendSlice("hecha");
+    }
+    _ = notes.updateNoteForMcp(allocator, db, config, slug, null, null, tags.items) catch return error.InvalidParams;
+    return json.object(allocator, &.{
+        .{ .key = "completed", .value = .{ .bool = true } },
+        .{ .key = "slug", .value = .{ .string = slug } },
+    });
+}
+
+/// Lista las tareas pendientes de la bandeja (notas locales con tag de tarea).
+/// No inventa Mikareno/Classroom: para eso está `/dashboard/tasks`.
+fn taskList(allocator: std.mem.Allocator, db: *sqlite.Db, source: []const u8) !std.json.Value {
+    const want = tasks_mod.parseSource(source);
+    const rows = try tasks_mod.fetchNotes(allocator, db);
+    var list = std.json.Array.init(allocator);
+    for (rows) |row| {
+        const is_wa = std.mem.indexOf(u8, row.tags, "whatsapp") != null;
+        const src: tasks_mod.Source = if (is_wa) .whatsapp else .note;
+        if (want) |w| if (src != w) continue;
+        if (is_wa and !tasks_mod.isAcademicSummary(row.summary)) continue;
+        try list.append(try json.object(allocator, &.{
+            .{ .key = "slug", .value = .{ .string = row.slug } },
+            .{ .key = "title", .value = .{ .string = row.title } },
+            .{ .key = "source", .value = .{ .string = tasks_mod.sourceLabel(src) } },
+        }));
+    }
+    return json.object(allocator, &.{
+        .{ .key = "count", .value = .{ .integer = @intCast(list.items.len) } },
+        .{ .key = "tasks", .value = .{ .array = list } },
+    });
+}
+
 fn createNoteMcp(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_mod.Config, title_raw: []const u8, content: []const u8, tags: []const u8) ![]const u8 {
     const title = std.mem.trim(u8, title_raw, " \t\r\n");
     if (title.len == 0 or title.len > 200 or content.len > 500000 or tags.len > 500) return error.InvalidParams;
@@ -1072,10 +1168,10 @@ test "MCP exposes the protocol version and the full tool catalog" {
     const tools = try toolDefinitions(allocator);
     // 9 herramientas base + 6 de CyberHex + 17 de la plataforma (notas,
     // Office, calendario, informe, Google y tarjetas de estudio) + 14 de
-    // GenOffice (crear/leer/editar docx, xlsx, pptx, pdf, convertir). Se
-    // comprueba que estén las familias para que un cambio no deje el catálogo
-    // a medias.
-    try std.testing.expectEqual(@as(usize, 50), tools.array.items.len);
+    // GenOffice (crear/leer/editar docx, xlsx, pptx, pdf, convertir) + 3 de la
+    // bandeja de tareas (crear, completar, listar). Se comprueba que estén las
+    // familias para que un cambio no deje el catálogo a medias.
+    try std.testing.expectEqual(@as(usize, 53), tools.array.items.len);
     var has_notes = false;
     var has_cyberhex = false;
     var has_office = false;
@@ -1088,6 +1184,7 @@ test "MCP exposes the protocol version and the full tool catalog" {
     var has_doc_read = false;
     var has_flashcards = false;
     var has_genoffice = false;
+    var has_tasks = false;
     for (tools.array.items) |tool| {
         const name = json.getString(tool, "name") orelse "";
         if (std.mem.eql(u8, name, "search_notes")) has_notes = true;
@@ -1102,6 +1199,7 @@ test "MCP exposes the protocol version and the full tool catalog" {
         if (std.mem.eql(u8, name, "google_doc_read")) has_doc_read = true;
         if (std.mem.eql(u8, name, "flashcard_create")) has_flashcards = true;
         if (std.mem.eql(u8, name, "genoffice_create_docx")) has_genoffice = true;
+        if (std.mem.eql(u8, name, "task_create")) has_tasks = true;
     }
     try std.testing.expect(has_notes);
     try std.testing.expect(has_cyberhex);
@@ -1110,6 +1208,7 @@ test "MCP exposes the protocol version and the full tool catalog" {
     try std.testing.expect(has_report);
     try std.testing.expect(has_flashcards);
     try std.testing.expect(has_genoffice);
+    try std.testing.expect(has_tasks);
     const initialized = try dispatch(allocator, undefined, undefined, "initialize", try json.object(allocator, &.{}), null);
     try std.testing.expectEqualStrings("2025-03-26", json.getString(initialized, "protocolVersion").?);
 }
