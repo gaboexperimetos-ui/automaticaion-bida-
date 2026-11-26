@@ -54,6 +54,15 @@ pub fn getInt(value: Value, key: []const u8) ?i64 {
     return if (v == .integer) v.integer else null;
 }
 
+pub fn getFloat(value: Value, key: []const u8) ?f64 {
+    const v = get(value, key) orelse return null;
+    return switch (v) {
+        .float => v.float,
+        .integer => @floatFromInt(v.integer),
+        else => null,
+    };
+}
+
 pub fn getBool(value: Value, key: []const u8) ?bool {
     const v = get(value, key) orelse return null;
     return if (v == .bool) v.bool else null;

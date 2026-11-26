@@ -16,6 +16,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/).
 - Audio `/dashboard/audio`: grabar o subir audio, convertir con ffmpeg y
   transcribir con la API de Groq (Whisper); el texto se guarda como nota.
   El tope de cuerpo sube a 25 MB sólo para la ruta de audio.
+- App de escritorio **nativa GTK3 sin web** (`zig build desktop`): sustituye el
+  lanzador WebKit por widgets GTK reales que consumen `/api/native/sync` y
+  arrancan el servidor local si no responde (híbrido). Vistas: Inicio, Tareas,
+  Asignaturas, Horario, Calendario, Classroom y Notas; sidebar que se asoma con
+  el ratón. Nueva ruta `/api/native/sync` (JSON) y `getFloat` en `jsonutil`.
 
 ## [1.0.0] - 2026-11-26 — NOVA 1.0
 

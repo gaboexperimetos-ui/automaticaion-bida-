@@ -37,8 +37,8 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Ejecuta pruebas unitarias Zig");
     test_step.dependOn(&run_tests.step);
 
-    // Lanzador de escritorio nativo (GTK3 + WebKit2GTK). No entra en el build
-    // por defecto para que un servidor sin librerías gráficas siga compilando:
+    // App de escritorio nativa (GTK3, sin motor web). No entra en el build por
+    // defecto para que un servidor sin librerías gráficas siga compilando:
     //   zig build desktop
     const desktop_exe = b.addExecutable(.{
         .name = "nova-desktop",
@@ -48,9 +48,12 @@ pub fn build(b: *std.Build) void {
     });
     desktop_exe.linkLibC();
     desktop_exe.linkSystemLibrary("gtk+-3.0");
-    desktop_exe.linkSystemLibrary("webkit2gtk-4.1");
+    // El cliente nativo reutiliza el serializador JSON del backend.
+    desktop_exe.root_module.addImport("jsonutil", b.createModule(.{
+        .root_source_file = b.path("src/jsonutil.zig"),
+    }));
     const desktop_install = b.addInstallArtifact(desktop_exe, .{});
-    const desktop_step = b.step("desktop", "Compila el lanzador de escritorio (WebKitGTK)");
+    const desktop_step = b.step("desktop", "Compila la app de escritorio nativa (GTK3, sin web)");
     desktop_step.dependOn(&desktop_install.step);
 }
 

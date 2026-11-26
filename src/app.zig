@@ -25,6 +25,7 @@ const flashcards = @import("flashcards.zig");
 const busqueda = @import("busqueda.zig");
 const tasks = @import("tasks.zig");
 const audio = @import("audio.zig");
+const nativesync = @import("nativesync.zig");
 
 pub const App = struct {
     allocator: std.mem.Allocator,
@@ -145,6 +146,10 @@ pub const App = struct {
         }
         if (std.mem.eql(u8, path, "/api/audio/transcribe")) {
             return self.audioTranscribe(allocator, request, username, if (auth) |a| a.user_id else 0);
+        }
+        // Sync JSON para el cliente de escritorio nativo (GTK, sin web).
+        if (std.mem.eql(u8, path, "/api/native/sync")) {
+            return self.nativeSync(allocator, request, if (auth) |a| a.user_id else 0);
         }
         if (std.mem.startsWith(u8, path, "/dashboard/")) return self.academic(allocator, request, username, if (auth) |a| a.user_id else 0);
 
@@ -982,6 +987,30 @@ pub const App = struct {
             .{ .key = "duration_seconds", .value = json.float(result.duration_seconds) },
             .{ .key = "note", .value = .{ .string = slug } },
         }));
+    }
+
+    /// Documento JSON de sincronización para el cliente nativo. Reúne lo mismo
+    /// que la web (Mikareno, notas, bandeja) en un solo contrato estable.
+    fn nativeSync(self: *App, allocator: std.mem.Allocator, request: *const http.Request, user_id: i64) !http.Response {
+        _ = request;
+        const datos = panel.fetch(allocator, self.db, self.config.mikareno_mcp_url, self.config.mcp_timeout_ms) catch panel.Datos{};
+        var classroom_items: []const classroom.Upcoming = &.{};
+        if (self.googleConfig()) |cfg| {
+            if (tasks.cachePath(allocator, self.config.db_path) catch null) |p| {
+                if (tasks.loadClassroom(allocator, p, user_id, tasks.classroom_cache_ttl)) |items| classroom_items = items;
+            }
+            if (classroom_items.len == 0) {
+                const today = panel.todayIso(allocator) catch "";
+                if (classroom.upcomingWork(allocator, self.db, cfg, user_id, today, 10, 30)) |items| {
+                    classroom_items = items;
+                    if (tasks.cachePath(allocator, self.config.db_path) catch null) |p| tasks.saveClassroom(allocator, p, user_id, items) catch {};
+                } else |_| {}
+            }
+        }
+        const note_rows = try tasks.fetchNotes(allocator, self.db);
+        const inbox = try tasks.collect(allocator, datos.tareas, classroom_items, note_rows);
+        const doc = try nativesync.build(allocator, datos, classroom_items, note_rows, inbox, datos.notes_count, datos.conversations_count);
+        return jsonResponse(allocator, 200, doc);
     }
 
     fn academic(self: *App, allocator: std.mem.Allocator, request: *const http.Request, username: []const u8, user_id: i64) !http.Response {

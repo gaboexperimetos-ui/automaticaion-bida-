@@ -27,4 +27,5 @@ test {
     _ = @import("busqueda.zig");
     _ = @import("tasks.zig");
     _ = @import("audio.zig");
+    _ = @import("nativesync.zig");
 }

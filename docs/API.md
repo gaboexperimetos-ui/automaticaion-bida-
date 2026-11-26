@@ -246,6 +246,7 @@ Todas requieren sesión (`route_layer` de `require_auth_state`).
 | GET | `/dashboard/classroom/upcoming` | Sí | — | `200` fragmento HTML con entregas próximas para el planificador (caché de 10 min; vacío si no hay token). |
 | GET | `/dashboard/search` | Sí | Query `q` (≤ 200 chars) | `200` HTML con resultados de notas, Mikareno y Google. |
 | GET | `/dashboard/audio` | Sí | — | `200` HTML con la grabadora y la subida de audio; muestra estado honesto si falta `GROQ_API_KEY`. |
+| GET | `/api/native/sync` | Sí | — | `200` JSON de sincronización para el cliente de escritorio nativo (Mikareno, notas, bandeja, asignaturas, horario, eventos, Classroom). Listas vacías y `null` honestos cuando una fuente no responde. |
 | POST | `/api/audio/transcribe` | Sí | Cuerpo: audio crudo (≤ 25 MB); header `X-Audio-Ext`; query `lang` | `200` JSON `{text,duration_seconds,note}` transcrito por Groq y guardado como nota; `503` sin clave, `502` si Groq rechaza. |
 
 ## Office suite
