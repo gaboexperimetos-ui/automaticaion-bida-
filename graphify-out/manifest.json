@@ -384,9 +384,9 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1795818464.579776,
-    "seen": 1795818522.3585124,
-    "ast_hash": "6ad9534c31e4778dc3e0e8fa329b6381",
+    "mtime": 1795818539.974332,
+    "seen": 1795818567.620405,
+    "ast_hash": "ba2576b1d3e2ebd0c99d1fdd57d64e2f",
     "semantic_hash": ""
   },
   "DEPLOY_MANUAL_COMMANDS.txt": {
@@ -612,9 +612,9 @@
     "semantic_hash": ""
   },
   "static/stitch-v2/shell/head.html": {
-    "mtime": 1795818460.267837,
-    "seen": 1795818522.358609,
-    "ast_hash": "9aa555f1a62252062358c3f815d1674b",
+    "mtime": 1795818536.8721578,
+    "seen": 1795818567.62045,
+    "ast_hash": "314eecbf43ee694a43876f52abcf8f63",
     "semantic_hash": ""
   },
   "static/stitch-v2/shell/topbar.html": {

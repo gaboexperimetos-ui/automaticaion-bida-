@@ -15,6 +15,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/).
   reiniciar la app, el navegador revalida y recibe `304` sin volver a
   descargar ni parsear el CSS.
 - htmx se carga con `defer` para no bloquear el primer pintado.
+- La fuente de iconos se precarga (`<link rel=preload>`): al usar
+  `font-display: block`, los iconos aparecen antes del primer pintado.
 
 ## [1.1.2] - 2026-11-27 — Escritorio HTML5 exacto
 
