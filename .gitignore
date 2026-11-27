@@ -28,6 +28,14 @@ Thumbs.db
 *.swo
 *~
 
+# Graphify (artefactos generados; se versionan graph.json y GRAPH_REPORT.md)
+graphify-out/cache/
+graphify-out/.graphify_analysis.json
+graphify-out/.graphify_build.json
+graphify-out/.graphify_partition_cache.json
+graphify-out/.graphify_root
+graphify-out/graph.html
+
 # Notes (user data)
 /notes/
 !notes/.gitkeep

@@ -1,0 +1,5 @@
+# Dependencias y artefactos que no son codigo del proyecto
+static/vendor/
+graphify-out/
+design/ui-preview/
+*.min.js
