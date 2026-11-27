@@ -48,15 +48,15 @@
     "semantic_hash": "5f0a3f44a33ddd73fa8f19e0a64521f1"
   },
   "src/app.zig": {
-    "mtime": 1795818666.38744,
-    "seen": 1795818871.9230812,
+    "mtime": 1795819761.4319203,
+    "seen": 1795819918.5639126,
     "ast_hash": "c2b07e6d57bc6dc328f58e37e46c3ac0",
     "semantic_hash": ""
   },
   "src/assets.zig": {
-    "mtime": 1795818799.4251008,
-    "seen": 1795818871.923083,
-    "ast_hash": "d980b718f3d9412d4ad01eb7f78abbd1",
+    "mtime": 1795819914.156529,
+    "seen": 1795819918.5639145,
+    "ast_hash": "4065afe2b1fcfb7f45d3b7c01f1fcfa4",
     "semantic_hash": ""
   },
   "src/audio.zig": {
@@ -216,10 +216,10 @@
     "semantic_hash": "53b6e55bb4ebfa94bcd38cdd233cb427"
   },
   "src/templates.zig": {
-    "mtime": 1795800679.5286992,
-    "seen": 1795815711.5271797,
-    "ast_hash": "0bf889a15cfe80b3d2d56cb60d652407",
-    "semantic_hash": "0bf889a15cfe80b3d2d56cb60d652407"
+    "mtime": 1795819914.156529,
+    "seen": 1795819918.5639484,
+    "ast_hash": "967f9a2e2c5aab36a9c6ff444312daff",
+    "semantic_hash": ""
   },
   "src/tests.zig": {
     "mtime": 1795731850.7714384,
@@ -384,9 +384,9 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1795818845.8833792,
-    "seen": 1795818871.923145,
-    "ast_hash": "c5c35f37c1a802dfd714109eaba0348a",
+    "mtime": 1795819914.156529,
+    "seen": 1795819918.5639694,
+    "ast_hash": "c826a9370a75bb5992315408aed3383f",
     "semantic_hash": ""
   },
   "DEPLOY_MANUAL_COMMANDS.txt": {
@@ -663,6 +663,12 @@
     "mtime": 1795225821.731949,
     "seen": 1795816828.6375358,
     "ast_hash": "bf51864594ede1274fc59c67b0b4ed09",
+    "semantic_hash": ""
+  },
+  "tools/gen_nova_groups.py": {
+    "mtime": 1795819914.1630292,
+    "seen": 1795819918.5639663,
+    "ast_hash": "e040bfa7af71443c20f24d7500a55da1",
     "semantic_hash": ""
   }
 }

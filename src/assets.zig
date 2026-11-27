@@ -36,6 +36,18 @@ pub const files = [_]Asset{
     .{ .path = "/calendar-ics.js", .mime = "application/javascript; charset=utf-8", .bytes = @embedFile("../static/app/calendar-ics.js") },
     .{ .path = "/office-sheets.js", .mime = "application/javascript; charset=utf-8", .bytes = @embedFile("../static/app/office-sheets.js") },
     .{ .path = "/office-html.js", .mime = "application/javascript; charset=utf-8", .bytes = @embedFile("../static/app/office-html.js") },
+    .{ .path = "/static/app/nova-home.css", .mime = "text/css; charset=utf-8", .bytes = @embedFile("../static/app/nova-home.css") },
+    .{ .path = "/static/app/nova-notes.css", .mime = "text/css; charset=utf-8", .bytes = @embedFile("../static/app/nova-notes.css") },
+    .{ .path = "/static/app/nova-calendar.css", .mime = "text/css; charset=utf-8", .bytes = @embedFile("../static/app/nova-calendar.css") },
+    .{ .path = "/static/app/nova-tasks.css", .mime = "text/css; charset=utf-8", .bytes = @embedFile("../static/app/nova-tasks.css") },
+    .{ .path = "/static/app/nova-audio.css", .mime = "text/css; charset=utf-8", .bytes = @embedFile("../static/app/nova-audio.css") },
+    .{ .path = "/static/app/nova-settings.css", .mime = "text/css; charset=utf-8", .bytes = @embedFile("../static/app/nova-settings.css") },
+    .{ .path = "/static/app/nova-search.css", .mime = "text/css; charset=utf-8", .bytes = @embedFile("../static/app/nova-search.css") },
+    .{ .path = "/static/app/nova-material.css", .mime = "text/css; charset=utf-8", .bytes = @embedFile("../static/app/nova-material.css") },
+    .{ .path = "/static/app/nova-flashcards.css", .mime = "text/css; charset=utf-8", .bytes = @embedFile("../static/app/nova-flashcards.css") },
+    .{ .path = "/static/app/nova-academic.css", .mime = "text/css; charset=utf-8", .bytes = @embedFile("../static/app/nova-academic.css") },
+    .{ .path = "/static/app/nova-chat.css", .mime = "text/css; charset=utf-8", .bytes = @embedFile("../static/app/nova-chat.css") },
+    .{ .path = "/static/app/nova-office.css", .mime = "text/css; charset=utf-8", .bytes = @embedFile("../static/app/nova-office.css") },
     .{ .path = "/static/app/themes.css", .mime = "text/css; charset=utf-8", .bytes = @embedFile("../static/app/themes.css") },
     .{ .path = "/static/app/music.css", .mime = "text/css; charset=utf-8", .bytes = @embedFile("../static/app/music.css") },
     .{ .path = "/static/app/tailwind.css", .mime = "text/css; charset=utf-8", .bytes = @embedFile("../static/app/tailwind.css") },
@@ -100,6 +112,41 @@ fn knownTheme(theme: []const u8) bool {
 
 /// Solo el bloque del tema activo mas el estilo comun. El resto del archivo
 /// son las otras 10 paletas, que no se usan y bloquean el pintado.
+/// Grupo de CSS del shell segun la ruta. Cada grupo es un `nova-<grupo>.css`
+/// generado desde nova.css con las reglas que esa pagina usa.
+pub fn novaGroup(path: []const u8) []const u8 {
+    if (std.mem.eql(u8, path, "/") or std.mem.eql(u8, path, "/dashboard") or
+        std.mem.eql(u8, path, "/dashboard/"))
+        return "home";
+    if (std.mem.startsWith(u8, path, "/dashboard/notes")) return "notes";
+    if (std.mem.startsWith(u8, path, "/dashboard/calendar")) return "calendar";
+    if (std.mem.startsWith(u8, path, "/dashboard/tasks")) return "tasks";
+    if (std.mem.startsWith(u8, path, "/dashboard/audio")) return "audio";
+    if (std.mem.startsWith(u8, path, "/dashboard/settings")) return "settings";
+    if (std.mem.startsWith(u8, path, "/dashboard/search")) return "search";
+    if (std.mem.startsWith(u8, path, "/dashboard/material")) return "material";
+    if (std.mem.startsWith(u8, path, "/dashboard/flashcards")) return "flashcards";
+    if (std.mem.eql(u8, path, "/dashboard/chat") or std.mem.eql(u8, path, "/dashboard/ai")) return "chat";
+    if (std.mem.startsWith(u8, path, "/office")) return "office";
+    return "academic";
+}
+
+/// CSS del grupo pedido, con el mismo ETag y compresion que el resto.
+pub fn groupCss(allocator: std.mem.Allocator, group: []const u8) ?[]const u8 {
+    var buf: [64]u8 = undefined;
+    const path = std.fmt.bufPrint(&buf, "/static/app/nova-{s}.css", .{group}) catch return null;
+    const asset = assetByPath(path) orelse return null;
+    _ = allocator;
+    return asset.bytes;
+}
+
+pub fn groupPath(group: []const u8) ?[]const u8 {
+    var buf: [64]u8 = undefined;
+    const path = std.fmt.bufPrint(&buf, "/static/app/nova-{s}.css", .{group}) catch return null;
+    for (files) |file| if (std.mem.eql(u8, file.path, path)) return file.path;
+    return null;
+}
+
 pub fn themeCss(allocator: std.mem.Allocator, theme: []const u8) []const u8 {
     const css = assetByPath("/static/app/themes.css").?.bytes;
     const first = std.mem.indexOf(u8, css, "html[data-theme=\"") orelse return css;

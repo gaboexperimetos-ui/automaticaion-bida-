@@ -17,6 +17,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/).
 - `/themes.css` sirve sólo el bloque del tema activo (más el estilo común):
   el tema por defecto baja de 83 KB a 3,8 KB y los demás de 83 KB a ~30 KB.
   El `ETag` cambia con el tema, así que la caché no mezcla paletas.
+- `nova.css` se parte en 12 variantes por grupo de rutas
+  (`static/app/nova-<grupo>.css`, generadas con `tools/gen_nova_groups.py`):
+  cada página carga sólo las reglas que usa. El inicio pasa de 303 KB a
+  74 KB y Ajustes a 46 KB, sin cambiar un píxel (verificado con capturas
+  headless de las 12 rutas).
 - htmx se carga con `defer` para no bloquear el primer pintado.
 - La fuente de iconos se precarga (`<link rel=preload>`): al usar
   `font-display: block`, los iconos aparecen antes del primer pintado.
