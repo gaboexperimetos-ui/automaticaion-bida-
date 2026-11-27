@@ -11,6 +11,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/).
   carga del panel, CSS+JS bajan de ~602 KB a ~112 KB y el HTML de 71,8 KB a
   13,6 KB. Los estáticos se comprimen una sola vez al arrancar y se cachean en
   memoria; las fuentes WOFF2 no se recomprimen.
+- Los estáticos llevan `ETag` y `Cache-Control: no-cache`: al recargar o
+  reiniciar la app, el navegador revalida y recibe `304` sin volver a
+  descargar ni parsear el CSS.
+- htmx se carga con `defer` para no bloquear el primer pintado.
 
 ## [1.1.2] - 2026-11-27 — Escritorio HTML5 exacto
 

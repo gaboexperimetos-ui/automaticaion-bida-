@@ -1,17 +1,17 @@
 # Graph Report - styp  (2026-11-27)
 
 ## Corpus Check
-- 63 files · ~205,500 words
+- 63 files · ~205,747 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 20 file(s) not represented in the graph (top: .woff2 9, .css 7, (none) 2)
 
 ## Summary
-- 1488 nodes · 3245 edges · 72 communities (64 shown, 8 thin omitted)
+- 1489 nodes · 3247 edges · 70 communities (62 shown, 8 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 42 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `7b00055d`
+- Built from commit: `efaa353b`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -45,7 +45,7 @@
 - desktop/main.zig
 - libraryRoute
 - shell.js
-- google_workspace.zig
+- mcp_client.zig
 - initNotesEditor
 - sheetRoute
 - calGrid
@@ -62,7 +62,6 @@
 - charts.js
 - el
 - tests.zig
-- charts.zig
 - nativesync.zig
 - std
 - chartEmpty
@@ -84,7 +83,6 @@
 - TaskScope
 - install.sh
 - 20240101000012_mikareno_cache.sql
-- security.zig
 - presentationRoute
 
 ## God Nodes (most connected - your core abstractions)
@@ -97,7 +95,7 @@
 7. `msgErr()` - 20 edges
 8. `sheetRoute()` - 19 edges
 9. `libraryRoute()` - 18 edges
-10. `presentationRoute()` - 18 edges
+10. `officeDir()` - 18 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `notes_search_fts_ad` --triggers--> `notes`  [EXTRACTED]
@@ -114,7 +112,7 @@
 ## Import Cycles
 - None detected.
 
-## Communities (72 total, 8 thin omitted)
+## Communities (70 total, 8 thin omitted)
 
 ### Community 0 - "App"
 Cohesion: 0.06
@@ -153,8 +151,8 @@ Cohesion: 0.08
 Nodes (35): RFC-5545, addDays(), dateString(), identityKeys(), localParts(), pad(), parseDateTime(), parseEvent() (+27 more)
 
 ### Community 9 - "ai.zig"
-Cohesion: 0.19
-Nodes (26): appendFrame(), budgetExhausted(), callProvider(), chat(), ChatMessage, conversationMessages(), conversations(), cost() (+18 more)
+Cohesion: 0.11
+Nodes (38): appendFrame(), budgetExhausted(), callProvider(), chat(), ChatMessage, conversationMessages(), conversations(), cost() (+30 more)
 
 ### Community 10 - "cyberhex.zig"
 Cohesion: 0.07
@@ -177,20 +175,20 @@ Cohesion: 0.09
 Nodes (26): academicText(), collect(), count(), Counts, esc(), fetchNotes(), filterLink(), fromClassroom() (+18 more)
 
 ### Community 15 - "flashcards.zig"
-Cohesion: 0.08
-Nodes (39): Card, cardFrom(), cardValue(), Civil, civilFromDays(), createCard(), daysFromCivil(), getCard() (+31 more)
+Cohesion: 0.12
+Nodes (27): Card, cardFrom(), cardValue(), Civil, civilFromDays(), createCard(), daysFromCivil(), getCard() (+19 more)
 
 ### Community 16 - "oauth_google.zig"
-Cohesion: 0.12
-Nodes (25): authorizationUrl(), buildStateCookie(), calendarEvents(), clearStateCookie(), Config, Error, BadResponse, EmailMissing (+17 more)
+Cohesion: 0.07
+Nodes (42): accessTokenFor(), Contact, contacts(), ContactsResult, docKindLabel(), docSectionHtml(), DocText, downloadFile() (+34 more)
 
 ### Community 17 - "schedule_view.zig"
-Cohesion: 0.13
-Nodes (24): agendaItems(), buildRows(), Clase, clasesDe(), classAt(), datePart(), dayHasClasses(), Dia (+16 more)
+Cohesion: 0.07
+Nodes (36): apilada(), Bar, barras(), clampPct(), donut(), esc(), Palette, progreso() (+28 more)
 
 ### Community 18 - "mcp_client.zig"
-Cohesion: 0.06
-Nodes (38): Asset, assetByPath(), compressGzip(), find(), gzipForPath(), indexOf(), warmCompression(), CachedProbe (+30 more)
+Cohesion: 0.08
+Nodes (26): Asset, assetByPath(), compressGzip(), etagForPath(), find(), gzipForPath(), indexOf(), warmCompression() (+18 more)
 
 ### Community 19 - "classroom.zig"
 Cohesion: 0.14
@@ -232,9 +230,9 @@ Nodes (17): appendSlugCodepoint(), documents(), fileExists(), formField(), handl
 Cohesion: 0.21
 Nodes (16): done(), initCollections(), initCollectionsSafe(), initMusicPlayer(), musicAddUrl(), musicAll(), musicCurrent(), musicPlay() (+8 more)
 
-### Community 29 - "google_workspace.zig"
-Cohesion: 0.16
-Nodes (17): accessTokenFor(), Contact, contacts(), ContactsResult, docKindLabel(), docSectionHtml(), DocText, downloadFile() (+9 more)
+### Community 29 - "mcp_client.zig"
+Cohesion: 0.22
+Nodes (13): CachedProbe, callTool(), callToolAllowError(), deepestString(), headerValue(), listTools(), parseRpcMessage(), probe() (+5 more)
 
 ### Community 30 - "initNotesEditor"
 Cohesion: 0.21
@@ -300,10 +298,6 @@ Nodes (11): el(), fillMenu(), icon(), initSearch(), move(), paint(), run(), init
 Cohesion: 0.21
 Nodes (6): collect(), diskFreeBytes(), meminfoKiB(), Memory, Metrics, readMemory()
 
-### Community 46 - "charts.zig"
-Cohesion: 0.31
-Nodes (9): apilada(), Bar, barras(), clampPct(), donut(), esc(), Palette, progreso() (+1 more)
-
 ### Community 47 - "nativesync.zig"
 Cohesion: 0.33
 Nodes (9): build(), classItemsJson(), eventosJson(), gradesJson(), horarioJson(), inboxJson(), notasJson(), noteRowsJson() (+1 more)
@@ -363,10 +357,6 @@ Nodes (4): ConnState, off, on, soft
 ### Community 65 - "TaskScope"
 Cohesion: 0.67
 Nodes (3): TaskScope, today, week
-
-### Community 70 - "security.zig"
-Cohesion: 0.24
-Nodes (3): generateSessionToken(), hashSessionToken(), hexEncode()
 
 ### Community 71 - "presentationRoute"
 Cohesion: 0.38

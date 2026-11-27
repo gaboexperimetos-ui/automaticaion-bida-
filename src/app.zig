@@ -1562,16 +1562,33 @@ fn fileSize(allocator: std.mem.Allocator, path: []const u8) !i64 {
 }
 
 fn staticAsset(allocator: std.mem.Allocator, request: *const http.Request, asset: assets.Asset) http.Response {
-    const accepts_gzip = if (request.header("accept-encoding")) |value| std.mem.indexOf(u8, value, "gzip") != null else false;
-    if (accepts_gzip) {
-        if (assets.gzipForPath(asset.path)) |compressed| {
-            const headers = allocator.alloc(http.Header, 2) catch return text(allocator, 200, asset.mime, asset.bytes);
-            headers[0] = .{ .name = "Content-Encoding", .value = "gzip" };
-            headers[1] = .{ .name = "Vary", .value = "Accept-Encoding" };
-            return .{ .status = 200, .content_type = asset.mime, .body = compressed, .headers = headers };
+    const etag = assets.etagForPath(asset.path);
+    if (etag) |tag| {
+        if (request.header("if-none-match")) |incoming| {
+            if (std.mem.eql(u8, incoming, tag)) {
+                const headers = allocator.alloc(http.Header, 2) catch return text(allocator, 304, asset.mime, "");
+                headers[0] = .{ .name = "ETag", .value = tag };
+                headers[1] = .{ .name = "Cache-Control", .value = "no-cache" };
+                return .{ .status = 304, .content_type = asset.mime, .body = "", .headers = headers };
+            }
         }
     }
-    return text(allocator, 200, asset.mime, asset.bytes);
+    const accepts_gzip = if (request.header("accept-encoding")) |value| std.mem.indexOf(u8, value, "gzip") != null else false;
+    const compressed: ?[]const u8 = if (accepts_gzip) assets.gzipForPath(asset.path) else null;
+    var count: usize = 0;
+    if (etag != null) count += 2;
+    if (compressed != null) count += 2;
+    const headers = allocator.alloc(http.Header, count) catch return text(allocator, 200, asset.mime, asset.bytes);
+    if (etag) |tag| {
+        headers[0] = .{ .name = "ETag", .value = tag };
+        headers[1] = .{ .name = "Cache-Control", .value = "no-cache" };
+    }
+    if (compressed) |body| {
+        headers[count - 2] = .{ .name = "Content-Encoding", .value = "gzip" };
+        headers[count - 1] = .{ .name = "Vary", .value = "Accept-Encoding" };
+        return .{ .status = 200, .content_type = asset.mime, .body = body, .headers = headers };
+    }
+    return .{ .status = 200, .content_type = asset.mime, .body = asset.bytes, .headers = headers[0..count] };
 }
 
 fn text(allocator: std.mem.Allocator, status: u16, content_type: []const u8, body: []const u8) http.Response {

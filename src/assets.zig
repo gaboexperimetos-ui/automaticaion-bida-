@@ -96,6 +96,24 @@ pub fn warmCompression() void {
     for (files) |file| _ = gzipForPath(file.path);
 }
 
+var etag_cache = [_]?[]const u8{null} ** files.len;
+
+/// ETag estable por asset: cambia si cambian los bytes embebidos.
+pub fn etagForPath(path: []const u8) ?[]const u8 {
+    const index = indexOf(path) orelse return null;
+    gzip_mutex.lock();
+    defer gzip_mutex.unlock();
+    if (etag_cache[index]) |cached| return cached;
+    var hash: u64 = 0xcbf29ce484222325;
+    for (files[index].bytes) |byte| {
+        hash ^= byte;
+        hash *%= 0x100000001b3;
+    }
+    const tag = std.fmt.allocPrint(std.heap.page_allocator, "\"{x}\"", .{hash}) catch return null;
+    etag_cache[index] = tag;
+    return tag;
+}
+
 pub fn find(path: []const u8) ?Asset {
     for (files) |file| if (std.mem.eql(u8, path, file.path)) return file;
     if (std.mem.eql(u8, path, "/favicon.svg") or std.mem.eql(u8, path, "/favicon.ico")) return files[0];

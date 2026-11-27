@@ -48,15 +48,15 @@
     "semantic_hash": "5f0a3f44a33ddd73fa8f19e0a64521f1"
   },
   "src/app.zig": {
-    "mtime": 1795816616.630786,
-    "seen": 1795816828.6374311,
-    "ast_hash": "e0c0cf5b4398b4be6793e483c68992db",
+    "mtime": 1795818383.1278522,
+    "seen": 1795818522.3584096,
+    "ast_hash": "1b6d597a89181c1faa1dc6b6b2043669",
     "semantic_hash": ""
   },
   "src/assets.zig": {
-    "mtime": 1795816660.7861521,
-    "seen": 1795816828.6374326,
-    "ast_hash": "60c2b86eb442df11813af4105df4a7af",
+    "mtime": 1795818376.721929,
+    "seen": 1795818522.3584132,
+    "ast_hash": "b955c0b8c3622ef1ea5de21302e293bb",
     "semantic_hash": ""
   },
   "src/audio.zig": {
@@ -120,9 +120,9 @@
     "semantic_hash": "889fa8995bd7b6899ce98a7b59ee87e6"
   },
   "src/http.zig": {
-    "mtime": 1795816698.4368582,
-    "seen": 1795816828.6374485,
-    "ast_hash": "49c7de224e3863d516d6e23ea211a966",
+    "mtime": 1795818432.4002213,
+    "seen": 1795818522.3584383,
+    "ast_hash": "cd8d2c39f5770618bd0d49f98a83c18a",
     "semantic_hash": ""
   },
   "src/importer.zig": {
@@ -384,9 +384,9 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1795816771.9442403,
-    "seen": 1795816828.6374907,
-    "ast_hash": "c3c4feb8b9282f09767e3060dffb6b33",
+    "mtime": 1795818464.579776,
+    "seen": 1795818522.3585124,
+    "ast_hash": "6ad9534c31e4778dc3e0e8fa329b6381",
     "semantic_hash": ""
   },
   "DEPLOY_MANUAL_COMMANDS.txt": {
@@ -612,9 +612,9 @@
     "semantic_hash": ""
   },
   "static/stitch-v2/shell/head.html": {
-    "mtime": 1795814983.4493728,
-    "seen": 1795816828.6375284,
-    "ast_hash": "36f49d7891237d3cd89b0f7e89338af8",
+    "mtime": 1795818460.267837,
+    "seen": 1795818522.358609,
+    "ast_hash": "9aa555f1a62252062358c3f815d1674b",
     "semantic_hash": ""
   },
   "static/stitch-v2/shell/topbar.html": {
