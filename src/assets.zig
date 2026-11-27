@@ -56,6 +56,46 @@ fn assetByPath(wanted: []const u8) ?Asset {
     return null;
 }
 
+var gzip_mutex = std.Thread.Mutex{};
+var gzip_cache = [_]?[]const u8{null} ** files.len;
+
+fn compressible(mime: []const u8) bool {
+    return std.mem.startsWith(u8, mime, "text/") or
+        std.mem.startsWith(u8, mime, "application/javascript") or
+        std.mem.startsWith(u8, mime, "application/json") or
+        std.mem.eql(u8, mime, "image/svg+xml");
+}
+
+fn compressGzip(data: []const u8) ?[]const u8 {
+    var out = std.ArrayList(u8).init(std.heap.page_allocator);
+    defer out.deinit();
+    var stream = std.io.fixedBufferStream(data);
+    std.compress.gzip.compress(stream.reader(), out.writer(), .{}) catch return null;
+    return out.toOwnedSlice() catch null;
+}
+
+pub fn indexOf(path: []const u8) ?usize {
+    for (files, 0..) |file, i| if (std.mem.eql(u8, path, file.path)) return i;
+    return null;
+}
+
+/// Version gzip de un asset embebido. Se genera una vez y se reutiliza.
+pub fn gzipForPath(path: []const u8) ?[]const u8 {
+    const index = indexOf(path) orelse return null;
+    gzip_mutex.lock();
+    defer gzip_mutex.unlock();
+    if (gzip_cache[index]) |cached| return cached;
+    if (!compressible(files[index].mime)) return null;
+    const compressed = compressGzip(files[index].bytes) orelse return null;
+    gzip_cache[index] = compressed;
+    return compressed;
+}
+
+/// Precomprime al arrancar para que la primera pagina no pague el coste.
+pub fn warmCompression() void {
+    for (files) |file| _ = gzipForPath(file.path);
+}
+
 pub fn find(path: []const u8) ?Asset {
     for (files) |file| if (std.mem.eql(u8, path, file.path)) return file;
     if (std.mem.eql(u8, path, "/favicon.svg") or std.mem.eql(u8, path, "/favicon.ico")) return files[0];

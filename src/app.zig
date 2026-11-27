@@ -54,7 +54,7 @@ pub const App = struct {
         if (std.mem.eql(u8, path, "/api/debug")) return self.publicConfig(allocator);
         if (assets.find(path) != null or std.mem.startsWith(u8, path, "/static/") or std.mem.startsWith(u8, path, "/app-assets/")) {
             if (std.mem.startsWith(u8, path, "/static/") and std.mem.indexOf(u8, path, "..") != null) return text(allocator, 404, "text/plain; charset=utf-8", "not found");
-            if (assets.find(path)) |asset| return text(allocator, 200, asset.mime, asset.bytes);
+            if (assets.find(path)) |asset| return staticAsset(allocator, request, asset);
             return text(allocator, 404, "text/plain; charset=utf-8", "not found");
         }
         if (std.mem.eql(u8, path, "/styles.css")) {
@@ -1559,6 +1559,19 @@ fn fileSize(allocator: std.mem.Allocator, path: []const u8) !i64 {
     defer file.close();
     const stat = try file.stat();
     return @intCast(stat.size);
+}
+
+fn staticAsset(allocator: std.mem.Allocator, request: *const http.Request, asset: assets.Asset) http.Response {
+    const accepts_gzip = if (request.header("accept-encoding")) |value| std.mem.indexOf(u8, value, "gzip") != null else false;
+    if (accepts_gzip) {
+        if (assets.gzipForPath(asset.path)) |compressed| {
+            const headers = allocator.alloc(http.Header, 2) catch return text(allocator, 200, asset.mime, asset.bytes);
+            headers[0] = .{ .name = "Content-Encoding", .value = "gzip" };
+            headers[1] = .{ .name = "Vary", .value = "Accept-Encoding" };
+            return .{ .status = 200, .content_type = asset.mime, .body = compressed, .headers = headers };
+        }
+    }
+    return text(allocator, 200, asset.mime, asset.bytes);
 }
 
 fn text(allocator: std.mem.Allocator, status: u16, content_type: []const u8, body: []const u8) http.Response {

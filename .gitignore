@@ -34,6 +34,8 @@ graphify-out/.graphify_analysis.json
 graphify-out/.graphify_build.json
 graphify-out/.graphify_partition_cache.json
 graphify-out/.graphify_root
+graphify-out/.graphify_build_state.json
+graphify-out/.graphify_labels*.json*
 graphify-out/graph.html
 
 # Notes (user data)

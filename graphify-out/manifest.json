@@ -12,10 +12,10 @@
     "semantic_hash": "33391045bdb4041e9355541b02609442"
   },
   "build.zig": {
-    "mtime": 1795804923.5804722,
-    "seen": 1795815711.527143,
-    "ast_hash": "d69bfd8a1cff3e5871eb921dbb542520",
-    "semantic_hash": "d69bfd8a1cff3e5871eb921dbb542520"
+    "mtime": 1795816774.8971314,
+    "seen": 1795816828.6373973,
+    "ast_hash": "32f5fe7da54ded24ccee84455a13f3ce",
+    "semantic_hash": ""
   },
   "desktop/install.sh": {
     "mtime": 1795641268.8942823,
@@ -48,16 +48,16 @@
     "semantic_hash": "5f0a3f44a33ddd73fa8f19e0a64521f1"
   },
   "src/app.zig": {
-    "mtime": 1795815034.3365781,
-    "seen": 1795815711.527153,
-    "ast_hash": "fa11c35dca68703bf460f8f11ca6b9d7",
-    "semantic_hash": "fa11c35dca68703bf460f8f11ca6b9d7"
+    "mtime": 1795816616.630786,
+    "seen": 1795816828.6374311,
+    "ast_hash": "e0c0cf5b4398b4be6793e483c68992db",
+    "semantic_hash": ""
   },
   "src/assets.zig": {
-    "mtime": 1795814997.384429,
-    "seen": 1795815711.527154,
-    "ast_hash": "d13f15b0c8f8b8201a449f07a6360361",
-    "semantic_hash": "d13f15b0c8f8b8201a449f07a6360361"
+    "mtime": 1795816660.7861521,
+    "seen": 1795816828.6374326,
+    "ast_hash": "60c2b86eb442df11813af4105df4a7af",
+    "semantic_hash": ""
   },
   "src/audio.zig": {
     "mtime": 1795726978.7575486,
@@ -120,10 +120,10 @@
     "semantic_hash": "889fa8995bd7b6899ce98a7b59ee87e6"
   },
   "src/http.zig": {
-    "mtime": 1795726651.3975344,
-    "seen": 1795815711.5271647,
-    "ast_hash": "85a9447fd29dcdd9c1166cd239b51dd3",
-    "semantic_hash": "85a9447fd29dcdd9c1166cd239b51dd3"
+    "mtime": 1795816698.4368582,
+    "seen": 1795816828.6374485,
+    "ast_hash": "49c7de224e3863d516d6e23ea211a966",
+    "semantic_hash": ""
   },
   "src/importer.zig": {
     "mtime": 1795707434.9137383,
@@ -138,16 +138,16 @@
     "semantic_hash": "75edf4d877e6bcfc78e56928fbf4dc09"
   },
   "src/main.zig": {
-    "mtime": 1795724064.1563556,
-    "seen": 1795815711.5271676,
-    "ast_hash": "aae31a2920918085ccd1ee59bedc9b5f",
-    "semantic_hash": "aae31a2920918085ccd1ee59bedc9b5f"
+    "mtime": 1795816701.6809013,
+    "seen": 1795816828.6374526,
+    "ast_hash": "3cf3672405b393c8b5aeec9503e1013a",
+    "semantic_hash": ""
   },
   "src/mcp.zig": {
-    "mtime": 1795804943.6460574,
-    "seen": 1795815711.5271683,
-    "ast_hash": "14960a83b63de94678a503e3ffc7dbf1",
-    "semantic_hash": "14960a83b63de94678a503e3ffc7dbf1"
+    "mtime": 1795816789.3561676,
+    "seen": 1795816828.6374538,
+    "ast_hash": "917bad938d14f5b7ace7a1d9a3641554",
+    "semantic_hash": ""
   },
   "src/mcp_client.zig": {
     "mtime": 1795478753.6725433,
@@ -376,5 +376,293 @@
     "seen": 1795815717.6662235,
     "ast_hash": "23a52fb5d0775919e87a40527bfb8e5f",
     "semantic_hash": "23a52fb5d0775919e87a40527bfb8e5f"
+  },
+  "AGENTS.md": {
+    "mtime": 1795815736.466729,
+    "seen": 1795816828.637489,
+    "ast_hash": "e2a476023d620289ab2f4050cbe151bf",
+    "semantic_hash": ""
+  },
+  "CHANGELOG.md": {
+    "mtime": 1795816771.9442403,
+    "seen": 1795816828.6374907,
+    "ast_hash": "c3c4feb8b9282f09767e3060dffb6b33",
+    "semantic_hash": ""
+  },
+  "DEPLOY_MANUAL_COMMANDS.txt": {
+    "mtime": 1791649864.097574,
+    "seen": 1795816828.6374917,
+    "ast_hash": "df86856c973f5ee0f8740632dfabb274",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1795641294.6745996,
+    "seen": 1795816828.637493,
+    "ast_hash": "9e8c00b0e796dc2e30d2d2c46a63142a",
+    "semantic_hash": ""
+  },
+  "STUDY_PLATFORM_HANDOFF.md": {
+    "mtime": 1795225821.7293265,
+    "seen": 1795816828.637494,
+    "ast_hash": "f3d706801cae9def652aee93c8a3b5f5",
+    "semantic_hash": ""
+  },
+  "design/stitch-reference/stitch_study_platform_ui_system/asistente_acad_mico_ia/code.html": {
+    "mtime": 1791749266.0,
+    "seen": 1795816828.6374948,
+    "ast_hash": "f30d0f0639905d5cca388bc76e035fdd",
+    "semantic_hash": ""
+  },
+  "design/stitch-reference/stitch_study_platform_ui_system/centro_mcp_configuraci_n_openrouter/code.html": {
+    "mtime": 1792984294.8166666,
+    "seen": 1795816828.6374958,
+    "ast_hash": "b4ad805be2b6addc3765323672c0015b",
+    "semantic_hash": ""
+  },
+  "design/stitch-reference/stitch_study_platform_ui_system/panel_principal_dashboard/code.html": {
+    "mtime": 1791749266.0,
+    "seen": 1795816828.637497,
+    "ast_hash": "348600dc4bb01a8e189efd08c5fd5b09",
+    "semantic_hash": ""
+  },
+  "design/stitch-reference/stitch_study_platform_ui_system/segundo_cerebro_notas_markdown/code.html": {
+    "mtime": 1791749266.0,
+    "seen": 1795816828.637498,
+    "ast_hash": "a3198096d982d5dc62d17f76a869949e",
+    "semantic_hash": ""
+  },
+  "design/stitch-reference/stitch_study_platform_ui_system/study_platform_academic_dashboard/code.html": {
+    "mtime": 1791749266.0,
+    "seen": 1795816828.637499,
+    "ast_hash": "348600dc4bb01a8e189efd08c5fd5b09",
+    "semantic_hash": ""
+  },
+  "design/stitch-reference/stitch_study_platform_ui_system/synthetic_cognition/DESIGN.md": {
+    "mtime": 1791749266.0,
+    "seen": 1795816828.6374998,
+    "ast_hash": "b305fbceecf592c8e8e564c96b88c048",
+    "semantic_hash": ""
+  },
+  "docs/API.md": {
+    "mtime": 1795732380.511329,
+    "seen": 1795816828.6375012,
+    "ast_hash": "b7f63ff7c54a23c783b3ac7e01f6671b",
+    "semantic_hash": ""
+  },
+  "docs/ARCHITECTURE.md": {
+    "mtime": 1795225821.729949,
+    "seen": 1795816828.637502,
+    "ast_hash": "6253521f65349e2452eeae72787cd27f",
+    "semantic_hash": ""
+  },
+  "docs/CHANGELOG.md": {
+    "mtime": 1791592152.1258793,
+    "seen": 1795816828.6375027,
+    "ast_hash": "f2f399bccb0c23f399895505f4f5ac6b",
+    "semantic_hash": ""
+  },
+  "docs/DECISIONS.md": {
+    "mtime": 1791587886.4800253,
+    "seen": 1795816828.6375034,
+    "ast_hash": "e7de8b3bfea0bcf3f0f4dd6ae63cca11",
+    "semantic_hash": ""
+  },
+  "docs/DEPLOY.md": {
+    "mtime": 1795225821.729949,
+    "seen": 1795816828.6375046,
+    "ast_hash": "999f5d1cf85d5c33bef3a8a1721f6399",
+    "semantic_hash": ""
+  },
+  "docs/DEPLOYMENT.md": {
+    "mtime": 1791641208.0340455,
+    "seen": 1795816828.6375055,
+    "ast_hash": "69eb8b1cc534cbfd78280a869dbc0010",
+    "semantic_hash": ""
+  },
+  "docs/DEPLOY_RUNBOOK_M10.md": {
+    "mtime": 1791641216.120146,
+    "seen": 1795816828.6375065,
+    "ast_hash": "a1a39693cdb842b615fca560d22ce6b6",
+    "semantic_hash": ""
+  },
+  "docs/DEVELOPER_SETUP.md": {
+    "mtime": 1795641291.8315647,
+    "seen": 1795816828.6375074,
+    "ast_hash": "cfe5e9e418b1101aa00b924e9bf249c6",
+    "semantic_hash": ""
+  },
+  "docs/GENOFFICE_PARITY.md": {
+    "mtime": 1795225821.729949,
+    "seen": 1795816828.6375084,
+    "ast_hash": "bd45e118ab53da63341bdaac9be89c8a",
+    "semantic_hash": ""
+  },
+  "docs/INDEX.md": {
+    "mtime": 1795225821.729949,
+    "seen": 1795816828.6375093,
+    "ast_hash": "9007372414069566b6f0c7f336815205",
+    "semantic_hash": ""
+  },
+  "docs/PORTS.md": {
+    "mtime": 1792808684.9368346,
+    "seen": 1795816828.6375103,
+    "ast_hash": "6072cff43491bcd0e4659f656da7f36c",
+    "semantic_hash": ""
+  },
+  "docs/REQUIREMENTS.md": {
+    "mtime": 1791586719.4128592,
+    "seen": 1795816828.6375113,
+    "ast_hash": "80a08372e0cb5be7ef7d025ce44e15f6",
+    "semantic_hash": ""
+  },
+  "docs/ROADMAP.md": {
+    "mtime": 1793064329.4635334,
+    "seen": 1795816828.6375134,
+    "ast_hash": "e4a78711ccec681287bec54963aa2487",
+    "semantic_hash": ""
+  },
+  "docs/SECURITY.md": {
+    "mtime": 1795478753.665543,
+    "seen": 1795816828.6375144,
+    "ast_hash": "ecb399cba7faf6b52397203246246fd5",
+    "semantic_hash": ""
+  },
+  "docs/SESSION_HANDOFF.md": {
+    "mtime": 1795225821.729949,
+    "seen": 1795816828.6375153,
+    "ast_hash": "80f902cb35f439ec575ce934c0e5623f",
+    "semantic_hash": ""
+  },
+  "docs/TESTING.md": {
+    "mtime": 1793064331.7436173,
+    "seen": 1795816828.6375163,
+    "ast_hash": "bcb713114756d060528f935187e9266b",
+    "semantic_hash": ""
+  },
+  "docs/UI_REDESIGN.md": {
+    "mtime": 1792953654.2646704,
+    "seen": 1795816828.6375172,
+    "ast_hash": "83f95e7e406a3cb05928eb2a03983e82",
+    "semantic_hash": ""
+  },
+  "docs/USER_GUIDE.md": {
+    "mtime": 1795314852.4919138,
+    "seen": 1795816828.6375182,
+    "ast_hash": "3b3bdf43cc4bd3640af25d0b117657ba",
+    "semantic_hash": ""
+  },
+  "docs/archive/README_previo_2026-10-20.md": {
+    "mtime": 1792532880.9595394,
+    "seen": 1795816828.6375191,
+    "ast_hash": "e837065cf8634beb28464ec56a02f0d0",
+    "semantic_hash": ""
+  },
+  "docs/archive/md_summary_obsoleto_2026-10-15.md": {
+    "mtime": 1792100857.2893271,
+    "seen": 1795816828.63752,
+    "ast_hash": "80ef5919b676e0138c85e208e0ef2f60",
+    "semantic_hash": ""
+  },
+  "static/stitch-v2/_content/clean/asistente.html": {
+    "mtime": 1795225821.732949,
+    "seen": 1795816828.6375213,
+    "ast_hash": "91828ee29f8b19b911e852e6f3628973",
+    "semantic_hash": ""
+  },
+  "static/stitch-v2/_content/clean/calendar.html": {
+    "mtime": 1795225821.7459493,
+    "seen": 1795816828.637522,
+    "ast_hash": "5dcacdf336a1b59708b4213dbd59cfd1",
+    "semantic_hash": ""
+  },
+  "static/stitch-v2/_content/clean/index.html": {
+    "mtime": 1795656379.7351363,
+    "seen": 1795816828.637523,
+    "ast_hash": "53adbfb6469adcb30c60040f80f131ca",
+    "semantic_hash": ""
+  },
+  "static/stitch-v2/_content/clean/material.html": {
+    "mtime": 1792953657.674715,
+    "seen": 1795816828.6375237,
+    "ast_hash": "3ffc250c058c42eb0ab3c941fa6f7c32",
+    "semantic_hash": ""
+  },
+  "static/stitch-v2/_content/clean/mcp.html": {
+    "mtime": 1792983871.8571026,
+    "seen": 1795816828.6375248,
+    "ast_hash": "b9591be2f02f005ab80016769a89aa3e",
+    "semantic_hash": ""
+  },
+  "static/stitch-v2/_content/clean/notes.html": {
+    "mtime": 1795278997.0762494,
+    "seen": 1795816828.6375258,
+    "ast_hash": "91c49997a19f06492fa8da43c251561a",
+    "semantic_hash": ""
+  },
+  "static/stitch-v2/_content/clean/settings.html": {
+    "mtime": 1795641834.163036,
+    "seen": 1795816828.6375265,
+    "ast_hash": "e9a65343526796204ed9009e94419740",
+    "semantic_hash": ""
+  },
+  "static/stitch-v2/shell/aside.html": {
+    "mtime": 1795726886.0628126,
+    "seen": 1795816828.6375275,
+    "ast_hash": "186b717d2f74a4ac7cdc8c9e2d811d29",
+    "semantic_hash": ""
+  },
+  "static/stitch-v2/shell/head.html": {
+    "mtime": 1795814983.4493728,
+    "seen": 1795816828.6375284,
+    "ast_hash": "36f49d7891237d3cd89b0f7e89338af8",
+    "semantic_hash": ""
+  },
+  "static/stitch-v2/shell/topbar.html": {
+    "mtime": 1792983769.1782324,
+    "seen": 1795816828.6375291,
+    "ast_hash": "d37b04b07a8f0b2db36ba3e0bd6c4169",
+    "semantic_hash": ""
+  },
+  "static/study-platform-ui/README.md": {
+    "mtime": 1791659423.0,
+    "seen": 1795816828.63753,
+    "ast_hash": "f814d04b9112cc587947883f510a20a7",
+    "semantic_hash": ""
+  },
+  "static/study-platform-ui/index.html": {
+    "mtime": 1791659807.0,
+    "seen": 1795816828.637531,
+    "ast_hash": "c2ddd2abf44f56b0207749475ff6c18c",
+    "semantic_hash": ""
+  },
+  "design/stitch-reference/stitch_study_platform_ui_system/asistente_acad_mico_ia/screen.png": {
+    "mtime": 1791749266.0,
+    "seen": 1795816828.637532,
+    "ast_hash": "4f404e638e1c08b8284d187892a95c34",
+    "semantic_hash": ""
+  },
+  "design/stitch-reference/stitch_study_platform_ui_system/centro_mcp_configuraci_n_openrouter/screen.png": {
+    "mtime": 1791749266.0,
+    "seen": 1795816828.637533,
+    "ast_hash": "1367adbd58db4056279088d6b1c44e0e",
+    "semantic_hash": ""
+  },
+  "design/stitch-reference/stitch_study_platform_ui_system/panel_principal_dashboard/screen.png": {
+    "mtime": 1791749266.0,
+    "seen": 1795816828.637534,
+    "ast_hash": "67a2914951a712ea2a9a9bb4a98e24ac",
+    "semantic_hash": ""
+  },
+  "design/stitch-reference/stitch_study_platform_ui_system/segundo_cerebro_notas_markdown/screen.png": {
+    "mtime": 1791749266.0,
+    "seen": 1795816828.6375349,
+    "ast_hash": "f6446ac090b5d16423ab6781c78f41e6",
+    "semantic_hash": ""
+  },
+  "static/app/favicon.svg": {
+    "mtime": 1795225821.731949,
+    "seen": 1795816828.6375358,
+    "ast_hash": "bf51864594ede1274fc59c67b0b4ed09",
+    "semantic_hash": ""
   }
 }

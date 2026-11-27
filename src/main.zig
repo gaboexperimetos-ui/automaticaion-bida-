@@ -4,6 +4,7 @@ const http = @import("http.zig");
 const config_mod = @import("config.zig");
 const sqlite = @import("sqlite.zig");
 const app_mod = @import("app.zig");
+const assets = @import("assets.zig");
 const security = @import("security.zig");
 
 var stopping = std.atomic.Value(bool).init(false);
@@ -74,6 +75,7 @@ pub fn main() !void {
     }
 
     const bind = try parseAddress(a, address);
+    assets.warmCompression();
     var app = app_mod.App.init(allocator, &config, &db);
     try serve(bind.host, bind.port, &app);
 }
@@ -191,7 +193,7 @@ fn clientThread(fd: c_int, peer_ip: []const u8, app: *app_mod.App) void {
         std.log.warn("Fallo de petición {s} {s}: {s}", .{ request.method, request.path, @errorName(err) });
         break :blk http.Response{ .status = 500, .content_type = "application/json; charset=utf-8", .body = "{\"error\":\"Internal error\"}" };
     };
-    http.writeResponse(fd, allocator, response);
+    http.writeResponse(fd, allocator, http.maybeGzip(allocator, &request, response));
 }
 
 fn printHelp() void {

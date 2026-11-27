@@ -56,7 +56,7 @@ fn dispatch(allocator: std.mem.Allocator, db: *sqlite.Db, config: *const config_
         return json.object(allocator, &.{
             .{ .key = "protocolVersion", .value = .{ .string = "2025-03-26" } },
             .{ .key = "capabilities", .value = try json.object(allocator, &.{ .{ .key = "tools", .value = try json.object(allocator, &.{}) }, .{ .key = "prompts", .value = try json.object(allocator, &.{}) } }) },
-            .{ .key = "serverInfo", .value = try json.object(allocator, &.{ .{ .key = "name", .value = .{ .string = "study-platform-mcp" } }, .{ .key = "version", .value = .{ .string = "1.1.2" } } }) },
+            .{ .key = "serverInfo", .value = try json.object(allocator, &.{ .{ .key = "name", .value = .{ .string = "study-platform-mcp" } }, .{ .key = "version", .value = .{ .string = "1.1.3" } } }) },
         });
     }
     if (std.mem.eql(u8, method, "notifications/initialized")) return json.object(allocator, &.{});

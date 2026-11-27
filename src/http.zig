@@ -189,6 +189,28 @@ pub fn sendAll(fd: c_int, bytes: []const u8) bool {
     return true;
 }
 
+pub fn maybeGzip(allocator: std.mem.Allocator, request: *const Request, response: Response) Response {
+    if (response.body.len < 1024) return response;
+    for (response.headers) |h| if (std.ascii.eqlIgnoreCase(h.name, "Content-Encoding")) return response;
+    const compressible = std.mem.startsWith(u8, response.content_type, "text/html") or
+        std.mem.startsWith(u8, response.content_type, "text/css") or
+        std.mem.startsWith(u8, response.content_type, "application/javascript") or
+        std.mem.startsWith(u8, response.content_type, "application/json");
+    if (!compressible) return response;
+    const accept = request.header("accept-encoding") orelse return response;
+    if (std.mem.indexOf(u8, accept, "gzip") == null) return response;
+    var out = std.ArrayList(u8).init(allocator);
+    defer out.deinit();
+    var stream = std.io.fixedBufferStream(response.body);
+    std.compress.gzip.compress(stream.reader(), out.writer(), .{}) catch return response;
+    const body = out.toOwnedSlice() catch return response;
+    const headers = allocator.alloc(Header, response.headers.len + 2) catch return response;
+    @memcpy(headers[0..response.headers.len], response.headers);
+    headers[response.headers.len] = .{ .name = "Content-Encoding", .value = "gzip" };
+    headers[response.headers.len + 1] = .{ .name = "Vary", .value = "Accept-Encoding" };
+    return .{ .status = response.status, .content_type = response.content_type, .body = body, .headers = headers };
+}
+
 pub fn writeResponse(fd: c_int, allocator: std.mem.Allocator, response: Response) void {
     const reason = reasonPhrase(response.status);
     const head = std.fmt.allocPrint(allocator, "HTTP/1.1 {d} {s}\r\nContent-Type: {s}\r\nContent-Length: {d}\r\nConnection: close\r\nX-Content-Type-Options: nosniff\r\nReferrer-Policy: same-origin\r\n", .{ response.status, reason, response.content_type, response.body.len }) catch return;

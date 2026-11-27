@@ -3,6 +3,15 @@
 All notable changes to this project are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.1.3] - 2026-11-27 — Entrega comprimida
+
+### Changed
+- El servidor comprime con gzip los estáticos de texto (CSS, JS y SVG) y las
+  respuestas HTML/JSON de más de 1 KB cuando el cliente lo acepta. En una
+  carga del panel, CSS+JS bajan de ~602 KB a ~112 KB y el HTML de 71,8 KB a
+  13,6 KB. Los estáticos se comprimen una sola vez al arrancar y se cachean en
+  memoria; las fuentes WOFF2 no se recomprimen.
+
 ## [1.1.2] - 2026-11-27 — Escritorio HTML5 exacto
 
 ### Changed
