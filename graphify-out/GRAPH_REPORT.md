@@ -1,17 +1,17 @@
 # Graph Report - styp  (2026-11-27)
 
 ## Corpus Check
-- 63 files · ~205,747 words
+- 63 files · ~206,252 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 20 file(s) not represented in the graph (top: .woff2 9, .css 7, (none) 2)
 
 ## Summary
-- 1489 nodes · 3247 edges · 70 communities (62 shown, 8 thin omitted)
+- 1497 nodes · 3262 edges · 71 communities (63 shown, 8 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 42 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `efaa353b`
+- Built from commit: `bffb61be`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -62,6 +62,7 @@
 - charts.js
 - el
 - tests.zig
+- google_workspace.zig
 - nativesync.zig
 - std
 - chartEmpty
@@ -112,11 +113,11 @@
 ## Import Cycles
 - None detected.
 
-## Communities (70 total, 8 thin omitted)
+## Communities (71 total, 8 thin omitted)
 
 ### Community 0 - "App"
 Cohesion: 0.06
-Nodes (32): academicTool(), AcademicView, asistencia, evaluaciones, horario, mensajes, perfil, tareas (+24 more)
+Nodes (35): academicTool(), AcademicView, asistencia, evaluaciones, horario, mensajes, perfil, tareas (+27 more)
 
 ### Community 1 - "notes.zig"
 Cohesion: 0.08
@@ -179,16 +180,16 @@ Cohesion: 0.12
 Nodes (27): Card, cardFrom(), cardValue(), Civil, civilFromDays(), createCard(), daysFromCivil(), getCard() (+19 more)
 
 ### Community 16 - "oauth_google.zig"
-Cohesion: 0.07
-Nodes (42): accessTokenFor(), Contact, contacts(), ContactsResult, docKindLabel(), docSectionHtml(), DocText, downloadFile() (+34 more)
+Cohesion: 0.12
+Nodes (25): authorizationUrl(), buildStateCookie(), calendarEvents(), clearStateCookie(), Config, Error, BadResponse, EmailMissing (+17 more)
 
 ### Community 17 - "schedule_view.zig"
-Cohesion: 0.07
-Nodes (36): apilada(), Bar, barras(), clampPct(), donut(), esc(), Palette, progreso() (+28 more)
+Cohesion: 0.13
+Nodes (24): agendaItems(), buildRows(), Clase, clasesDe(), classAt(), datePart(), dayHasClasses(), Dia (+16 more)
 
 ### Community 18 - "mcp_client.zig"
 Cohesion: 0.08
-Nodes (26): Asset, assetByPath(), compressGzip(), etagForPath(), find(), gzipForPath(), indexOf(), warmCompression() (+18 more)
+Nodes (30): Asset, assetByPath(), compressGzip(), etagForBytes(), etagForPath(), find(), fnv(), gzip() (+22 more)
 
 ### Community 19 - "classroom.zig"
 Cohesion: 0.14
@@ -215,8 +216,8 @@ Cohesion: 0.12
 Nodes (16): app_config, notes, sessions, users, idx_note_versions_note_id, note_versions, notes_fts, idx_sessions_expires_at (+8 more)
 
 ### Community 25 - "academico.zig"
-Cohesion: 0.23
-Nodes (17): asistenciaHtml(), esc(), examenesHtml(), fecha(), fila(), horarioHtml(), kpi(), mensajeItem() (+9 more)
+Cohesion: 0.09
+Nodes (29): asistenciaHtml(), esc(), examenesHtml(), fecha(), fila(), horarioHtml(), kpi(), mensajeItem() (+21 more)
 
 ### Community 26 - "desktop/main.zig"
 Cohesion: 0.17
@@ -298,6 +299,10 @@ Nodes (11): el(), fillMenu(), icon(), initSearch(), move(), paint(), run(), init
 Cohesion: 0.21
 Nodes (6): collect(), diskFreeBytes(), meminfoKiB(), Memory, Metrics, readMemory()
 
+### Community 46 - "google_workspace.zig"
+Cohesion: 0.16
+Nodes (17): accessTokenFor(), Contact, contacts(), ContactsResult, docKindLabel(), docSectionHtml(), DocText, downloadFile() (+9 more)
+
 ### Community 47 - "nativesync.zig"
 Cohesion: 0.33
 Nodes (9): build(), classItemsJson(), eventosJson(), gradesJson(), horarioJson(), inboxJson(), notasJson(), noteRowsJson() (+1 more)
@@ -364,7 +369,7 @@ Nodes (7): getSlidePtr(), getSlidesPtr(), importPresentation(), presentationRout
 
 ## Knowledge Gaps
 - **90 isolated node(s):** `horario`, `tareas`, `evaluaciones`, `asistencia`, `perfil` (+85 more)
-  These have ≤1 connection - possible missing edges. (Counts symbols only; 344 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+  These have ≤1 connection - possible missing edges. (Counts symbols only; 345 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
 - **8 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
@@ -373,7 +378,7 @@ _Questions this graph is uniquely positioned to answer:_
 - **What connects `horario`, `tareas`, `evaluaciones` to the rest of the system?**
   _90 weakly-connected nodes found - possible missing edges._
 - **Should `App` be split into smaller, more focused modules?**
-  _Cohesion score 0.05711086226203808 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.05512308015989901 - nodes in this community are weakly interconnected._
 - **Should `notes.zig` be split into smaller, more focused modules?**
   _Cohesion score 0.07530864197530865 - nodes in this community are weakly interconnected._
 - **Should `importer.zig` be split into smaller, more focused modules?**

@@ -74,6 +74,66 @@ fn compressGzip(data: []const u8) ?[]const u8 {
     return out.toOwnedSlice() catch null;
 }
 
+/// Comprime unos bytes arbitrarios (respuestas dinamicas como el tema activo).
+pub fn gzip(data: []const u8) ?[]const u8 {
+    return compressGzip(data);
+}
+
+fn fnv(bytes: []const u8) u64 {
+    var hash: u64 = 0xcbf29ce484222325;
+    for (bytes) |byte| {
+        hash ^= byte;
+        hash *%= 0x100000001b3;
+    }
+    return hash;
+}
+
+pub fn etagForBytes(bytes: []const u8) []const u8 {
+    return std.fmt.allocPrint(std.heap.page_allocator, "\"{x}\"", .{fnv(bytes)}) catch "\"\"";
+}
+
+fn knownTheme(theme: []const u8) bool {
+    const names = [_][]const u8{ "gruvbox", "osaka-jade", "tokyo-night", "catppuccin", "nord", "dracula", "rose-pine", "everforest", "solarized", "kanagawa", "nebula" };
+    for (names) |name| if (std.mem.eql(u8, theme, name)) return true;
+    return false;
+}
+
+/// Solo el bloque del tema activo mas el estilo comun. El resto del archivo
+/// son las otras 10 paletas, que no se usan y bloquean el pintado.
+pub fn themeCss(allocator: std.mem.Allocator, theme: []const u8) []const u8 {
+    const css = assetByPath("/static/app/themes.css").?.bytes;
+    const first = std.mem.indexOf(u8, css, "html[data-theme=\"") orelse return css;
+    if (!knownTheme(theme)) return themeCss(allocator, "nebula");
+    var buf: [64]u8 = undefined;
+    const marker = std.fmt.bufPrint(&buf, "html[data-theme=\"{s}\"] {{", .{theme}) catch return css[0..first];
+    const start = std.mem.indexOf(u8, css, marker) orelse return themeCss(allocator, "nebula");
+    const close = std.mem.indexOf(u8, css[start..], "\n}\n") orelse return css[0..first];
+    const end = start + close + 3;
+    const prefix = css[0..first];
+    const block = css[start..end];
+    if (std.mem.eql(u8, theme, "nebula")) {
+        const out = allocator.alloc(u8, prefix.len + block.len) catch return prefix;
+        @memcpy(out[0..prefix.len], prefix);
+        @memcpy(out[prefix.len..], block);
+        return out;
+    }
+    const shared = std.mem.indexOf(u8, css[end..], "/* Estilo común") orelse {
+        const out = allocator.alloc(u8, prefix.len + block.len) catch return prefix;
+        @memcpy(out[0..prefix.len], prefix);
+        @memcpy(out[prefix.len..], block);
+        return out;
+    };
+    var tail = css[end + shared ..];
+    // Las paletas CyberHex no estan en el selector de temas: se sirven solo
+    // si el tema activo es una de ellas (hoy el selector cae a nebula).
+    if (std.mem.indexOf(u8, tail, "html[data-theme=\"cyberhex-")) |cut| tail = tail[0..cut];
+    const out = allocator.alloc(u8, prefix.len + block.len + tail.len) catch return prefix;
+    @memcpy(out[0..prefix.len], prefix);
+    @memcpy(out[prefix.len .. prefix.len + block.len], block);
+    @memcpy(out[prefix.len + block.len ..], tail);
+    return out;
+}
+
 pub fn indexOf(path: []const u8) ?usize {
     for (files, 0..) |file, i| if (std.mem.eql(u8, path, file.path)) return i;
     return null;

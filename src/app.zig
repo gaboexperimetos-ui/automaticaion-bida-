@@ -52,6 +52,7 @@ pub const App = struct {
         if (std.mem.eql(u8, path, "/api/status")) return self.status(allocator);
         if (std.mem.eql(u8, path, "/api/config") or std.mem.eql(u8, path, "/api/public-config")) return self.publicConfig(allocator);
         if (std.mem.eql(u8, path, "/api/debug")) return self.publicConfig(allocator);
+        if (std.mem.eql(u8, path, "/themes.css")) return themesCss(allocator, request);
         if (assets.find(path) != null or std.mem.startsWith(u8, path, "/static/") or std.mem.startsWith(u8, path, "/app-assets/")) {
             if (std.mem.startsWith(u8, path, "/static/") and std.mem.indexOf(u8, path, "..") != null) return text(allocator, 404, "text/plain; charset=utf-8", "not found");
             if (assets.find(path)) |asset| return staticAsset(allocator, request, asset);
@@ -1561,34 +1562,58 @@ fn fileSize(allocator: std.mem.Allocator, path: []const u8) !i64 {
     return @intCast(stat.size);
 }
 
-fn staticAsset(allocator: std.mem.Allocator, request: *const http.Request, asset: assets.Asset) http.Response {
-    const etag = assets.etagForPath(asset.path);
+fn assetResponse(allocator: std.mem.Allocator, request: *const http.Request, mime: []const u8, body: []const u8, cached_path: ?[]const u8) http.Response {
+    const etag = if (cached_path) |path| assets.etagForPath(path) else assets.etagForBytes(body);
     if (etag) |tag| {
         if (request.header("if-none-match")) |incoming| {
             if (std.mem.eql(u8, incoming, tag)) {
-                const headers = allocator.alloc(http.Header, 2) catch return text(allocator, 304, asset.mime, "");
+                const headers = allocator.alloc(http.Header, 2) catch return text(allocator, 304, mime, "");
                 headers[0] = .{ .name = "ETag", .value = tag };
                 headers[1] = .{ .name = "Cache-Control", .value = "no-cache" };
-                return .{ .status = 304, .content_type = asset.mime, .body = "", .headers = headers };
+                return .{ .status = 304, .content_type = mime, .body = "", .headers = headers };
             }
         }
     }
     const accepts_gzip = if (request.header("accept-encoding")) |value| std.mem.indexOf(u8, value, "gzip") != null else false;
-    const compressed: ?[]const u8 = if (accepts_gzip) assets.gzipForPath(asset.path) else null;
+    const compressed: ?[]const u8 = if (accepts_gzip)
+        (if (cached_path) |path| assets.gzipForPath(path) else assets.gzip(body))
+    else
+        null;
     var count: usize = 0;
     if (etag != null) count += 2;
     if (compressed != null) count += 2;
-    const headers = allocator.alloc(http.Header, count) catch return text(allocator, 200, asset.mime, asset.bytes);
+    const headers = allocator.alloc(http.Header, count) catch return text(allocator, 200, mime, body);
     if (etag) |tag| {
         headers[0] = .{ .name = "ETag", .value = tag };
         headers[1] = .{ .name = "Cache-Control", .value = "no-cache" };
     }
-    if (compressed) |body| {
+    if (compressed) |compressed_body| {
         headers[count - 2] = .{ .name = "Content-Encoding", .value = "gzip" };
         headers[count - 1] = .{ .name = "Vary", .value = "Accept-Encoding" };
-        return .{ .status = 200, .content_type = asset.mime, .body = body, .headers = headers };
+        return .{ .status = 200, .content_type = mime, .body = compressed_body, .headers = headers };
     }
-    return .{ .status = 200, .content_type = asset.mime, .body = asset.bytes, .headers = headers[0..count] };
+    return .{ .status = 200, .content_type = mime, .body = body, .headers = headers[0..count] };
+}
+
+fn staticAsset(allocator: std.mem.Allocator, request: *const http.Request, asset: assets.Asset) http.Response {
+    return assetResponse(allocator, request, asset.mime, asset.bytes, asset.path);
+}
+
+fn themeFromRequest(request: *const http.Request) []const u8 {
+    const cookie = request.header("cookie") orelse return "nebula";
+    var parts = std.mem.splitScalar(u8, cookie, ';');
+    while (parts.next()) |part| {
+        const trimmed = std.mem.trim(u8, part, " \t");
+        if (std.mem.startsWith(u8, trimmed, "nova_theme=")) {
+            return std.mem.trim(u8, trimmed["nova_theme=".len..], " \t");
+        }
+    }
+    return "nebula";
+}
+
+fn themesCss(allocator: std.mem.Allocator, request: *const http.Request) http.Response {
+    const theme = themeFromRequest(request);
+    return assetResponse(allocator, request, "text/css; charset=utf-8", assets.themeCss(allocator, theme), null);
 }
 
 fn text(allocator: std.mem.Allocator, status: u16, content_type: []const u8, body: []const u8) http.Response {

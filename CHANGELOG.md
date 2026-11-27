@@ -14,6 +14,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/).
 - Los estáticos llevan `ETag` y `Cache-Control: no-cache`: al recargar o
   reiniciar la app, el navegador revalida y recibe `304` sin volver a
   descargar ni parsear el CSS.
+- `/themes.css` sirve sólo el bloque del tema activo (más el estilo común):
+  el tema por defecto baja de 83 KB a 3,8 KB y los demás de 83 KB a ~30 KB.
+  El `ETag` cambia con el tema, así que la caché no mezcla paletas.
 - htmx se carga con `defer` para no bloquear el primer pintado.
 - La fuente de iconos se precarga (`<link rel=preload>`): al usar
   `font-display: block`, los iconos aparecen antes del primer pintado.
