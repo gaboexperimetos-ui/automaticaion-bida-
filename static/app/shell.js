@@ -2366,7 +2366,14 @@
     { id: "rose-pine", label: "Rosé Pine", bg: "#191724", accent: "#EBBCBA" },
     { id: "everforest", label: "Everforest", bg: "#2D353B", accent: "#A7C080" },
     { id: "solarized", label: "Solarized", bg: "#002B36", accent: "#268BD2" },
-    { id: "kanagawa", label: "Kanagawa", bg: "#1F1F28", accent: "#7E9CD8" }
+    { id: "kanagawa", label: "Kanagawa", bg: "#1F1F28", accent: "#7E9CD8" },
+    { id: "cyberhex-neon", label: "CyberHex Neon", bg: "#0F0F23", accent: "#22C55E" },
+    { id: "cyberhex-amoled", label: "CyberHex AMOLED", bg: "#000000", accent: "#22C55E" },
+    { id: "cyberhex-light", label: "CyberHex Claro", bg: "#F7F7FB", accent: "#0E9F6E" },
+    { id: "cyberhex-material", label: "CyberHex Material", bg: "#14121A", accent: "#D0BCFF" },
+    { id: "cyberhex-cyberpunk", label: "CyberHex Cyberpunk", bg: "#0B0713", accent: "#F472B6" },
+    { id: "cyberhex-aurora", label: "CyberHex Aurora", bg: "#140B2B", accent: "#22D3EE" },
+    { id: "cyberhex-soft", label: "CyberHex Suave", bg: "#F6F2FA", accent: "#6750A4" }
   ];
   var THEME_KEY = "nova.theme";
 
