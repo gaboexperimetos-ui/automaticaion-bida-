@@ -79,7 +79,7 @@ pub fn fillPage(allocator: std.mem.Allocator, page: TemplatePage, source: []cons
         .{ .slot = "CLASSES", .value = classes_html },
         .{ .slot = "EXAM", .value = exam_html },
         .{ .slot = "FOCUS", .value = "<div class=\"nx-card\"><p class=\"nx-eyebrow\">Enfoque</p><p class=\"text-sm text-on-surface-variant\">Tu espacio de estudio está listo.</p></div>" },
-        .{ .slot = "GREETING", .value = safe_name },
+        .{ .slot = "GREETING", .value = "Bienvenido, señor" },
         .{ .slot = "KPI_AVG", .value = try panel.kpiAvg(allocator, datos) },
         .{ .slot = "KPI_CLASSES", .value = try panel.kpiClasses(allocator, datos) },
         .{ .slot = "KPI_CONV", .value = try panel.kpiConv(allocator, datos) },

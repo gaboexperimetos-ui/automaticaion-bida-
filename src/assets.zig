@@ -38,6 +38,17 @@ pub const files = [_]Asset{
     .{ .path = "/office-html.js", .mime = "application/javascript; charset=utf-8", .bytes = @embedFile("../static/app/office-html.js") },
     .{ .path = "/static/app/themes.css", .mime = "text/css; charset=utf-8", .bytes = @embedFile("../static/app/themes.css") },
     .{ .path = "/static/app/music.css", .mime = "text/css; charset=utf-8", .bytes = @embedFile("../static/app/music.css") },
+    .{ .path = "/static/app/tailwind.css", .mime = "text/css; charset=utf-8", .bytes = @embedFile("../static/app/tailwind.css") },
+    .{ .path = "/fonts.css", .mime = "text/css; charset=utf-8", .bytes = @embedFile("../static/fonts.css") },
+    .{ .path = "/fonts/inter-latin.woff2", .mime = "font/woff2", .bytes = @embedFile("../static/fonts/inter-latin.woff2") },
+    .{ .path = "/fonts/inter-latin-ext.woff2", .mime = "font/woff2", .bytes = @embedFile("../static/fonts/inter-latin-ext.woff2") },
+    .{ .path = "/fonts/manrope-latin.woff2", .mime = "font/woff2", .bytes = @embedFile("../static/fonts/manrope-latin.woff2") },
+    .{ .path = "/fonts/manrope-latin-ext.woff2", .mime = "font/woff2", .bytes = @embedFile("../static/fonts/manrope-latin-ext.woff2") },
+    .{ .path = "/fonts/space-grotesk-latin.woff2", .mime = "font/woff2", .bytes = @embedFile("../static/fonts/space-grotesk-latin.woff2") },
+    .{ .path = "/fonts/space-grotesk-latin-ext.woff2", .mime = "font/woff2", .bytes = @embedFile("../static/fonts/space-grotesk-latin-ext.woff2") },
+    .{ .path = "/fonts/dm-sans-latin.woff2", .mime = "font/woff2", .bytes = @embedFile("../static/fonts/dm-sans-latin.woff2") },
+    .{ .path = "/fonts/dm-sans-latin-ext.woff2", .mime = "font/woff2", .bytes = @embedFile("../static/fonts/dm-sans-latin-ext.woff2") },
+    .{ .path = "/fonts/material-symbols-outlined.woff2", .mime = "font/woff2", .bytes = @embedFile("../static/fonts/material-symbols-outlined.woff2") },
 };
 
 fn assetByPath(wanted: []const u8) ?Asset {
@@ -55,6 +66,8 @@ pub fn find(path: []const u8) ?Asset {
     if (std.mem.eql(u8, path, "/audio.js")) return assetByPath("/static/app/audio.js");
     if (std.mem.eql(u8, path, "/themes.css")) return assetByPath("/static/app/themes.css");
     if (std.mem.eql(u8, path, "/music.css")) return assetByPath("/static/app/music.css");
+    if (std.mem.eql(u8, path, "/tailwind.css")) return assetByPath("/static/app/tailwind.css");
+    if (std.mem.eql(u8, path, "/fonts.css")) return assetByPath("/fonts.css");
     if (std.mem.eql(u8, path, "/styles.css")) return assetByPath("/static/study-platform-ui/styles.css");
     if (std.mem.eql(u8, path, "/app.js")) return assetByPath("/static/study-platform-ui/app.js");
     if (std.mem.startsWith(u8, path, "/app-assets/")) {

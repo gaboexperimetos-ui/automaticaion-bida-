@@ -3,6 +3,27 @@
 All notable changes to this project are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.1.2] - 2026-11-27 — Escritorio HTML5 exacto
+
+### Changed
+- La app de escritorio vuelve a GTK3 + WebKit2GTK (`zig build desktop`): abre
+  la misma interfaz Nébula server-rendered, idéntica a la web, en una ventana
+  propia sin navegador ni pestañas. Se retira el prototipo de widgets nativos,
+  que no reproducía el diseño real.
+- Transparencia ligera por defecto: ventana RGBA, superficies translúcidas,
+  aurora estática y cero `backdrop-filter` (el desenfoque era lo que saturaba
+  la GPU). `NOVA_GLASS=full` activa el vidrio esmerilado con blur como modo
+  pesado opcional.
+- Rendimiento: se elimina Tailwind Play CDN (compilador JS en runtime) por un
+  `tailwind.css` estático generado en el build, y las 5 familias de Google
+  Fonts + Material Symbols pasan a WOFF2 locales embebidos en el binario. La
+  página ya no hace peticiones externas al cargar.
+- El tamaño de la ventana se recuerda en `~/.config/nova/window.conf`; la
+  posición la decide el compositor en Wayland y abre en el workspace activo.
+
+### Fixed
+- La versión del build, `/health` y `serverInfo` del MCP coinciden en 1.1.2.
+
 ## [1.1.0] - 2026-11-26 — NOVA 1.1
 
 ### Added

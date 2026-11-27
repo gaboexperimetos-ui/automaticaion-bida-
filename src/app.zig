@@ -161,13 +161,13 @@ pub const App = struct {
     }
 
     fn isStaticAsset(path: []const u8) bool {
-        const prefixes = [_][]const u8{ "/static/", "/vendor/", "/app-assets/" };
+        const prefixes = [_][]const u8{ "/static/", "/vendor/", "/app-assets/", "/fonts/" };
         for (prefixes) |prefix| if (std.mem.startsWith(u8, path, prefix)) return true;
         const exact = [_][]const u8{
             "/favicon.svg", "/favicon.ico",     "/nova.css",       "/polish.css",
             "/themes.css",  "/music.css",       "/shell.js",       "/styles.css",
             "/app.js",      "/calendar-ics.js", "/office-html.js", "/office-sheets.js",
-            "/charts.js",   "/audio.js",
+            "/charts.js",   "/audio.js",        "/tailwind.css",   "/fonts.css",
         };
         for (exact) |asset| if (std.mem.eql(u8, path, asset)) return true;
         return false;

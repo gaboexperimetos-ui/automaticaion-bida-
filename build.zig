@@ -9,14 +9,14 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("main.zig"),
         .target = target,
         .optimize = optimize,
-        .version = .{ .major = 1, .minor = 1, .patch = 0 },
+        .version = .{ .major = 1, .minor = 1, .patch = 2 },
     });
     exe.linkLibC();
     linkSqlite(exe);
     // La version vive en un solo sitio: build.zig. `--version` la lee de aqui
     // para que no vuelva a quedarse fija en el codigo.
     const options = b.addOptions();
-    options.addOption([]const u8, "version", "1.1.0");
+    options.addOption([]const u8, "version", "1.1.2");
     exe.root_module.addOptions("build_options", options);
     b.installArtifact(exe);
 
@@ -37,8 +37,8 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Ejecuta pruebas unitarias Zig");
     test_step.dependOn(&run_tests.step);
 
-    // App de escritorio nativa (GTK3, sin motor web). No entra en el build por
-    // defecto para que un servidor sin librerías gráficas siga compilando:
+    // App de escritorio (GTK3 + WebKit2GTK, HTML5 exacto). No entra en el build
+    // por defecto para que un servidor sin librerías gráficas siga compilando:
     //   zig build desktop
     const desktop_exe = b.addExecutable(.{
         .name = "nova-desktop",
@@ -48,12 +48,9 @@ pub fn build(b: *std.Build) void {
     });
     desktop_exe.linkLibC();
     desktop_exe.linkSystemLibrary("gtk+-3.0");
-    // El cliente nativo reutiliza el serializador JSON del backend.
-    desktop_exe.root_module.addImport("jsonutil", b.createModule(.{
-        .root_source_file = b.path("src/jsonutil.zig"),
-    }));
+    desktop_exe.linkSystemLibrary("webkit2gtk-4.1");
     const desktop_install = b.addInstallArtifact(desktop_exe, .{});
-    const desktop_step = b.step("desktop", "Compila la app de escritorio nativa (GTK3, sin web)");
+    const desktop_step = b.step("desktop", "Compila la app de escritorio (GTK3 + WebKit2GTK, HTML5 exacto)");
     desktop_step.dependOn(&desktop_install.step);
 }
 
