@@ -175,7 +175,7 @@ fn injectGlassCss(view: *c.WebKitWebView, frosted: bool) void {
             "}" ++
             "#contenido, .nx-chat, .nx-conversation, main, .nx-dashboard { background: transparent !important; }" ++
             "* { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }" ++
-            "body::after { animation: none !important; filter: none !important; }" ++
+            "body::after { animation: none !important; filter: blur(12px) !important; }" ++
             "html { scroll-behavior: auto !important; }";
     const manager = c.webkit_web_view_get_user_content_manager(view);
     const sheet = c.webkit_user_style_sheet_new(
