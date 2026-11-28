@@ -12,9 +12,9 @@
     "semantic_hash": "33391045bdb4041e9355541b02609442"
   },
   "build.zig": {
-    "mtime": 1795882734.9858656,
-    "seen": 1795882827.3202956,
-    "ast_hash": "b96615ab05525fcfa5760d066014ce7e",
+    "mtime": 1795883274.8119586,
+    "seen": 1795883351.6176295,
+    "ast_hash": "d28461cb666de95d39e575caf2d5c742",
     "semantic_hash": ""
   },
   "desktop/install.sh": {
@@ -144,9 +144,9 @@
     "semantic_hash": ""
   },
   "src/mcp.zig": {
-    "mtime": 1795882734.9858656,
-    "seen": 1795882827.3204017,
-    "ast_hash": "d571b724e176c0194fa870e33816f632",
+    "mtime": 1795883274.8119586,
+    "seen": 1795883351.6177278,
+    "ast_hash": "6cee3076acaed00bee576106529e7649",
     "semantic_hash": ""
   },
   "src/mcp_client.zig": {
@@ -216,9 +216,9 @@
     "semantic_hash": "53b6e55bb4ebfa94bcd38cdd233cb427"
   },
   "src/templates.zig": {
-    "mtime": 1795882024.6436136,
-    "seen": 1795882827.3204231,
-    "ast_hash": "b9d009ee2338ee085c0a37a56eb7cb40",
+    "mtime": 1795883151.396556,
+    "seen": 1795883351.6177583,
+    "ast_hash": "5551f61d43150bd0ee362e390d9568df",
     "semantic_hash": ""
   },
   "src/tests.zig": {
@@ -384,9 +384,9 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1795882744.5339723,
-    "seen": 1795882827.320451,
-    "ast_hash": "2e771d14f5095e4b5ce70ae1d06dd99a",
+    "mtime": 1795883279.070007,
+    "seen": 1795883351.617793,
+    "ast_hash": "3bb1021c4a1a593849132e95a72a488f",
     "semantic_hash": ""
   },
   "DEPLOY_MANUAL_COMMANDS.txt": {
@@ -612,9 +612,9 @@
     "semantic_hash": ""
   },
   "static/stitch-v2/shell/head.html": {
-    "mtime": 1795882620.3465922,
-    "seen": 1795882827.320513,
-    "ast_hash": "ae787330599a1d87c04e62916009ad95",
+    "mtime": 1795883159.432647,
+    "seen": 1795883351.6178727,
+    "ast_hash": "ab0a01b7a7c8caa2882827244e083ea3",
     "semantic_hash": ""
   },
   "static/stitch-v2/shell/topbar.html": {
@@ -666,9 +666,9 @@
     "semantic_hash": ""
   },
   "tools/gen_nova_groups.py": {
-    "mtime": 1795882364.9808009,
-    "seen": 1795882827.3204453,
-    "ast_hash": "fc1a941aab5b9ba9afcaad2fc75ee75f",
+    "mtime": 1795883156.808617,
+    "seen": 1795883351.617787,
+    "ast_hash": "82778fec8bffa4ba7f3a5ccf80c37b94",
     "semantic_hash": ""
   },
   "tools/subset_icons.py": {

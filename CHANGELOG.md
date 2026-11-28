@@ -3,6 +3,21 @@
 All notable changes to this project are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.1.5] - 2026-11-28 — Una hoja y sólo el JS necesario
+
+### Changed
+- `fonts.css` se integra en `nova-<grupo>.css`: cada página carga una sola
+  hoja de estilos (antes fuentes + grupo). Desaparece una petición
+  bloqueante de render y el CSS sigue revalidando con `ETag`.
+- `charts.js` sólo se sirve en el inicio y `calendar-ics.js` sólo en el
+  calendario; las otras 10 rutas dejan de descargar y ejecutar ~22 KB de
+  JavaScript que no usaban.
+
+### Performance
+- Panel (`/dashboard`, Lighthouse simulando Slow 4G): TBT 140 → 30 ms,
+  recursos bloqueantes de render 2 → 1 (601+151 ms → 451 ms). LCP se
+  mantiene en 2,3 s y la puntuación en 0,97.
+
 ## [1.1.4] - 2026-11-28 — Iconos y CSS en un solo viaje
 
 ### Changed

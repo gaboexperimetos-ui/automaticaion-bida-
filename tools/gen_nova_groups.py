@@ -178,7 +178,7 @@ def theme_css():
 def main():
     items = parse_items(CSS)
     dynamic = dynamic_classes()
-    head_css = "\n".join(
+    head_css = (ROOT / "static/fonts.css").read_text() + "\n" + "\n".join(
         (OUT / name).read_text() for name in ("tailwind.css", "polish.css")
     )
     tail_css = (OUT / "music.css").read_text()

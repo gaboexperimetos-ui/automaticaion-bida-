@@ -1,7 +1,7 @@
 # Graph Report - styp  (2026-11-28)
 
 ## Corpus Check
-- 65 files · ~208,098 words
+- 65 files · ~208,305 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 33 file(s) not represented in the graph (top: .css 19, .woff2 10, (none) 2)
 - WARNING: 33 of 146 files seen (23%) have no supported extractor and are missing from this graph entirely. It may look complete while representing only part of the codebase.
@@ -12,7 +12,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `b98f3f08`
+- Built from commit: `aa6d2c57`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -366,6 +366,8 @@ Nodes (7): getSlidePtr(), getSlidesPtr(), importPresentation(), presentationRout
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
+- **Why does `ImportStatus` connect `ImportStatus` to `office.zig`?**
+  _High betweenness centrality (0.017) - this node is a cross-community bridge._
 - **What connects `dashboard`, `calendar`, `assistant` to the rest of the system?**
   _90 weakly-connected nodes found - possible missing edges._
 - **Should `App` be split into smaller, more focused modules?**
@@ -378,5 +380,3 @@ _Questions this graph is uniquely positioned to answer:_
   _Cohesion score 0.07706766917293233 - nodes in this community are weakly interconnected._
 - **Should `sqlite.zig` be split into smaller, more focused modules?**
   _Cohesion score 0.07272727272727272 - nodes in this community are weakly interconnected._
-- **Should `office.zig` be split into smaller, more focused modules?**
-  _Cohesion score 0.08416389811738649 - nodes in this community are weakly interconnected._
