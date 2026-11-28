@@ -1,18 +1,18 @@
-# Graph Report - styp  (2026-11-27)
+# Graph Report - styp  (2026-11-28)
 
 ## Corpus Check
-- 64 files · ~207,167 words
+- 65 files · ~208,098 words
 - Verdict: corpus is large enough that graph structure adds value.
-- Unclassified: 32 file(s) not represented in the graph (top: .css 19, .woff2 9, (none) 2)
-- WARNING: 32 of 144 files seen (22%) have no supported extractor and are missing from this graph entirely. It may look complete while representing only part of the codebase.
+- Unclassified: 33 file(s) not represented in the graph (top: .css 19, .woff2 10, (none) 2)
+- WARNING: 33 of 146 files seen (23%) have no supported extractor and are missing from this graph entirely. It may look complete while representing only part of the codebase.
 
 ## Summary
-- 1513 nodes · 3292 edges · 70 communities (62 shown, 8 thin omitted)
-- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 42 edges (avg confidence: 0.85)
+- 1528 nodes · 3319 edges · 70 communities (61 shown, 9 thin omitted)
+- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 43 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `b12d94f8`
+- Built from commit: `b98f3f08`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -42,7 +42,7 @@
 - zig-validation.yml
 - initCalendar
 - notes
-- academico.zig
+- jsonutil.zig
 - desktop/main.zig
 - libraryRoute
 - shell.js
@@ -50,8 +50,9 @@
 - initNotesEditor
 - sheetRoute
 - calGrid
-- audio.zig
-- jsonutil.zig
+- src/main.zig
+- charts.zig
+- config.zig
 - officeDir
 - busqueda.zig
 - storeConverted
@@ -63,16 +64,14 @@
 - el
 - tests.zig
 - google_workspace.zig
-- nativesync.zig
 - std
 - chartEmpty
-- portal
+- initChatWorkspace
 - OfficeError
 - fetchSubjectDetail
 - renderMarkup
 - ImportStatus
 - kpi
-- syncThemeUI
 - initModelPicker
 - calendar_annotations
 - audio.js
@@ -113,7 +112,7 @@
 ## Import Cycles
 - None detected.
 
-## Communities (70 total, 8 thin omitted)
+## Communities (70 total, 9 thin omitted)
 
 ### Community 0 - "App"
 Cohesion: 0.06
@@ -152,24 +151,24 @@ Cohesion: 0.08
 Nodes (35): RFC-5545, addDays(), dateString(), identityKeys(), localParts(), pad(), parseDateTime(), parseEvent() (+27 more)
 
 ### Community 9 - "ai.zig"
-Cohesion: 0.19
-Nodes (26): appendFrame(), budgetExhausted(), callProvider(), chat(), ChatMessage, conversationMessages(), conversations(), cost() (+18 more)
+Cohesion: 0.12
+Nodes (29): appendFrame(), budgetExhausted(), callProvider(), chat(), ChatMessage, conversationMessages(), conversations(), cost() (+21 more)
 
 ### Community 10 - "cyberhex.zig"
 Cohesion: 0.07
 Nodes (32): Accion, next, pause, play, previous, seek, toggle, call() (+24 more)
 
 ### Community 11 - "http.zig"
-Cohesion: 0.09
-Nodes (27): Config, defaultVaultDir(), loadDotEnv(), optionalValue(), parseFloat(), parseInt(), truthy(), value() (+19 more)
+Cohesion: 0.22
+Nodes (12): findHeaderEnd(), Header, maybeGzip(), parseForm(), percentDecode(), queryParam(), readRequest(), reasonPhrase() (+4 more)
 
 ### Community 12 - "app.js"
 Cohesion: 0.13
 Nodes (32): addChatMessage(), applySettingsVisuals(), bindDropdown(), closeDropdowns(), closeModal(), createOffice(), esc(), fieldHTML() (+24 more)
 
 ### Community 13 - "http_smoke.py"
-Cohesion: 0.09
-Nodes (18): json_body(), main(), MockMcpHandler, NoRedirect, request(), run_auth_smoke(), run_external_integrations_smoke(), run_mainline_merge_smoke() (+10 more)
+Cohesion: 0.07
+Nodes (24): json_body(), main(), MockMcpHandler, NoRedirect, request(), run_auth_smoke(), run_external_integrations_smoke(), run_mainline_merge_smoke() (+16 more)
 
 ### Community 14 - "tasks.zig"
 Cohesion: 0.09
@@ -184,20 +183,20 @@ Cohesion: 0.12
 Nodes (25): authorizationUrl(), buildStateCookie(), calendarEvents(), clearStateCookie(), Config, Error, BadResponse, EmailMissing (+17 more)
 
 ### Community 17 - "schedule_view.zig"
-Cohesion: 0.07
-Nodes (36): apilada(), Bar, barras(), clampPct(), donut(), esc(), Palette, progreso() (+28 more)
+Cohesion: 0.13
+Nodes (24): agendaItems(), buildRows(), Clase, clasesDe(), classAt(), datePart(), dayHasClasses(), Dia (+16 more)
 
 ### Community 18 - "mcp_client.zig"
 Cohesion: 0.07
 Nodes (31): Asset, assetByPath(), compressGzip(), etagForBytes(), etagForPath(), find(), fnv(), groupCss() (+23 more)
 
 ### Community 19 - "classroom.zig"
-Cohesion: 0.14
-Nodes (22): accessTokenFor(), Announcement, Course, CoursesResult, Detail, detailHtml(), dueLabel(), fetchAnnouncements() (+14 more)
+Cohesion: 0.10
+Nodes (31): accessTokenFor(), Announcement, Course, CoursesResult, Detail, detailHtml(), dueLabel(), fetchAnnouncements() (+23 more)
 
 ### Community 20 - "boot"
-Cohesion: 0.14
-Nodes (24): aiCatchPrompt(), boot(), importObsidian(), initAiLegacy(), initAssistant(), buildPrompt(), ctx(), initChatWorkspace() (+16 more)
+Cohesion: 0.13
+Nodes (25): aiCatchPrompt(), boot(), importObsidian(), initAiLegacy(), initAssistant(), buildPrompt(), ctx(), initDashboards() (+17 more)
 
 ### Community 21 - "steps"
 Cohesion: 0.08
@@ -215,9 +214,9 @@ Nodes (22): initCalendar(), dayPanel(), deleteEntry(), describeIcsEvent(), editE
 Cohesion: 0.12
 Nodes (16): app_config, notes, sessions, users, idx_note_versions_note_id, note_versions, notes_fts, idx_sessions_expires_at (+8 more)
 
-### Community 25 - "academico.zig"
-Cohesion: 0.22
-Nodes (17): asistenciaHtml(), esc(), examenesHtml(), fecha(), fila(), horarioHtml(), kpi(), mensajeItem() (+9 more)
+### Community 25 - "jsonutil.zig"
+Cohesion: 0.07
+Nodes (36): asistenciaHtml(), esc(), examenesHtml(), fecha(), fila(), horarioHtml(), kpi(), mensajeItem() (+28 more)
 
 ### Community 26 - "desktop/main.zig"
 Cohesion: 0.17
@@ -228,16 +227,16 @@ Cohesion: 0.31
 Nodes (17): appendSlugCodepoint(), documents(), fileExists(), formField(), handle(), htmlPages(), hxRedirect(), library() (+9 more)
 
 ### Community 28 - "shell.js"
-Cohesion: 0.21
-Nodes (16): done(), initCollections(), initCollectionsSafe(), initMusicPlayer(), musicAddUrl(), musicAll(), musicCurrent(), musicPlay() (+8 more)
+Cohesion: 0.16
+Nodes (21): done(), findBell(), findCreate(), findSearch(), initBell(), initCollections(), initCollectionsSafe(), initMusicPlayer() (+13 more)
 
 ### Community 29 - "mcp_client.zig"
 Cohesion: 0.22
 Nodes (13): CachedProbe, callTool(), callToolAllowError(), deepestString(), headerValue(), listTools(), parseRpcMessage(), probe() (+5 more)
 
 ### Community 30 - "initNotesEditor"
-Cohesion: 0.21
-Nodes (19): initNotesEditor(), buildSaveButton(), debouncedRender(), filterLibrary(), hydrate(), insert(), linePrefix(), markDirty() (+11 more)
+Cohesion: 0.19
+Nodes (20): initNotesEditor(), buildSaveButton(), debouncedRender(), filterLibrary(), hydrate(), insert(), linePrefix(), markDirty() (+12 more)
 
 ### Community 31 - "sheetRoute"
 Cohesion: 0.22
@@ -247,13 +246,17 @@ Nodes (20): documentRoute(), download(), editPresentation(), errorPage(), htmlPa
 Cohesion: 0.14
 Nodes (17): calGrid(), capitalize(), chartLoad14(), chartWeek(), civilFromDays(), classesList(), daysFromCivil(), diasDelMes() (+9 more)
 
-### Community 33 - "audio.zig"
-Cohesion: 0.14
-Nodes (13): buildMultipart(), Error, BadResponse, ConvertFailed, EmptyAudio, FfmpegMissing, NoApiKey, ProviderError (+5 more)
+### Community 33 - "src/main.zig"
+Cohesion: 0.24
+Nodes (7): BindAddress, builtinVersion(), main(), parseAddress(), peerAddress(), printHelp(), serve()
 
-### Community 35 - "jsonutil.zig"
-Cohesion: 0.17
-Nodes (6): get(), getBool(), getFloat(), getInt(), getString(), Pair
+### Community 34 - "charts.zig"
+Cohesion: 0.31
+Nodes (9): apilada(), Bar, barras(), clampPct(), donut(), esc(), Palette, progreso() (+1 more)
+
+### Community 35 - "config.zig"
+Cohesion: 0.42
+Nodes (8): Config, defaultVaultDir(), loadDotEnv(), optionalValue(), parseFloat(), parseInt(), truthy(), value()
 
 ### Community 36 - "officeDir"
 Cohesion: 0.24
@@ -284,24 +287,20 @@ Cohesion: 0.20
 Nodes (12): absExists(), connCard(), connections(), envValue(), homePathExists(), opencodeBin(), opencodeInfo(), opencodePairLink() (+4 more)
 
 ### Community 43 - "charts.js"
-Cohesion: 0.30
-Nodes (9): boot(), hide(), init(), markText(), place(), show(), tooltip(), wire() (+1 more)
+Cohesion: 0.25
+Nodes (11): boot(), hide(), init(), schedule(), step(), markText(), place(), show() (+3 more)
 
 ### Community 44 - "el"
-Cohesion: 0.30
-Nodes (11): el(), fillMenu(), icon(), initSearch(), move(), paint(), run(), initThemePicker() (+3 more)
+Cohesion: 0.20
+Nodes (17): applyTheme(), currentTheme(), el(), fillMenu(), icon(), initSearch(), move(), paint() (+9 more)
 
 ### Community 45 - "tests.zig"
-Cohesion: 0.24
+Cohesion: 0.43
 Nodes (6): collect(), diskFreeBytes(), meminfoKiB(), Memory, Metrics, readMemory()
 
 ### Community 46 - "google_workspace.zig"
 Cohesion: 0.16
 Nodes (17): accessTokenFor(), Contact, contacts(), ContactsResult, docKindLabel(), docSectionHtml(), DocText, downloadFile() (+9 more)
-
-### Community 47 - "nativesync.zig"
-Cohesion: 0.33
-Nodes (9): build(), classItemsJson(), eventosJson(), gradesJson(), horarioJson(), inboxJson(), notasJson(), noteRowsJson() (+1 more)
 
 ### Community 48 - "std"
 Cohesion: 0.24
@@ -311,9 +310,9 @@ Nodes (6): build(), linkSqlite(), accessTokenFor(), Evento, fetch(), Resultado
 Cohesion: 0.22
 Nodes (10): axisCat(), chartAvg(), chartAxesRadar(), chartEmpty(), chartGradeDist(), chartHealth(), chartNotes(), chartStackedSubjects() (+2 more)
 
-### Community 50 - "portal"
-Cohesion: 0.28
-Nodes (9): findBell(), findCreate(), findSearch(), initBell(), portal(), closeFn(), openFn(), outside() (+1 more)
+### Community 50 - "initChatWorkspace"
+Cohesion: 1.00
+Nodes (3): initChatWorkspace(), closePanels(), setHistory()
 
 ### Community 51 - "OfficeError"
 Cohesion: 0.25
@@ -330,10 +329,6 @@ Nodes (5): ImportStatus, empty, exists, failed, imported
 ### Community 55 - "kpi"
 Cohesion: 0.33
 Nodes (6): kpi(), kpiAvg(), kpiConv(), kpiNotes(), kpiTasks(), taskCounts()
-
-### Community 56 - "syncThemeUI"
-Cohesion: 0.53
-Nodes (6): applyTheme(), currentTheme(), initThemeGuard(), reapply(), syncThemeUI(), themeById()
 
 ### Community 57 - "initModelPicker"
 Cohesion: 0.60
@@ -365,8 +360,8 @@ Nodes (7): getSlidePtr(), getSlidesPtr(), importPresentation(), presentationRout
 
 ## Knowledge Gaps
 - **90 isolated node(s):** `dashboard`, `calendar`, `assistant`, `notes`, `mcp` (+85 more)
-  These have ≤1 connection - possible missing edges. (Counts symbols only; 349 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **8 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+  These have ≤1 connection - possible missing edges. (Counts symbols only; 354 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **9 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_

@@ -124,11 +124,30 @@
     });
   }
 
+  // El inicio trae 162 SVG y ~1.100 formas. Cablear todo de golpe costaba
+  // ~320 ms de tarea larga antes del primer pintado; se hace cuando el
+  // navegador queda libre (requestIdleCallback) y los SVG de abajo esperan
+  // a que el usuario se acerque.
   function init() {
-    document.querySelectorAll(".nx-chart").forEach(function (svg) {
-      wire(svg);
-      if (svg.getAttribute("aria-label").toLowerCase().indexOf("aporte") !== -1) wireStacked(svg);
-    });
+    var svgs = document.querySelectorAll(".nx-chart");
+    if (!svgs.length) return;
+    var pending = Array.prototype.slice.call(svgs);
+    function step(deadline) {
+      var budget = deadline && deadline.timeRemaining ? deadline.timeRemaining() : 6;
+      var did = 0;
+      while (pending.length && budget > 1 && did < 24) {
+        var svg = pending.shift();
+        wire(svg);
+        if (svg.getAttribute("aria-label").toLowerCase().indexOf("aporte") !== -1) wireStacked(svg);
+        did += 1;
+      }
+      if (pending.length) schedule(step);
+    }
+    function schedule(fn) {
+      if (window.requestIdleCallback) requestIdleCallback(fn, { timeout: 1500 });
+      else setTimeout(function () { fn({ timeRemaining: function () { return 6; } }); }, 32);
+    }
+    schedule(step);
   }
 
   var CSS =
@@ -136,9 +155,11 @@
     "background:rgba(14,21,38,.92);color:#f3f6ff;border:1px solid rgba(148,163,184,.28);" +
     "box-shadow:0 10px 30px rgba(0,0,0,.4);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);" +
     "font:600 11px/1.35 'Inter',sans-serif;pointer-events:none;transition:opacity .12s ease;opacity:0}" +
-    ".nx-chart.is-hovering rect,.nx-chart.is-hovering circle,.nx-chart.is-hovering polygon{opacity:.34;transition:opacity .12s ease}" +
+    ".nx-chart.is-hovering rect,.nx-chart.is-hovering circle,.nx-chart.is-hovering polygon{opacity:.34}" +
     ".nx-chart.is-hovering .is-hot{opacity:1!important}" +
-    ".nx-chart rect,.nx-chart circle,.nx-chart polygon{transition:opacity .12s ease}" +
+    // La transicion por forma (1.100 nodos en el inicio) se aplicaba a
+    // todos los SVG a la vez y costaba ~700 ms de estilo y layout.
+    ".nx-chart rect,.nx-chart circle,.nx-chart polygon{will-change:auto}" +
     ".nx-chart-legend-toggle{cursor:pointer;user-select:none}" +
     ".nx-chart-legend-toggle:hover{fill:var(--nx-accent,#a78bfa)}" +
     ".nx-chart-legend-toggle.is-off{opacity:.4;text-decoration:line-through}";

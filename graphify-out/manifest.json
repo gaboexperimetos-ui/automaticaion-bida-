@@ -12,9 +12,9 @@
     "semantic_hash": "33391045bdb4041e9355541b02609442"
   },
   "build.zig": {
-    "mtime": 1795816774.8971314,
-    "seen": 1795816828.6373973,
-    "ast_hash": "32f5fe7da54ded24ccee84455a13f3ce",
+    "mtime": 1795882734.9858656,
+    "seen": 1795882827.3202956,
+    "ast_hash": "b96615ab05525fcfa5760d066014ce7e",
     "semantic_hash": ""
   },
   "desktop/install.sh": {
@@ -144,9 +144,9 @@
     "semantic_hash": ""
   },
   "src/mcp.zig": {
-    "mtime": 1795816789.3561676,
-    "seen": 1795816828.6374538,
-    "ast_hash": "917bad938d14f5b7ace7a1d9a3641554",
+    "mtime": 1795882734.9858656,
+    "seen": 1795882827.3204017,
+    "ast_hash": "d571b724e176c0194fa870e33816f632",
     "semantic_hash": ""
   },
   "src/mcp_client.zig": {
@@ -216,9 +216,9 @@
     "semantic_hash": "53b6e55bb4ebfa94bcd38cdd233cb427"
   },
   "src/templates.zig": {
-    "mtime": 1795819914.156529,
-    "seen": 1795819918.5639484,
-    "ast_hash": "967f9a2e2c5aab36a9c6ff444312daff",
+    "mtime": 1795882024.6436136,
+    "seen": 1795882827.3204231,
+    "ast_hash": "b9d009ee2338ee085c0a37a56eb7cb40",
     "semantic_hash": ""
   },
   "src/tests.zig": {
@@ -240,10 +240,10 @@
     "semantic_hash": "609d3a750d6dc4b0ee2761a4774bed76"
   },
   "static/app/charts.js": {
-    "mtime": 1795656481.2301745,
-    "seen": 1795815711.5271835,
-    "ast_hash": "96bb01438995e0ddecea598dca3534b1",
-    "semantic_hash": "96bb01438995e0ddecea598dca3534b1"
+    "mtime": 1795881497.8116968,
+    "seen": 1795882827.3204296,
+    "ast_hash": "1a001ee71707999f41b9546b67293ba7",
+    "semantic_hash": ""
   },
   "static/app/office-html.js": {
     "mtime": 1795225821.731949,
@@ -384,9 +384,9 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1795819914.156529,
-    "seen": 1795819918.5639694,
-    "ast_hash": "c826a9370a75bb5992315408aed3383f",
+    "mtime": 1795882744.5339723,
+    "seen": 1795882827.320451,
+    "ast_hash": "2e771d14f5095e4b5ce70ae1d06dd99a",
     "semantic_hash": ""
   },
   "DEPLOY_MANUAL_COMMANDS.txt": {
@@ -612,9 +612,9 @@
     "semantic_hash": ""
   },
   "static/stitch-v2/shell/head.html": {
-    "mtime": 1795818536.8721578,
-    "seen": 1795818567.62045,
-    "ast_hash": "314eecbf43ee694a43876f52abcf8f63",
+    "mtime": 1795882620.3465922,
+    "seen": 1795882827.320513,
+    "ast_hash": "ae787330599a1d87c04e62916009ad95",
     "semantic_hash": ""
   },
   "static/stitch-v2/shell/topbar.html": {
@@ -666,9 +666,15 @@
     "semantic_hash": ""
   },
   "tools/gen_nova_groups.py": {
-    "mtime": 1795819914.1630292,
-    "seen": 1795819918.5639663,
-    "ast_hash": "e040bfa7af71443c20f24d7500a55da1",
+    "mtime": 1795882364.9808009,
+    "seen": 1795882827.3204453,
+    "ast_hash": "fc1a941aab5b9ba9afcaad2fc75ee75f",
+    "semantic_hash": ""
+  },
+  "tools/subset_icons.py": {
+    "mtime": 1795882601.6393855,
+    "seen": 1795882827.3204467,
+    "ast_hash": "a79c0e6a3ac03e35e6375134d39ec57b",
     "semantic_hash": ""
   }
 }

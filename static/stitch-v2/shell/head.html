@@ -15,6 +15,8 @@
     main > :last-child { margin-bottom: 0 !important; }
   }
 </style>
+<link rel="preload" href="/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <script>
   (function () {
     var map = { "osaka-jade":"#0e1813","tokyo-night":"#1a1b26","catppuccin":"#1e1e2e","gruvbox":"#282828","nord":"#2e3440","dracula":"#282a36","rose-pine":"#191724","everforest":"#2d353b","solarized":"#002b36","kanagawa":"#1f1f28","nebula":"#14101c" };
@@ -51,9 +53,7 @@
     window.addEventListener("pageshow", reapplyTheme);
   })();
 </script>
-<link rel="stylesheet" href="/tailwind.css">
-<link rel="stylesheet" href="/polish.css">
+<!-- El shell sustituye /nova.css por /static/app/nova-<grupo>.css, que ya
+     incluye polish, tailwind, music y el tema activo en un solo archivo. -->
 <link rel="stylesheet" href="/nova.css">
-<link rel="stylesheet" href="/themes.css">
-<link rel="stylesheet" href="/music.css">
 <script src="/vendor/htmx-2.0.3.min.js" defer></script>

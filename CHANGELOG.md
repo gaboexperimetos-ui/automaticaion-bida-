@@ -3,6 +3,32 @@
 All notable changes to this project are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.1.4] - 2026-11-28 — Iconos y CSS en un solo viaje
+
+### Changed
+- Material Symbols se subsetea a los 120 iconos que usa la app
+  (`tools/subset_icons.py`): el woff2 baja de 323 KB a 11,6 KB (−96 %) y
+  renderiza idéntico (0 px de diferencia en las 120 ligaduras). El font
+  completo queda en `tools/fonts/`, fuera del servidor.
+- Cada página carga un solo CSS: `nova-<grupo>.css` ahora concatena
+  tailwind + polish + las reglas de nova del grupo + el tema nebula +
+  music, en el mismo orden de cascada que antes. Se pasa de 6 hojas y
+  ~28 KB gzip a 2 hojas (fuentes + grupo) y ~26 KB.
+- La extracción de tema conserva todos los bloques de nebula (tokens,
+  overrides `:is(...)` y reglas comunes), no sólo el primero; corrige el
+  fondo de Notas.
+- Se precarga Manrope (fuente del `h1` del LCP) en lugar de Inter; Inter
+  sigue disponible y se descarga sólo cuando se usa.
+
+### Performance
+- Panel (`/dashboard`, Lighthouse simulando Slow 4G): LCP 4,05 s → 2,3 s,
+  TBT 280 ms → 140 ms, puntuación 0,97, CLS 0.
+- Fuentes transferidas: 456 KB → 132 KB (4 familias, sin contar iconos).
+
+### Added
+- `tools/subset_icons.py`: regenera el subset de iconos a partir del font
+  completo y de las ligaduras detectadas en `static/` y `src/`.
+
 ## [1.1.3] - 2026-11-27 — Entrega comprimida
 
 ### Changed

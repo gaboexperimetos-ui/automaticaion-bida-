@@ -302,7 +302,12 @@ pub fn renderShell(allocator: std.mem.Allocator, active_route: []const u8, conte
     // Cada pagina carga solo las reglas de nova.css que usa (nova-<grupo>.css).
     var group_path: [64]u8 = undefined;
     const group_link = std.fmt.bufPrint(&group_path, "/static/app/nova-{s}.css", .{assets.novaGroup(active_route)}) catch "/nova.css";
-    const head_with_group = try std.mem.replaceOwned(u8, allocator, assets.head, "/nova.css", group_link);
+    var head_with_group = try std.mem.replaceOwned(u8, allocator, assets.head, "/nova.css", group_link);
+    // El grupo ya incluye polish/tailwind/music/tema: se quitan sus <link>.
+    head_with_group = try std.mem.replaceOwned(u8, allocator, head_with_group, "\n<link rel=\"stylesheet\" href=\"/polish.css\">", "");
+    head_with_group = try std.mem.replaceOwned(u8, allocator, head_with_group, "\n<link rel=\"stylesheet\" href=\"/tailwind.css\">", "");
+    head_with_group = try std.mem.replaceOwned(u8, allocator, head_with_group, "\n<link rel=\"stylesheet\" href=\"/themes.css\">", "");
+    head_with_group = try std.mem.replaceOwned(u8, allocator, head_with_group, "\n<link rel=\"stylesheet\" href=\"/music.css\">", "");
     const head = try std.fmt.allocPrint(allocator, "<head>{s}{s}<script>window.__STITCH_V2_AUTH__={{\"authenticated\":{s}}}</script></head>", .{ head_with_group, css, if (authenticated) "true" else "false" });
     return std.fmt.allocPrint(
         allocator,
